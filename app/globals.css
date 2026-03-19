@@ -1,11 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --color-cream: #f8f4ec;
-  --color-ink: #12202f;
-  --color-amber: #f4b860;
-  --color-coral: #ea7b61;
-  --color-mist: #d9e5ee;
+  --color-ink: #101828;
+  --color-paper: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-line: #d9dee7;
+  --color-muted: #667085;
+  --color-accent: #ffffff;
+  --color-dark: #05070b;
+  --color-dark-soft: #121722;
 }
 
 @theme inline {
@@ -17,16 +20,14 @@
 }
 
 html {
-  background:
-    radial-gradient(circle at top left, rgba(244, 184, 96, 0.32), transparent 30%),
-    radial-gradient(circle at 85% 18%, rgba(217, 229, 238, 0.9), transparent 24%),
-    linear-gradient(180deg, #f8f4ec 0%, #fffdf9 48%, #ffffff 100%);
+  background: #f5f7fa;
 }
 
 body {
   min-height: 100vh;
   color: var(--color-ink);
   font-family: var(--font-sans), sans-serif;
+  background: linear-gradient(180deg, #f4f6f9 0%, #ffffff 30%, #f7f8fa 100%);
 }
 
 a {
@@ -35,7 +36,7 @@ a {
 }
 
 ::selection {
-  background: rgba(234, 123, 97, 0.2);
+  background: rgba(16, 24, 40, 0.15);
 }
 
 .section-shell {
@@ -43,12 +44,13 @@ a {
 }
 
 .glass-panel {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
 }
 
 .story-card {
-  @apply rounded-[2rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_40px_rgba(18,32,47,0.08)];
+  @apply rounded-[1.5rem] border bg-white p-6 shadow-[0_18px_40px_rgba(16,24,40,0.06)];
+  border-color: var(--color-line);
 }
 
 .eyebrow {
@@ -57,4 +59,8 @@ a {
 
 .section-title {
   @apply font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl;
+}
+
+.muted-copy {
+  color: var(--color-muted);
 }

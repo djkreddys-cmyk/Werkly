@@ -7,26 +7,26 @@ const navItems = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/40 bg-[rgba(248,244,236,0.75)] backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-[rgba(5,7,11,0.92)] backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
-        <a href="#top" className="flex items-center gap-3 text-sm font-semibold tracking-[0.22em] text-slate-900 uppercase">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-900/15 bg-white text-base tracking-[0.16em]">
+        <a href="#top" className="flex items-center gap-3 text-sm font-semibold tracking-[0.12em] text-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/8 text-base text-white">
             W
           </span>
           Werkly
         </a>
-        <nav className="hidden items-center gap-8 text-sm text-slate-700 md:flex">
+        <nav className="hidden items-center gap-8 text-sm text-white/80 md:flex">
           {navItems.map((item) => (
-            <a key={item.href} href={item.href} className="transition hover:text-slate-950">
+            <a key={item.href} href={item.href} className="transition hover:text-white">
               {item.label}
             </a>
           ))}
         </nav>
         <a
           href="#contact"
-          className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium !text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/6 px-5 py-2.5 text-sm font-medium !text-white transition hover:bg-white/12"
         >
-          Talk to Werkly
+          Get Started
         </a>
       </div>
     </header>
