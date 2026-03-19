@@ -1,14 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --color-ink: #101828;
-  --color-paper: #f5f7fa;
-  --color-surface: #ffffff;
-  --color-line: #d9dee7;
-  --color-muted: #667085;
-  --color-accent: #ffffff;
-  --color-dark: #05070b;
-  --color-dark-soft: #121722;
+  --color-dark: #0f1115;
+  --color-accent: #c7a46a;
+  --color-paper: #f6f3ee;
+  --color-surface: #fffdf9;
+  --color-ink: #191c22;
+  --color-line: rgba(15, 17, 21, 0.12);
+  --color-muted: rgba(25, 28, 34, 0.72);
 }
 
 @theme inline {
@@ -20,14 +19,14 @@
 }
 
 html {
-  background: #f5f7fa;
+  background: var(--color-paper);
 }
 
 body {
   min-height: 100vh;
   color: var(--color-ink);
   font-family: var(--font-sans), sans-serif;
-  background: linear-gradient(180deg, #f4f6f9 0%, #ffffff 30%, #f7f8fa 100%);
+  background: linear-gradient(180deg, #f4efe7 0%, var(--color-paper) 30%, #f8f5f0 100%);
 }
 
 a {
@@ -36,7 +35,7 @@ a {
 }
 
 ::selection {
-  background: rgba(16, 24, 40, 0.15);
+  background: rgba(199, 164, 106, 0.28);
 }
 
 .section-shell {
@@ -54,7 +53,8 @@ a {
 }
 
 .eyebrow {
-  @apply text-xs font-semibold uppercase tracking-[0.24em] text-slate-500;
+  @apply text-xs font-semibold uppercase tracking-[0.24em];
+  color: var(--color-accent);
 }
 
 .section-title {

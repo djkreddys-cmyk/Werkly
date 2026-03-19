@@ -50,10 +50,10 @@ export default function Home() {
       <SiteHeader />
       <main>
         <section className="relative overflow-hidden bg-[var(--color-dark)]">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(5,7,11,0.48),rgba(5,7,11,0.68)),radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_42%),linear-gradient(135deg,#2b313d_0%,#6d5846_38%,#182432_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(15,17,21,0.58),rgba(15,17,21,0.72)),radial-gradient(circle_at_center,rgba(199,164,106,0.14),transparent_38%),linear-gradient(135deg,#1a1d23_0%,#3d3427_42%,#11141a_100%)]" />
           <div className="section-shell relative py-20 sm:py-28 lg:py-36">
             <div className="mx-auto max-w-4xl text-center text-white">
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-white/65">
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--color-accent)]">
                 Werkly Job Consultancy
               </p>
               <h1 className="mt-6 font-[family-name:var(--font-display)] text-5xl leading-tight sm:text-6xl lg:text-7xl">
@@ -65,13 +65,13 @@ export default function Home() {
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <a
                   href="#contact"
-                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-white px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
                 >
                   Get Started
                 </a>
                 <a
                   href="#services"
-                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl border border-white/40 bg-transparent px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl border border-[var(--color-accent)] bg-transparent px-6 py-3 text-sm font-semibold text-[var(--color-accent)] transition hover:bg-[rgba(199,164,106,0.08)]"
                 >
                   Our Services
                 </a>
@@ -110,7 +110,7 @@ export default function Home() {
             <div className="grid gap-5">
               {processSteps.map((step, index) => (
                 <article key={step.title} className="story-card flex gap-5 p-7">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-sm font-semibold text-[var(--color-dark)]">
                     0{index + 1}
                   </div>
                   <div>
@@ -126,7 +126,7 @@ export default function Home() {
         <section id="roles" className="bg-[var(--color-dark)] py-16 sm:py-20">
           <div className="section-shell">
             <div className="mx-auto max-w-3xl text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/55">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
                 Industry Focus
               </p>
               <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-white sm:text-5xl">
@@ -138,7 +138,7 @@ export default function Home() {
             </div>
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {sectors.map((sector) => (
-                <article key={sector} className="rounded-[1.5rem] border border-white/12 bg-white/6 p-6 text-white">
+                <article key={sector} className="rounded-[1.5rem] border border-[rgba(199,164,106,0.28)] bg-[rgba(199,164,106,0.08)] p-6 text-white">
                   <h3 className="text-xl font-semibold">{sector}</h3>
                 </article>
               ))}
@@ -159,7 +159,7 @@ export default function Home() {
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <a
                   href="mailto:hr@werkly.in"
-                  className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="inline-flex items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
                 >
                   Contact HR
                 </a>
