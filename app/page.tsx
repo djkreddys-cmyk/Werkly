@@ -50,19 +50,26 @@ export default function Home() {
       <SiteHeader />
       <main>
         <section className="relative overflow-hidden bg-[var(--color-dark)]">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(16,35,63,0.64),rgba(16,35,63,0.82)),radial-gradient(circle_at_center,rgba(228,212,188,0.14),transparent_38%),linear-gradient(135deg,#122744_0%,#4a433d_42%,#0e1d34_100%)]" />
-          <div className="section-shell relative py-20 sm:py-28 lg:py-36">
-            <div className="mx-auto max-w-4xl text-center text-white">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(16,35,63,0.56), rgba(16,35,63,0.78)), url("https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=80")',
+            }}
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(228,212,188,0.12),transparent_40%)]" />
+          <div className="section-shell relative py-18 sm:py-24 lg:py-28">
+            <div className="mx-auto max-w-4xl text-center text-white hero-frame rounded-[1.8rem] border border-white/10 bg-[rgba(10,22,42,0.2)] px-6 py-14 backdrop-blur-[2px] sm:px-10 sm:py-16 lg:px-14">
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--color-accent)]">
                 Werkly Job Consultancy
               </p>
-              <h1 className="mt-6 font-[family-name:var(--font-display)] text-5xl leading-tight sm:text-6xl lg:text-7xl">
+              <h1 className="mt-5 font-[family-name:var(--font-display)] text-5xl leading-[0.94] sm:text-6xl lg:text-[5.2rem]">
                 Connecting top talent with the right companies.
               </h1>
-              <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-white/80 sm:text-xl">
+              <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-white/82 sm:text-[1.15rem]">
                 Werkly supports employers with structured hiring solutions and helps candidates discover better opportunities through a professional, responsive consultancy process.
               </p>
-              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <a
                   href="#contact"
                   className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
@@ -80,7 +87,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="services" className="section-shell py-16 sm:py-20">
+        <section id="services" className="section-shell py-14 sm:py-18">
           <div className="mx-auto max-w-3xl text-center">
             <p className="eyebrow">Services</p>
             <h2 className="mt-4 section-title">Professional recruitment support with a clear and modern approach.</h2>
@@ -88,9 +95,9 @@ export default function Home() {
               We work with both employers and candidates to make the hiring journey simpler, more focused, and more dependable.
             </p>
           </div>
-          <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
             {services.map((service) => (
-              <article key={service.title} className="story-card p-8">
+              <article key={service.title} className="story-card p-7">
                 <h3 className="text-2xl font-semibold text-slate-950">{service.title}</h3>
                 <p className="mt-4 text-base leading-7 muted-copy">{service.description}</p>
               </article>
@@ -98,8 +105,8 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="process" className="section-shell py-16 sm:py-20">
-          <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+        <section id="process" className="section-shell py-14 sm:py-18">
+          <div className="grid gap-7 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
             <div className="space-y-4">
               <p className="eyebrow">Our Process</p>
               <h2 className="section-title">Simple, structured, and built around better fit.</h2>
@@ -107,10 +114,10 @@ export default function Home() {
                 Every mandate follows a focused process that improves communication, shortlisting quality, and overall hiring confidence.
               </p>
             </div>
-            <div className="grid gap-5">
+            <div className="grid gap-4">
               {processSteps.map((step, index) => (
-                <article key={step.title} className="story-card flex gap-5 p-7">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-sm font-semibold text-[var(--color-dark)]">
+                <article key={step.title} className="story-card flex gap-4 p-6">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-sm font-semibold text-[var(--color-dark)]">
                     0{index + 1}
                   </div>
                   <div>
@@ -123,7 +130,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="roles" className="bg-[var(--color-dark)] py-16 sm:py-20">
+        <section id="roles" className="bg-[var(--color-dark)] py-14 sm:py-18">
           <div className="section-shell">
             <div className="mx-auto max-w-3xl text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
@@ -136,9 +143,9 @@ export default function Home() {
                 We support recruitment across industries where fit, communication, and screening quality matter most.
               </p>
             </div>
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {sectors.map((sector) => (
-                <article key={sector} className="rounded-[1.5rem] border border-[rgba(228,212,188,0.28)] bg-[rgba(228,212,188,0.08)] p-6 text-white">
+                <article key={sector} className="rounded-[1.3rem] border border-[rgba(228,212,188,0.24)] bg-[rgba(228,212,188,0.07)] p-6 text-white">
                   <h3 className="text-xl font-semibold">{sector}</h3>
                 </article>
               ))}
@@ -146,9 +153,9 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="contact" className="section-shell py-16 sm:py-20">
-          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="story-card p-8 sm:p-10">
+        <section id="contact" className="section-shell py-14 sm:py-18">
+          <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="story-card p-8 sm:p-9">
               <p className="eyebrow">Contact Us</p>
               <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
                 Start a hiring conversation or share your job profile.
@@ -165,7 +172,7 @@ export default function Home() {
                 </a>
                 <a
                   href="mailto:info@werkly.in"
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                  className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
                 >
                   General Enquiry
                 </a>

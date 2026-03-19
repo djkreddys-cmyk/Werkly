@@ -48,7 +48,7 @@ a {
 }
 
 .story-card {
-  @apply rounded-[1.5rem] border bg-white p-6 shadow-[0_18px_40px_rgba(16,24,40,0.06)];
+  @apply rounded-[1.4rem] border bg-white p-6 shadow-[0_12px_30px_rgba(16,24,40,0.045)];
   border-color: var(--color-line);
 }
 
@@ -63,4 +63,8 @@ a {
 
 .muted-copy {
   color: var(--color-muted);
+}
+
+.hero-frame {
+  box-shadow: 0 30px 70px rgba(10, 22, 42, 0.22);
 }

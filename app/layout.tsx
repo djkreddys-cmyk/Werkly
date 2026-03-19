@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const manrope = Manrope({
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const playfair = Playfair_Display({
+const cormorant = Cormorant_Garamond({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -28,9 +28,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} scroll-smooth`}
+      className={`${manrope.variable} ${cormorant.variable} scroll-smooth`}
     >
-      <body className="min-h-screen bg-[var(--color-cream)] text-slate-950 antialiased">
+      <body className="min-h-screen bg-[var(--color-paper)] text-slate-950 antialiased">
         {children}
       </body>
     </html>
