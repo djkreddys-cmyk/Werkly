@@ -3,224 +3,252 @@ import { SiteHeader } from "@/components/site-header";
 
 const services = [
   {
-    title: "Permanent Hiring",
+    title: "Recruitment for Employers",
     description:
-      "We help companies close full-time roles with targeted sourcing, screening, and interview coordination.",
+      "Structured hiring support for companies that need qualified candidates, faster shortlists, and smoother interview coordination.",
   },
   {
-    title: "Executive & Mid-Senior Search",
+    title: "Career Support for Candidates",
     description:
-      "From leadership hires to specialist roles, we run focused searches with strong market mapping and shortlist quality.",
+      "Role guidance, profile alignment, and access to relevant openings for professionals looking for their next opportunity.",
   },
   {
-    title: "Candidate Consulting",
+    title: "Specialized Industry Hiring",
     description:
-      "We guide job seekers with role matching, interview readiness, and better visibility into active opportunities.",
+      "Focused support across pharma, biotech, nutraceuticals, hospitality, operations, and allied business functions.",
+  },
+];
+
+const audiences = [
+  {
+    title: "For Employers",
+    points: [
+      "Clear role briefing and requirement mapping",
+      "Screened candidate shortlists",
+      "Interview coordination and hiring follow-through",
+    ],
+  },
+  {
+    title: "For Candidates",
+    points: [
+      "Relevant job matching",
+      "Professional communication during the process",
+      "Guidance before interviews and final rounds",
+    ],
   },
 ];
 
 const processSteps = [
-  "Understand the company brief or candidate profile, including skills, location, and hiring priorities.",
-  "Match the right opportunities through targeted sourcing, pre-screening, and market outreach.",
-  "Support interviews, feedback, and final closure so hiring and job search decisions move faster.",
+  {
+    step: "01",
+    title: "Understand the requirement",
+    description:
+      "We begin with a clear understanding of the hiring requirement or the candidate profile, including priorities, experience, and fit.",
+  },
+  {
+    step: "02",
+    title: "Shortlist with precision",
+    description:
+      "We filter opportunities and profiles carefully so the process starts with stronger relevance and better alignment.",
+  },
+  {
+    step: "03",
+    title: "Support final closure",
+    description:
+      "From interview scheduling to final communication, we help both sides move through the process with clarity and professionalism.",
+  },
 ];
 
-const featuredRoles = [
+const sectors = [
   {
     title: "Pharma & Life Sciences",
-    team: "Research, quality, production",
-    note: "Specialized hiring support for regulated, technical, and growth-stage life sciences teams.",
+    note: "Hiring support across research, quality, production, regulatory, and commercial functions.",
   },
   {
     title: "Biotech & Nutraceuticals",
-    team: "Innovation-led businesses",
-    note: "Shortlists shaped for companies building in healthcare, wellness, and advanced science-led markets.",
+    note: "Consultancy support for science-led businesses building specialized and growth-focused teams.",
   },
   {
-    title: "Operations, Hospitality & Allied Industries",
-    team: "Business-critical roles",
-    note: "Reliable recruitment support for frontline, operational, and business support teams.",
+    title: "Operations & Hospitality",
+    note: "Reliable sourcing for operational, customer-facing, and business support roles.",
   },
 ];
 
-const stats = [
-  { value: "Employers", label: "get screened candidates, faster closures, and smoother hiring coordination" },
-  { value: "Job Seekers", label: "get clearer opportunities, role matching, and interview support" },
-  { value: "Multiple Sectors", label: "covered across pharma, biotech, operations, and allied hiring" },
+const highlights = [
+  { value: "Screened Profiles", label: "shared with employers" },
+  { value: "Responsive Process", label: "for both companies and candidates" },
+  { value: "Sector Coverage", label: "across high-demand industries" },
 ];
 
 export default function Home() {
   return (
-    <div id="top" className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[32rem] bg-[radial-gradient(circle_at_top,#ffffff_0%,rgba(255,255,255,0.65)_35%,transparent_70%)]" />
+    <div id="top" className="relative">
       <SiteHeader />
       <main>
-        <section className="section-shell py-10 sm:py-16">
-          <div className="glass-panel grid overflow-hidden rounded-[2rem] border border-white/70 shadow-[0_24px_80px_rgba(18,32,47,0.12)] lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="space-y-8 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
-              <p className="eyebrow">Job consultancy for employers and candidates</p>
+        <section className="section-shell py-14 sm:py-20">
+          <div className="grid gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+            <div className="space-y-8">
+              <p className="eyebrow">Professional job consultancy</p>
               <div className="space-y-6">
-                <h1 className="max-w-3xl font-[family-name:var(--font-display)] text-5xl leading-none text-slate-950 sm:text-6xl lg:text-7xl">
-                  Connecting the right talent with the right opportunity.
+                <h1 className="max-w-4xl font-[family-name:var(--font-display)] text-5xl leading-tight text-slate-950 sm:text-6xl lg:text-7xl">
+                  Clean, dependable hiring support for employers and job seekers.
                 </h1>
-                <p className="max-w-2xl text-lg leading-8 text-slate-700 sm:text-xl">
-                  Werkly is a job consultancy that supports companies with dependable hiring solutions and helps candidates discover roles that align with their experience, goals, and growth plans.
+                <p className="max-w-2xl text-lg leading-8 muted-copy sm:text-xl">
+                  Werkly helps companies hire with more clarity and helps candidates explore the right opportunities with better guidance, communication, and role alignment.
                 </p>
               </div>
               <div className="flex flex-col gap-4 sm:flex-row">
                 <a
                   href="#contact"
-                  className="inline-flex items-center justify-center rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold !text-white shadow-[0_12px_30px_rgba(15,23,42,0.22)] transition hover:bg-slate-800"
+                  className="inline-flex items-center justify-center rounded-full bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold !text-white transition hover:opacity-95"
                 >
-                  Hire With Werkly
+                  Speak With Us
                 </a>
                 <a
-                  href="#roles"
-                  className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-950"
+                  href="#services"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
                 >
-                  Explore Sectors
+                  View Services
                 </a>
               </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {stats.map((stat) => (
-                  <div key={stat.value} className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4">
-                    <p className="text-2xl font-semibold text-slate-950">{stat.value}</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">{stat.label}</p>
+            </div>
+            <div className="story-card space-y-6 p-8">
+              <p className="eyebrow">Why Werkly</p>
+              <div className="space-y-5">
+                {highlights.map((item) => (
+                  <div key={item.value} className="border-b border-slate-200 pb-5 last:border-b-0 last:pb-0">
+                    <p className="text-2xl font-semibold text-slate-950">{item.value}</p>
+                    <p className="mt-2 text-sm leading-6 muted-copy">{item.label}</p>
                   </div>
                 ))}
-              </div>
-            </div>
-            <div className="relative flex min-h-[360px] items-end bg-[linear-gradient(160deg,#132235_0%,#1f3149_52%,#ea7b61_145%)] p-6 sm:p-10">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(244,184,96,0.3),transparent_24%),radial-gradient(circle_at_80%_35%,rgba(255,255,255,0.14),transparent_18%)]" />
-              <div className="relative ml-auto w-full max-w-md rounded-[2rem] border border-white/15 bg-white/10 p-6 text-white shadow-[0_20px_50px_rgba(0,0,0,0.18)] backdrop-blur-sm">
-                <p className="text-sm uppercase tracking-[0.22em] text-white/70">How we add value</p>
-                <div className="mt-6 space-y-4">
-                  <div className="rounded-[1.4rem] bg-white/10 p-4">
-                    <p className="text-sm text-white/65">Employers</p>
-                    <p className="mt-1 text-lg font-semibold">Get qualified profiles, shortlist support, and a consultancy partner who understands hiring urgency.</p>
-                  </div>
-                  <div className="rounded-[1.4rem] bg-white/10 p-4">
-                    <p className="text-sm text-white/65">Job seekers</p>
-                    <p className="mt-1 text-lg font-semibold">Access curated openings, better communication, and guidance before interviews.</p>
-                  </div>
-                  <div className="rounded-[1.4rem] bg-white/10 p-4">
-                    <p className="text-sm text-white/65">Industry coverage</p>
-                    <p className="mt-1 text-lg font-semibold">Support across pharma, biotech, nutraceuticals, hospitality, construction systems, and allied sectors.</p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
         </section>
 
+        <section className="section-shell pb-8 sm:pb-12">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {audiences.map((audience) => (
+              <article key={audience.title} className="story-card p-8">
+                <p className="eyebrow">{audience.title}</p>
+                <ul className="mt-5 space-y-4">
+                  {audience.points.map((point) => (
+                    <li key={point} className="text-base leading-7 text-slate-700">
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section id="services" className="section-shell py-14 sm:py-20">
-          <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl space-y-4">
-              <p className="eyebrow">Services</p>
-              <h2 className="section-title">Consultancy support built for both hiring teams and candidates.</h2>
-            </div>
-            <p className="max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-              Whether you are filling a role or looking for your next move, Werkly brings structured guidance, real screening, and responsive communication.
+          <div className="max-w-3xl space-y-4">
+            <p className="eyebrow">Services</p>
+            <h2 className="section-title">Straightforward consultancy services with a professional approach.</h2>
+            <p className="text-base leading-7 muted-copy sm:text-lg">
+              We keep the process simple, responsive, and focused on better fit for both companies and applicants.
             </p>
           </div>
-          <div className="grid gap-6 lg:grid-cols-3">
-            {services.map((service, index) => (
+          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            {services.map((service) => (
               <article key={service.title} className="story-card">
-                <p className="text-sm font-semibold text-slate-400">0{index + 1}</p>
-                <h3 className="mt-5 text-2xl font-semibold text-slate-950">{service.title}</h3>
-                <p className="mt-4 text-base leading-7 text-slate-600">{service.description}</p>
+                <h3 className="text-2xl font-semibold text-slate-950">{service.title}</h3>
+                <p className="mt-4 text-base leading-7 muted-copy">{service.description}</p>
               </article>
             ))}
           </div>
         </section>
 
         <section id="process" className="section-shell py-14 sm:py-20">
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-            <div className="space-y-4">
+          <div className="rounded-[2rem] border border-slate-200 bg-[var(--color-soft)] px-6 py-10 sm:px-8 lg:px-10">
+            <div className="max-w-3xl space-y-4">
               <p className="eyebrow">Process</p>
-              <h2 className="section-title">A practical hiring and placement process that keeps decisions moving.</h2>
-              <p className="max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-                We keep the process straightforward so employers see relevant candidates quickly and applicants stay informed at every stage.
+              <h2 className="section-title">A smoother path from requirement to placement.</h2>
+              <p className="text-base leading-7 muted-copy sm:text-lg">
+                Each step is built to reduce noise, improve fit, and keep communication clear throughout the hiring journey.
               </p>
             </div>
-            <div className="space-y-4">
-              {processSteps.map((step, index) => (
-                <div key={step} className="story-card flex gap-5">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-mist)] text-sm font-semibold text-slate-950">
-                    0{index + 1}
-                  </div>
-                  <p className="pt-2 text-base leading-7 text-slate-700">{step}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="roles" className="section-shell py-14 sm:py-20">
-          <div className="rounded-[2rem] bg-slate-950 px-6 py-10 text-white sm:px-10 lg:px-12 lg:py-14">
-            <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="space-y-4">
-                <p className="eyebrow text-white/60">Industry focus</p>
-                <h2 className="font-[family-name:var(--font-display)] text-4xl leading-tight sm:text-5xl">
-                  The sectors where we actively support hiring.
-                </h2>
-              </div>
-              <p className="max-w-xl text-base leading-7 text-white/70 sm:text-lg">
-                Our consultancy model is shaped around sectors where role fit, responsiveness, and screening quality matter most.
-              </p>
-            </div>
-            <div className="grid gap-5 lg:grid-cols-3">
-              {featuredRoles.map((role) => (
-                <article key={role.title} className="rounded-[1.75rem] border border-white/12 bg-white/6 p-6">
-                  <p className="text-sm uppercase tracking-[0.18em] text-white/55">{role.team}</p>
-                  <h3 className="mt-5 text-2xl font-semibold">{role.title}</h3>
-                  <p className="mt-4 text-base leading-7 text-white/72">{role.note}</p>
+            <div className="mt-10 grid gap-5 lg:grid-cols-3">
+              {processSteps.map((item) => (
+                <article key={item.step} className="rounded-[1.25rem] border border-slate-200 bg-white p-6">
+                  <p className="text-sm font-semibold text-[var(--color-accent)]">{item.step}</p>
+                  <h3 className="mt-4 text-xl font-semibold text-slate-950">{item.title}</h3>
+                  <p className="mt-3 text-base leading-7 muted-copy">{item.description}</p>
                 </article>
               ))}
             </div>
           </div>
         </section>
 
+        <section id="roles" className="section-shell py-14 sm:py-20">
+          <div className="max-w-3xl space-y-4">
+            <p className="eyebrow">Industry Focus</p>
+            <h2 className="section-title">Sector knowledge that helps hiring move with confidence.</h2>
+            <p className="text-base leading-7 muted-copy sm:text-lg">
+              We support recruitment needs across industries where screening quality and role fit matter most.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            {sectors.map((sector) => (
+              <article key={sector.title} className="story-card">
+                <h3 className="text-2xl font-semibold text-slate-950">{sector.title}</h3>
+                <p className="mt-4 text-base leading-7 muted-copy">{sector.note}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section id="contact" className="section-shell py-14 sm:py-20">
-          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="story-card bg-[linear-gradient(180deg,#fffdf9_0%,#fff7f1_100%)]">
+          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="story-card p-8 sm:p-10">
               <p className="eyebrow">Contact</p>
-              <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950">
-                Tell us whether you are hiring or looking for a new role.
+              <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
+                Let’s discuss your hiring need or career move.
               </h2>
-              <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-                Companies can share role requirements and timelines. Candidates can share their profile, preferred location, and target opportunities.
+              <p className="mt-5 max-w-2xl text-base leading-7 muted-copy sm:text-lg">
+                Employers can reach out with role details, team requirements, and timelines. Candidates can share their profile, preferred sector, and target location.
               </p>
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <a
+                  href="mailto:hr@werkly.in"
+                  className="inline-flex items-center justify-center rounded-full bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold !text-white transition hover:opacity-95"
+                >
+                  Email HR Team
+                </a>
+                <a
+                  href="mailto:info@werkly.in"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                >
+                  General Enquiries
+                </a>
+              </div>
             </div>
-            <div className="story-card">
-              <div className="grid gap-6 sm:grid-cols-2">
+            <div className="story-card p-8">
+              <div className="space-y-6">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Email</p>
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Hiring Enquiries</p>
                   <a className="mt-2 block text-lg font-semibold text-slate-950" href="mailto:hr@werkly.in">
                     hr@werkly.in
                   </a>
                 </div>
                 <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Domain</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">werkly.in</p>
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">General Enquiries</p>
+                  <a className="mt-2 block text-lg font-semibold text-slate-950" href="mailto:info@werkly.in">
+                    info@werkly.in
+                  </a>
                 </div>
                 <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Best for</p>
-                  <p className="mt-2 text-base leading-7 text-slate-700">
-                    Employers hiring across core business functions and candidates seeking structured job consultancy support.
-                  </p>
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Website</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-950">www.werkly.in</p>
                 </div>
                 <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Response time</p>
-                  <p className="mt-2 text-base leading-7 text-slate-700">
-                    Usually within 1 business day for new hiring requests and candidate inquiries.
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Consultancy Focus</p>
+                  <p className="mt-2 text-base leading-7 muted-copy">
+                    Professional hiring support for employers and dependable guidance for job seekers across multiple sectors.
                   </p>
                 </div>
-              </div>
-              <div className="mt-8 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                <p className="text-sm leading-7 text-slate-600">
-                  Employers can share role details and team requirements. Candidates can reach out with resumes, experience summaries, and preferred job locations.
-                </p>
               </div>
             </div>
           </div>
