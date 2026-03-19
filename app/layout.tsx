@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Manrope } from "next/font/google";
+import { Libre_Baskerville, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 
-const manrope = Manrope({
+const sourceSans = Source_Sans_3({
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const cormorant = Cormorant_Garamond({
+const libreBaskerville = Libre_Baskerville({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${cormorant.variable} scroll-smooth`}
+      className={`${sourceSans.variable} ${libreBaskerville.variable} scroll-smooth`}
     >
       <body className="min-h-screen bg-[var(--color-paper)] text-slate-950 antialiased">
         {children}

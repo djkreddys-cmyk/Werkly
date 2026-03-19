@@ -54,10 +54,10 @@ export default function Home() {
             className="absolute inset-0 bg-cover bg-center"
             style={{
               backgroundImage:
-                'linear-gradient(rgba(16,35,63,0.56), rgba(16,35,63,0.78)), url("/hero-consultancy-scene.svg")',
+                'linear-gradient(rgba(20,50,74,0.62), rgba(20,50,74,0.84)), url("/hero-consultancy-scene.svg")',
             }}
           />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(228,212,188,0.12),transparent_40%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(207,217,230,0.12),transparent_40%)]" />
           <div className="section-shell relative py-18 sm:py-24 lg:py-28">
             <div className="mx-auto max-w-4xl text-center text-white hero-frame rounded-[1.8rem] border border-white/10 bg-[rgba(10,22,42,0.2)] px-6 py-14 backdrop-blur-[2px] sm:px-10 sm:py-16 lg:px-14">
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--color-accent)]">
@@ -78,7 +78,7 @@ export default function Home() {
                 </a>
                 <a
                   href="#services"
-                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl border border-[var(--color-accent)] bg-transparent px-6 py-3 text-sm font-semibold text-[var(--color-accent)] transition hover:bg-[rgba(228,212,188,0.1)]"
+                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl border border-[var(--color-accent)] bg-transparent px-6 py-3 text-sm font-semibold text-[var(--color-accent)] transition hover:bg-[rgba(207,217,230,0.1)]"
                 >
                   Our Services
                 </a>
@@ -145,7 +145,7 @@ export default function Home() {
             </div>
             <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {sectors.map((sector) => (
-                <article key={sector} className="rounded-[1.3rem] border border-[rgba(228,212,188,0.24)] bg-[rgba(228,212,188,0.07)] p-6 text-white">
+                <article key={sector} className="rounded-[1.3rem] border border-[rgba(207,217,230,0.26)] bg-[rgba(207,217,230,0.08)] p-6 text-white">
                   <h3 className="text-xl font-semibold">{sector}</h3>
                 </article>
               ))}

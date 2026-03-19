@@ -10,7 +10,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[rgba(5,7,11,0.92)] backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
         <a href="#top" className="flex items-center gap-3 text-sm font-semibold tracking-[0.12em] text-white">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(228,212,188,0.42)] bg-[rgba(228,212,188,0.12)] text-base text-[var(--color-accent)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(207,217,230,0.42)] bg-[rgba(207,217,230,0.12)] text-base text-[var(--color-accent)]">
             W
           </span>
           Werkly
