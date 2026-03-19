@@ -54,7 +54,7 @@ export default function Home() {
             className="absolute inset-0 bg-cover bg-center"
             style={{
               backgroundImage:
-                'linear-gradient(rgba(16,35,63,0.56), rgba(16,35,63,0.78)), url("https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=80")',
+                'linear-gradient(rgba(16,35,63,0.56), rgba(16,35,63,0.78)), url("/hero-consultancy-scene.svg")',
             }}
           />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(228,212,188,0.12),transparent_40%)]" />
