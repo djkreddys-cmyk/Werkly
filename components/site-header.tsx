@@ -1,7 +1,7 @@
 const navItems = [
   { label: "Services", href: "#services" },
   { label: "Process", href: "#process" },
-  { label: "Open Roles", href: "#roles" },
+  { label: "Sectors", href: "#roles" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -24,9 +24,9 @@ export function SiteHeader() {
         </nav>
         <a
           href="#contact"
-          className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium !text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
         >
-          Book a Hiring Call
+          Talk to Werkly
         </a>
       </div>
     </header>

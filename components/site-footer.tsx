@@ -1,6 +1,6 @@
 const quickLinks = [
   { label: "Services", href: "#services" },
-  { label: "Open Roles", href: "#roles" },
+  { label: "Sectors", href: "#roles" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -13,10 +13,10 @@ export function SiteFooter() {
             Werkly
           </p>
           <h2 className="font-[family-name:var(--font-display)] text-3xl text-slate-950">
-            Hiring that feels focused, human, and fast.
+            Job consultancy with sharper matching and clearer communication.
           </h2>
           <p className="text-sm leading-7 text-slate-600">
-            Boutique recruitment support for growing teams across product, operations, and GTM hiring.
+            We support employers with hiring and help candidates navigate openings across pharma, biotech, operations, hospitality, and allied sectors.
           </p>
         </div>
         <div className="flex flex-col gap-6 text-sm text-slate-600 sm:flex-row sm:items-center sm:gap-8">
@@ -25,8 +25,8 @@ export function SiteFooter() {
               {item.label}
             </a>
           ))}
-          <a href="mailto:hello@werkly.in" className="transition hover:text-slate-950">
-            hello@werkly.in
+          <a href="mailto:hr@werkly.in" className="transition hover:text-slate-950">
+            hr@werkly.in
           </a>
         </div>
       </div>

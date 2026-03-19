@@ -15,9 +15,9 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://werkly.in"),
-  title: "Werkly | Recruitment Partner for Growing Teams",
+  title: "Werkly | Job Consultancy for Employers and Candidates",
   description:
-    "Werkly helps growing companies hire faster with structured search, sharper candidate screening, and a premium candidate experience.",
+    "Werkly is a job consultancy connecting employers with qualified talent and guiding candidates toward better career opportunities across multiple industries.",
 };
 
 export default function RootLayout({
