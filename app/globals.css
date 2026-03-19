@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --color-dark: #0f1115;
-  --color-accent: #c7a46a;
-  --color-paper: #f6f3ee;
+  --color-dark: #10233f;
+  --color-accent: #e4d4bc;
+  --color-paper: #f6f1e8;
   --color-surface: #fffdf9;
-  --color-ink: #191c22;
-  --color-line: rgba(15, 17, 21, 0.12);
-  --color-muted: rgba(25, 28, 34, 0.72);
+  --color-ink: #18263d;
+  --color-line: rgba(16, 35, 63, 0.14);
+  --color-muted: rgba(24, 38, 61, 0.7);
 }
 
 @theme inline {
@@ -26,7 +26,7 @@ body {
   min-height: 100vh;
   color: var(--color-ink);
   font-family: var(--font-sans), sans-serif;
-  background: linear-gradient(180deg, #f4efe7 0%, var(--color-paper) 30%, #f8f5f0 100%);
+  background: linear-gradient(180deg, #f2ebe1 0%, var(--color-paper) 30%, #faf7f1 100%);
 }
 
 a {
@@ -35,7 +35,7 @@ a {
 }
 
 ::selection {
-  background: rgba(199, 164, 106, 0.28);
+  background: rgba(228, 212, 188, 0.55);
 }
 
 .section-shell {

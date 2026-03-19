@@ -50,7 +50,7 @@ export default function Home() {
       <SiteHeader />
       <main>
         <section className="relative overflow-hidden bg-[var(--color-dark)]">
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(15,17,21,0.58),rgba(15,17,21,0.72)),radial-gradient(circle_at_center,rgba(199,164,106,0.14),transparent_38%),linear-gradient(135deg,#1a1d23_0%,#3d3427_42%,#11141a_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(16,35,63,0.64),rgba(16,35,63,0.82)),radial-gradient(circle_at_center,rgba(228,212,188,0.14),transparent_38%),linear-gradient(135deg,#122744_0%,#4a433d_42%,#0e1d34_100%)]" />
           <div className="section-shell relative py-20 sm:py-28 lg:py-36">
             <div className="mx-auto max-w-4xl text-center text-white">
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--color-accent)]">
@@ -71,7 +71,7 @@ export default function Home() {
                 </a>
                 <a
                   href="#services"
-                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl border border-[var(--color-accent)] bg-transparent px-6 py-3 text-sm font-semibold text-[var(--color-accent)] transition hover:bg-[rgba(199,164,106,0.08)]"
+                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl border border-[var(--color-accent)] bg-transparent px-6 py-3 text-sm font-semibold text-[var(--color-accent)] transition hover:bg-[rgba(228,212,188,0.1)]"
                 >
                   Our Services
                 </a>
@@ -138,7 +138,7 @@ export default function Home() {
             </div>
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {sectors.map((sector) => (
-                <article key={sector} className="rounded-[1.5rem] border border-[rgba(199,164,106,0.28)] bg-[rgba(199,164,106,0.08)] p-6 text-white">
+                <article key={sector} className="rounded-[1.5rem] border border-[rgba(228,212,188,0.28)] bg-[rgba(228,212,188,0.08)] p-6 text-white">
                   <h3 className="text-xl font-semibold">{sector}</h3>
                 </article>
               ))}
