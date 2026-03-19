@@ -1,0 +1,28 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="900" rx="40" fill="#F7F2EA"/>
+  <rect x="68" y="72" width="1064" height="756" rx="32" fill="#17382F"/>
+  <rect x="108" y="114" width="984" height="672" rx="26" fill="#F4E9D8"/>
+  <rect x="108" y="114" width="984" height="126" rx="26" fill="#E4D7C1"/>
+  <rect x="154" y="154" width="182" height="46" rx="12" fill="#17382F" fill-opacity="0.12"/>
+  <rect x="876" y="146" width="168" height="62" rx="16" fill="#17382F" fill-opacity="0.1"/>
+  <circle cx="188" cy="178" r="14" fill="#17382F" fill-opacity="0.18"/>
+  <circle cx="232" cy="178" r="14" fill="#17382F" fill-opacity="0.1"/>
+  <circle cx="276" cy="178" r="14" fill="#17382F" fill-opacity="0.1"/>
+  <rect x="178" y="288" width="844" height="362" rx="32" fill="#E9DDCA"/>
+  <ellipse cx="602" cy="630" rx="248" ry="92" fill="#17382F" fill-opacity="0.1"/>
+  <rect x="390" y="596" width="424" height="36" rx="18" fill="#17382F" fill-opacity="0.14"/>
+  <circle cx="418" cy="452" r="52" fill="#17382F"/>
+  <rect x="356" y="512" width="124" height="132" rx="48" fill="#17382F"/>
+  <circle cx="604" cy="420" r="42" fill="#17382F"/>
+  <rect x="552" y="470" width="104" height="122" rx="40" fill="#17382F"/>
+  <circle cx="778" cy="456" r="48" fill="#17382F"/>
+  <rect x="720" y="514" width="116" height="130" rx="44" fill="#17382F"/>
+  <rect x="256" y="332" width="194" height="118" rx="22" fill="#D8C6AB"/>
+  <rect x="754" y="320" width="172" height="96" rx="22" fill="#D8C6AB"/>
+  <rect x="498" y="300" width="202" height="86" rx="18" fill="#FCF8F2"/>
+  <path d="M534 362C568 336 608 322 654 322C700 322 740 336 774 362" stroke="#17382F" stroke-opacity="0.18" stroke-width="8" stroke-linecap="round"/>
+  <rect x="232" y="666" width="132" height="74" rx="20" fill="#D8C6AB"/>
+  <rect x="842" y="666" width="132" height="74" rx="20" fill="#D8C6AB"/>
+  <path d="M318 722C318 698.804 336.804 680 360 680H392V740H360C336.804 740 318 721.196 318 698V722Z" fill="#17382F" fill-opacity="0.18"/>
+  <path d="M808 722C808 698.804 826.804 680 850 680H882V740H850C826.804 740 808 721.196 808 698V722Z" fill="#17382F" fill-opacity="0.18"/>
+</svg>

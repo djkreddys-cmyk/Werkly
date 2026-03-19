@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -50,40 +51,89 @@ export default function Home() {
       <SiteHeader />
       <main>
         <section className="relative overflow-hidden bg-[var(--color-dark)]">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage:
-                'linear-gradient(rgba(23,56,47,0.62), rgba(23,56,47,0.84)), url("/hero-consultancy-scene.svg")',
-            }}
-          />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(231,220,199,0.12),transparent_40%)]" />
-          <div className="section-shell relative py-18 sm:py-24 lg:py-28">
-            <div className="mx-auto max-w-4xl text-center text-white hero-frame rounded-[1.8rem] border border-white/10 bg-[rgba(10,22,42,0.2)] px-6 py-14 backdrop-blur-[2px] sm:px-10 sm:py-16 lg:px-14">
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--color-accent)]">
-                Werkly Job Consultancy
-              </p>
-              <h1 className="mt-5 font-[family-name:var(--font-display)] text-5xl leading-[0.94] sm:text-6xl lg:text-[5.2rem]">
-                Connecting top talent with the right companies.
-              </h1>
-              <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-white/82 sm:text-[1.15rem]">
-                Werkly supports employers with structured hiring solutions and helps candidates discover better opportunities through a professional, responsive consultancy process.
-              </p>
-              <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <a
-                  href="#contact"
-                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
-                >
-                  Get Started
-                </a>
-                <a
-                  href="#services"
-                  className="inline-flex min-w-[170px] items-center justify-center rounded-xl border border-[var(--color-accent)] bg-transparent px-6 py-3 text-sm font-semibold text-[var(--color-accent)] transition hover:bg-[rgba(231,220,199,0.1)]"
-                >
-                  Our Services
-                </a>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(231,220,199,0.16),transparent_24%),linear-gradient(180deg,rgba(23,56,47,0.86),rgba(23,56,47,1))]" />
+          <div className="section-shell relative py-14 sm:py-18 lg:py-22">
+            <div className="grid gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+              <div className="text-white">
+                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--color-accent)]">
+                  Werkly Job Consultancy
+                </p>
+                <h1 className="mt-5 max-w-2xl font-[family-name:var(--font-display)] text-5xl leading-[0.94] sm:text-6xl lg:text-[5rem]">
+                  Executive hiring support with a sharper consultancy feel.
+                </h1>
+                <p className="mt-5 max-w-xl text-lg leading-8 text-white/82 sm:text-[1.1rem]">
+                  Werkly helps employers and candidates connect through a structured, high-trust recruitment process with clearer communication and stronger role alignment.
+                </p>
+                <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                  <a
+                    href="#contact"
+                    className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
+                  >
+                    Speak With Us
+                  </a>
+                  <a
+                    href="#services"
+                    className="inline-flex min-w-[170px] items-center justify-center rounded-xl border border-[var(--color-accent)] bg-transparent px-6 py-3 text-sm font-semibold text-[var(--color-accent)] transition hover:bg-[rgba(231,220,199,0.1)]"
+                  >
+                    Explore Services
+                  </a>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-[1.1fr_0.9fr]">
+                <div className="hero-frame overflow-hidden rounded-[1.8rem] border border-white/10 bg-[rgba(255,255,255,0.06)] p-3">
+                  <Image
+                    src="/consultancy-team-primary.svg"
+                    alt="Three consultants collaborating at a meeting table"
+                    width={1200}
+                    height={900}
+                    className="h-full w-full rounded-[1.25rem] object-cover"
+                    priority
+                  />
+                </div>
+                <div className="grid gap-4">
+                  <div className="hero-frame overflow-hidden rounded-[1.5rem] border border-white/10 bg-[rgba(255,255,255,0.06)] p-3">
+                    <Image
+                      src="/consultancy-team-secondary.svg"
+                      alt="Two professionals reviewing a consultancy plan together"
+                      width={900}
+                      height={720}
+                      className="h-full w-full rounded-[1rem] object-cover"
+                    />
+                  </div>
+                  <div className="rounded-[1.5rem] border border-[rgba(231,220,199,0.22)] bg-[rgba(231,220,199,0.08)] p-6 text-white">
+                    <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                      Trusted Process
+                    </p>
+                    <p className="mt-3 text-lg leading-8 text-white/84">
+                      Designed to feel more like an executive consultancy conversation than a busy staffing portal.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="section-shell -mt-6 pb-4 sm:-mt-8 sm:pb-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <article className="story-card p-6">
+              <p className="eyebrow">For Employers</p>
+              <p className="mt-3 text-base leading-7 muted-copy">
+                Clear role briefing, shortlist quality, and smoother interview coordination.
+              </p>
+            </article>
+            <article className="story-card p-6">
+              <p className="eyebrow">For Candidates</p>
+              <p className="mt-3 text-base leading-7 muted-copy">
+                Better role alignment, clearer communication, and support through interview stages.
+              </p>
+            </article>
+            <article className="story-card p-6">
+              <p className="eyebrow">Executive Style</p>
+              <p className="mt-3 text-base leading-7 muted-copy">
+                A refined consultancy presence built for trust, not clutter.
+              </p>
+            </article>
           </div>
         </section>
 
