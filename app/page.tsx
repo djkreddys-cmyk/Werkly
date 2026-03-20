@@ -94,7 +94,7 @@ export default function Home() {
                   Tailor-made HR solutions for Non-IT businesses.
                 </h1>
                 <p className="mt-5 max-w-xl text-[1.02rem] leading-8 text-white/82 sm:text-[1.06rem]">
-                  Headquartered in Vijayawada, Werkly delivers structured search and selection solutions across the Non-IT sector.
+                  Headquartered in Hyderabad, Werkly delivers structured search and selection solutions across the Non-IT sector.
                 </p>
                 <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                   <a
@@ -149,7 +149,7 @@ export default function Home() {
         <section className="section-shell py-6 sm:py-8">
           <div className="grid gap-4 md:grid-cols-3">
             <article className="story-card p-6">
-              <p className="eyebrow">Headquartered in Vijayawada</p>
+              <p className="eyebrow">Headquartered in Hyderabad</p>
               <p className="mt-3 text-base leading-7 muted-copy">
                 Specialized recruitment support built around business operations and workforce strategy.
               </p>
@@ -288,6 +288,10 @@ export default function Home() {
                 </div>
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Headquarters</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-950">Hyderabad</p>
+                </div>
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Branch Office</p>
                   <p className="mt-2 text-lg font-semibold text-slate-950">Vijayawada</p>
                 </div>
                 <div>

@@ -16,7 +16,7 @@ export function SiteFooter() {
             Tailor-made HR solutions with structured Non-IT recruitment delivery.
           </h2>
           <p className="text-sm leading-7 text-white/65">
-            Headquartered in Vijayawada, Werkly Consulting Pvt LTD supports clients with customized search and selection solutions across diverse Non-IT industries.
+            Headquartered in Hyderabad with a branch office in Vijayawada, Werkly Consulting Pvt LTD supports clients with customized search and selection solutions across diverse Non-IT industries.
           </p>
         </div>
         <div className="flex flex-col gap-6 text-sm text-white/70 sm:flex-row sm:items-center sm:gap-8">
