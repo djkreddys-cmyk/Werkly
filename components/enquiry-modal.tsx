@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { InquiryForm } from '@/components/inquiry-forms'
 
 export function EnquiryModal() {
@@ -45,7 +46,8 @@ export function EnquiryModal() {
         Enquiry
       </button>
 
-      {isOpen ? (
+      {typeof document !== 'undefined' && isOpen
+        ? createPortal(
         <div className="fixed inset-0 z-[80] bg-[rgba(5,7,11,0.62)]">
           <div className="h-full overflow-y-auto px-4 py-6 sm:py-10">
             <div className="mx-auto w-full max-w-3xl pt-12">
@@ -64,8 +66,10 @@ export function EnquiryModal() {
               </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+        document.body
+      )
+        : null}
     </>
   )
 }
