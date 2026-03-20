@@ -13,10 +13,10 @@ export function SiteFooter() {
             Werkly
           </p>
           <h2 className="font-[family-name:var(--font-display)] text-3xl text-white">
-            Connecting talent with dependable opportunities.
+            Tailor-made HR solutions with structured Non-IT recruitment delivery.
           </h2>
           <p className="text-sm leading-7 text-white/65">
-            Recruitment consultancy support for employers and job seekers across pharma, biotech, operations, hospitality, and allied sectors.
+            Headquartered in Vijayawada, Werkly Consulting Pvt LTD supports clients with customized search and selection solutions across diverse Non-IT industries.
           </p>
         </div>
         <div className="flex flex-col gap-6 text-sm text-white/70 sm:flex-row sm:items-center sm:gap-8">

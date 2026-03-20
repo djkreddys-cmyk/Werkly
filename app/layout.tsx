@@ -15,9 +15,9 @@ const libreBaskerville = Libre_Baskerville({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://werkly.in"),
-  title: "Werkly | Job Consultancy for Employers and Candidates",
+  title: "Werkly Consulting Pvt LTD | Non-IT Search and Selection Partner",
   description:
-    "Werkly is a job consultancy connecting employers with qualified talent and guiding candidates toward better career opportunities across multiple industries.",
+    "Werkly Consulting Pvt LTD delivers end-to-end, tailor-made HR and recruitment solutions across Non-IT sectors with structured execution, domain-specific teams, and measurable outcomes.",
 };
 
 export default function RootLayout({
