@@ -37,8 +37,9 @@ export function EnquiryModal() {
       </button>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(5,7,11,0.62)] px-4 py-8">
-          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.6rem] bg-transparent">
+        <div className="fixed inset-0 z-[80] overflow-y-auto bg-[rgba(5,7,11,0.62)] px-4 py-6 sm:py-10">
+          <div className="flex min-h-full items-start justify-center">
+            <div className="relative w-full max-w-3xl pt-12">
             <button
               type="button"
               onClick={() => setIsOpen(false)}
@@ -47,7 +48,8 @@ export function EnquiryModal() {
             >
               ×
             </button>
-            <InquiryForm kind="candidate" className="shadow-[0_30px_70px_rgba(10,22,42,0.18)]" />
+              <InquiryForm kind="candidate" className="shadow-[0_30px_70px_rgba(10,22,42,0.18)]" />
+            </div>
           </div>
         </div>
       ) : null}
