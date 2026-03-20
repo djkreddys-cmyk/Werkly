@@ -78,6 +78,9 @@ const sectors = [
 ];
 
 export default function Home() {
+  const fieldClassName =
+    "w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--color-dark)] focus:ring-2 focus:ring-[rgba(23,56,47,0.12)]";
+
   return (
     <div id="top" className="relative">
       <SiteHeader />
@@ -98,7 +101,7 @@ export default function Home() {
                 </p>
                 <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                   <a
-                    href="#contact"
+                    href="#hiring-form"
                     className="inline-flex min-w-[170px] items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
                   >
                     Discuss Your Hiring
@@ -266,18 +269,21 @@ export default function Home() {
               </p>
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <a
-                  href="mailto:hr@werkly.in"
+                  href="#hiring-form"
                   className="inline-flex items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
                 >
-                  Contact HR
+                  Get Started
                 </a>
                 <a
-                  href="mailto:info@werkly.in"
+                  href="#candidate-form"
                   className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
                 >
                   General Enquiry
                 </a>
               </div>
+              <p className="mt-4 text-sm leading-6 muted-copy">
+                Use the short forms below for hiring support requests or candidate job-preference submissions.
+              </p>
             </div>
             <div className="story-card p-8">
               <div className="space-y-6">
@@ -307,6 +313,128 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="section-shell pb-16 sm:pb-24">
+          <div className="grid gap-5 xl:grid-cols-2">
+            <article id="hiring-form" className="story-card anchor-section p-8 sm:p-9">
+              <p className="eyebrow">Hiring Request</p>
+              <h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-slate-950 sm:text-4xl">
+                Short form for employers who need recruitment support.
+              </h2>
+              <p className="mt-4 text-base leading-7 muted-copy">
+                Share the role requirement, location, and hiring context. Werkly can review the brief and respond on the appropriate mandate structure.
+              </p>
+              <form className="mt-8 space-y-4" encType="multipart/form-data">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input className={fieldClassName} type="text" name="name" placeholder="Your name" required />
+                  <input className={fieldClassName} type="text" name="company" placeholder="Company name" required />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input className={fieldClassName} type="email" name="email" placeholder="Work email" required />
+                  <input className={fieldClassName} type="tel" name="phone" placeholder="Phone number" required />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input className={fieldClassName} type="text" name="role" placeholder="Role title or hiring need" required />
+                  <input className={fieldClassName} type="text" name="industry" placeholder="Industry / sector" />
+                </div>
+                <textarea
+                  className={`${fieldClassName} min-h-[120px] resize-y`}
+                  name="message"
+                  placeholder="Briefly describe the mandate, location, and expected timeline."
+                  required
+                />
+                <div className="rounded-xl border border-dashed border-[var(--color-line)] bg-[var(--color-paper)]/65 p-4">
+                  <label className="block text-sm font-semibold text-slate-950" htmlFor="hiring-resume">
+                    Attachment
+                  </label>
+                  <p className="mt-1 text-sm leading-6 muted-copy">
+                    Optional. Upload a JD or hiring brief if you want Werkly to review the requirement in context.
+                  </p>
+                  <input
+                    id="hiring-resume"
+                    className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--color-accent)] file:px-4 file:py-2 file:font-semibold file:text-[var(--color-dark)]"
+                    type="file"
+                    name="attachment"
+                    accept=".pdf,.doc,.docx"
+                  />
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 muted-copy">
+                    Form structure is ready for direct submission. Resume and brief handling can be connected to email or backend storage next.
+                  </p>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
+                  >
+                    Submit Hiring Request
+                  </button>
+                </div>
+              </form>
+            </article>
+
+            <article id="candidate-form" className="story-card anchor-section p-8 sm:p-9">
+              <p className="eyebrow">Candidate Enquiry</p>
+              <h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-slate-950 sm:text-4xl">
+                Share your preferred role and resume in one short form.
+              </h2>
+              <p className="mt-4 text-base leading-7 muted-copy">
+                This form is for viewers who want to register their job preference with Werkly across the Non-IT sectors covered on the site.
+              </p>
+              <form className="mt-8 space-y-4" encType="multipart/form-data">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input className={fieldClassName} type="text" name="candidateName" placeholder="Full name" required />
+                  <input className={fieldClassName} type="email" name="candidateEmail" placeholder="Email address" required />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input className={fieldClassName} type="tel" name="candidatePhone" placeholder="Phone number" required />
+                  <input className={fieldClassName} type="text" name="experience" placeholder="Experience (e.g. 4 years)" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input className={fieldClassName} type="text" name="preferredRole" placeholder="Preferred role" required />
+                  <input className={fieldClassName} type="text" name="preferredLocation" placeholder="Preferred location" />
+                </div>
+                <input
+                  className={fieldClassName}
+                  type="text"
+                  name="preferredSector"
+                  placeholder="Preferred sector (Pharma, Engineering, Food, etc.)"
+                />
+                <textarea
+                  className={`${fieldClassName} min-h-[120px] resize-y`}
+                  name="candidateMessage"
+                  placeholder="Add notice period, current company, expected CTC, or anything relevant for job matching."
+                />
+                <div className="rounded-xl border border-dashed border-[var(--color-line)] bg-[var(--color-paper)]/65 p-4">
+                  <label className="block text-sm font-semibold text-slate-950" htmlFor="candidate-resume">
+                    Resume attachment
+                  </label>
+                  <p className="mt-1 text-sm leading-6 muted-copy">
+                    Upload your latest resume in PDF, DOC, or DOCX format.
+                  </p>
+                  <input
+                    id="candidate-resume"
+                    className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--color-accent)] file:px-4 file:py-2 file:font-semibold file:text-[var(--color-dark)]"
+                    type="file"
+                    name="resume"
+                    accept=".pdf,.doc,.docx"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 muted-copy">
+                    This keeps the submission short while still collecting the job preference details you need from candidates.
+                  </p>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                  >
+                    Submit Job Preference
+                  </button>
+                </div>
+              </form>
+            </article>
           </div>
         </section>
       </main>
