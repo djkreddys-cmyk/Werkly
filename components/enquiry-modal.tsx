@@ -7,6 +7,12 @@ export function EnquiryModal() {
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
+    if (window.location.hash === '#candidate-form') {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!isOpen) {
       return
     }
@@ -18,6 +24,9 @@ export function EnquiryModal() {
     }
 
     document.body.style.overflow = 'hidden'
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
     window.addEventListener('keydown', onKeyDown)
 
     return () => {
@@ -39,7 +48,7 @@ export function EnquiryModal() {
       {isOpen ? (
         <div className="fixed inset-0 z-[80] bg-[rgba(5,7,11,0.62)]">
           <div className="h-full overflow-y-auto px-4 py-6 sm:py-10">
-            <div className="mx-auto w-full max-w-3xl">
+            <div className="mx-auto w-full max-w-3xl pt-12">
               <div className="relative">
                 <button
                   type="button"
