@@ -202,19 +202,19 @@ export default function Home() {
 
         <section id="process" className="section-shell anchor-section py-16 sm:py-24">
           <div className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-            <div className="space-y-4">
+            <div className="story-card p-7 sm:p-8">
               <p className="eyebrow">Our Approach</p>
-              <h2 className="section-title">
+              <h2 className="mt-4 section-title">
                 Recruitment at Werkly is about building capability and supporting business growth.
               </h2>
-              <ul className="space-y-3 pt-2">
+              <ul className="space-y-3 pt-5">
                 {approachPoints.map((point) => (
                   <li key={point} className="text-base leading-7 muted-copy">
                     {point}
                   </li>
                 ))}
               </ul>
-              <div className="mt-8 rounded-[1.4rem] border border-[var(--color-line)] bg-white/70 p-6">
+              <div className="mt-8 border-t border-[var(--color-line)] pt-6">
                 <p className="eyebrow">Delivery Principles</p>
                 <div className="mt-4 grid gap-3">
                   {deliveryPrinciples.map((item) => (
