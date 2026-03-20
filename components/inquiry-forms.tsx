@@ -1,0 +1,197 @@
+'use client'
+
+import { useState } from 'react'
+
+type InquiryKind = 'hiring' | 'candidate'
+
+type InquiryFormProps = {
+  id: string
+  kind: InquiryKind
+}
+
+type FormState = {
+  status: 'idle' | 'submitting' | 'success' | 'error'
+  message: string
+}
+
+const fieldClassName =
+  'w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--color-dark)] focus:ring-2 focus:ring-[rgba(23,56,47,0.12)]'
+
+const initialState: FormState = {
+  status: 'idle',
+  message: '',
+}
+
+export function InquiryForm({ id, kind }: InquiryFormProps) {
+  const [state, setState] = useState<FormState>(initialState)
+
+  const isHiring = kind === 'hiring'
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const form = event.currentTarget
+    const formData = new FormData(form)
+    formData.set('inquiryType', kind)
+
+    setState({
+      status: 'submitting',
+      message: 'Submitting your enquiry...',
+    })
+
+    try {
+      const response = await fetch('/api/inquiries', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = (await response.json()) as { message?: string }
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Submission failed.')
+      }
+
+      form.reset()
+      setState({
+        status: 'success',
+        message: result.message || 'Your enquiry has been submitted.',
+      })
+    } catch (error) {
+      setState({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Submission failed.',
+      })
+    }
+  }
+
+  return (
+    <article id={id} className="story-card anchor-section p-8 sm:p-9">
+      <p className="eyebrow">{isHiring ? 'Hiring Request' : 'Candidate Enquiry'}</p>
+      <h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-slate-950 sm:text-4xl">
+        {isHiring
+          ? 'Short form for employers who need recruitment support.'
+          : 'Share your preferred role and resume in one short form.'}
+      </h2>
+      <p className="mt-4 text-base leading-7 muted-copy">
+        {isHiring
+          ? 'Share the role requirement, location, and hiring context. Werkly can review the brief and respond on the appropriate mandate structure.'
+          : 'This form is for viewers who want to register their job preference with Werkly across the Non-IT sectors covered on the site.'}
+      </p>
+
+      <form className="mt-8 space-y-4" encType="multipart/form-data" onSubmit={handleSubmit}>
+        {isHiring ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="text" name="name" placeholder="Your name" required />
+              <input className={fieldClassName} type="text" name="company" placeholder="Company name" required />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="email" name="email" placeholder="Work email" required />
+              <input className={fieldClassName} type="tel" name="phone" placeholder="Phone number" required />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="text" name="role" placeholder="Role title or hiring need" required />
+              <input className={fieldClassName} type="text" name="industry" placeholder="Industry / sector" />
+            </div>
+            <textarea
+              className={`${fieldClassName} min-h-[120px] resize-y`}
+              name="message"
+              placeholder="Briefly describe the mandate, location, and expected timeline."
+              required
+            />
+            <div className="rounded-xl border border-dashed border-[var(--color-line)] bg-[var(--color-paper)]/65 p-4">
+              <label className="block text-sm font-semibold text-slate-950" htmlFor="hiring-attachment">
+                Attachment
+              </label>
+              <p className="mt-1 text-sm leading-6 muted-copy">
+                Optional. Upload a JD or hiring brief in PDF, DOC, or DOCX format.
+              </p>
+              <input
+                id="hiring-attachment"
+                className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--color-accent)] file:px-4 file:py-2 file:font-semibold file:text-[var(--color-dark)]"
+                type="file"
+                name="attachment"
+                accept=".pdf,.doc,.docx"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="text" name="candidateName" placeholder="Full name" required />
+              <input className={fieldClassName} type="email" name="candidateEmail" placeholder="Email address" required />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="tel" name="candidatePhone" placeholder="Phone number" required />
+              <input className={fieldClassName} type="text" name="experience" placeholder="Experience (e.g. 4 years)" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="text" name="preferredRole" placeholder="Preferred role" required />
+              <input className={fieldClassName} type="text" name="preferredLocation" placeholder="Preferred location" />
+            </div>
+            <input
+              className={fieldClassName}
+              type="text"
+              name="preferredSector"
+              placeholder="Preferred sector (Pharma, Engineering, Food, etc.)"
+            />
+            <textarea
+              className={`${fieldClassName} min-h-[120px] resize-y`}
+              name="candidateMessage"
+              placeholder="Add notice period, current company, expected CTC, or anything relevant for job matching."
+            />
+            <div className="rounded-xl border border-dashed border-[var(--color-line)] bg-[var(--color-paper)]/65 p-4">
+              <label className="block text-sm font-semibold text-slate-950" htmlFor="candidate-resume">
+                Resume attachment
+              </label>
+              <p className="mt-1 text-sm leading-6 muted-copy">
+                Upload your latest resume in PDF, DOC, or DOCX format. Max size 5 MB.
+              </p>
+              <input
+                id="candidate-resume"
+                className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--color-accent)] file:px-4 file:py-2 file:font-semibold file:text-[var(--color-dark)]"
+                type="file"
+                name="resume"
+                accept=".pdf,.doc,.docx"
+                required
+              />
+            </div>
+          </>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p
+            className={`text-sm leading-6 ${
+              state.status === 'success'
+                ? 'text-emerald-700'
+                : state.status === 'error'
+                  ? 'text-red-700'
+                  : 'muted-copy'
+            }`}
+            aria-live="polite"
+          >
+            {state.message ||
+              (isHiring
+                ? 'Upload is optional for hiring requests.'
+                : 'Resume attachment is required for candidate submissions.')}
+          </p>
+          <button
+            type="submit"
+            disabled={state.status === 'submitting'}
+            className={`inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold transition ${
+              isHiring
+                ? 'bg-[var(--color-accent)] text-[var(--color-dark)] hover:opacity-95'
+                : 'border border-[var(--color-line)] bg-white text-slate-900 hover:bg-slate-50'
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {state.status === 'submitting'
+              ? 'Submitting...'
+              : isHiring
+                ? 'Submit Hiring Request'
+                : 'Submit Job Preference'}
+          </button>
+        </div>
+      </form>
+    </article>
+  )
+}

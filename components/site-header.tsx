@@ -22,12 +22,6 @@ export function SiteHeader() {
             </a>
           ))}
         </nav>
-        <a
-          href="#contact"
-          className="inline-flex items-center justify-center rounded-xl border border-[var(--color-accent)] bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium !text-[var(--color-dark)] transition hover:opacity-95"
-        >
-          Get Started
-        </a>
       </div>
     </header>
   );
