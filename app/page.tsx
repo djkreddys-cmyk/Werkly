@@ -61,7 +61,7 @@ const processSteps = [
   {
     title: "Delivery Principles",
     description:
-      "Defined ownership across every assignment, timely execution without compromising fit, consistent communication with client teams, and measured outcomes across every engagement.",
+      "Defined ownership, consistent communication, timely execution, and measurable outcomes across each engagement.",
   },
 ];
 
@@ -199,10 +199,10 @@ export default function Home() {
         </section>
 
         <section id="process" className="section-shell anchor-section py-16 sm:py-24">
-          <div className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div className="grid gap-7 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
             <div className="story-card p-7 sm:p-8">
               <p className="eyebrow">Our Approach</p>
-              <h2 className="mt-4 section-title">
+              <h2 className="mt-4 max-w-lg section-title">
                 Recruitment at Werkly is about building capability and supporting business growth.
               </h2>
               <ul className="space-y-3 pt-5">
