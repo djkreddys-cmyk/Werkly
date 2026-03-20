@@ -4,19 +4,19 @@ import { SiteHeader } from "@/components/site-header";
 
 const serviceHighlights = [
   {
-    title: "End-to-End HR Solutions",
+    title: "Tailor-Made HR Solutions",
     description:
-      "Tailor-made recruitment and talent acquisition support that strengthens and streamlines client business operations.",
+      "Customized recruitment support that strengthens workforce capability and streamlines business operations.",
   },
   {
     title: "Turnkey Search & Selection",
     description:
-      "Structured delivery for Non-IT hiring mandates with measurable outcomes, defined ownership, and timely execution.",
+      "Structured execution for Non-IT hiring mandates with clear ownership, speed, and measurable outcomes.",
   },
   {
     title: "Domain-Specific Delivery",
     description:
-      "Specialized consultants aligned to industry verticals, ensuring precision, speed, and business-fit in every assignment.",
+      "Specialized consultants aligned to industry verticals for better fit, faster delivery, and consistent quality.",
   },
 ];
 
@@ -31,17 +31,17 @@ const processSteps = [
   {
     title: "Business Understanding",
     description:
-      "We start by understanding the client’s business context, workforce priorities, and role requirements before search begins.",
+      "We start with the client’s business context, workforce priorities, and hiring need.",
   },
   {
     title: "Structured Execution",
     description:
-      "Our consultants execute search, screening, and shortlisting through defined delivery processes built for quality and speed.",
+      "Search, screening, and shortlisting run through defined delivery processes built for quality and speed.",
   },
   {
     title: "Outcome-Focused Delivery",
     description:
-      "We close mandates with clear coordination, timely execution, and measurable outcomes that support long-term client value.",
+      "Mandates are closed with clear coordination, timely execution, and measurable outcomes.",
   },
 ];
 
@@ -70,11 +70,11 @@ export default function Home() {
                 <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--color-accent)]">
                   Werkly Consulting Pvt LTD
                 </p>
-                <h1 className="mt-5 max-w-3xl font-[family-name:var(--font-display)] text-5xl leading-[0.94] sm:text-6xl lg:text-[4.85rem]">
-                  Tailor-made HR solutions for Non-IT businesses that need precision and delivery discipline.
+                <h1 className="mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[3.35rem] leading-[0.98] sm:text-[4.35rem] lg:text-[4.7rem]">
+                  Tailor-made HR solutions for Non-IT businesses.
                 </h1>
-                <p className="mt-5 max-w-2xl text-lg leading-8 text-white/84 sm:text-[1.08rem]">
-                  Headquartered in Vijayawada, Werkly Consulting Pvt LTD delivers end-to-end recruitment solutions that strengthen workforce capability and support business growth across diverse industries.
+                <p className="mt-5 max-w-xl text-[1.02rem] leading-8 text-white/82 sm:text-[1.06rem]">
+                  Headquartered in Vijayawada, Werkly delivers structured search and selection solutions across the Non-IT sector.
                 </p>
                 <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                   <a
@@ -117,7 +117,7 @@ export default function Home() {
                       Established in 2025
                     </p>
                     <p className="mt-3 text-lg leading-8 text-white/84">
-                      A forward-thinking Search and Selection firm delivering turnkey recruitment assignments across the Non-IT sector.
+                      Forward-thinking search and selection support for Non-IT hiring mandates.
                     </p>
                   </div>
                 </div>
@@ -131,19 +131,19 @@ export default function Home() {
             <article className="story-card p-6">
               <p className="eyebrow">Headquartered in Vijayawada</p>
               <p className="mt-3 text-base leading-7 muted-copy">
-                Serving clients with specialized recruitment support designed around business operations and workforce strategy.
+                Specialized recruitment support built around business operations and workforce strategy.
               </p>
             </article>
             <article className="story-card p-6">
               <p className="eyebrow">Results-Driven Delivery</p>
               <p className="mt-3 text-base leading-7 muted-copy">
-                Structured processes, domain-specific teams, timely execution, and measurable outcomes across every engagement.
+                Structured processes, domain-specific teams, and measurable outcomes across every engagement.
               </p>
             </article>
             <article className="story-card p-6">
               <p className="eyebrow">Non-IT Sector Focus</p>
               <p className="mt-3 text-base leading-7 muted-copy">
-                Specialized search and selection support across core industrial, manufacturing, life sciences, and operations-led sectors.
+                Search and selection support across industrial, manufacturing, life sciences, and operations-led sectors.
               </p>
             </article>
           </div>
@@ -153,10 +153,10 @@ export default function Home() {
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">About Werkly</p>
             <h2 className="mt-4 section-title">
-              Customized recruitment solutions built for precision, speed, and alignment with organizational goals.
+              Recruitment solutions built for precision, speed, and alignment.
             </h2>
             <p className="mt-4 text-base leading-7 muted-copy sm:text-lg">
-              Werkly Consulting Pvt LTD brings together specialized consultants who deliver end-to-end HR solutions across diverse industries, ensuring consistent quality and dependable execution.
+              Werkly brings together specialized consultants who deliver end-to-end HR solutions across diverse Non-IT industries.
             </p>
           </div>
           <div className="mt-10 grid gap-5 lg:grid-cols-3">
@@ -174,7 +174,7 @@ export default function Home() {
             <div className="space-y-4">
               <p className="eyebrow">Our Approach</p>
               <h2 className="section-title">
-                Recruitment at Werkly is not just about filling positions. It is about building capability and driving business growth.
+                Recruitment at Werkly is about building capability and supporting business growth.
               </h2>
               <ul className="space-y-3 pt-2">
                 {approachPoints.map((point) => (
@@ -210,7 +210,7 @@ export default function Home() {
                 Specialized recruitment solutions across key Non-IT verticals.
               </h2>
               <p className="mt-4 text-base leading-7 text-white/72 sm:text-lg">
-                Our domain-specific teams execute turnkey recruitment assignments across sectors where industry context and structured delivery matter.
+                Domain-specific teams execute turnkey recruitment assignments where industry context and delivery discipline matter.
               </p>
             </div>
             <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -231,10 +231,10 @@ export default function Home() {
             <div className="story-card p-8 sm:p-9">
               <p className="eyebrow">Client Engagement</p>
               <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
-                Engage Werkly for customized, results-driven recruitment support.
+                Engage Werkly for structured, results-driven recruitment support.
               </h2>
               <p className="mt-5 max-w-2xl text-base leading-7 muted-copy sm:text-lg">
-                We work with organizations that need structured search and selection delivery, strong turnaround discipline, and long-term recruitment partnerships built on trust and performance.
+                We support organizations that need strong search and selection delivery, clear turnaround discipline, and long-term recruitment partnerships.
               </p>
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <a

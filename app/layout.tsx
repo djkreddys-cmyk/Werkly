@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Libre_Baskerville, Source_Sans_3 } from "next/font/google";
+import { Lora, Work_Sans } from "next/font/google";
 import "./globals.css";
 
-const sourceSans = Source_Sans_3({
+const workSans = Work_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const libreBaskerville = Libre_Baskerville({
+const lora = Lora({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sourceSans.variable} ${libreBaskerville.variable} scroll-smooth`}
+      className={`${workSans.variable} ${lora.variable} scroll-smooth`}
     >
       <body className="min-h-screen bg-[var(--color-paper)] text-slate-950 antialiased">
         {children}
