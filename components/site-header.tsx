@@ -1,3 +1,5 @@
+import { EnquiryModal } from "@/components/enquiry-modal";
+
 const navItems = [
   { label: "Services", href: "#services" },
   { label: "Process", href: "#process" },
@@ -22,6 +24,7 @@ export function SiteHeader() {
             </a>
           ))}
         </nav>
+        <EnquiryModal />
       </div>
     </header>
   );

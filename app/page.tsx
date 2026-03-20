@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { InquiryForm } from "@/components/inquiry-forms";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -94,7 +93,7 @@ export default function Home() {
                 <h1 className="mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[3.35rem] leading-[0.98] sm:text-[4.35rem] lg:text-[4.7rem]">
                   Tailor-made HR solutions for Non-IT businesses.
                 </h1>
-                <p className="mt-5 max-w-xl text-[1.02rem] leading-8 text-white/82 sm:text-[1.06rem]">
+              <p className="mt-5 max-w-xl text-[1.02rem] leading-8 text-white/82 sm:text-[1.06rem]">
                   Werkly delivers structured search and selection solutions across the Non-IT sector.
                 </p>
                 <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -259,16 +258,8 @@ export default function Home() {
               <p className="mt-5 max-w-2xl text-base leading-7 muted-copy sm:text-lg">
                 We support organizations that need strong search and selection delivery, clear turnaround discipline, and long-term recruitment partnerships.
               </p>
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-                <a
-                  href="#candidate-form"
-                  className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
-                >
-                  Candidate Enquiry
-                </a>
-              </div>
               <p className="mt-4 text-sm leading-6 muted-copy">
-                Use the short form below for candidate job-preference submissions and resume sharing.
+                Use the Enquiry button in the navigation to open the candidate form and upload a resume.
               </p>
             </div>
             <div className="story-card p-8">
@@ -299,12 +290,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-
-        <section className="section-shell pb-16 sm:pb-24">
-          <div className="mx-auto max-w-3xl">
-            <InquiryForm id="candidate-form" kind="candidate" />
           </div>
         </section>
       </main>

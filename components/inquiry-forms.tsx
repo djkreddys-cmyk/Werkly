@@ -5,8 +5,9 @@ import { useState } from 'react'
 type InquiryKind = 'hiring' | 'candidate'
 
 type InquiryFormProps = {
-  id: string
+  id?: string
   kind: InquiryKind
+  className?: string
 }
 
 type FormState = {
@@ -22,7 +23,7 @@ const initialState: FormState = {
   message: '',
 }
 
-export function InquiryForm({ id, kind }: InquiryFormProps) {
+export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
   const [state, setState] = useState<FormState>(initialState)
 
   const isHiring = kind === 'hiring'
@@ -65,7 +66,7 @@ export function InquiryForm({ id, kind }: InquiryFormProps) {
   }
 
   return (
-    <article id={id} className="story-card anchor-section p-8 sm:p-9">
+    <article id={id} className={`story-card p-8 sm:p-9 ${id ? 'anchor-section' : ''} ${className}`.trim()}>
       <p className="eyebrow">{isHiring ? 'Hiring Request' : 'Candidate Enquiry'}</p>
       <h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-slate-950 sm:text-4xl">
         {isHiring
