@@ -2,12 +2,12 @@
 
 :root {
   --color-dark: #17382f;
-  --color-accent: #e7dcc7;
+  --color-accent: #cdb89a;
   --color-paper: #f6f1e8;
   --color-surface: #fffdf9;
   --color-ink: #22392f;
   --color-line: rgba(23, 56, 47, 0.14);
-  --color-muted: rgba(34, 57, 47, 0.68);
+  --color-muted: rgba(34, 57, 47, 0.82);
 }
 
 @theme inline {
