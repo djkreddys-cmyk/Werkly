@@ -190,8 +190,7 @@ export default function Home() {
           <div className="mt-6 grid gap-5 lg:grid-cols-3">
             {serviceSupport.map((item) => (
               <article key={item.title} className="story-card p-7">
-                <p className="eyebrow">Service Support</p>
-                <h3 className="mt-3 text-xl font-semibold text-slate-950">{item.title}</h3>
+                <h3 className="text-xl font-semibold text-slate-950">{item.title}</h3>
                 <p className="mt-3 text-base leading-7 muted-copy">{item.description}</p>
               </article>
             ))}
