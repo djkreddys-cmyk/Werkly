@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
 
-type InquiryType = 'hiring' | 'candidate'
-
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 export const runtime = 'nodejs'
 
@@ -48,140 +46,91 @@ async function fileToAttachment(file: File) {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
-    const inquiryType = asString(formData.get('inquiryType')) as InquiryType
+    const fromEmail = process.env.RESEND_FROM_EMAIL
+    const fromName = process.env.RESEND_FROM_NAME || 'Werkly Website'
+    const apiKey = process.env.RESEND_API_KEY
+    const recipient = process.env.RESEND_TO_EMAIL
 
-    if (inquiryType !== 'hiring' && inquiryType !== 'candidate') {
-      return NextResponse.json({ message: 'Invalid enquiry type.' }, { status: 400 })
-    }
-
-    const senderEmail = process.env.BREVO_SENDER_EMAIL
-    const senderName = process.env.BREVO_SENDER_NAME || 'Werkly Website'
-    const apiKey = process.env.BREVO_API_KEY
-    const defaultRecipient = process.env.BREVO_TO_EMAIL
-    const recipient =
-      inquiryType === 'hiring'
-        ? process.env.BREVO_HIRING_TO_EMAIL || defaultRecipient
-        : process.env.BREVO_CANDIDATE_TO_EMAIL || defaultRecipient
-
-    if (!apiKey || !senderEmail || !recipient) {
+    if (!apiKey || !fromEmail || !recipient) {
       return NextResponse.json(
         {
           message:
-            'Form delivery is not configured yet. Add BREVO_API_KEY, BREVO_SENDER_EMAIL, and recipient email env vars.',
+            'Form delivery is not configured yet. Add RESEND_API_KEY, RESEND_FROM_EMAIL, and RESEND_TO_EMAIL.',
         },
         { status: 500 }
       )
     }
 
-    const fileField = inquiryType === 'hiring' ? formData.get('attachment') : formData.get('resume')
+    const fileField = formData.get('resume')
     const attachment = fileField instanceof File ? await fileToAttachment(fileField) : null
-    let replyTo: { email: string; name: string }
-    let rows = ''
-    let subject = ''
-
-    if (inquiryType === 'hiring') {
-      const fields = {
-        name: asString(formData.get('name')),
-        company: asString(formData.get('company')),
-        email: asString(formData.get('email')),
-        phone: asString(formData.get('phone')),
-        role: asString(formData.get('role')),
-        industry: asString(formData.get('industry')),
-        message: asString(formData.get('message')),
-      }
-
-      if (!fields.name || !fields.company || !fields.email || !fields.phone || !fields.role || !fields.message) {
-        return NextResponse.json({ message: 'Please complete all required fields.' }, { status: 400 })
-      }
-
-      replyTo = { email: fields.email, name: fields.name }
-      rows = formatHtmlRows([
-        ['Inquiry Type', 'Hiring Request'],
-        ['Name', fields.name],
-        ['Company', fields.company],
-        ['Email', fields.email],
-        ['Phone', fields.phone],
-        ['Role', fields.role],
-        ['Industry', fields.industry],
-        ['Message', fields.message],
-      ])
-      subject = `Website hiring request: ${fields.company} - ${fields.role}`
-    } else {
-      const fields = {
-        candidateName: asString(formData.get('candidateName')),
-        candidateEmail: asString(formData.get('candidateEmail')),
-        candidatePhone: asString(formData.get('candidatePhone')),
-        experience: asString(formData.get('experience')),
-        currentCompany: asString(formData.get('currentCompany')),
-        currentLocation: asString(formData.get('currentLocation')),
-        currentDesignation: asString(formData.get('currentDesignation')),
-        preferredRole: asString(formData.get('preferredRole')),
-        preferredLocation: asString(formData.get('preferredLocation')),
-        preferredSector: asString(formData.get('preferredSector')),
-        candidateMessage: asString(formData.get('candidateMessage')),
-      }
-
-      if (!fields.candidateName || !fields.candidateEmail || !fields.candidatePhone || !fields.preferredRole) {
-        return NextResponse.json({ message: 'Please complete all required fields.' }, { status: 400 })
-      }
-
-      replyTo = { email: fields.candidateEmail, name: fields.candidateName }
-      rows = formatHtmlRows([
-        ['Inquiry Type', 'Candidate Enquiry'],
-        ['Name', fields.candidateName],
-        ['Email', fields.candidateEmail],
-        ['Phone', fields.candidatePhone],
-        ['Experience', fields.experience],
-        ['Current Company', fields.currentCompany],
-        ['Current Location', fields.currentLocation],
-        ['Current Designation', fields.currentDesignation],
-        ['Preferred Role', fields.preferredRole],
-        ['Preferred Location', fields.preferredLocation],
-        ['Preferred Sector', fields.preferredSector],
-        ['Details', fields.candidateMessage],
-      ])
-      subject = `Website candidate enquiry: ${fields.candidateName} - ${fields.preferredRole}`
+    const fields = {
+      candidateName: asString(formData.get('candidateName')),
+      candidateEmail: asString(formData.get('candidateEmail')),
+      candidatePhone: asString(formData.get('candidatePhone')),
+      experience: asString(formData.get('experience')),
+      currentCompany: asString(formData.get('currentCompany')),
+      currentLocation: asString(formData.get('currentLocation')),
+      currentDesignation: asString(formData.get('currentDesignation')),
+      preferredRole: asString(formData.get('preferredRole')),
+      preferredLocation: asString(formData.get('preferredLocation')),
+      preferredSector: asString(formData.get('preferredSector')),
+      candidateMessage: asString(formData.get('candidateMessage')),
     }
 
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    if (!fields.candidateName || !fields.candidateEmail || !fields.candidatePhone || !fields.preferredRole) {
+      return NextResponse.json({ message: 'Please complete all required fields.' }, { status: 400 })
+    }
+
+    const replyTo = `${fields.candidateName} <${fields.candidateEmail}>`
+    const rows = formatHtmlRows([
+      ['Inquiry Type', 'Candidate Enquiry'],
+      ['Name', fields.candidateName],
+      ['Email', fields.candidateEmail],
+      ['Phone', fields.candidatePhone],
+      ['Experience', fields.experience],
+      ['Current Company', fields.currentCompany],
+      ['Current Location', fields.currentLocation],
+      ['Current Designation', fields.currentDesignation],
+      ['Preferred Role', fields.preferredRole],
+      ['Preferred Location', fields.preferredLocation],
+      ['Preferred Sector', fields.preferredSector],
+      ['Details', fields.candidateMessage],
+    ])
+    const subject = `Website candidate enquiry: ${fields.candidateName} - ${fields.preferredRole}`
+
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         accept: 'application/json',
         'content-type': 'application/json',
-        'api-key': apiKey,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        sender: {
-          email: senderEmail,
-          name: senderName,
-        },
-        to: [{ email: recipient }],
+        from: `${fromName} <${fromEmail}>`,
+        to: [recipient],
         replyTo,
         subject,
-        htmlContent: `
+        html: `
           <div style="font-family:Arial,sans-serif;color:#22392f;">
             <h2 style="margin:0 0 16px;">${escapeHtml(subject)}</h2>
             <table style="border-collapse:collapse;width:100%;max-width:720px;">${rows}</table>
           </div>
         `,
-        attachment: attachment ? [attachment] : undefined,
+        attachments: attachment ? [attachment] : undefined,
       }),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Brevo submission failed:', errorText)
+      console.error('Resend submission failed:', errorText)
       return NextResponse.json(
-        { message: 'Email delivery failed. Check Brevo configuration and recipient settings.' },
+        { message: 'Email delivery failed. Check Resend configuration and sender verification.' },
         { status: 502 }
       )
     }
 
     return NextResponse.json({
-      message:
-        inquiryType === 'hiring'
-          ? 'Hiring request submitted successfully.'
-          : 'Job preference submitted successfully.',
+      message: 'Job preference submitted successfully.',
     })
   } catch (error) {
     console.error('Inquiry submission failed:', error)
