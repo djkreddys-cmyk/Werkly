@@ -13,18 +13,14 @@ export function SiteFooter() {
             Werkly
           </p>
           <h2 className="mx-auto w-full max-w-[430px] font-[family-name:var(--font-display)] text-[1.85rem] leading-[1.18] text-white">
-            Tailor-made HR solutions with
+            Tailor-made HR solutions with structured
             <br />
-            structured Non-IT recruitment
-            <br />
-            delivery.
+            Non-IT recruitment delivery.
           </h2>
           <p className="mx-auto w-full max-w-[500px] text-sm leading-7 text-white/65">
-            Headquartered in Hyderabad with a branch office in Vijayawada,
+            Headquartered in Hyderabad with a branch office in Vijayawada, Werkly
             <br />
-            Werkly Consulting Pvt LTD supports clients with customized
-            <br />
-            search and selection solutions across diverse Non-IT industries.
+            Consulting Pvt LTD supports clients with customized search and selection solutions across diverse Non-IT industries.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-white/70">
