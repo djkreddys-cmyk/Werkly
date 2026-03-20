@@ -7,15 +7,15 @@ const quickLinks = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-white/10 bg-[var(--color-dark)] text-white">
-      <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-6 px-5 py-7 text-center sm:px-8">
-        <div className="w-full max-w-[520px] space-y-3">
+      <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-5 px-5 py-5 text-center sm:px-8">
+        <div className="w-full max-w-[640px] space-y-3">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]/90">
             Werkly
           </p>
-          <h2 className="mx-auto w-full max-w-[430px] font-[family-name:var(--font-display)] text-[1.85rem] leading-[1.18] text-white">
+          <h2 className="mx-auto w-full max-w-[560px] font-[family-name:var(--font-display)] text-[1.85rem] leading-[1.18] text-white">
             Tailor-made HR solutions with structured Non-IT recruitment delivery.
           </h2>
-          <p className="mx-auto w-full max-w-[500px] text-sm leading-7 text-white/65">
+          <p className="mx-auto w-full max-w-[620px] text-sm leading-7 text-white/65">
             Headquartered in Hyderabad with a branch office in Vijayawada, Werkly Consulting Pvt LTD supports clients with customized search and selection solutions across diverse Non-IT industries.
           </p>
         </div>
