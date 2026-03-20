@@ -69,3 +69,7 @@ a {
 .hero-frame {
   box-shadow: 0 30px 70px rgba(10, 22, 42, 0.22);
 }
+
+.anchor-section {
+  scroll-margin-top: 96px;
+}

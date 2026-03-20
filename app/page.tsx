@@ -20,6 +20,21 @@ const serviceHighlights = [
   },
 ];
 
+const serviceSupport = [
+  {
+    title: "Turnaround Discipline",
+    description: "Defined timelines and structured follow-ups to keep hiring momentum intact.",
+  },
+  {
+    title: "Quality Screening",
+    description: "Shortlists are filtered for relevance, capability, and alignment with client priorities.",
+  },
+  {
+    title: "Client Alignment",
+    description: "Execution stays mapped to business goals, not just open positions.",
+  },
+];
+
 const approachPoints = [
   "Understanding client business models and workforce strategy",
   "Delivering customized talent acquisition solutions",
@@ -43,6 +58,13 @@ const processSteps = [
     description:
       "Mandates are closed with clear coordination, timely execution, and measurable outcomes.",
   },
+];
+
+const deliveryPrinciples = [
+  "Defined ownership across every assignment",
+  "Timely execution without compromising fit",
+  "Consistent communication with client teams",
+  "Measured outcomes across every engagement",
 ];
 
 const sectors = [
@@ -149,7 +171,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="services" className="section-shell py-14 sm:py-18">
+        <section id="services" className="section-shell anchor-section py-16 sm:py-24">
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">About Werkly</p>
             <h2 className="mt-4 section-title">
@@ -167,9 +189,18 @@ export default function Home() {
               </article>
             ))}
           </div>
+          <div className="mt-6 grid gap-5 lg:grid-cols-3">
+            {serviceSupport.map((item) => (
+              <article key={item.title} className="story-card p-7">
+                <p className="eyebrow">Service Support</p>
+                <h3 className="mt-3 text-xl font-semibold text-slate-950">{item.title}</h3>
+                <p className="mt-3 text-base leading-7 muted-copy">{item.description}</p>
+              </article>
+            ))}
+          </div>
         </section>
 
-        <section id="process" className="section-shell py-14 sm:py-18">
+        <section id="process" className="section-shell anchor-section py-16 sm:py-24">
           <div className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
             <div className="space-y-4">
               <p className="eyebrow">Our Approach</p>
@@ -183,6 +214,16 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+              <div className="mt-8 rounded-[1.4rem] border border-[var(--color-line)] bg-white/70 p-6">
+                <p className="eyebrow">Delivery Principles</p>
+                <div className="mt-4 grid gap-3">
+                  {deliveryPrinciples.map((item) => (
+                    <p key={item} className="text-base leading-7 muted-copy">
+                      {item}
+                    </p>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="grid gap-4">
               {processSteps.map((step, index) => (
@@ -200,7 +241,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="expertise" className="bg-[var(--color-dark)] py-14 sm:py-18">
+        <section id="expertise" className="anchor-section bg-[var(--color-dark)] py-16 sm:py-24">
           <div className="section-shell">
             <div className="mx-auto max-w-4xl text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
@@ -226,7 +267,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="contact" className="section-shell py-14 sm:py-18">
+        <section id="contact" className="section-shell anchor-section py-16 sm:py-24">
           <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="story-card p-8 sm:p-9">
               <p className="eyebrow">Client Engagement</p>
