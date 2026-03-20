@@ -73,11 +73,11 @@ export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
           ? 'Short form for employers who need recruitment support.'
           : 'Share your preferred role and resume in one short form.'}
       </h2>
-      <p className="mt-4 text-base leading-7 muted-copy">
-        {isHiring
-          ? 'Share the role requirement, location, and hiring context. Werkly can review the brief and respond on the appropriate mandate structure.'
-          : 'This form is for viewers who want to register their job preference with Werkly across the Non-IT sectors covered on the site.'}
-      </p>
+      {isHiring ? (
+        <p className="mt-4 text-base leading-7 muted-copy">
+          Share the role requirement, location, and hiring context. Werkly can review the brief and respond on the appropriate mandate structure.
+        </p>
+      ) : null}
 
       <form className="mt-8 space-y-4" encType="multipart/form-data" onSubmit={handleSubmit}>
         {isHiring ? (
@@ -127,15 +127,22 @@ export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
               <input className={fieldClassName} type="text" name="experience" placeholder="Experience (e.g. 4 years)" />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <input className={fieldClassName} type="text" name="preferredRole" placeholder="Preferred role" required />
-              <input className={fieldClassName} type="text" name="preferredLocation" placeholder="Preferred location" />
+              <input className={fieldClassName} type="text" name="currentCompany" placeholder="Current company name" />
+              <input className={fieldClassName} type="text" name="currentLocation" placeholder="Current location" />
             </div>
-            <input
-              className={fieldClassName}
-              type="text"
-              name="preferredSector"
-              placeholder="Preferred sector (Pharma, Engineering, Food, etc.)"
-            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="text" name="currentDesignation" placeholder="Current designation" />
+              <input className={fieldClassName} type="text" name="preferredRole" placeholder="Preferred role" required />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="text" name="preferredLocation" placeholder="Preferred location" />
+              <input
+                className={fieldClassName}
+                type="text"
+                name="preferredSector"
+                placeholder="Preferred sector (Pharma, Engineering, Food, etc.)"
+              />
+            </div>
             <textarea
               className={`${fieldClassName} min-h-[120px] resize-y`}
               name="candidateMessage"
