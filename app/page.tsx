@@ -46,7 +46,7 @@ const processSteps = [
   {
     title: "Business Understanding",
     description:
-      "We start with the client’s business context, workforce priorities, and hiring need.",
+      "We start with the client's business context, workforce priorities, and hiring need.",
   },
   {
     title: "Structured Execution",
@@ -58,13 +58,11 @@ const processSteps = [
     description:
       "Mandates are closed with clear coordination, timely execution, and measurable outcomes.",
   },
-];
-
-const deliveryPrinciples = [
-  "Defined ownership across every assignment",
-  "Timely execution without compromising fit",
-  "Consistent communication with client teams",
-  "Measured outcomes across every engagement",
+  {
+    title: "Delivery Principles",
+    description:
+      "Defined ownership across every assignment, timely execution without compromising fit, consistent communication with client teams, and measured outcomes across every engagement.",
+  },
 ];
 
 const sectors = [
@@ -214,16 +212,6 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <div className="mt-8 border-t border-[var(--color-line)] pt-6">
-                <p className="eyebrow">Delivery Principles</p>
-                <div className="mt-4 grid gap-3">
-                  {deliveryPrinciples.map((item) => (
-                    <p key={item} className="text-base leading-7 muted-copy">
-                      {item}
-                    </p>
-                  ))}
-                </div>
-              </div>
             </div>
             <div className="grid gap-4">
               {processSteps.map((step, index) => (
