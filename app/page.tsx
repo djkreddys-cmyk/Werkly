@@ -114,7 +114,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="section-shell -mt-6 pb-4 sm:-mt-8 sm:pb-6">
+        <section className="section-shell py-6 sm:py-8">
           <div className="grid gap-4 md:grid-cols-3">
             <article className="story-card p-6">
               <p className="eyebrow">For Employers</p>
