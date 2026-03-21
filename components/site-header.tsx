@@ -2,6 +2,7 @@ import Image from "next/image";
 import { EnquiryModal } from "@/components/enquiry-modal";
 
 const navItems = [
+  { label: "Resume Builder", href: "/resume-builder" },
   { label: "Process", href: "#process" },
   { label: "Sectors", href: "#expertise" },
   { label: "Contact", href: "#contact" },

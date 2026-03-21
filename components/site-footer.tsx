@@ -1,4 +1,5 @@
 const quickLinks = [
+  { label: "Resume Builder", href: "/resume-builder" },
   { label: "Sectors", href: "#expertise" },
   { label: "Process", href: "#process" },
   { label: "Contact", href: "#contact" },
