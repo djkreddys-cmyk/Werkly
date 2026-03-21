@@ -49,59 +49,83 @@ export default function Home() {
     <div id="top" className="relative">
       <SiteHeader />
       <main>
-        <section className="relative overflow-hidden bg-[#1a2227]">
-          <div className="absolute inset-0">
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(15,19,24,0.82),rgba(15,19,24,0.38)_45%,rgba(15,19,24,0.74))]" />
-            <div className="absolute inset-y-0 left-0 w-[22%] bg-[radial-gradient(circle_at_left,rgba(255,255,255,0.08),transparent_60%)]" />
-            <div className="absolute inset-y-0 right-0 w-[22%] bg-[radial-gradient(circle_at_right,rgba(255,255,255,0.08),transparent_60%)]" />
-            <Image
-              src="/consultancy-team-primary.svg"
-              alt="Consultants collaborating"
-              fill
-              className="object-cover object-center opacity-95"
-              priority
-            />
-          </div>
-          <div className="relative section-shell flex min-h-[560px] flex-col items-center justify-center py-20 text-center sm:min-h-[620px]">
-            <p className="text-sm font-semibold uppercase tracking-[0.34em] text-[var(--color-accent)]">
-              Werkly Consulting Pvt LTD
-            </p>
-            <h1 className="mt-6 max-w-5xl font-[family-name:var(--font-display)] text-[3rem] leading-[1.02] text-white sm:text-[4.2rem] lg:text-[5rem]">
-              Nextgen HR solutions for Non-IT businesses.
-            </h1>
-            <p className="mt-5 max-w-3xl text-base leading-8 text-white/80 sm:text-lg">
-              Structured search and selection support for companies that need faster hiring closures, stronger candidate quality, and better sector alignment.
-            </p>
-            <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-              <a
-                href="#contact"
-                className="inline-flex min-w-[190px] items-center justify-center rounded-none bg-[var(--color-brand-cyan)] px-7 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[#064f59]"
-              >
-                Request Enquiry
-              </a>
-              <a
-                href="#expertise"
-                className="inline-flex min-w-[190px] items-center justify-center border border-white/35 bg-transparent px-7 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white/10"
-              >
-                What We Do Best
-              </a>
+        <section className="relative overflow-hidden bg-[var(--color-dark)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(241,166,75,0.16),transparent_24%),radial-gradient(circle_at_80%_24%,rgba(255,255,255,0.08),transparent_24%),linear-gradient(180deg,rgba(8,96,108,0.98),rgba(8,96,108,1))]" />
+          <div className="section-shell relative py-16 sm:py-20 lg:py-24">
+            <div className="grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+              <div className="text-white">
+                <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--color-accent)]">
+                  Werkly Consulting Pvt LTD
+                </p>
+                <h1 className="mt-6 max-w-2xl font-[family-name:var(--font-display)] text-[3.3rem] leading-[0.98] sm:text-[4.35rem] lg:text-[4.85rem]">
+                  Nextgen HR solutions for Non-IT businesses.
+                </h1>
+                <p className="mt-5 max-w-xl text-[1.03rem] leading-8 text-white/80 sm:text-[1.08rem]">
+                  Structured search and selection support for companies that need faster hiring closures, stronger candidate quality, and better sector alignment.
+                </p>
+                <div className="mt-9 flex flex-col gap-4 sm:flex-row">
+                  <a
+                    href="#contact"
+                    className="inline-flex min-w-[182px] items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
+                  >
+                    Request Enquiry
+                  </a>
+                  <a
+                    href="#expertise"
+                    className="inline-flex min-w-[182px] items-center justify-center rounded-xl border border-white/25 bg-white/6 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
+                  >
+                    View Sectors
+                  </a>
+                </div>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-[1.05fr_0.95fr]">
+                <div className="hero-frame overflow-hidden rounded-[1.8rem] border border-white/12 bg-white/8 p-3">
+                  <Image
+                    src="/consultancy-team-primary.svg"
+                    alt="Three consultants collaborating at a meeting table"
+                    width={1200}
+                    height={900}
+                    className="h-full w-full rounded-[1.3rem] object-cover"
+                    priority
+                  />
+                </div>
+                <div className="grid gap-5">
+                  <div className="hero-frame overflow-hidden rounded-[1.55rem] border border-white/12 bg-white/8 p-3">
+                    <Image
+                      src="/consultancy-team-secondary.svg"
+                      alt="Two professionals reviewing a consultancy plan together"
+                      width={900}
+                      height={720}
+                      className="h-full w-full rounded-[1rem] object-cover"
+                    />
+                  </div>
+                  <div className="rounded-[1.55rem] border border-[rgba(241,166,75,0.28)] bg-white/8 p-6 text-white">
+                    <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                      Established in 2025
+                    </p>
+                    <p className="mt-3 text-lg leading-8 text-white/86">
+                      Forward-thinking search and selection support for Non-IT hiring mandates.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="mt-12 grid w-full max-w-5xl gap-4 md:grid-cols-3">
-              <article className="border border-white/12 bg-white/10 p-6 text-left backdrop-blur-sm">
+            <div className="mt-12 grid gap-4 md:grid-cols-3">
+              <article className="rounded-[1.45rem] border border-white/12 bg-white/8 p-6 text-white backdrop-blur-sm">
                 <p className="eyebrow text-[var(--color-accent)]">Sector Focus</p>
-                <p className="mt-3 text-base leading-7 text-white/84">
+                <p className="mt-3 text-base leading-7 text-white/82">
                   Dedicated support across life sciences, industrial, engineering, and operations-driven roles.
                 </p>
               </article>
-              <article className="border border-white/12 bg-white/10 p-6 text-left backdrop-blur-sm">
+              <article className="rounded-[1.45rem] border border-white/12 bg-white/8 p-6 text-white backdrop-blur-sm">
                 <p className="eyebrow text-[var(--color-accent)]">Search Discipline</p>
-                <p className="mt-3 text-base leading-7 text-white/84">
+                <p className="mt-3 text-base leading-7 text-white/82">
                   Structured execution from brief intake to shortlist delivery and stakeholder coordination.
                 </p>
               </article>
-              <article className="border border-white/12 bg-white/10 p-6 text-left backdrop-blur-sm">
+              <article className="rounded-[1.45rem] border border-white/12 bg-white/8 p-6 text-white backdrop-blur-sm">
                 <p className="eyebrow text-[var(--color-accent)]">Client Reach</p>
-                <p className="mt-3 text-base leading-7 text-white/84">
+                <p className="mt-3 text-base leading-7 text-white/82">
                   Hyderabad headquarters with Vijayawada branch support for active hiring mandates.
                 </p>
               </article>
