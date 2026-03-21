@@ -49,115 +49,119 @@ export default function Home() {
     <div id="top" className="relative">
       <SiteHeader />
       <main>
-        <section className="hero-surface overflow-hidden">
-          <div className="section-shell py-14 sm:py-18 lg:py-20">
-            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--color-accent-strong)]">
-                  Werkly Consulting Pvt LTD
+        <section className="relative overflow-hidden bg-[#1a2227]">
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(15,19,24,0.82),rgba(15,19,24,0.38)_45%,rgba(15,19,24,0.74))]" />
+            <div className="absolute inset-y-0 left-0 w-[22%] bg-[radial-gradient(circle_at_left,rgba(255,255,255,0.08),transparent_60%)]" />
+            <div className="absolute inset-y-0 right-0 w-[22%] bg-[radial-gradient(circle_at_right,rgba(255,255,255,0.08),transparent_60%)]" />
+            <Image
+              src="/consultancy-team-primary.svg"
+              alt="Consultants collaborating"
+              fill
+              className="object-cover object-center opacity-95"
+              priority
+            />
+          </div>
+          <div className="relative section-shell flex min-h-[560px] flex-col items-center justify-center py-20 text-center sm:min-h-[620px]">
+            <p className="text-sm font-semibold uppercase tracking-[0.34em] text-[var(--color-accent)]">
+              Werkly Consulting Pvt LTD
+            </p>
+            <h1 className="mt-6 max-w-5xl font-[family-name:var(--font-display)] text-[3rem] leading-[1.02] text-white sm:text-[4.2rem] lg:text-[5rem]">
+              Nextgen HR solutions for Non-IT businesses.
+            </h1>
+            <p className="mt-5 max-w-3xl text-base leading-8 text-white/80 sm:text-lg">
+              Structured search and selection support for companies that need faster hiring closures, stronger candidate quality, and better sector alignment.
+            </p>
+            <div className="mt-9 flex flex-col gap-4 sm:flex-row">
+              <a
+                href="#contact"
+                className="inline-flex min-w-[190px] items-center justify-center rounded-none bg-[var(--color-brand-cyan)] px-7 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[#064f59]"
+              >
+                Request Enquiry
+              </a>
+              <a
+                href="#expertise"
+                className="inline-flex min-w-[190px] items-center justify-center border border-white/35 bg-transparent px-7 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white/10"
+              >
+                What We Do Best
+              </a>
+            </div>
+            <div className="mt-12 grid w-full max-w-5xl gap-4 md:grid-cols-3">
+              <article className="border border-white/12 bg-white/10 p-6 text-left backdrop-blur-sm">
+                <p className="eyebrow text-[var(--color-accent)]">Sector Focus</p>
+                <p className="mt-3 text-base leading-7 text-white/84">
+                  Dedicated support across life sciences, industrial, engineering, and operations-driven roles.
                 </p>
-                <h1 className="mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[3.2rem] leading-[0.98] text-[var(--color-ink)] sm:text-[4.15rem] lg:text-[4.7rem]">
-                  Nextgen HR solutions for Non-IT businesses.
-                </h1>
-                <p className="mt-5 max-w-xl text-[1.02rem] leading-8 muted-copy sm:text-[1.08rem]">
-                  Search and selection support for companies that need faster closures, stronger shortlist quality, and a partner that understands sector context.
+              </article>
+              <article className="border border-white/12 bg-white/10 p-6 text-left backdrop-blur-sm">
+                <p className="eyebrow text-[var(--color-accent)]">Search Discipline</p>
+                <p className="mt-3 text-base leading-7 text-white/84">
+                  Structured execution from brief intake to shortlist delivery and stakeholder coordination.
                 </p>
-                <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-                  <a
-                    href="#expertise"
-                    className="inline-flex min-w-[176px] items-center justify-center rounded-xl bg-[var(--color-dark)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#064c55]"
-                  >
-                    View Sectors
-                  </a>
-                  <a
-                    href="#process"
-                    className="inline-flex min-w-[176px] items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-6 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                  >
-                    Our Process
-                  </a>
-                </div>
-                <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                  <article className="accent-card p-5">
-                    <p className="eyebrow">Sector Focus</p>
-                    <p className="mt-3 text-sm leading-6 muted-copy">
-                      Dedicated delivery across manufacturing, life sciences, industrial, and allied functions.
-                    </p>
-                  </article>
-                  <article className="accent-card p-5">
-                    <p className="eyebrow">Execution</p>
-                    <p className="mt-3 text-sm leading-6 muted-copy">
-                      Structured search, screening, and stakeholder coordination from brief to closure.
-                    </p>
-                  </article>
-                  <article className="accent-card p-5">
-                    <p className="eyebrow">Reach</p>
-                    <p className="mt-3 text-sm leading-6 muted-copy">
-                      Hyderabad headquarters with Vijayawada branch coverage for growing client mandates.
-                    </p>
-                  </article>
-                </div>
-              </div>
-              <div className="grid gap-5 lg:grid-cols-[1.02fr_0.78fr]">
-                <div className="hero-frame accent-card overflow-hidden p-4">
-                  <Image
-                    src="/consultancy-team-primary.svg"
-                    alt="Three consultants collaborating at a meeting table"
-                    width={1200}
-                    height={900}
-                    className="h-full w-full rounded-[1.3rem] object-cover"
-                    priority
-                  />
-                </div>
-                <div className="grid gap-5">
-                  <div className="hero-frame accent-card overflow-hidden p-4">
-                    <Image
-                      src="/consultancy-team-secondary.svg"
-                      alt="Two professionals reviewing a consultancy plan together"
-                      width={900}
-                      height={720}
-                      className="h-full w-full rounded-[1rem] object-cover"
-                    />
-                  </div>
-                  <div className="rounded-[1.6rem] border border-[rgba(190,72,26,0.16)] bg-[var(--color-accent-strong)]/5 p-6">
-                    <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">
-                      Established in 2025
-                    </p>
-                    <p className="mt-3 text-lg leading-8 text-[var(--color-ink)]">
-                      Forward-thinking search and selection support for Non-IT hiring mandates.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              </article>
+              <article className="border border-white/12 bg-white/10 p-6 text-left backdrop-blur-sm">
+                <p className="eyebrow text-[var(--color-accent)]">Client Reach</p>
+                <p className="mt-3 text-base leading-7 text-white/84">
+                  Hyderabad headquarters with Vijayawada branch support for active hiring mandates.
+                </p>
+              </article>
             </div>
           </div>
         </section>
 
-        <section id="expertise" className="section-shell anchor-section py-16 sm:py-24">
-          <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-start">
-            <div className="sticky top-28">
-              <p className="eyebrow">Sectors</p>
-              <h2 className="mt-4 section-title">
-                Recruitment support built around the sectors you actually hire for.
-              </h2>
-              <p className="mt-5 max-w-xl text-base leading-7 muted-copy sm:text-lg">
-                Werkly brings domain context into search and selection so briefs move faster, screening gets sharper, and closures happen with better alignment.
+        <section className="section-shell py-16 sm:py-20">
+          <div className="mx-auto max-w-4xl text-center">
+            <p className="eyebrow">What We Do Best</p>
+            <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
+              Sector-led recruitment support designed for clarity, speed, and hiring confidence.
+            </h2>
+          </div>
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            <article className="accent-card p-7 text-center">
+              <p className="eyebrow">Structured Delivery</p>
+              <p className="mt-4 text-base leading-7 muted-copy">
+                Recruitment support built around business operations, workforce priorities, and defined ownership.
               </p>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {sectors.map((sector) => (
-                <article key={sector} className="accent-card flex min-h-[172px] flex-col justify-between p-6">
-                  <p className="eyebrow">Non-IT Vertical</p>
-                  <h3 className="mt-5 text-2xl font-semibold leading-snug text-[var(--color-ink)]">
-                    {sector}
-                  </h3>
-                  <div className="mt-6 h-px w-16 bg-[var(--color-accent-strong)]/35" />
-                </article>
-              ))}
-            </div>
+            </article>
+            <article className="accent-card p-7 text-center">
+              <p className="eyebrow">Turnkey Search</p>
+              <p className="mt-4 text-base leading-7 muted-copy">
+                Clear execution from search and screening to shortlist presentation, coordination, and closure.
+              </p>
+            </article>
+            <article className="accent-card p-7 text-center">
+              <p className="eyebrow">Industry Context</p>
+              <p className="mt-4 text-base leading-7 muted-copy">
+                Domain-specific delivery across Non-IT sectors where capability fit and business context matter.
+              </p>
+            </article>
           </div>
         </section>
 
-        <section id="process" className="anchor-section bg-[var(--color-dark)]/6 py-16 sm:py-24">
+        <section id="expertise" className="section-shell anchor-section py-8 sm:py-12">
+          <div className="mx-auto max-w-4xl text-center">
+            <p className="eyebrow">Sectors</p>
+            <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
+              Recruitment support built around the sectors you actually hire for.
+            </h2>
+            <p className="mt-5 text-base leading-7 muted-copy sm:text-lg">
+              Werkly brings domain context into search and selection so briefs move faster, screening gets sharper, and closures happen with better alignment.
+            </p>
+          </div>
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {sectors.map((sector) => (
+              <article key={sector} className="accent-card flex min-h-[172px] flex-col justify-between p-6">
+                <p className="eyebrow">Non-IT Vertical</p>
+                <h3 className="mt-5 text-2xl font-semibold leading-snug text-[var(--color-ink)]">
+                  {sector}
+                </h3>
+                <div className="mt-6 h-px w-16 bg-[var(--color-brand-cyan)]/35" />
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="process" className="anchor-section py-16 sm:py-24">
           <div className="section-shell">
             <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
               <div className="accent-card p-7 sm:p-8">
@@ -176,7 +180,7 @@ export default function Home() {
               <div className="grid gap-4">
                 {processSteps.map((step, index) => (
                   <article key={step.title} className="accent-card flex gap-4 p-6">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-strong)] text-sm font-semibold text-white">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand-cyan)] text-sm font-semibold text-white">
                       0{index + 1}
                     </div>
                     <div>

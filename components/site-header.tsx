@@ -9,27 +9,42 @@ const navItems = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--color-line)] bg-[rgba(255,253,249,0.92)] backdrop-blur-xl">
-      <div className="mx-auto flex h-[68px] w-full max-w-7xl items-center justify-between gap-6 px-5 sm:px-8">
-        <a href="#top" className="relative flex h-full items-center overflow-visible">
-          <Image
-            src="/Werkly Logo.png"
-            alt="Werkly logo"
-            width={640}
-            height={176}
-            className="absolute left-0 top-1/2 h-[140px] w-auto -translate-y-1/2 object-contain"
-            priority
-          />
-          <span className="block w-[320px]" aria-hidden="true" />
-        </a>
-        <nav className="hidden items-center gap-8 text-sm text-[var(--color-ink)]/74 md:flex">
-          {navItems.map((item) => (
-            <a key={item.href} href={item.href} className="transition hover:text-[var(--color-dark)]">
-              {item.label}
+    <header className="sticky top-0 z-50">
+      <div className="hidden border-b border-white/10 bg-[#1b2227] text-white/70 md:block">
+        <div className="mx-auto flex h-9 w-full max-w-7xl items-center justify-between px-5 text-xs sm:px-8">
+          <div className="flex items-center gap-5">
+            <span>Hyderabad Headquarters</span>
+            <span className="text-white/35">|</span>
+            <a href="mailto:hr@werkly.in" className="transition hover:text-white">
+              hr@werkly.in
             </a>
-          ))}
-        </nav>
-        <EnquiryModal />
+          </div>
+          <p className="tracking-[0.18em] text-white/55">
+            Non-IT Search and Selection Partner
+          </p>
+        </div>
+      </div>
+      <div className="border-b border-slate-200/80 bg-[rgba(255,255,255,0.96)] shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+        <div className="mx-auto flex h-[76px] w-full max-w-7xl items-center justify-between gap-6 px-5 sm:px-8">
+          <a href="#top" className="flex items-center">
+            <Image
+              src="/Werkly Logo.png"
+              alt="Werkly logo"
+              width={640}
+              height={176}
+              className="h-[56px] w-auto object-contain"
+              priority
+            />
+          </a>
+          <nav className="hidden items-center gap-9 text-sm font-medium uppercase tracking-[0.16em] text-slate-700 md:flex">
+            {navItems.map((item) => (
+              <a key={item.href} href={item.href} className="transition hover:text-[var(--color-brand-cyan)]">
+                {item.label}
+              </a>
+            ))}
+          </nav>
+          <EnquiryModal />
+        </div>
       </div>
     </header>
   );
