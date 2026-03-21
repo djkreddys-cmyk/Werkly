@@ -17,7 +17,7 @@ export function SiteHeader() {
             alt="Werkly logo"
             width={640}
             height={176}
-            className="h-[96px] w-auto object-contain"
+            className="h-[136px] w-auto object-contain"
             priority
           />
         </a>

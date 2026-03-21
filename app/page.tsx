@@ -63,20 +63,6 @@ export default function Home() {
                 <p className="mt-5 max-w-xl text-[1.03rem] leading-8 text-white/80 sm:text-[1.08rem]">
                   Structured search and selection support for companies that need faster hiring closures, stronger candidate quality, and better sector alignment.
                 </p>
-                <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-                  <a
-                    href="#contact"
-                    className="inline-flex min-w-[182px] items-center justify-center rounded-xl bg-[var(--color-accent)] px-6 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:opacity-95"
-                  >
-                    Request Enquiry
-                  </a>
-                  <a
-                    href="#expertise"
-                    className="inline-flex min-w-[182px] items-center justify-center rounded-xl border border-white/25 bg-white/6 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/12"
-                  >
-                    View Sectors
-                  </a>
-                </div>
               </div>
               <div className="grid gap-5 sm:grid-cols-[1.05fr_0.95fr]">
                 <div className="hero-frame overflow-hidden rounded-[1.8rem] border border-white/12 bg-white/8 p-3">
