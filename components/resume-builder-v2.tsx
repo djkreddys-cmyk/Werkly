@@ -334,32 +334,32 @@ export function ResumeBuilder() {
           <p className="muted-copy mt-5 text-base leading-8 sm:text-lg">Open the builder in a popup, upload a candidate photo, switch between ten template styles, and keep the resume preview visible on the page.</p>
         </div>
 
-        <div className="mt-10 flex flex-wrap items-end justify-center gap-4 no-print">
-          <div className="w-full max-w-sm text-left">
-            <label className="space-y-2">
-              <span className="eyebrow">Template Style</span>
-              <select
-                value={template}
-                onChange={(event) => setTemplate(event.target.value as TemplateStyle)}
-                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-medium text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              >
-                {templateCards.map((item) => (
-                  <option key={item.key} value={item.key}>
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
-              {templateCards.find((item) => item.key === template)?.description}
-            </p>
-          </div>
+        <div className="mt-10 flex justify-center no-print">
           <button type="button" onClick={() => setIsFormOpen(true)} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]">Open Resume Builder</button>
         </div>
 
         <div className="mt-8">
           {resume ? (
             <div className="space-y-4">
+              <div className="flex flex-col gap-2 no-print sm:max-w-sm">
+                <label className="space-y-2">
+                  <span className="eyebrow">Template Style</span>
+                  <select
+                    value={template}
+                    onChange={(event) => setTemplate(event.target.value as TemplateStyle)}
+                    className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-medium text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  >
+                    {templateCards.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-sm leading-6 text-[var(--color-muted)]">
+                  {templateCards.find((item) => item.key === template)?.description}
+                </p>
+              </div>
               <div className="flex flex-wrap items-center justify-end gap-3 no-print">
                 <button type="button" onClick={downloadPdf} className="rounded-2xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]">Download PDF</button>
                 <button type="button" onClick={downloadWord} className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-strong)] hover:text-white">Download Word</button>
