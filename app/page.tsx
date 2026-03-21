@@ -2,39 +2,6 @@ import Image from "next/image";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
-const serviceHighlights = [
-  {
-    title: "Tailor-Made HR Solutions",
-    description:
-      "Customized recruitment support that strengthens workforce capability and streamlines business operations.",
-  },
-  {
-    title: "Turnkey Search & Selection",
-    description:
-      "Structured execution for Non-IT hiring mandates with clear ownership, speed, and measurable outcomes.",
-  },
-  {
-    title: "Domain-Specific Delivery",
-    description:
-      "Specialized consultants aligned to industry verticals for better fit, faster delivery, and consistent quality.",
-  },
-];
-
-const serviceSupport = [
-  {
-    title: "Turnaround Discipline",
-    description: "Defined timelines and structured follow-ups to keep hiring momentum intact.",
-  },
-  {
-    title: "Quality Screening",
-    description: "Shortlists are filtered for relevance, capability, and alignment with client priorities.",
-  },
-  {
-    title: "Client Alignment",
-    description: "Execution stays mapped to business goals, not just open positions.",
-  },
-];
-
 const approachPoints = [
   "Understanding client business models and workforce strategy",
   "Delivering customized talent acquisition solutions",
@@ -160,34 +127,6 @@ export default function Home() {
                 Search and selection support across industrial, manufacturing, life sciences, and operations-led sectors.
               </p>
             </article>
-          </div>
-        </section>
-
-        <section id="services" className="section-shell anchor-section py-16 sm:py-24">
-          <div className="mx-auto max-w-4xl text-center">
-            <p className="eyebrow">About Werkly</p>
-            <h2 className="mt-4 section-title">
-              Recruitment solutions built for precision, speed, and alignment.
-            </h2>
-            <p className="mt-4 text-base leading-7 muted-copy sm:text-lg">
-              Werkly brings together specialized consultants who deliver end-to-end HR solutions across diverse Non-IT industries.
-            </p>
-          </div>
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {serviceHighlights.map((service) => (
-              <article key={service.title} className="story-card p-7">
-                <h3 className="text-2xl font-semibold text-slate-950">{service.title}</h3>
-                <p className="mt-4 text-base leading-7 muted-copy">{service.description}</p>
-              </article>
-            ))}
-          </div>
-          <div className="mt-6 grid gap-5 lg:grid-cols-3">
-            {serviceSupport.map((item) => (
-              <article key={item.title} className="story-card p-7">
-                <h3 className="text-xl font-semibold text-slate-950">{item.title}</h3>
-                <p className="mt-3 text-base leading-7 muted-copy">{item.description}</p>
-              </article>
-            ))}
           </div>
         </section>
 

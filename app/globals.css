@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --color-dark: #17382f;
-  --color-accent: #cdb89a;
-  --color-paper: #f6f1e8;
+  --color-dark: #091318;
+  --color-accent: #f1a64b;
+  --color-accent-strong: #dc7a2e;
+  --color-brand-cyan: #2ec7d3;
+  --color-paper: #f7f2ea;
   --color-surface: #fffdf9;
-  --color-ink: #22392f;
-  --color-line: rgba(23, 56, 47, 0.14);
-  --color-muted: rgba(34, 57, 47, 0.82);
+  --color-ink: #1a2d33;
+  --color-line: rgba(22, 45, 51, 0.14);
+  --color-muted: rgba(26, 45, 51, 0.8);
 }
 
 @theme inline {
@@ -26,7 +28,10 @@ body {
   min-height: 100vh;
   color: var(--color-ink);
   font-family: var(--font-sans), sans-serif;
-  background: linear-gradient(180deg, #efe7da 0%, var(--color-paper) 34%, #fbf8f2 100%);
+  background:
+    radial-gradient(circle at top left, rgba(46, 199, 211, 0.08), transparent 24%),
+    radial-gradient(circle at top right, rgba(241, 166, 75, 0.1), transparent 28%),
+    linear-gradient(180deg, #f3ece2 0%, var(--color-paper) 34%, #fbf8f2 100%);
 }
 
 a {
@@ -35,7 +40,7 @@ a {
 }
 
 ::selection {
-  background: rgba(231, 220, 199, 0.8);
+  background: rgba(241, 166, 75, 0.35);
 }
 
 .section-shell {
@@ -59,7 +64,7 @@ a {
 
 .section-title {
   @apply font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
 }
 
 .muted-copy {
@@ -67,7 +72,7 @@ a {
 }
 
 .hero-frame {
-  box-shadow: 0 30px 70px rgba(10, 22, 42, 0.22);
+  box-shadow: 0 30px 70px rgba(9, 19, 24, 0.24);
 }
 
 .anchor-section {

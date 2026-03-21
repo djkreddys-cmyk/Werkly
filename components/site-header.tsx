@@ -8,13 +8,15 @@ const navItems = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[rgba(5,7,11,0.92)] backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-[rgba(9,19,24,0.92)] backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
-        <a href="#top" className="flex items-center gap-3 text-sm font-semibold tracking-[0.12em] text-white">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(231,220,199,0.42)] bg-[rgba(231,220,199,0.12)] text-base text-[var(--color-accent)]">
-            W
+        <a href="#top" className="flex items-center text-sm font-semibold tracking-[0.12em] text-white">
+          <span className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(135deg,var(--color-brand-cyan),var(--color-accent-strong))] shadow-[0_10px_24px_rgba(9,19,24,0.28)]">
+            <span className="absolute inset-[2px] rounded-[0.85rem] bg-[rgba(9,19,24,0.24)]" />
+            <span className="relative text-lg font-extrabold text-white">
+              W
+            </span>
           </span>
-          Werkly
         </a>
         <nav className="hidden items-center gap-8 text-sm text-white/80 md:flex">
           {navItems.map((item) => (

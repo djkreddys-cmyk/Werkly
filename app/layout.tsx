@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import { Lora, Work_Sans } from "next/font/google";
+import { Manrope, Montserrat } from "next/font/google";
 import "./globals.css";
 
-const workSans = Work_Sans({
+const manrope = Manrope({
   variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const lora = Lora({
+const montserrat = Montserrat({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${workSans.variable} ${lora.variable} scroll-smooth`}
+      className={`${manrope.variable} ${montserrat.variable} scroll-smooth`}
     >
       <body className="min-h-screen bg-[var(--color-paper)] text-slate-950 antialiased">
         {children}
