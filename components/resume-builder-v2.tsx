@@ -334,24 +334,56 @@ export function ResumeBuilder() {
           <p className="muted-copy mt-5 text-base leading-8 sm:text-lg">Open the builder in a popup, upload a candidate photo, switch between ten template styles, and keep the resume preview visible on the page.</p>
         </div>
 
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-3 no-print">
+        <div className="mt-10 flex flex-wrap items-end justify-center gap-4 no-print">
+          <div className="w-full max-w-sm text-left">
+            <label className="space-y-2">
+              <span className="eyebrow">Template Style</span>
+              <select
+                value={template}
+                onChange={(event) => setTemplate(event.target.value as TemplateStyle)}
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-medium text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                {templateCards.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
+              {templateCards.find((item) => item.key === template)?.description}
+            </p>
+          </div>
           <button type="button" onClick={() => setIsFormOpen(true)} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]">Open Resume Builder</button>
-          <button type="button" onClick={downloadPdf} disabled={!resume} className="rounded-2xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-50">Download PDF</button>
-          <button type="button" onClick={downloadWord} disabled={!resume} className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-strong)] hover:text-white disabled:cursor-not-allowed disabled:opacity-50">Download Word</button>
         </div>
 
-        <div className="mt-8 grid gap-5 no-print lg:grid-cols-[0.38fr_0.62fr]">
-          <div className="soft-panel p-5"><div className="flex items-center justify-between gap-3"><div><p className="eyebrow">Template Style</p><p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">Choose from ten layouts before exporting.</p></div><button type="button" onClick={() => setIsFormOpen(true)} className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]">Edit Data</button></div><div className="mt-5 grid gap-3">{templateCards.map((item) => { const active = template === item.key; return <button key={item.key} type="button" onClick={() => setTemplate(item.key)} className={`rounded-[1.25rem] border p-4 text-left transition ${active ? "border-[var(--color-dark)] bg-[rgba(8,96,108,0.08)]" : "border-[var(--color-line)] bg-white hover:border-[rgba(8,96,108,0.22)]"}`}><p className="text-base font-semibold text-[var(--color-ink)]">{item.title}</p><p className="mt-1 text-sm leading-6 text-[var(--color-muted)]">{item.description}</p></button>; })}</div></div>
-          <div className="soft-panel p-5"><p className="eyebrow">Preview Notes</p><ul className="mt-4 space-y-2 text-sm leading-7 text-[var(--color-muted)]"><li>Candidate photo is included in the preview and exports when uploaded.</li><li>PDF export now uses a resume-only print document.</li><li>Word export downloads an editable document version.</li></ul></div>
+        <div className="mt-8">
+          {resume ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-end gap-3 no-print">
+                <button type="button" onClick={downloadPdf} className="rounded-2xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]">Download PDF</button>
+                <button type="button" onClick={downloadWord} className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-strong)] hover:text-white">Download Word</button>
+              </div>
+              <ResumePreview resume={resume} template={template} photoDataUrl={form.photoDataUrl} />
+            </div>
+          ) : (
+            <div className="soft-panel p-10 text-center">
+              <p className="eyebrow">Live Preview</p>
+              <h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-[var(--color-ink)]">Your generated resume preview will stay on this screen.</h2>
+              <p className="mt-4 text-sm leading-7 text-[var(--color-muted)]">Open the popup builder, complete the form, and generate the resume. The preview updates here while the form stays separate.</p>
+            </div>
+          )}
         </div>
-
-        <div className="mt-8">{resume ? <ResumePreview resume={resume} template={template} photoDataUrl={form.photoDataUrl} /> : <div className="soft-panel p-10 text-center"><p className="eyebrow">Live Preview</p><h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-[var(--color-ink)]">Your generated resume preview will stay on this screen.</h2><p className="mt-4 text-sm leading-7 text-[var(--color-muted)]">Open the popup builder, complete the form, and generate the resume. The preview updates here while the form stays separate.</p></div>}</div>
 
         {isFormOpen && (
           <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm sm:p-6">
             <div className="soft-panel no-print relative my-8 w-full max-w-5xl p-6 sm:p-8">
               <button type="button" onClick={() => setIsFormOpen(false)} className="absolute right-5 top-5 rounded-full border border-[var(--color-line)] bg-white px-3 py-1 text-sm font-semibold text-[var(--color-ink)]">Close</button>
               <div className="pr-16"><p className="eyebrow">Resume Builder Form</p><h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl leading-tight text-[var(--color-ink)]">Enter candidate details and generate the resume.</h2></div>
+              <div className="mt-5 rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-paper)] p-4">
+                <p className="text-sm font-semibold text-[var(--color-ink)]">Personal Information included in resume</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">Email, phone, location, LinkedIn, and portfolio are added automatically when you fill them here.</p>
+              </div>
               <div className="mt-6 grid gap-5 sm:grid-cols-2">
                 <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Full Name</span><input value={form.fullName} onChange={(event) => handleFieldChange("fullName", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Your full name" /></label>
                 <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Target Role</span><input value={form.targetRole} onChange={(event) => handleFieldChange("targetRole", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Target role" /></label>
