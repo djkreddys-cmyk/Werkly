@@ -58,7 +58,7 @@ export default function Home() {
                   Werkly Consulting Pvt LTD
                 </p>
                 <h1 className="mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[3.35rem] leading-[0.98] sm:text-[4.35rem] lg:text-[4.7rem]">
-                  Tailor-made HR solutions for Non-IT businesses.
+                  Nextgen HR solutions for Non-IT businesses.
                 </h1>
               <p className="mt-5 max-w-xl text-[1.02rem] leading-8 text-white/82 sm:text-[1.06rem]">
                   Werkly delivers structured search and selection solutions across the Non-IT sector.

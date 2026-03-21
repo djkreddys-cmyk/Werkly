@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { EnquiryModal } from "@/components/enquiry-modal";
 
 const navItems = [
@@ -10,13 +11,15 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[rgba(190,72,26,0.94)] backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
-        <a href="#top" className="flex items-center text-sm font-semibold tracking-[0.12em] text-white">
-          <span className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(135deg,var(--color-brand-cyan),var(--color-accent-strong))] shadow-[0_10px_24px_rgba(8,96,108,0.28)]">
-            <span className="absolute inset-[2px] rounded-[0.85rem] bg-[rgba(8,96,108,0.26)]" />
-            <span className="relative text-lg font-extrabold text-white">
-              W
-            </span>
-          </span>
+        <a href="#top" className="flex items-center">
+          <Image
+            src="/Werkly Logo.png"
+            alt="Werkly logo"
+            width={220}
+            height={60}
+            className="h-12 w-auto object-contain"
+            priority
+          />
         </a>
         <nav className="hidden items-center gap-8 text-sm text-white/80 md:flex">
           {navItems.map((item) => (
