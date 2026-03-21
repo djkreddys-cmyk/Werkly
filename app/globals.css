@@ -3,13 +3,13 @@
 :root {
   --color-dark: #08606c;
   --color-accent: #f1a64b;
-  --color-accent-strong: #dc7a2e;
-  --color-brand-cyan: #2ec7d3;
-  --color-paper: #f7f2ea;
+  --color-accent-strong: #be481a;
+  --color-brand-cyan: #08606c;
+  --color-paper: #f8f4ee;
   --color-surface: #fffdf9;
-  --color-ink: #17424a;
-  --color-line: rgba(8, 96, 108, 0.16);
-  --color-muted: rgba(23, 66, 74, 0.8);
+  --color-ink: #17353d;
+  --color-line: rgba(8, 96, 108, 0.12);
+  --color-muted: rgba(23, 53, 61, 0.72);
 }
 
 @theme inline {
@@ -29,9 +29,9 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans), sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(46, 199, 211, 0.08), transparent 24%),
-    radial-gradient(circle at top right, rgba(241, 166, 75, 0.1), transparent 28%),
-    linear-gradient(180deg, #f3ece2 0%, var(--color-paper) 34%, #fbf8f2 100%);
+    radial-gradient(circle at top left, rgba(8, 96, 108, 0.08), transparent 22%),
+    radial-gradient(circle at top right, rgba(190, 72, 26, 0.08), transparent 24%),
+    linear-gradient(180deg, #fffdf8 0%, var(--color-paper) 30%, #fffdfa 100%);
 }
 
 a {
@@ -57,6 +57,24 @@ a {
   border-color: var(--color-line);
 }
 
+.accent-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(255, 255, 255, 0.92)),
+    var(--color-surface);
+  border: 1px solid rgba(8, 96, 108, 0.14);
+  border-radius: 1.6rem;
+  box-shadow: 0 22px 50px rgba(16, 24, 40, 0.06);
+}
+
+.soft-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.92)),
+    var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 1.6rem;
+  box-shadow: 0 18px 48px rgba(15, 47, 54, 0.08);
+}
+
 .eyebrow {
   @apply text-xs font-semibold uppercase tracking-[0.24em];
   color: var(--color-accent);
@@ -72,9 +90,17 @@ a {
 }
 
 .hero-frame {
-  box-shadow: 0 30px 70px rgba(9, 19, 24, 0.24);
+  box-shadow: 0 28px 60px rgba(9, 19, 24, 0.12);
 }
 
 .anchor-section {
   scroll-margin-top: 96px;
+}
+
+.hero-surface {
+  background:
+    radial-gradient(circle at top right, rgba(190, 72, 26, 0.08), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(8, 96, 108, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 246, 239, 0.94));
+  border-bottom: 1px solid rgba(8, 96, 108, 0.08);
 }
