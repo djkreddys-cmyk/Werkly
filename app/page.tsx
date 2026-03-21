@@ -50,7 +50,7 @@ export default function Home() {
       <SiteHeader />
       <main>
         <section className="relative overflow-hidden bg-[var(--color-dark)]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(231,220,199,0.16),transparent_24%),linear-gradient(180deg,rgba(23,56,47,0.86),rgba(23,56,47,1))]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(241,166,75,0.16),transparent_24%),radial-gradient(circle_at_80%_20%,rgba(46,199,211,0.14),transparent_26%),linear-gradient(180deg,rgba(8,96,108,0.9),rgba(8,96,108,1))]" />
           <div className="section-shell relative py-14 sm:py-18 lg:py-22">
             <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
               <div className="text-white">
@@ -93,7 +93,7 @@ export default function Home() {
                       className="h-full w-full rounded-[1rem] object-cover"
                     />
                   </div>
-                  <div className="rounded-[1.5rem] border border-[rgba(231,220,199,0.22)] bg-[rgba(231,220,199,0.08)] p-6 text-white">
+                  <div className="rounded-[1.5rem] border border-[rgba(241,166,75,0.28)] bg-[rgba(255,255,255,0.06)] p-6 text-white">
                     <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
                       Established in 2025
                     </p>
@@ -178,7 +178,7 @@ export default function Home() {
               {sectors.map((sector) => (
                 <article
                   key={sector}
-                  className="rounded-[1.3rem] border border-[rgba(231,220,199,0.26)] bg-[rgba(231,220,199,0.08)] p-6 text-white"
+                  className="rounded-[1.3rem] border border-[rgba(241,166,75,0.24)] bg-[rgba(255,255,255,0.06)] p-6 text-white"
                 >
                   <h3 className="text-xl font-semibold">{sector}</h3>
                 </article>
