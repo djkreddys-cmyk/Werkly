@@ -38,8 +38,9 @@ async function fileToAttachment(file: File) {
   const bytes = await file.arrayBuffer()
 
   return {
-    name: file.name,
+    filename: file.name,
     content: Buffer.from(bytes).toString('base64'),
+    content_type: file.type || undefined,
   }
 }
 
