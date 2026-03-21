@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 
 type ExperienceInput = {
+  id: string
   company: string
   title: string
   location: string
@@ -12,6 +13,7 @@ type ExperienceInput = {
 }
 
 type EducationInput = {
+  id: string
   institution: string
   degree: string
   year: string
@@ -62,6 +64,7 @@ type GeneratedResume = {
 }
 
 const emptyExperience = (): ExperienceInput => ({
+  id: crypto.randomUUID(),
   company: '',
   title: '',
   location: '',
@@ -71,6 +74,7 @@ const emptyExperience = (): ExperienceInput => ({
 })
 
 const emptyEducation = (): EducationInput => ({
+  id: crypto.randomUUID(),
   institution: '',
   degree: '',
   year: '',
@@ -200,12 +204,12 @@ export function ResumeBuilder() {
   return (
     <div className="section-shell print-shell py-10 sm:py-12">
       <div className="no-print mb-8 max-w-3xl">
-        <p className="eyebrow">AI Resume Builder</p>
+        <p className="eyebrow">Resume Builder</p>
         <h1 className="mt-4 section-title">
-          Build a polished resume with AI and export it as PDF.
+          Build a polished resume and export it as PDF.
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 muted-copy sm:text-lg">
-          Add your career details once, generate stronger summaries and experience bullets, then export a styled resume ready for applications.
+          Add your career details once, generate a stronger structured resume draft, then export a styled version ready for applications.
         </p>
       </div>
 
@@ -278,7 +282,7 @@ export function ResumeBuilder() {
                 </button>
               </div>
               {form.experiences.map((experience, index) => (
-                <div key={`${experience.company}-${index}`} className="rounded-2xl border border-[var(--color-line)] bg-white p-4">
+                <div key={experience.id} className="rounded-2xl border border-[var(--color-line)] bg-white p-4">
                   <div className="mb-4 flex items-center justify-between">
                     <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
                       Experience {index + 1}
@@ -309,7 +313,7 @@ export function ResumeBuilder() {
                 </button>
               </div>
               {form.education.map((item, index) => (
-                <div key={`${item.institution}-${index}`} className="grid gap-4 rounded-2xl border border-[var(--color-line)] bg-white p-4 sm:grid-cols-[1.2fr_1fr_120px_auto] sm:items-center">
+                <div key={item.id} className="grid gap-4 rounded-2xl border border-[var(--color-line)] bg-white p-4 sm:grid-cols-[1.2fr_1fr_120px_auto] sm:items-center">
                   <input className="rounded-xl border border-[var(--color-line)] px-4 py-3 outline-none" placeholder="Institution" value={item.institution} onChange={(event) => updateEducation(index, 'institution', event.target.value)} />
                   <input className="rounded-xl border border-[var(--color-line)] px-4 py-3 outline-none" placeholder="Degree" value={item.degree} onChange={(event) => updateEducation(index, 'degree', event.target.value)} />
                   <input className="rounded-xl border border-[var(--color-line)] px-4 py-3 outline-none" placeholder="Year" value={item.year} onChange={(event) => updateEducation(index, 'year', event.target.value)} />
@@ -327,7 +331,7 @@ export function ResumeBuilder() {
                 disabled={!canGenerate || status === 'loading'}
                 className="inline-flex items-center justify-center rounded-xl bg-[var(--color-dark)] px-6 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {status === 'loading' ? 'Generating Resume...' : 'Generate with AI'}
+                {status === 'loading' ? 'Generating Resume...' : 'Generate Resume'}
               </button>
               <button
                 type="button"
@@ -351,7 +355,7 @@ export function ResumeBuilder() {
               <p className={`text-sm ${status === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{message}</p>
             ) : (
               <p className="text-sm muted-copy">
-                Add the most relevant career details first. The AI will rewrite and structure them into a cleaner resume.
+                Add the most relevant career details first. The builder will structure them into a cleaner resume draft.
               </p>
             )}
           </div>
@@ -486,7 +490,7 @@ export function ResumeBuilder() {
             <div className="flex min-h-[720px] flex-col items-center justify-center text-center">
               <p className="eyebrow">Resume Preview</p>
               <h2 className="mt-4 max-w-2xl font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950">
-                Your AI-generated resume will appear here.
+                Your generated resume will appear here.
               </h2>
               <p className="mt-4 max-w-xl text-base leading-7 muted-copy">
                 Complete the form, generate your resume, then review it here before downloading it as PDF.
