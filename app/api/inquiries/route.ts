@@ -47,6 +47,7 @@ async function fileToAttachment(file: File) {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
+    const inquiryType = asString(formData.get('inquiryType'))
     const senderEmail = process.env.RESEND_FROM_EMAIL
     const senderName = process.env.RESEND_FROM_NAME || 'Werkly Website'
     const apiKey = process.env.RESEND_API_KEY
@@ -62,41 +63,86 @@ export async function POST(request: Request) {
       )
     }
 
-    const fileField = formData.get('resume')
+    const fileField = inquiryType === 'company' ? formData.get('jobDescription') : formData.get('resume')
     const attachment = fileField instanceof File ? await fileToAttachment(fileField) : null
-    const fields = {
-      candidateName: asString(formData.get('candidateName')),
-      candidateEmail: asString(formData.get('candidateEmail')),
-      candidatePhone: asString(formData.get('candidatePhone')),
-      experience: asString(formData.get('experience')),
-      currentCompany: asString(formData.get('currentCompany')),
-      currentLocation: asString(formData.get('currentLocation')),
-      currentDesignation: asString(formData.get('currentDesignation')),
-      preferredRole: asString(formData.get('preferredRole')),
-      preferredLocation: asString(formData.get('preferredLocation')),
-      preferredSector: asString(formData.get('preferredSector')),
-      candidateMessage: asString(formData.get('candidateMessage')),
-    }
+    let replyTo = ''
+    let rows = ''
+    let subject = ''
 
-    if (!fields.candidateName || !fields.candidateEmail || !fields.candidatePhone || !fields.preferredRole) {
-      return NextResponse.json({ message: 'Please complete all required fields.' }, { status: 400 })
-    }
+    if (inquiryType === 'company') {
+      const fields = {
+        companyName: asString(formData.get('companyName')),
+        contactPerson: asString(formData.get('contactPerson')),
+        companyEmail: asString(formData.get('companyEmail')),
+        companyPhone: asString(formData.get('companyPhone')),
+        hiringRole: asString(formData.get('hiringRole')),
+        openPositions: asString(formData.get('openPositions')),
+        jobLocation: asString(formData.get('jobLocation')),
+        industry: asString(formData.get('industry')),
+        companyMessage: asString(formData.get('companyMessage')),
+      }
 
-    const rows = formatHtmlRows([
-      ['Inquiry Type', 'Candidate Enquiry'],
-      ['Name', fields.candidateName],
-      ['Email', fields.candidateEmail],
-      ['Phone', fields.candidatePhone],
-      ['Experience', fields.experience],
-      ['Current Company', fields.currentCompany],
-      ['Current Location', fields.currentLocation],
-      ['Current Designation', fields.currentDesignation],
-      ['Preferred Role', fields.preferredRole],
-      ['Preferred Location', fields.preferredLocation],
-      ['Preferred Sector', fields.preferredSector],
-      ['Details', fields.candidateMessage],
-    ])
-    const subject = `Website candidate enquiry: ${fields.candidateName} - ${fields.preferredRole}`
+      if (
+        !fields.companyName ||
+        !fields.contactPerson ||
+        !fields.companyEmail ||
+        !fields.companyPhone ||
+        !fields.hiringRole ||
+        !fields.openPositions
+      ) {
+        return NextResponse.json({ message: 'Please complete all required fields.' }, { status: 400 })
+      }
+
+      rows = formatHtmlRows([
+        ['Inquiry Type', 'Company Enquiry'],
+        ['Company', fields.companyName],
+        ['Contact Person', fields.contactPerson],
+        ['Email', fields.companyEmail],
+        ['Phone', fields.companyPhone],
+        ['Position', fields.hiringRole],
+        ['Open Positions', fields.openPositions],
+        ['Job Location', fields.jobLocation],
+        ['Industry', fields.industry],
+        ['Requirement Details', fields.companyMessage],
+      ])
+      subject = `Website company enquiry: ${fields.companyName} - ${fields.hiringRole}`
+      replyTo = fields.companyEmail
+    } else {
+      const fields = {
+        candidateName: asString(formData.get('candidateName')),
+        candidateEmail: asString(formData.get('candidateEmail')),
+        candidatePhone: asString(formData.get('candidatePhone')),
+        experience: asString(formData.get('experience')),
+        currentCompany: asString(formData.get('currentCompany')),
+        currentLocation: asString(formData.get('currentLocation')),
+        currentDesignation: asString(formData.get('currentDesignation')),
+        preferredRole: asString(formData.get('preferredRole')),
+        preferredLocation: asString(formData.get('preferredLocation')),
+        preferredSector: asString(formData.get('preferredSector')),
+        candidateMessage: asString(formData.get('candidateMessage')),
+      }
+
+      if (!fields.candidateName || !fields.candidateEmail || !fields.candidatePhone || !fields.preferredRole) {
+        return NextResponse.json({ message: 'Please complete all required fields.' }, { status: 400 })
+      }
+
+      rows = formatHtmlRows([
+        ['Inquiry Type', 'Candidate Enquiry'],
+        ['Name', fields.candidateName],
+        ['Email', fields.candidateEmail],
+        ['Phone', fields.candidatePhone],
+        ['Experience', fields.experience],
+        ['Current Company', fields.currentCompany],
+        ['Current Location', fields.currentLocation],
+        ['Current Designation', fields.currentDesignation],
+        ['Preferred Role', fields.preferredRole],
+        ['Preferred Location', fields.preferredLocation],
+        ['Preferred Sector', fields.preferredSector],
+        ['Details', fields.candidateMessage],
+      ])
+      subject = `Website candidate enquiry: ${fields.candidateName} - ${fields.preferredRole}`
+      replyTo = fields.candidateEmail
+    }
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -108,7 +154,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from: `${senderName} <${senderEmail}>`,
         to: [recipient],
-        reply_to: fields.candidateEmail,
+        reply_to: replyTo,
         subject,
         html: `
           <div style="font-family:Arial,sans-serif;color:#22392f;">
@@ -130,7 +176,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      message: 'Job preference submitted successfully.',
+      message: inquiryType === 'company' ? 'Company enquiry submitted successfully.' : 'Job preference submitted successfully.',
     })
   } catch (error) {
     console.error('Inquiry submission failed:', error)

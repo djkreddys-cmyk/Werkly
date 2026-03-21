@@ -259,7 +259,7 @@ export default function Home() {
                 We support organizations that need strong search and selection delivery, clear turnaround discipline, and long-term recruitment partnerships.
               </p>
               <p className="mt-4 text-sm leading-6 muted-copy">
-                Use the Enquiry button in the navigation to open the candidate form and upload a resume.
+                Use the Enquiry button in the navigation to open either the candidate form or the company requirements form.
               </p>
             </div>
             <div className="story-card p-8">

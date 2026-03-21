@@ -1,7 +1,6 @@
 import { EnquiryModal } from "@/components/enquiry-modal";
 
 const navItems = [
-  { label: "Services", href: "#services" },
   { label: "Process", href: "#process" },
   { label: "Sectors", href: "#expertise" },
   { label: "Contact", href: "#contact" },

@@ -6,6 +6,7 @@ import { InquiryForm } from '@/components/inquiry-forms'
 
 export function EnquiryModal() {
   const [isOpen, setIsOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'candidate' | 'company'>('candidate')
 
   useEffect(() => {
     if (window.location.hash === '#candidate-form') {
@@ -40,7 +41,10 @@ export function EnquiryModal() {
     <>
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setActiveTab('candidate')
+          setIsOpen(true)
+        }}
         className="inline-flex items-center justify-center rounded-xl border border-[var(--color-accent)] bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium text-[var(--color-dark)] transition hover:opacity-95"
       >
         Enquiry
@@ -61,7 +65,36 @@ export function EnquiryModal() {
                   x
                 </button>
                 <div className="max-h-[calc(100vh-3rem)] overflow-y-auto rounded-[1.6rem]">
-                  <InquiryForm kind="candidate" className="shadow-[0_30px_70px_rgba(10,22,42,0.18)]" />
+                  <div className="story-card rounded-b-none border-b-0 px-8 pb-0 pt-8 sm:px-9">
+                    <div className="inline-flex rounded-xl border border-[var(--color-line)] bg-[var(--color-paper)]/85 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('candidate')}
+                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                          activeTab === 'candidate'
+                            ? 'bg-white text-slate-950 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Candidate Enquiry
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('company')}
+                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                          activeTab === 'company'
+                            ? 'bg-white text-slate-950 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        Company Enquiry
+                      </button>
+                    </div>
+                  </div>
+                  <InquiryForm
+                    kind={activeTab}
+                    className="rounded-t-none border-t-0 shadow-[0_30px_70px_rgba(10,22,42,0.18)]"
+                  />
                 </div>
               </div>
             </div>
