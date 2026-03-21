@@ -15,9 +15,9 @@ export function SiteHeader() {
           <Image
             src="/Werkly Logo.png"
             alt="Werkly logo"
-            width={520}
-            height={144}
-            className="h-[100px] w-auto object-contain"
+            width={640}
+            height={176}
+            className="h-[140px] w-auto object-contain"
             priority
           />
         </a>
