@@ -48,7 +48,7 @@ export default function Home() {
   return (
     <div id="top" className="relative">
       <SiteHeader />
-      <main>
+      <main className="pt-[76px]">
         <section className="relative overflow-hidden bg-[var(--color-dark)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(241,166,75,0.16),transparent_24%),radial-gradient(circle_at_80%_24%,rgba(255,255,255,0.08),transparent_24%),linear-gradient(180deg,rgba(8,96,108,0.98),rgba(8,96,108,1))]" />
           <div className="section-shell relative py-16 sm:py-20 lg:py-24">
@@ -110,26 +110,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              <article className="rounded-[1.45rem] border border-white/12 bg-white/8 p-6 text-white backdrop-blur-sm">
-                <p className="eyebrow text-[var(--color-accent)]">Sector Focus</p>
-                <p className="mt-3 text-base leading-7 text-white/82">
-                  Dedicated support across life sciences, industrial, engineering, and operations-driven roles.
-                </p>
-              </article>
-              <article className="rounded-[1.45rem] border border-white/12 bg-white/8 p-6 text-white backdrop-blur-sm">
-                <p className="eyebrow text-[var(--color-accent)]">Search Discipline</p>
-                <p className="mt-3 text-base leading-7 text-white/82">
-                  Structured execution from brief intake to shortlist delivery and stakeholder coordination.
-                </p>
-              </article>
-              <article className="rounded-[1.45rem] border border-white/12 bg-white/8 p-6 text-white backdrop-blur-sm">
-                <p className="eyebrow text-[var(--color-accent)]">Client Reach</p>
-                <p className="mt-3 text-base leading-7 text-white/82">
-                  Hyderabad headquarters with Vijayawada branch support for active hiring mandates.
-                </p>
-              </article>
-            </div>
           </div>
         </section>
 
@@ -142,21 +122,21 @@ export default function Home() {
           </div>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             <article className="accent-card p-7 text-center">
-              <p className="eyebrow">Structured Delivery</p>
+              <p className="eyebrow">Sector Focus</p>
               <p className="mt-4 text-base leading-7 muted-copy">
-                Recruitment support built around business operations, workforce priorities, and defined ownership.
+                Dedicated support across life sciences, industrial, engineering, and operations-driven roles.
               </p>
             </article>
             <article className="accent-card p-7 text-center">
-              <p className="eyebrow">Turnkey Search</p>
+              <p className="eyebrow">Search Discipline</p>
               <p className="mt-4 text-base leading-7 muted-copy">
-                Clear execution from search and screening to shortlist presentation, coordination, and closure.
+                Structured execution from brief intake to shortlist delivery and stakeholder coordination.
               </p>
             </article>
             <article className="accent-card p-7 text-center">
-              <p className="eyebrow">Industry Context</p>
+              <p className="eyebrow">Client Reach</p>
               <p className="mt-4 text-base leading-7 muted-copy">
-                Domain-specific delivery across Non-IT sectors where capability fit and business context matter.
+                Hyderabad headquarters with Vijayawada branch support for active hiring mandates.
               </p>
             </article>
           </div>

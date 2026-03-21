@@ -1,5 +1,6 @@
 const quickLinks = [
   { label: "Sectors", href: "#expertise" },
+  { label: "Process", href: "#process" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -24,9 +25,6 @@ export function SiteFooter() {
               {item.label}
             </a>
           ))}
-          <a href="mailto:hr@werkly.in" className="transition hover:text-white">
-            hr@werkly.in
-          </a>
         </div>
       </div>
     </footer>

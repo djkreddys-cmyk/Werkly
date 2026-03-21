@@ -9,7 +9,7 @@ const navItems = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[rgba(8,96,108,0.94)] backdrop-blur-xl">
+    <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-[rgba(8,96,108,0.94)] backdrop-blur-xl">
       <div className="mx-auto flex h-[76px] w-full max-w-7xl items-center justify-between gap-6 px-5 sm:px-8">
         <a href="#top" className="flex items-center">
           <Image
@@ -17,7 +17,7 @@ export function SiteHeader() {
             alt="Werkly logo"
             width={640}
             height={176}
-            className="h-[56px] w-auto object-contain"
+            className="h-[96px] w-auto object-contain"
             priority
           />
         </a>
