@@ -72,7 +72,7 @@ export function EnquiryModal() {
                         onClick={() => setActiveTab('candidate')}
                         className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                           activeTab === 'candidate'
-                            ? 'bg-white text-slate-950 shadow-sm'
+                            ? 'bg-[var(--color-dark)] text-white shadow-sm'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
@@ -83,7 +83,7 @@ export function EnquiryModal() {
                         onClick={() => setActiveTab('company')}
                         className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                           activeTab === 'company'
-                            ? 'bg-white text-slate-950 shadow-sm'
+                            ? 'bg-[var(--color-dark)] text-white shadow-sm'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
