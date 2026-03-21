@@ -54,7 +54,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(241,166,75,0.16),transparent_24%),radial-gradient(circle_at_80%_24%,rgba(255,255,255,0.08),transparent_24%),linear-gradient(180deg,rgba(8,96,108,0.98),rgba(8,96,108,1))]" />
           <div className="section-shell relative py-16 sm:py-20 lg:py-24">
             <div className="grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-              <div className="text-white">
+              <div className="motion-rise text-white">
                 <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--color-accent)]">
                   Werkly Consulting Pvt LTD
                 </p>
@@ -65,7 +65,7 @@ export default function Home() {
                   Structured search and selection support for companies that need faster hiring closures, stronger candidate quality, and better sector alignment.
                 </p>
               </div>
-              <div className="grid gap-5 sm:grid-cols-[1.05fr_0.95fr]">
+              <div className="motion-rise motion-rise-delay-1 grid gap-5 sm:grid-cols-[1.05fr_0.95fr]">
                 <div className="hero-frame overflow-hidden rounded-[1.8rem] border border-white/12 bg-white/8 p-3">
                   <Image
                     src="/consultancy-team-primary.svg"
@@ -100,7 +100,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="section-shell py-16 sm:py-20">
+        <section className="section-shell motion-rise py-16 sm:py-20">
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">What We Do Best</p>
             <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
@@ -129,7 +129,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="expertise" className="section-shell anchor-section py-8 sm:py-12">
+        <section id="expertise" className="section-shell anchor-section motion-rise py-8 sm:py-12">
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">Sectors</p>
             <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
@@ -152,7 +152,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="process" className="anchor-section py-16 sm:py-24">
+        <section id="process" className="anchor-section motion-rise py-16 sm:py-24">
           <div className="section-shell">
             <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
               <div className="accent-card p-7 sm:p-8">
@@ -185,7 +185,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="contact" className="section-shell anchor-section py-16 sm:py-24">
+        <section id="contact" className="section-shell anchor-section motion-rise py-16 sm:py-24">
           <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="accent-card p-8 sm:p-9">
               <p className="eyebrow">Client Engagement</p>
@@ -230,7 +230,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="resume-builder" className="anchor-section py-4 sm:py-8">
+        <section id="resume-builder" className="anchor-section motion-rise py-4 sm:py-8">
           <ResumeBuilder />
         </section>
       </main>

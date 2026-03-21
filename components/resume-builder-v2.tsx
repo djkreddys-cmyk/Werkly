@@ -328,6 +328,20 @@ export function ResumeBuilder() {
   return (
     <section className="hero-surface">
       <div className="section-shell print-shell py-14 sm:py-18">
+        <div className="motion-float fixed bottom-5 right-5 z-40 hidden w-[260px] rounded-[1.5rem] border border-[var(--color-line)] bg-white/95 p-4 shadow-[0_24px_60px_rgba(15,47,54,0.16)] backdrop-blur-md lg:block no-print">
+          <p className="eyebrow">Resume Builder</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
+            Open the builder anytime from the home screen and generate a resume in a popup.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsFormOpen(true)}
+            className="mt-4 w-full rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+          >
+            Open Popup Builder
+          </button>
+        </div>
+
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow">Resume Builder</p>
           <h1 className="section-title mt-4">Build a polished resume with a layout that fits your profile.</h1>
@@ -379,7 +393,7 @@ export function ResumeBuilder() {
 
         {isFormOpen && (
           <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm sm:p-6">
-            <div className="soft-panel no-print relative my-8 w-full max-w-5xl p-6 sm:p-8">
+            <div className="soft-panel modal-rise no-print relative my-8 w-full max-w-5xl p-6 sm:p-8">
               <button type="button" onClick={() => setIsFormOpen(false)} className="absolute right-5 top-5 rounded-full border border-[var(--color-line)] bg-white px-3 py-1 text-sm font-semibold text-[var(--color-ink)]">Close</button>
               <div className="pr-16"><p className="eyebrow">Resume Builder Form</p><h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl leading-tight text-[var(--color-ink)]">Enter candidate details and generate the resume.</h2></div>
               <div className="mt-5 rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-paper)] p-4">

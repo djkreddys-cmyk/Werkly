@@ -22,6 +22,7 @@
 
 html {
   background: var(--color-paper);
+  scroll-behavior: smooth;
 }
 
 body {
@@ -103,6 +104,62 @@ a {
     radial-gradient(circle at bottom left, rgba(8, 96, 108, 0.08), transparent 28%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 246, 239, 0.94));
   border-bottom: 1px solid rgba(8, 96, 108, 0.08);
+}
+
+.motion-rise {
+  animation: riseIn 0.65s ease-out both;
+}
+
+.motion-rise-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.motion-rise-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.motion-float {
+  animation: floatIn 0.55s ease-out both;
+}
+
+.modal-rise {
+  animation: riseIn 0.22s ease-out both;
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .motion-rise,
+  .motion-rise-delay-1,
+  .motion-rise-delay-2,
+  .motion-float,
+  .modal-rise {
+    animation: none !important;
+  }
 }
 
 @media print {
