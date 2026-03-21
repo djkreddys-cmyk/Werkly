@@ -63,6 +63,54 @@ function buildWordMarkup(resume: ResumeData) {
   return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(resume.fullName)} Resume</title><style>body{font-family:Arial,sans-serif;color:#17353d;margin:32px;line-height:1.5}h1{font-size:28px;margin:0 0 6px}h2{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#08606c;margin:24px 0 8px}p{margin:0 0 10px}ul{margin:8px 0 0 18px}.meta{color:#5b6b72;margin-bottom:12px}</style></head><body><h1>${escapeHtml(resume.fullName)}</h1><p><strong>${escapeHtml(resume.targetRole)}</strong></p><p class="meta">${escapeHtml(resume.contactLine)}</p><h2>Professional Summary</h2><p>${escapeHtml(resume.summary)}</p><h2>Core Skills</h2><p>${escapeHtml(resume.coreSkills.join(", "))}</p><h2>Professional Experience</h2>${resume.experience.map((item) => `<p><strong>${escapeHtml(item.title)}</strong> | ${escapeHtml(item.company)}</p><p class="meta">${escapeHtml([item.location, item.period].filter(Boolean).join(" | "))}</p><ul>${item.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>`).join("")}<h2>Education</h2>${resume.education.map((item) => `<p><strong>${escapeHtml(item.degree || item.institution)}</strong></p><p class="meta">${escapeHtml([item.institution, item.year].filter(Boolean).join(" | "))}</p>`).join("")}${resume.certifications.length ? `<h2>Certifications</h2><p>${escapeHtml(resume.certifications.join(", "))}</p>` : ""}</body></html>`;
 }
 
+function buildPdfMarkup(resume: ResumeData, template: TemplateStyle) {
+  const skillsMarkup = resume.coreSkills
+    .map((skill) => `<span class="chip">${escapeHtml(skill)}</span>`)
+    .join("");
+  const strengthsMarkup = resume.strengths
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+  const certificationsMarkup = resume.certifications
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+  const experienceMarkup = resume.experience
+    .map(
+      (item) => `
+        <section class="experience-item">
+          <div class="experience-head">
+            <div>
+              <h4>${escapeHtml(item.title)}</h4>
+              <p class="role-meta">${escapeHtml([item.company, item.location].filter(Boolean).join(" | "))}</p>
+            </div>
+            <p class="period">${escapeHtml(item.period)}</p>
+          </div>
+          <ul>${item.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>
+        </section>
+      `
+    )
+    .join("");
+  const educationMarkup = resume.education
+    .map(
+      (item) => `
+        <div class="education-item">
+          <h4>${escapeHtml(item.degree || item.institution)}</h4>
+          <p>${escapeHtml([item.institution, item.year].filter(Boolean).join(" | "))}</p>
+        </div>
+      `
+    )
+    .join("");
+
+  if (template === "sidebar") {
+    return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(resume.fullName)} Resume</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#17353d;margin:0;background:#fff}*{box-sizing:border-box}h1,h2,h3,h4,p{margin:0}ul{margin:8px 0 0 18px;padding:0}.sheet{display:grid;grid-template-columns:32% 68%;min-height:100vh}.sidebar{background:#08606c;color:#fff;padding:28px 24px}.main{padding:28px 28px 32px}.name{font-size:30px;line-height:1.08;font-weight:700}.role{margin-top:8px;font-size:18px;font-weight:700;color:#f1a64b}.contact{margin-top:16px;font-size:12px;line-height:1.65;color:rgba(255,255,255,.86)}.label{margin-top:24px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#f1a64b;font-weight:700}.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.chip{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.12);font-size:12px}.block-list{margin-top:10px;font-size:13px;line-height:1.65}.block-list li{margin-bottom:6px}.summary{font-size:14px;line-height:1.7;margin-top:12px}.experience-item{border:1px solid rgba(8,96,108,.12);border-radius:16px;padding:18px;margin-top:16px;break-inside:avoid}.experience-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.experience-head h4{font-size:18px}.role-meta,.period,.education-item p{font-size:12px;color:#5b6b72}.experience-item ul li{margin-bottom:6px;font-size:13px;line-height:1.6}.education-item{margin-top:12px;padding-left:12px;border-left:2px solid rgba(190,72,26,.22)}.section-title{margin-top:6px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#be481a;font-weight:700}</style></head><body><div class="sheet"><aside class="sidebar"><h1 class="name">${escapeHtml(resume.fullName)}</h1><p class="role">${escapeHtml(resume.targetRole)}</p><p class="contact">${escapeHtml(resume.contactLine)}</p><p class="label">Core Skills</p><div class="chips">${skillsMarkup}</div><p class="label">Strengths</p><ul class="block-list">${strengthsMarkup}</ul>${resume.certifications.length ? `<p class="label">Certifications</p><ul class="block-list">${certificationsMarkup}</ul>` : ""}</aside><main class="main"><p class="section-title">Professional Summary</p><p class="summary">${escapeHtml(resume.summary)}</p><p class="section-title" style="margin-top:24px">Experience</p>${experienceMarkup}<p class="section-title" style="margin-top:24px">Education</p>${educationMarkup}</main></div></body></html>`;
+  }
+
+  if (template === "modern") {
+    return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(resume.fullName)} Resume</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#17353d;margin:0;background:#fff}*{box-sizing:border-box}h1,h2,h3,h4,p{margin:0}ul{margin:8px 0 0 18px;padding:0}.sheet{padding:0}.hero{background:linear-gradient(135deg,#08606c 0%,#0d7a87 100%);color:#fff;border-radius:20px;padding:24px 26px}.hero-row{display:flex;justify-content:space-between;gap:16px;align-items:flex-end}.name{font-size:30px;line-height:1.05;font-weight:700}.role{margin-top:8px;font-size:18px;font-weight:700;color:#f1a64b}.contact{max-width:280px;text-align:right;font-size:12px;line-height:1.7;color:rgba(255,255,255,.86)}.grid{display:grid;gap:16px;margin-top:18px}.two{grid-template-columns:1fr 1fr}.card{border:1px solid rgba(8,96,108,.12);border-radius:18px;padding:18px;background:#fff;break-inside:avoid}.soft{background:#f8f4ee}.label{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#be481a;font-weight:700}.summary{margin-top:10px;font-size:14px;line-height:1.7}.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.chip{padding:6px 10px;border-radius:999px;border:1px solid rgba(8,96,108,.14);background:rgba(8,96,108,.05);font-size:12px;color:#08606c;font-weight:700}.list{margin-top:12px;font-size:13px;line-height:1.6}.list li{margin-bottom:6px}.experience-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.experience-head h4{font-size:18px}.role-meta,.period,.education-item p{font-size:12px;color:#5b6b72}.education-item{margin-top:12px}</style></head><body><div class="sheet"><section class="hero"><div class="hero-row"><div><h1 class="name">${escapeHtml(resume.fullName)}</h1><p class="role">${escapeHtml(resume.targetRole)}</p></div><p class="contact">${escapeHtml(resume.contactLine)}</p></div></section><div class="grid"><section class="card"><p class="label">Profile</p><p class="summary">${escapeHtml(resume.summary)}</p></section><div class="grid two"><section class="card"><p class="label">Skills</p><div class="chips">${skillsMarkup}</div></section><section class="card"><p class="label">Strengths</p><ul class="list">${strengthsMarkup}</ul></section></div><section class="card"><p class="label">Experience</p>${resume.experience.map((item) => `<div class="card soft" style="margin-top:14px"><div class="experience-head"><div><h4>${escapeHtml(item.title)}</h4><p class="role-meta">${escapeHtml([item.company, item.location].filter(Boolean).join(" | "))}</p></div><p class="period">${escapeHtml(item.period)}</p></div><ul class="list">${item.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul></div>`).join("")}</section><div class="grid two"><section class="card"><p class="label">Education</p>${educationMarkup}</section>${resume.certifications.length ? `<section class="card"><p class="label">Certifications</p><ul class="list">${certificationsMarkup}</ul></section>` : ""}</div></div></div></body></html>`;
+  }
+
+  return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(resume.fullName)} Resume</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#17353d;margin:0;background:#fff}*{box-sizing:border-box}h1,h2,h3,h4,p{margin:0}ul{margin:8px 0 0 18px;padding:0}.sheet{padding:2px}.name{font-size:30px;line-height:1.05;font-weight:700}.role{margin-top:8px;font-size:18px;font-weight:700;color:#08606c}.contact{margin-top:12px;font-size:12px;line-height:1.7;color:#5b6b72}.divider{height:1px;background:rgba(8,96,108,.12);margin:20px 0}.label{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#be481a;font-weight:700}.summary{margin-top:10px;font-size:14px;line-height:1.7}.grid{display:grid;grid-template-columns:32% 68%;gap:24px;margin-top:22px}.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.chip{padding:6px 10px;border-radius:999px;background:rgba(8,96,108,.08);font-size:12px;color:#08606c;font-weight:700}.list{margin-top:12px;font-size:13px;line-height:1.6}.list li{margin-bottom:6px}.experience-item{border-left:2px solid rgba(8,96,108,.14);padding-left:16px;margin-top:16px;break-inside:avoid}.experience-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.experience-head h4{font-size:18px}.role-meta,.period,.education-item p{font-size:12px;color:#5b6b72}.education-item{margin-top:12px}</style></head><body><div class="sheet"><h1 class="name">${escapeHtml(resume.fullName)}</h1><p class="role">${escapeHtml(resume.targetRole)}</p><p class="contact">${escapeHtml(resume.contactLine)}</p><div class="divider"></div><p class="label">Professional Summary</p><p class="summary">${escapeHtml(resume.summary)}</p><div class="grid"><div><p class="label">Core Skills</p><div class="chips">${skillsMarkup}</div>${resume.certifications.length ? `<p class="label" style="margin-top:24px">Certifications</p><ul class="list">${certificationsMarkup}</ul>` : ""}<p class="label" style="margin-top:24px">Strengths</p><ul class="list">${strengthsMarkup}</ul></div><div><p class="label">Professional Experience</p>${experienceMarkup}<p class="label" style="margin-top:24px">Education</p>${educationMarkup}</div></div></body></html>`;
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">{children}</p>;
 }
@@ -180,7 +228,19 @@ export function ResumeBuilder() {
     });
   };
 
-  const downloadPdf = () => { if (resume) window.print(); };
+  const downloadPdf = () => {
+    if (!resume) return;
+    const printWindow = window.open("", "_blank", "width=1024,height=768");
+    if (!printWindow) return;
+
+    printWindow.document.open();
+    printWindow.document.write(buildPdfMarkup(resume, template));
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
   const downloadWord = () => { if (resume) downloadBlob(`${resume.fullName.replace(/\s+/g, "-").toLowerCase()}-resume.doc`, buildWordMarkup(resume), "application/msword"); };
 
   return (
