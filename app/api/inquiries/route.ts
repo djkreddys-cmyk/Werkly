@@ -46,12 +46,12 @@ async function fileToAttachment(file: File) {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
-    const fromEmail = process.env.RESEND_FROM_EMAIL
-    const fromName = process.env.RESEND_FROM_NAME || 'Werkly Website'
+    const senderEmail = process.env.RESEND_FROM_EMAIL
+    const senderName = process.env.RESEND_FROM_NAME || 'Werkly Website'
     const apiKey = process.env.RESEND_API_KEY
     const recipient = process.env.RESEND_TO_EMAIL
 
-    if (!apiKey || !fromEmail || !recipient) {
+    if (!apiKey || !senderEmail || !recipient) {
       return NextResponse.json(
         {
           message:
@@ -81,7 +81,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Please complete all required fields.' }, { status: 400 })
     }
 
-    const replyTo = `${fields.candidateName} <${fields.candidateEmail}>`
     const rows = formatHtmlRows([
       ['Inquiry Type', 'Candidate Enquiry'],
       ['Name', fields.candidateName],
@@ -106,9 +105,9 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: `${fromName} <${fromEmail}>`,
+        from: `${senderName} <${senderEmail}>`,
         to: [recipient],
-        replyTo,
+        reply_to: fields.candidateEmail,
         subject,
         html: `
           <div style="font-family:Arial,sans-serif;color:#22392f;">
