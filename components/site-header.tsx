@@ -3,10 +3,10 @@ import Link from "next/link";
 import { EnquiryModal } from "@/components/enquiry-modal";
 
 const navItems = [
-  { label: "Process", href: "/#process" },
   { label: "Sectors", href: "/#expertise" },
+  { label: "Process", href: "/#process" },
   { label: "Contact", href: "/#contact" },
-  { label: "Resume Builder", href: "/resume-builder" },
+  { label: "Resume Builder", href: "/#resume-builder" },
 ];
 
 export function SiteHeader() {

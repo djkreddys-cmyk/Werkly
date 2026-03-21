@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ResumeBuilder } from "@/components/resume-builder-v2";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -227,6 +228,10 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section id="resume-builder" className="anchor-section py-4 sm:py-8">
+          <ResumeBuilder />
         </section>
       </main>
       <SiteFooter />
