@@ -130,6 +130,32 @@ export default function Home() {
           </div>
         </section>
 
+        <section id="expertise" className="anchor-section bg-[var(--color-dark)] py-16 sm:py-24">
+          <div className="section-shell">
+            <div className="mx-auto max-w-4xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                Our Expertise
+              </p>
+              <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-white sm:text-5xl">
+                Specialized recruitment solutions across key Non-IT verticals.
+              </h2>
+              <p className="mt-4 text-base leading-7 text-white/72 sm:text-lg">
+                Domain-specific teams execute turnkey recruitment assignments where industry context and delivery discipline matter.
+              </p>
+            </div>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {sectors.map((sector) => (
+                <article
+                  key={sector}
+                  className="rounded-[1.3rem] border border-[rgba(241,166,75,0.24)] bg-[rgba(255,255,255,0.06)] p-6 text-white"
+                >
+                  <h3 className="text-xl font-semibold">{sector}</h3>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section id="process" className="section-shell anchor-section py-16 sm:py-24">
           <div className="grid gap-7 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
             <div className="story-card p-7 sm:p-8">
@@ -155,32 +181,6 @@ export default function Home() {
                     <h3 className="text-xl font-semibold text-slate-950">{step.title}</h3>
                     <p className="mt-2 text-base leading-7 muted-copy">{step.description}</p>
                   </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="expertise" className="anchor-section bg-[var(--color-dark)] py-16 sm:py-24">
-          <div className="section-shell">
-            <div className="mx-auto max-w-4xl text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                Our Expertise
-              </p>
-              <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-white sm:text-5xl">
-                Specialized recruitment solutions across key Non-IT verticals.
-              </h2>
-              <p className="mt-4 text-base leading-7 text-white/72 sm:text-lg">
-                Domain-specific teams execute turnkey recruitment assignments where industry context and delivery discipline matter.
-              </p>
-            </div>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {sectors.map((sector) => (
-                <article
-                  key={sector}
-                  className="rounded-[1.3rem] border border-[rgba(241,166,75,0.24)] bg-[rgba(255,255,255,0.06)] p-6 text-white"
-                >
-                  <h3 className="text-xl font-semibold">{sector}</h3>
                 </article>
               ))}
             </div>
