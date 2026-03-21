@@ -230,9 +230,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="resume-builder" className="anchor-section motion-rise py-4 sm:py-8">
-          <ResumeBuilder />
-        </section>
+        <ResumeBuilder mode="modalOnly" />
       </main>
       <SiteFooter />
     </div>
