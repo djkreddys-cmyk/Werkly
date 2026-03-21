@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --color-dark: #091318;
+  --color-dark: #08606c;
   --color-accent: #f1a64b;
   --color-accent-strong: #dc7a2e;
   --color-brand-cyan: #2ec7d3;
   --color-paper: #f7f2ea;
   --color-surface: #fffdf9;
-  --color-ink: #1a2d33;
-  --color-line: rgba(22, 45, 51, 0.14);
-  --color-muted: rgba(26, 45, 51, 0.8);
+  --color-ink: #17424a;
+  --color-line: rgba(8, 96, 108, 0.16);
+  --color-muted: rgba(23, 66, 74, 0.8);
 }
 
 @theme inline {
