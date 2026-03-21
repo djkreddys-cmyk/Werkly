@@ -33,6 +33,10 @@ type ResumePayload = {
   fullName: string
   targetRole: string
   contactLine: string
+  personalInfo: Array<{
+    label: string
+    value: string
+  }>
   headline: string
   summary: string
   coreSkills: string[]
@@ -201,6 +205,13 @@ export async function POST(request: Request) {
       fullName,
       targetRole,
       contactLine: buildContactLine({ email, phone, location, linkedin, portfolio }),
+      personalInfo: [
+        { label: 'Email', value: email },
+        { label: 'Phone', value: phone },
+        { label: 'Location', value: location },
+        { label: 'LinkedIn', value: linkedin },
+        { label: 'Portfolio', value: portfolio },
+      ].filter((item) => item.value),
       headline: buildHeadline(targetRole, yearsExperience),
       summary: buildSummary({
         targetRole,

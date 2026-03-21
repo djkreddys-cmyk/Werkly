@@ -92,6 +92,7 @@ export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
               <input className={fieldClassName} type="text" name="jobLocation" placeholder="Job location" />
               <input className={fieldClassName} type="text" name="industry" placeholder="Industry / sector" />
             </div>
+            <input className={fieldClassName} type="text" name="packagePerAnnum" placeholder="Package per annum" />
             <textarea
               className={`${fieldClassName} min-h-[120px] resize-y`}
               name="companyMessage"
@@ -133,6 +134,10 @@ export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
               <input className={fieldClassName} type="text" name="preferredRole" placeholder="Preferred role" required />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
+              <input className={fieldClassName} type="text" name="currentCtc" placeholder="Current CTC" />
+              <input className={fieldClassName} type="text" name="expectedCtc" placeholder="Expected CTC" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <input className={fieldClassName} type="text" name="preferredLocation" placeholder="Preferred location" />
               <input
                 className={fieldClassName}
@@ -144,7 +149,7 @@ export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
             <textarea
               className={`${fieldClassName} min-h-[120px] resize-y`}
               name="candidateMessage"
-              placeholder="Add notice period, current company, expected CTC, or anything relevant for job matching."
+              placeholder="Add notice period, relocation preference, or anything relevant for job matching."
             />
             <div className="rounded-xl border border-dashed border-[var(--color-line)] bg-[var(--color-paper)]/65 p-4">
               <label className="block text-sm font-semibold text-slate-950" htmlFor="candidate-resume">

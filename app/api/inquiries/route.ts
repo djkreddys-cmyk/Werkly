@@ -79,6 +79,7 @@ export async function POST(request: Request) {
         openPositions: asString(formData.get('openPositions')),
         jobLocation: asString(formData.get('jobLocation')),
         industry: asString(formData.get('industry')),
+        packagePerAnnum: asString(formData.get('packagePerAnnum')),
         companyMessage: asString(formData.get('companyMessage')),
       }
 
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
         ['Open Positions', fields.openPositions],
         ['Job Location', fields.jobLocation],
         ['Industry', fields.industry],
+        ['Package Per Annum', fields.packagePerAnnum],
         ['Requirement Details', fields.companyMessage],
       ])
       subject = `Website company enquiry: ${fields.companyName} - ${fields.hiringRole}`
@@ -117,6 +119,8 @@ export async function POST(request: Request) {
         currentLocation: asString(formData.get('currentLocation')),
         currentDesignation: asString(formData.get('currentDesignation')),
         preferredRole: asString(formData.get('preferredRole')),
+        currentCtc: asString(formData.get('currentCtc')),
+        expectedCtc: asString(formData.get('expectedCtc')),
         preferredLocation: asString(formData.get('preferredLocation')),
         preferredSector: asString(formData.get('preferredSector')),
         candidateMessage: asString(formData.get('candidateMessage')),
@@ -136,6 +140,8 @@ export async function POST(request: Request) {
         ['Current Location', fields.currentLocation],
         ['Current Designation', fields.currentDesignation],
         ['Preferred Role', fields.preferredRole],
+        ['Current CTC', fields.currentCtc],
+        ['Expected CTC', fields.expectedCtc],
         ['Preferred Location', fields.preferredLocation],
         ['Preferred Sector', fields.preferredSector],
         ['Details', fields.candidateMessage],
