@@ -66,6 +66,7 @@ type FormState = {
   fullName: string;
   email: string;
   phone: string;
+  alternativeNumber: string;
   location: string;
   address: string;
   dateOfBirth: string;
@@ -117,6 +118,7 @@ const initialForm = (): FormState => ({
   fullName: "",
   email: "",
   phone: "",
+  alternativeNumber: "",
   location: "",
   address: "",
   dateOfBirth: "",
@@ -377,10 +379,11 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "modalOnly" }
             <p className="text-sm text-[var(--color-muted)]">This section appears in the final resume.</p>
           </div>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Full Name</span><input value={form.fullName} onChange={(event) => handleFieldChange("fullName", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Your full name" /></label>
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Email</span><input value={form.email} onChange={(event) => handleFieldChange("email", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="name@example.com" /></label>
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Phone</span><input value={form.phone} onChange={(event) => handleFieldChange("phone", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Phone number" /></label>
+          <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Alternative Number</span><input value={form.alternativeNumber} onChange={(event) => handleFieldChange("alternativeNumber", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Alternative number" /></label>
         </div>
         <div className="mt-5 grid gap-5 sm:grid-cols-3">
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Location</span><input value={form.location} onChange={(event) => handleFieldChange("location", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Current city" /></label>

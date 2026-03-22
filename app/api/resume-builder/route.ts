@@ -6,6 +6,7 @@ type ResumeRequest = {
   fullName?: string
   email?: string
   phone?: string
+  alternativeNumber?: string
   location?: string
   address?: string
   dateOfBirth?: string
@@ -85,11 +86,12 @@ function splitCommaValues(value: string) {
 function buildContactLine(input: {
   email: string
   phone: string
+  alternativeNumber: string
   location: string
   linkedin: string
   portfolio: string
 }) {
-  return [input.email, input.phone, input.location, input.linkedin, input.portfolio]
+  return [input.email, input.phone, input.alternativeNumber, input.location, input.linkedin, input.portfolio]
     .filter(Boolean)
     .join(' | ')
 }
@@ -192,6 +194,7 @@ export async function POST(request: Request) {
     }
 
     const phone = clean(body.phone)
+    const alternativeNumber = clean(body.alternativeNumber)
     const location = clean(body.location)
     const address = clean(body.address)
     const dateOfBirth = clean(body.dateOfBirth)
@@ -216,10 +219,11 @@ export async function POST(request: Request) {
     const resume: ResumePayload = {
       fullName,
       targetRole,
-      contactLine: buildContactLine({ email, phone, location, linkedin, portfolio }),
+      contactLine: buildContactLine({ email, phone, alternativeNumber, location, linkedin, portfolio }),
       personalInfo: [
         { label: 'Email', value: email },
         { label: 'Phone', value: phone },
+        { label: 'Alternative Number', value: alternativeNumber },
         { label: 'Location', value: location },
         { label: 'Address', value: address },
         { label: 'Date of Birth', value: dateOfBirth },
