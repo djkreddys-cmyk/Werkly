@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { type ChangeEvent, type ReactNode, useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 
 type ExperienceInput = {
   id: string;
@@ -429,10 +430,13 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
     </div>
   ) : null;
 
+  const modalPortal =
+    modalContent && typeof document !== "undefined" ? createPortal(modalContent, document.body) : null;
+
   if (mode === "modalOnly") {
     return (
       <>
-        {modalContent}
+        {modalPortal}
       </>
     );
   }
@@ -518,7 +522,7 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
             )}
           </div>
 
-          {modalContent}
+          {modalPortal}
         </div>
       </section>
     );
@@ -590,7 +594,7 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
           )}
         </div>
 
-        {modalContent}
+        {modalPortal}
       </div>
     </section>
   );
