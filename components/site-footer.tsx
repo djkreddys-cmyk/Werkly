@@ -2,7 +2,6 @@ const quickLinks = [
   { label: "Sectors", href: "/#expertise" },
   { label: "Process", href: "/#process" },
   { label: "Contact", href: "/#contact" },
-  { label: "Resume Builder", href: "/#resume-builder" },
 ];
 
 export function SiteFooter() {

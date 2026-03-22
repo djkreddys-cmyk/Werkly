@@ -14,7 +14,6 @@ const navItems = [
 export function SiteHeader() {
   const openResumeBuilder = () => {
     if (typeof window === "undefined") return;
-    document.getElementById("resume-builder")?.scrollIntoView({ behavior: "smooth", block: "start" });
     window.dispatchEvent(new Event("open-resume-builder"));
   };
 
