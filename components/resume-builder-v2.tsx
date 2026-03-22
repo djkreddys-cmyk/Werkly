@@ -453,10 +453,31 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
   const modalPortal =
     modalContent && typeof document !== "undefined" ? createPortal(modalContent, document.body) : null;
 
+  const launcherContent =
+    typeof document !== "undefined" ? (
+      <div className="motion-float fixed bottom-5 right-5 z-[60] hidden w-[260px] rounded-[1.5rem] border border-[var(--color-line)] bg-white/95 p-4 shadow-[0_24px_60px_rgba(15,47,54,0.16)] backdrop-blur-md lg:block no-print">
+        <p className="eyebrow">Resume Builder</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
+          Open the builder anytime from the home screen and generate a resume in a popup.
+        </p>
+        <button
+          type="button"
+          onClick={() => setIsFormOpen(true)}
+          className="mt-4 w-full rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+        >
+          Open Popup Builder
+        </button>
+      </div>
+    ) : null;
+
+  const launcherPortal =
+    launcherContent && typeof document !== "undefined" ? createPortal(launcherContent, document.body) : null;
+
   if (mode === "modalOnly") {
     return (
       <>
         {modalPortal}
+        {launcherPortal}
       </>
     );
   }
@@ -465,20 +486,6 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
     return (
       <section className="hero-surface">
         <div className="section-shell py-12 sm:py-16">
-          <div className="motion-float fixed bottom-5 right-5 z-40 hidden w-[260px] rounded-[1.5rem] border border-[var(--color-line)] bg-white/95 p-4 shadow-[0_24px_60px_rgba(15,47,54,0.16)] backdrop-blur-md lg:block no-print">
-            <p className="eyebrow">Resume Builder</p>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
-              Open the builder anytime from the home screen and generate a resume in a popup.
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsFormOpen(true)}
-              className="mt-4 w-full rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-            >
-              Open Popup Builder
-            </button>
-          </div>
-
           <div className="mx-auto max-w-3xl text-center">
             <p className="eyebrow">Resume Builder</p>
             <h2 className="mt-4 text-4xl font-semibold leading-tight text-[var(--color-ink)] sm:text-5xl">
@@ -543,6 +550,7 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
           </div>
 
           {modalPortal}
+          {launcherPortal}
         </div>
       </section>
     );
@@ -551,20 +559,6 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
   return (
     <section className="hero-surface">
       <div className="section-shell print-shell py-14 sm:py-18">
-        <div className="motion-float fixed bottom-5 right-5 z-40 hidden w-[260px] rounded-[1.5rem] border border-[var(--color-line)] bg-white/95 p-4 shadow-[0_24px_60px_rgba(15,47,54,0.16)] backdrop-blur-md lg:block no-print">
-          <p className="eyebrow">Resume Builder</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
-            Open the builder anytime from the home screen and generate a resume in a popup.
-          </p>
-          <button
-            type="button"
-            onClick={() => setIsFormOpen(true)}
-            className="mt-4 w-full rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-          >
-            Open Popup Builder
-          </button>
-        </div>
-
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow">Resume Builder</p>
           <h1 className="mt-4 text-5xl font-semibold leading-tight text-[var(--color-ink)]">Build a polished resume with a layout that fits your profile.</h1>
@@ -615,6 +609,7 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
         </div>
 
         {modalPortal}
+        {launcherPortal}
       </div>
     </section>
   );
