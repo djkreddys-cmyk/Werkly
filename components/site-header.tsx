@@ -8,13 +8,10 @@ const navItems = [
   { label: "Sectors", href: "/#expertise" },
   { label: "Process", href: "/#process" },
   { label: "Contact", href: "/#contact" },
+  { label: "Resume Builder", href: "/#resume-builder" },
 ];
 
 export function SiteHeader() {
-  const openResumeBuilder = () => {
-    window.dispatchEvent(new CustomEvent("open-resume-builder"));
-  };
-
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-[rgba(8,96,108,0.94)] backdrop-blur-xl">
       <div className="mx-auto flex h-[76px] w-full max-w-7xl items-center justify-between gap-6 px-5 sm:px-8">
@@ -34,9 +31,6 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <button type="button" onClick={openResumeBuilder} className="transition hover:text-white">
-            Resume Builder
-          </button>
         </nav>
         <EnquiryModal />
       </div>

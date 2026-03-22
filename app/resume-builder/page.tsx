@@ -1,15 +1,11 @@
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
-import { ResumeBuilder } from "@/components/resume-builder-v2";
+"use client";
 
-export default function ResumeBuilderPage() {
-  return (
-    <div className="relative">
-      <SiteHeader />
-      <main className="pt-[76px]">
-        <ResumeBuilder />
-      </main>
-      <SiteFooter />
-    </div>
-  );
+import { useEffect } from "react";
+
+export default function ResumeBuilderRedirectPage() {
+  useEffect(() => {
+    window.location.replace("/#resume-builder");
+  }, []);
+
+  return null;
 }

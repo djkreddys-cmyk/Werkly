@@ -230,7 +230,9 @@ export default function Home() {
           </div>
         </section>
 
-        <ResumeBuilder mode="modalOnly" />
+        <section id="resume-builder" className="anchor-section">
+          <ResumeBuilder />
+        </section>
       </main>
       <SiteFooter />
     </div>
