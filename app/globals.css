@@ -126,6 +126,23 @@ a {
   animation: riseIn 0.22s ease-out both;
 }
 
+.reveal-section {
+  opacity: 0;
+  transform: translateY(32px);
+  filter: blur(6px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform, filter;
+}
+
+.reveal-section.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
 @keyframes riseIn {
   from {
     opacity: 0;
@@ -157,8 +174,13 @@ a {
   .motion-rise-delay-1,
   .motion-rise-delay-2,
   .motion-float,
-  .modal-rise {
+  .modal-rise,
+  .reveal-section {
     animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
   }
 }
 

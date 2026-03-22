@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { RevealSection } from "@/components/reveal-section";
 import { ResumeBuilder } from "@/components/resume-builder-v2";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -100,7 +101,8 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="section-shell motion-rise py-16 sm:py-20">
+        <section className="section-shell py-16 sm:py-20">
+          <RevealSection>
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">What We Do Best</p>
             <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
@@ -127,9 +129,11 @@ export default function Home() {
               </p>
             </article>
           </div>
+          </RevealSection>
         </section>
 
-        <section id="expertise" className="section-shell anchor-section motion-rise py-8 sm:py-12">
+        <section id="expertise" className="section-shell anchor-section py-8 sm:py-12">
+          <RevealSection delay={40}>
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">Sectors</p>
             <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
@@ -150,10 +154,12 @@ export default function Home() {
               </article>
             ))}
           </div>
+          </RevealSection>
         </section>
 
-        <section id="process" className="anchor-section motion-rise py-16 sm:py-24">
+        <section id="process" className="anchor-section py-16 sm:py-24">
           <div className="section-shell">
+            <RevealSection delay={80}>
             <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
               <div className="accent-card p-7 sm:p-8">
                 <p className="eyebrow">Process</p>
@@ -182,10 +188,12 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            </RevealSection>
           </div>
         </section>
 
-        <section id="contact" className="section-shell anchor-section motion-rise py-16 sm:py-24">
+        <section id="contact" className="section-shell anchor-section py-16 sm:py-24">
+          <RevealSection delay={120}>
           <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="accent-card p-8 sm:p-9">
               <p className="eyebrow">Client Engagement</p>
@@ -228,10 +236,13 @@ export default function Home() {
               </div>
             </div>
           </div>
+          </RevealSection>
         </section>
 
         <section id="resume-builder" className="anchor-section">
-          <ResumeBuilder mode="compact" />
+          <RevealSection delay={160}>
+            <ResumeBuilder mode="compact" />
+          </RevealSection>
         </section>
 
       </main>
