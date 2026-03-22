@@ -7,6 +7,10 @@ type ResumeRequest = {
   email?: string
   phone?: string
   location?: string
+  address?: string
+  dateOfBirth?: string
+  nationality?: string
+  languages?: string
   linkedin?: string
   portfolio?: string
   targetRole?: string
@@ -61,16 +65,22 @@ function clean(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function compactSentence(value: string) {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function cleanLead(value: string) {
+  const firstLine = value.split(/\r?\n|[.!?]/)[0] || ''
+  const normalized = compactSentence(firstLine).replace(/^[*-]\s*/, '')
+  if (!normalized) return ''
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+}
+
 function splitCommaValues(value: string) {
   return value
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
-}
-
-function toSentenceCase(value: string) {
-  if (!value) return ''
-  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function buildContactLine(input: {
@@ -86,7 +96,7 @@ function buildContactLine(input: {
 }
 
 function buildHeadline(targetRole: string, yearsExperience: string) {
-  return `${targetRole} | ${yearsExperience} of experience in structured delivery, stakeholder coordination, and role-specific execution`
+  return `${targetRole} with ${yearsExperience} of experience in structured delivery and business support`
 }
 
 function buildSummary(input: {
@@ -99,17 +109,15 @@ function buildSummary(input: {
   const leadingSkills = input.skills.slice(0, 4).join(', ')
   const latestExperience =
     input.experiences.length > 0
-      ? `Most recently aligned with ${input.experiences[0].company || 'business teams'} in a ${input.experiences[0].title || input.targetRole} capacity.`
+      ? `Most recently worked with ${input.experiences[0].company || 'business teams'} in a ${input.experiences[0].title || input.targetRole} role.`
       : ''
 
-  const noteLine = input.notes
-    ? `${toSentenceCase(input.notes.split(/[.!?]/)[0] || '')}.`
-    : ''
+  const noteLine = input.notes ? `${cleanLead(input.notes)}.` : ''
 
   return [
-    `${input.targetRole} with ${input.yearsExperience} focused on operational delivery, business alignment, and execution quality.`,
+    `${input.targetRole} with ${input.yearsExperience} of experience in operational delivery, stakeholder alignment, and execution quality.`,
     leadingSkills
-      ? `Brings practical strength across ${leadingSkills}.`
+      ? `Strong working knowledge across ${leadingSkills}.`
       : 'Brings practical strength across delivery planning, stakeholder management, and execution discipline.',
     latestExperience,
     noteLine,
@@ -127,8 +135,8 @@ function expandExperienceBullets(highlights: string, title: string, skills: stri
   const transformed = baseLines.slice(0, 4).map((line) => {
     const normalized = line.replace(/^[*-]\s*/, '')
     return normalized.match(/managed|led|handled|developed|implemented|coordinated|delivered|supported|improved|optimized/i)
-      ? toSentenceCase(normalized)
-      : `Delivered ${normalized.toLowerCase()} in support of ${title || 'business priorities'}.`
+      ? `${cleanLead(normalized).replace(/[.!?]+$/, '')}.`
+      : `Handled ${compactSentence(normalized).toLowerCase()} in support of ${title || 'business priorities'}.`
   })
 
   if (transformed.length >= 3) {
@@ -148,9 +156,9 @@ function expandExperienceBullets(highlights: string, title: string, skills: stri
 
 function buildStrengths(notes: string, skills: string[], targetRole: string) {
   const strengths = [
-    `Strong fit for ${targetRole} mandates that require ownership, responsiveness, and execution discipline.`,
+    `Well suited to ${targetRole} mandates that require ownership, responsiveness, and execution discipline.`,
     skills[0] ? `Hands-on capability across ${skills.slice(0, 3).join(', ')}.` : '',
-    notes ? toSentenceCase(notes.split(/[.!?]/)[0] || '') : '',
+    notes ? `${cleanLead(notes)}.` : '',
     `Comfortable working with hiring stakeholders, shifting priorities, and structured delivery expectations.`,
   ].filter(Boolean)
 
@@ -176,6 +184,10 @@ export async function POST(request: Request) {
 
     const phone = clean(body.phone)
     const location = clean(body.location)
+    const address = clean(body.address)
+    const dateOfBirth = clean(body.dateOfBirth)
+    const nationality = clean(body.nationality)
+    const languages = clean(body.languages)
     const linkedin = clean(body.linkedin)
     const portfolio = clean(body.portfolio)
     const professionalNotes = clean(body.professionalNotes)
@@ -209,6 +221,10 @@ export async function POST(request: Request) {
         { label: 'Email', value: email },
         { label: 'Phone', value: phone },
         { label: 'Location', value: location },
+        { label: 'Address', value: address },
+        { label: 'Date of Birth', value: dateOfBirth },
+        { label: 'Nationality', value: nationality },
+        { label: 'Languages', value: languages },
         { label: 'LinkedIn', value: linkedin },
         { label: 'Portfolio', value: portfolio },
       ].filter((item) => item.value),
