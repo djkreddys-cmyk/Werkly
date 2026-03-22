@@ -314,6 +314,26 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
     return () => window.removeEventListener("open-resume-builder", openBuilder);
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    if (isFormOpen) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    }
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isFormOpen]);
+
   const handleFieldChange = (field: keyof FormState, value: string) => setForm((current) => ({ ...current, [field]: value }));
   const updateExperience = (id: string, field: keyof ExperienceInput, value: string) => setForm((current) => ({ ...current, experiences: current.experiences.map((item) => item.id === id ? { ...item, [field]: value } : item) }));
   const updateEducation = (id: string, field: keyof EducationInput, value: string) => setForm((current) => ({ ...current, education: current.education.map((item) => item.id === id ? { ...item, [field]: value } : item) }));

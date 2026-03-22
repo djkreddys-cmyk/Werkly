@@ -1,11 +1,18 @@
+ "use client";
+
 const quickLinks = [
-  { label: "Sectors", href: "/#expertise" },
-  { label: "Process", href: "/#process" },
-  { label: "Contact", href: "/#contact" },
-  { label: "Resume Builder", href: "/#resume-builder" },
+  { label: "Sectors", target: "expertise" },
+  { label: "Process", target: "process" },
+  { label: "Contact", target: "contact" },
+  { label: "Resume Builder", target: "resume-builder" },
 ];
 
 export function SiteFooter() {
+  const handleNavClick = (target: string) => {
+    if (typeof window === "undefined") return;
+    document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <footer className="border-t border-white/10 bg-[var(--color-dark)] text-white">
       <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-5 px-5 py-8 text-center sm:px-8">
@@ -22,9 +29,14 @@ export function SiteFooter() {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-white/80">
           {quickLinks.map((item) => (
-            <a key={item.href} href={item.href} className="transition hover:text-white">
+            <button
+              key={item.target}
+              type="button"
+              onClick={() => handleNavClick(item.target)}
+              className="transition hover:text-white"
+            >
               {item.label}
-            </a>
+            </button>
           ))}
         </div>
       </div>
