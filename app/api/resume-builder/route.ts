@@ -22,8 +22,10 @@ type ResumeRequest = {
     company?: string
     title?: string
     location?: string
-    start?: string
-    end?: string
+    joinedMonth?: string
+    joinedYear?: string
+    exitMonth?: string
+    exitYear?: string
     highlights?: string
   }>
   education?: Array<{
@@ -81,6 +83,98 @@ function splitCommaValues(value: string) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function formatYearsExperience(value: string) {
+  const normalized = clean(value)
+  if (!normalized) return ''
+  if (/^\d+(\.\d+)?$/.test(normalized)) {
+    const amount = Number(normalized)
+    return `${normalized} ${amount === 1 ? 'year' : 'years'}`
+  }
+  return /year/i.test(normalized) ? normalized : `${normalized} years`
+}
+
+const monthLookup: Record<string, number> = {
+  jan: 0,
+  january: 0,
+  feb: 1,
+  february: 1,
+  mar: 2,
+  march: 2,
+  apr: 3,
+  april: 3,
+  may: 4,
+  jun: 5,
+  june: 5,
+  jul: 6,
+  july: 6,
+  aug: 7,
+  august: 7,
+  sep: 8,
+  sept: 8,
+  september: 8,
+  oct: 9,
+  october: 9,
+  nov: 10,
+  november: 10,
+  dec: 11,
+  december: 11,
+}
+
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function parseMonth(value: string) {
+  const normalized = clean(value).toLowerCase()
+  if (!normalized) return null
+  if (/^\d{1,2}$/.test(normalized)) {
+    const month = Number(normalized) - 1
+    return month >= 0 && month <= 11 ? month : null
+  }
+  return normalized in monthLookup ? monthLookup[normalized] : null
+}
+
+function parseYear(value: string) {
+  const normalized = clean(value)
+  if (!/^\d{4}$/.test(normalized)) return null
+  return Number(normalized)
+}
+
+function buildPeriod(input: {
+  joinedMonth: string
+  joinedYear: string
+  exitMonth: string
+  exitYear: string
+}) {
+  const startMonth = parseMonth(input.joinedMonth)
+  const startYear = parseYear(input.joinedYear)
+  const endMonth = parseMonth(input.exitMonth)
+  const endYear = parseYear(input.exitYear)
+  const isPresent = /^present$/i.test(clean(input.exitYear)) || (!input.exitMonth && !input.exitYear)
+
+  const startLabel =
+    startMonth !== null && startYear !== null ? `${monthNames[startMonth]} ${startYear}` : clean([input.joinedMonth, input.joinedYear].filter(Boolean).join(' '))
+  const endLabel =
+    isPresent ? 'Present' : endMonth !== null && endYear !== null ? `${monthNames[endMonth]} ${endYear}` : clean([input.exitMonth, input.exitYear].filter(Boolean).join(' '))
+
+  let duration = ''
+  if (startMonth !== null && startYear !== null) {
+    const effectiveEndMonth = isPresent ? new Date().getMonth() : endMonth
+    const effectiveEndYear = isPresent ? new Date().getFullYear() : endYear
+    if (effectiveEndMonth !== null && effectiveEndYear !== null) {
+      const totalMonths = (effectiveEndYear - startYear) * 12 + (effectiveEndMonth - startMonth)
+      if (totalMonths >= 0) {
+        const years = Math.floor(totalMonths / 12)
+        const months = totalMonths % 12
+        const parts = []
+        if (years) parts.push(`${years} yr${years === 1 ? '' : 's'}`)
+        if (months) parts.push(`${months} mo${months === 1 ? '' : 's'}`)
+        if (parts.length) duration = ` (${parts.join(' ')})`
+      }
+    }
+  }
+
+  return [startLabel, endLabel].filter(Boolean).join(' - ') + duration || 'Previous Role'
 }
 
 function buildContactLine(input: {
@@ -172,15 +266,17 @@ export async function POST(request: Request) {
 
     const fullName = clean(body.fullName)
     const email = clean(body.email)
-    const yearsExperience = clean(body.yearsExperience)
+    const yearsExperience = formatYearsExperience(clean(body.yearsExperience))
     const skillsRaw = clean(body.skills)
     const experienceEntries = (body.experiences || [])
       .map((item) => ({
         company: clean(item.company),
         title: clean(item.title),
         location: clean(item.location),
-        start: clean(item.start),
-        end: clean(item.end),
+        joinedMonth: clean(item.joinedMonth),
+        joinedYear: clean(item.joinedYear),
+        exitMonth: clean(item.exitMonth),
+        exitYear: clean(item.exitYear),
         highlights: clean(item.highlights),
       }))
       .filter((item) => item.company || item.title || item.highlights)
@@ -248,7 +344,12 @@ export async function POST(request: Request) {
               company: item.company || 'Professional Experience',
               title: item.title || targetRole,
               location: item.location,
-              period: [item.start, item.end].filter(Boolean).join(' - ') || 'Previous Role',
+              period: buildPeriod({
+                joinedMonth: item.joinedMonth,
+                joinedYear: item.joinedYear,
+                exitMonth: item.exitMonth,
+                exitYear: item.exitYear,
+              }),
               bullets: expandExperienceBullets(item.highlights, item.title || targetRole, skills),
             }))
           : [
