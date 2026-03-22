@@ -373,7 +373,13 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "modalOnly" }
           <p className="text-sm font-semibold text-[var(--color-ink)]">Personal Information included in resume</p>
           <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">Email, phone, location, address, date of birth, nationality, languages, LinkedIn, and portfolio are added automatically when you fill them here.</p>
         </div>
-        <div className="mt-6 grid gap-5 sm:grid-cols-2">
+        <div className="mt-6">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h3 className="text-xl font-semibold text-[var(--color-ink)]">Personal Information</h3>
+            <p className="text-sm text-[var(--color-muted)]">This section appears in the final resume.</p>
+          </div>
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2">
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Full Name</span><input value={form.fullName} onChange={(event) => handleFieldChange("fullName", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Your full name" /></label>
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Target Role</span><input value={form.targetRole} onChange={(event) => handleFieldChange("targetRole", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Target role" /></label>
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Email</span><input value={form.email} onChange={(event) => handleFieldChange("email", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="name@example.com" /></label>
