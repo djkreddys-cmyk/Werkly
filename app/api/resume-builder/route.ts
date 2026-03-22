@@ -13,7 +13,6 @@ type ResumeRequest = {
   languages?: string
   linkedin?: string
   portfolio?: string
-  targetRole?: string
   yearsExperience?: string
   professionalNotes?: string
   skills?: string
@@ -171,11 +170,21 @@ export async function POST(request: Request) {
 
     const fullName = clean(body.fullName)
     const email = clean(body.email)
-    const targetRole = clean(body.targetRole)
     const yearsExperience = clean(body.yearsExperience)
     const skillsRaw = clean(body.skills)
+    const experienceEntries = (body.experiences || [])
+      .map((item) => ({
+        company: clean(item.company),
+        title: clean(item.title),
+        location: clean(item.location),
+        start: clean(item.start),
+        end: clean(item.end),
+        highlights: clean(item.highlights),
+      }))
+      .filter((item) => item.company || item.title || item.highlights)
+    const targetRole = experienceEntries.find((item) => item.title)?.title || 'Professional Resume'
 
-    if (!fullName || !email || !targetRole || !yearsExperience || !skillsRaw) {
+    if (!fullName || !email || !yearsExperience || !skillsRaw) {
       return NextResponse.json(
         { message: 'Please complete the required fields before generating your resume.' },
         { status: 400 }
@@ -194,16 +203,7 @@ export async function POST(request: Request) {
     const certifications = splitCommaValues(clean(body.certifications))
     const skills = splitCommaValues(skillsRaw)
 
-    const experiences = (body.experiences || [])
-      .map((item) => ({
-        company: clean(item.company),
-        title: clean(item.title),
-        location: clean(item.location),
-        start: clean(item.start),
-        end: clean(item.end),
-        highlights: clean(item.highlights),
-      }))
-      .filter((item) => item.company || item.title || item.highlights)
+    const experiences = experienceEntries
 
     const education = (body.education || [])
       .map((item) => ({

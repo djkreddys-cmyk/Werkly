@@ -73,7 +73,6 @@ type FormState = {
   languages: string;
   linkedin: string;
   portfolio: string;
-  targetRole: string;
   yearsExperience: string;
   professionalNotes: string;
   skills: string;
@@ -125,7 +124,6 @@ const initialForm = (): FormState => ({
   languages: "",
   linkedin: "",
   portfolio: "",
-  targetRole: "",
   yearsExperience: "",
   professionalNotes: "",
   skills: "",
@@ -381,7 +379,6 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "modalOnly" }
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Full Name</span><input value={form.fullName} onChange={(event) => handleFieldChange("fullName", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Your full name" /></label>
-          <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Target Role</span><input value={form.targetRole} onChange={(event) => handleFieldChange("targetRole", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Target role" /></label>
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Email</span><input value={form.email} onChange={(event) => handleFieldChange("email", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="name@example.com" /></label>
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Phone</span><input value={form.phone} onChange={(event) => handleFieldChange("phone", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Phone number" /></label>
         </div>
