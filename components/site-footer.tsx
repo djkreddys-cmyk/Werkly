@@ -10,6 +10,8 @@ const quickLinks = [
 export function SiteFooter() {
   const handleNavClick = (target: string) => {
     if (typeof window === "undefined") return;
+    const nextUrl = `${window.location.pathname}#${target}`;
+    window.history.replaceState(null, "", nextUrl);
     document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 

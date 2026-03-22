@@ -8,16 +8,15 @@ const navItems = [
   { label: "Sectors", target: "expertise" },
   { label: "Process", target: "process" },
   { label: "Contact", target: "contact" },
-  { label: "Resume Builder", target: "resume-builder", openBuilder: true },
+  { label: "Resume Builder", target: "resume-builder" },
 ];
 
 export function SiteHeader() {
-  const handleNavClick = (target: string, openBuilder?: boolean) => {
+  const handleNavClick = (target: string) => {
     if (typeof window === "undefined") return;
+    const nextUrl = `${window.location.pathname}#${target}`;
+    window.history.replaceState(null, "", nextUrl);
     document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (openBuilder) {
-      window.dispatchEvent(new Event("open-resume-builder"));
-    }
   };
 
   return (
@@ -38,7 +37,7 @@ export function SiteHeader() {
             <button
               key={item.target}
               type="button"
-              onClick={() => handleNavClick(item.target, item.openBuilder)}
+              onClick={() => handleNavClick(item.target)}
               className="transition hover:text-white"
             >
               {item.label}
