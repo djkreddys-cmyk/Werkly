@@ -502,7 +502,7 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
               onClick={() => setIsFormOpen(true)}
               className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
             >
-              Open Resume Builder
+              Open Resume
             </button>
           </div>
 
@@ -539,12 +539,12 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
             ) : (
               <div className="soft-panel p-8 text-center">
                 <p className="eyebrow">Live Preview</p>
-                <h3 className="mt-4 text-2xl font-semibold leading-tight text-[var(--color-ink)] sm:text-3xl">
-                  Your generated resume preview will appear here.
-                </h3>
-                <p className="mt-4 text-sm leading-7 text-[var(--color-muted)]">
-                  Open the popup builder, complete the form, and generate the resume. The preview updates here without taking over the page.
-                </p>
+                  <h3 className="mt-4 text-2xl font-semibold leading-tight text-[var(--color-ink)] sm:text-3xl">
+                    Live resume preview will appear here.
+                  </h3>
+                  <p className="mt-4 text-sm leading-7 text-[var(--color-muted)]">
+                    Open the popup builder, complete the form, and generate the resume. The preview updates here without taking over the page.
+                  </p>
               </div>
             )}
           </div>
@@ -562,11 +562,11 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow">Resume Builder</p>
           <h1 className="mt-4 text-5xl font-semibold leading-tight text-[var(--color-ink)]">Build a polished resume with a layout that fits your profile.</h1>
-          <p className="muted-copy mt-5 text-base leading-8 sm:text-lg">Open the builder in a popup, upload a candidate photo, switch between ten template styles, and keep the resume preview visible on the page.</p>
+          <p className="muted-copy mt-5 text-base leading-8 sm:text-lg">Open the builder in a popup, fill in the candidate details, and keep the live resume preview on this page.</p>
         </div>
 
         <div className="mt-10 flex justify-center no-print">
-          <button type="button" onClick={() => setIsFormOpen(true)} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]">Open Resume Builder</button>
+          <button type="button" onClick={() => setIsFormOpen(true)} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]">Open Resume</button>
         </div>
 
         <div className="mt-8">
@@ -602,8 +602,8 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
           ) : (
             <div className="soft-panel p-10 text-center">
               <p className="eyebrow">Live Preview</p>
-              <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">Your generated resume preview will stay on this screen.</h2>
-              <p className="mt-4 text-sm leading-7 text-[var(--color-muted)]">Open the popup builder, complete the form, and generate the resume. The preview updates here while the form stays separate.</p>
+              <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">Live resume preview will appear here.</h2>
+              <p className="mt-4 text-sm leading-7 text-[var(--color-muted)]">Open the popup builder, complete the form, and generate the resume. The preview updates here without taking over the page.</p>
             </div>
           )}
         </div>
