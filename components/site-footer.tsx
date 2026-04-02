@@ -59,6 +59,19 @@ export function SiteFooter() {
             Instagram
           </a>
         </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-white/80">
+          <a href="tel:+917036797909" className="transition hover:text-white">
+            Phone: +91 7036797909
+          </a>
+          <a
+            href="https://wa.me/917036797909"
+            target="_blank"
+            rel="noreferrer"
+            className="transition hover:text-white"
+          >
+            WhatsApp: Chat on WhatsApp
+          </a>
+        </div>
       </div>
     </footer>
   );

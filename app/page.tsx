@@ -267,28 +267,6 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <div className="rounded-[1.4rem] border border-[var(--color-line)] bg-[var(--color-paper)] p-5">
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Direct Connect</p>
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.18em] text-slate-400">Phone</p>
-                      <a className="mt-2 block text-lg font-semibold text-slate-950" href="tel:+917036797909">
-                        +91 7036797909
-                      </a>
-                    </div>
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.18em] text-slate-400">WhatsApp</p>
-                      <a
-                        className="mt-2 block text-lg font-semibold text-slate-950"
-                        href="https://wa.me/917036797909"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Chat on WhatsApp
-                      </a>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
