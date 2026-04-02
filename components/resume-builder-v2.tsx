@@ -521,6 +521,37 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
         >
           Open Popup Builder
         </button>
+        <div className="mt-4 border-t border-[var(--color-line)] pt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
+            Connect
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a
+              href="https://www.linkedin.com/in/werkly-consulting-35603b3ba/"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
+            >
+              LinkedIn
+            </a>
+            <a
+              href="https://www.instagram.com/werklyconsulting/"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
+            >
+              Instagram
+            </a>
+            <a
+              href="https://wa.me/917036797909"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
+            >
+              WhatsApp
+            </a>
+          </div>
+        </div>
       </div>
     ) : null;
 
