@@ -215,40 +215,13 @@ export default function Home() {
                   <p className="mt-2 text-lg font-semibold text-slate-950">Werkly Consulting Pvt LTD</p>
                 </div>
                 <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Headquarters</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">Hyderabad</p>
-                </div>
-                <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Branch Office</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">Vijayawada</p>
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Branches</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-950">AP, Telangana</p>
                 </div>
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Hiring Enquiries</p>
                   <a className="mt-2 block text-lg font-semibold text-slate-950" href="mailto:hr@werkly.in">
                     hr@werkly.in
-                  </a>
-                </div>
-                <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">General Enquiries</p>
-                  <a className="mt-2 block text-lg font-semibold text-slate-950" href="mailto:info@werkly.in">
-                    info@werkly.in
-                  </a>
-                </div>
-                <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Phone</p>
-                  <a className="mt-2 block text-lg font-semibold text-slate-950" href="tel:+917036797909">
-                    +91 7036797909
-                  </a>
-                </div>
-                <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">WhatsApp</p>
-                  <a
-                    className="mt-2 block text-lg font-semibold text-slate-950"
-                    href="https://wa.me/917036797909"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Chat on WhatsApp
                   </a>
                 </div>
                 <div>
@@ -272,10 +245,10 @@ export default function Home() {
                     </a>
                   </div>
                 </div>
-                <div className="rounded-[1.4rem] border border-[var(--color-line)] bg-[var(--color-paper)] p-5">
+                <div className="rounded-[1.4rem] border-2 border-[var(--color-accent)]/45 bg-[linear-gradient(135deg,rgba(241,166,75,0.12),rgba(8,96,108,0.06))] p-5 shadow-[0_18px_45px_rgba(15,47,54,0.08)]">
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Scan to Connect</p>
                   <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-                    <div className="overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-sm">
+                    <div className="overflow-hidden rounded-2xl border-2 border-[var(--color-accent)]/35 bg-white p-2 shadow-md">
                       <Image
                         src={qrCode}
                         alt="QR code to connect with Werkly on social channels"
@@ -291,6 +264,28 @@ export default function Home() {
                       <p className="text-sm font-medium text-slate-950">
                         LinkedIn and Instagram access in one quick scan.
                       </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-[1.4rem] border border-[var(--color-line)] bg-[var(--color-paper)] p-5">
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Direct Connect</p>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.18em] text-slate-400">Phone</p>
+                      <a className="mt-2 block text-lg font-semibold text-slate-950" href="tel:+917036797909">
+                        +91 7036797909
+                      </a>
+                    </div>
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.18em] text-slate-400">WhatsApp</p>
+                      <a
+                        className="mt-2 block text-lg font-semibold text-slate-950"
+                        href="https://wa.me/917036797909"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Chat on WhatsApp
+                      </a>
                     </div>
                   </div>
                 </div>
