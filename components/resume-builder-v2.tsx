@@ -409,6 +409,60 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
           <p className="text-sm font-semibold text-[var(--color-ink)]">Personal Information included in resume</p>
           <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">Email, phone, location, address, date of birth, nationality, languages, LinkedIn, and portfolio are added automatically when you fill them here.</p>
         </div>
+        <div className="mt-5 rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4">
+          <p className="eyebrow">Connect to Werkly</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="space-y-3 text-sm leading-6 text-[var(--color-ink)]">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">Hiring Enquiries</p>
+                <a href="mailto:hr@werkly.in" className="mt-1 block font-medium hover:text-[var(--color-dark)]">
+                  hr@werkly.in
+                </a>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">Phone</p>
+                <a href="tel:+917036797909" className="mt-1 block font-medium hover:text-[var(--color-dark)]">
+                  +91 7036797909
+                </a>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">WhatsApp</p>
+                <a
+                  href="https://wa.me/917036797909"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 block font-medium hover:text-[var(--color-dark)]"
+                >
+                  Chat on WhatsApp
+                </a>
+              </div>
+            </div>
+            <div className="space-y-3 text-sm leading-6 text-[var(--color-ink)]">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">LinkedIn</p>
+                <a
+                  href="https://www.linkedin.com/in/werkly-consulting-35603b3ba/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 block font-medium hover:text-[var(--color-dark)]"
+                >
+                  Follow on LinkedIn
+                </a>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">Instagram</p>
+                <a
+                  href="https://www.instagram.com/werklyconsulting/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 block font-medium hover:text-[var(--color-dark)]"
+                >
+                  Follow on Instagram
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="mt-6">
           <div className="mb-4 flex items-center justify-between gap-4">
             <h3 className="text-xl font-semibold text-[var(--color-ink)]">Personal Information</h3>

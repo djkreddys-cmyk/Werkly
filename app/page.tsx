@@ -226,7 +226,7 @@ export default function Home() {
                 </div>
                 <div className="rounded-[1.4rem] border-2 border-[var(--color-accent)]/45 bg-[linear-gradient(135deg,rgba(241,166,75,0.12),rgba(8,96,108,0.06))] p-5 shadow-[0_18px_45px_rgba(15,47,54,0.08)]">
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Scan to Connect</p>
-                  <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                  <div className="mt-4 flex justify-center">
                     <div className="overflow-hidden rounded-2xl border-2 border-[var(--color-accent)]/35 bg-white p-2 shadow-md">
                       <Image
                         src={qrCode}
@@ -235,14 +235,6 @@ export default function Home() {
                         height={144}
                         className="h-36 w-36 rounded-xl object-contain"
                       />
-                    </div>
-                    <div className="max-w-xs space-y-2">
-                      <p className="text-sm leading-6 muted-copy">
-                        Scan the QR code to quickly open Werkly&apos;s social profiles and stay connected with our latest updates.
-                      </p>
-                      <p className="text-sm font-medium text-slate-950">
-                        LinkedIn and Instagram access in one quick scan.
-                      </p>
                     </div>
                   </div>
                 </div>
