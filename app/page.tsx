@@ -244,35 +244,6 @@ export default function Home() {
           </RevealSection>
         </section>
 
-        <section className="section-shell py-10 sm:py-14">
-          <RevealSection delay={140}>
-            <div className="accent-card p-8 text-center sm:p-10">
-              <p className="eyebrow">Connect Werkly</p>
-              <h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-slate-950 sm:text-4xl">
-                Follow Werkly and stay connected with our latest hiring updates.
-              </h2>
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-                <a
-                  className="rounded-2xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
-                  href="https://www.linkedin.com/in/werkly-consulting-35603b3ba/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  LinkedIn
-                </a>
-                <a
-                  className="rounded-2xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
-                  href="https://www.instagram.com/werklyconsulting/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Instagram
-                </a>
-              </div>
-            </div>
-          </RevealSection>
-        </section>
-
         <section id="resume-builder" className="anchor-section">
           <RevealSection delay={160}>
             <ResumeBuilder mode="compact" />
