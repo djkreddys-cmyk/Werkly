@@ -1,4 +1,5 @@
 import Image from "next/image";
+import qrCode from "../qr-1775155944413.png";
 import { RevealSection } from "@/components/reveal-section";
 import { ResumeBuilder } from "@/components/resume-builder-v2";
 import { SiteFooter } from "@/components/site-footer";
@@ -232,6 +233,66 @@ export default function Home() {
                   <a className="mt-2 block text-lg font-semibold text-slate-950" href="mailto:info@werkly.in">
                     info@werkly.in
                   </a>
+                </div>
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Phone</p>
+                  <a className="mt-2 block text-lg font-semibold text-slate-950" href="tel:+917036797909">
+                    +91 7036797909
+                  </a>
+                </div>
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">WhatsApp</p>
+                  <a
+                    className="mt-2 block text-lg font-semibold text-slate-950"
+                    href="https://wa.me/917036797909"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Chat on WhatsApp
+                  </a>
+                </div>
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Follow Werkly</p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <a
+                      className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
+                      href="https://www.linkedin.com/in/werkly-consulting-35603b3ba/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      LinkedIn
+                    </a>
+                    <a
+                      className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
+                      href="https://www.instagram.com/werklyconsulting/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Instagram
+                    </a>
+                  </div>
+                </div>
+                <div className="rounded-[1.4rem] border border-[var(--color-line)] bg-[var(--color-paper)] p-5">
+                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Scan to Connect</p>
+                  <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                    <div className="overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-sm">
+                      <Image
+                        src={qrCode}
+                        alt="QR code to connect with Werkly on social channels"
+                        width={144}
+                        height={144}
+                        className="h-36 w-36 rounded-xl object-contain"
+                      />
+                    </div>
+                    <div className="max-w-xs space-y-2">
+                      <p className="text-sm leading-6 muted-copy">
+                        Scan the QR code to quickly open Werkly&apos;s social profiles and stay connected with our latest updates.
+                      </p>
+                      <p className="text-sm font-medium text-slate-950">
+                        LinkedIn and Instagram access in one quick scan.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
