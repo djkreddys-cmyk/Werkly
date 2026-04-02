@@ -195,7 +195,7 @@ export default function Home() {
 
         <section id="contact" className="section-shell anchor-section py-16 sm:py-24">
           <RevealSection delay={120}>
-          <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
             <div className="accent-card p-8 sm:p-9">
               <p className="eyebrow">Client Engagement</p>
               <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">

@@ -41,6 +41,24 @@ export function SiteFooter() {
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+          <a
+            href="https://www.linkedin.com/in/werkly-consulting-35603b3ba/"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-2xl border border-white/12 px-4 py-2 text-white/80 transition hover:border-white/25 hover:text-white"
+          >
+            LinkedIn
+          </a>
+          <a
+            href="https://www.instagram.com/werklyconsulting/"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-2xl border border-white/12 px-4 py-2 text-white/80 transition hover:border-white/25 hover:text-white"
+          >
+            Instagram
+          </a>
+        </div>
       </div>
     </footer>
   );
