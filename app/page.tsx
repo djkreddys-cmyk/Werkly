@@ -216,34 +216,13 @@ export default function Home() {
                 </div>
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Branches</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">AP, Telangana</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-950">Hyd, Vja</p>
                 </div>
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Hiring Enquiries</p>
                   <a className="mt-2 block text-lg font-semibold text-slate-950" href="mailto:hr@werkly.in">
                     hr@werkly.in
                   </a>
-                </div>
-                <div>
-                  <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Follow Werkly</p>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    <a
-                      className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
-                      href="https://www.linkedin.com/in/werkly-consulting-35603b3ba/"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      LinkedIn
-                    </a>
-                    <a
-                      className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:border-[var(--color-dark)] hover:text-[var(--color-dark)]"
-                      href="https://www.instagram.com/werklyconsulting/"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Instagram
-                    </a>
-                  </div>
                 </div>
                 <div className="rounded-[1.4rem] border-2 border-[var(--color-accent)]/45 bg-[linear-gradient(135deg,rgba(241,166,75,0.12),rgba(8,96,108,0.06))] p-5 shadow-[0_18px_45px_rgba(15,47,54,0.08)]">
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Scan to Connect</p>
