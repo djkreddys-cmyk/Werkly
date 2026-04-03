@@ -12,6 +12,7 @@ export type JobSummary = {
   salary?: string;
   packagePerAnnum?: string;
   status: JobStatus;
+  isHidden?: boolean;
   postedAt: string;
   lastDateToApply?: string;
   applicationsCount: number;
@@ -52,6 +53,7 @@ export type JobFormPayload = {
   salary?: string;
   packagePerAnnum?: string;
   status: JobStatus;
+  isHidden?: boolean;
   postedAt?: string;
   lastDateToApply?: string;
   description: string;
@@ -72,6 +74,7 @@ const demoJobs: JobDetail[] = [
     salary: "As per experience",
     packagePerAnnum: "12 - 18 LPA",
     status: "open",
+    isHidden: false,
     postedAt: "2026-04-03",
     lastDateToApply: "2026-04-30",
     applicationsCount: 0,
@@ -103,6 +106,7 @@ const demoJobs: JobDetail[] = [
     salary: "Competitive",
     packagePerAnnum: "6 - 9 LPA",
     status: "open",
+    isHidden: false,
     postedAt: "2026-04-01",
     lastDateToApply: "2026-04-24",
     applicationsCount: 0,
@@ -134,6 +138,7 @@ const demoJobs: JobDetail[] = [
     salary: "Incentive based",
     packagePerAnnum: "10 - 14 LPA",
     status: "open",
+    isHidden: false,
     postedAt: "2026-03-29",
     lastDateToApply: "2026-04-20",
     applicationsCount: 0,
@@ -176,6 +181,7 @@ function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
     salary: job.salary ? String(job.salary) : undefined,
     packagePerAnnum: job.packagePerAnnum ? String(job.packagePerAnnum) : undefined,
     status: (job.status as JobStatus) ?? "open",
+    isHidden: Boolean(job.isHidden),
     postedAt: String(job.postedAt ?? ""),
     lastDateToApply: job.lastDateToApply ? String(job.lastDateToApply) : undefined,
     applicationsCount:
@@ -230,6 +236,16 @@ export async function getJobs(): Promise<JobSummary[]> {
   } catch {
     return demoJobs.map(normalizeJobSummary);
   }
+}
+
+export async function getAdminJobs(token: string): Promise<JobSummary[]> {
+  const data = await readJson<JobsResponse | JobSummary[]>("/admin/jobs", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const jobs = Array.isArray(data) ? data : data.jobs;
+  return jobs.map(normalizeJobSummary);
 }
 
 export async function getJobBySlug(slug: string): Promise<JobDetail | null> {

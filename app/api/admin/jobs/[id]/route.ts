@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteJob, splitMultiline, updateJob, type JobFormPayload, type JobStatus } from "@/lib/jobs";
+import { splitMultiline, updateJob, type JobFormPayload, type JobStatus } from "@/lib/jobs";
 
 function slugify(value: string) {
   return value
@@ -24,6 +24,7 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
     salary: body.salary ? String(body.salary) : undefined,
     packagePerAnnum: body.packagePerAnnum ? String(body.packagePerAnnum) : undefined,
     status: (body.status as JobStatus) ?? "draft",
+    isHidden: Boolean(body.isHidden),
     postedAt: body.postedAt ? String(body.postedAt) : undefined,
     lastDateToApply: body.lastDateToApply ? String(body.lastDateToApply) : undefined,
     description:
@@ -54,28 +55,6 @@ export async function PUT(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to update job on backend.";
-    return NextResponse.json({ message }, { status: 500 });
-  }
-}
-
-export async function DELETE(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "").trim();
-
-    if (!token) {
-      return NextResponse.json({ message: "Admin token is required." }, { status: 401 });
-    }
-
-    const { id } = await context.params;
-    const result = await deleteJob(id, token);
-    return NextResponse.json(result);
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unable to delete job on backend.";
     return NextResponse.json({ message }, { status: 500 });
   }
 }

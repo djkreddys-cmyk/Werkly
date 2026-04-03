@@ -4,10 +4,10 @@ import express from "express";
 import { createAdminToken, requireAdmin, validateAdmin } from "./auth.js";
 import {
   createJob,
-  deleteJob,
   ensureJobsSchema,
   getJobBySlug,
   incrementApplicationsCount,
+  listAdminJobs,
   listJobs,
   updateJob,
 } from "./jobs.js";
@@ -58,6 +58,17 @@ app.get("/jobs", async (_request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load jobs.",
+    });
+  }
+});
+
+app.get("/admin/jobs", requireAdmin, async (_request, response) => {
+  try {
+    const jobs = await listAdminJobs();
+    response.json({ jobs });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load admin jobs.",
     });
   }
 });
@@ -117,22 +128,6 @@ app.put("/admin/jobs/:id", requireAdmin, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update job.",
-    });
-  }
-});
-
-app.delete("/admin/jobs/:id", requireAdmin, async (request, response) => {
-  try {
-    const success = await deleteJob(request.params.id);
-
-    if (!success) {
-      return response.status(404).json({ message: "Job not found." });
-    }
-
-    response.json({ success: true });
-  } catch (error) {
-    response.status(500).json({
-      message: error instanceof Error ? error.message : "Unable to delete job.",
     });
   }
 });

@@ -12,6 +12,7 @@ create table if not exists jobs (
   salary text,
   package_per_annum text,
   status text not null default 'draft',
+  is_hidden boolean not null default false,
   posted_at date not null default current_date,
   last_date_to_apply date,
   applications_count integer not null default 0,

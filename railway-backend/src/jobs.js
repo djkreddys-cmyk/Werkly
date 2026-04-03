@@ -18,6 +18,7 @@ export function mapRow(row) {
     salary: row.salary,
     packagePerAnnum: row.package_per_annum,
     status: row.status,
+    isHidden: Boolean(row.is_hidden),
     postedAt: row.posted_at,
     lastDateToApply: row.last_date_to_apply,
     applicationsCount: Number(row.applications_count ?? 0),
@@ -44,6 +45,41 @@ export async function listJobs() {
       salary,
       package_per_annum,
       status,
+      is_hidden,
+      posted_at,
+      last_date_to_apply,
+      applications_count,
+      summary,
+      description,
+      skills,
+      responsibilities,
+      requirements,
+      apply_url
+     from jobs
+     where coalesce(is_hidden, false) = false
+       and status = 'open'
+       and (last_date_to_apply is null or last_date_to_apply >= current_date)
+     order by posted_at desc, created_at desc`
+  );
+
+  return result.rows.map(mapRow);
+}
+
+export async function listAdminJobs() {
+  const result = await query(
+    `select
+      id,
+      job_code,
+      slug,
+      title,
+      location,
+      sector,
+      experience,
+      employment_type,
+      salary,
+      package_per_annum,
+      status,
+      is_hidden,
       posted_at,
       last_date_to_apply,
       applications_count,
@@ -74,6 +110,7 @@ export async function getJobBySlug(slug) {
       salary,
       package_per_annum,
       status,
+      is_hidden,
       posted_at,
       last_date_to_apply,
       applications_count,
@@ -85,6 +122,9 @@ export async function getJobBySlug(slug) {
       apply_url
      from jobs
      where slug = $1
+       and coalesce(is_hidden, false) = false
+       and status = 'open'
+       and (last_date_to_apply is null or last_date_to_apply >= current_date)
      limit 1`,
     [slug]
   );
@@ -97,6 +137,7 @@ export async function ensureJobsSchema() {
   await query(`alter table jobs add column if not exists job_code text unique`);
   await query(`alter table jobs add column if not exists last_date_to_apply date`);
   await query(`alter table jobs add column if not exists applications_count integer not null default 0`);
+  await query(`alter table jobs add column if not exists is_hidden boolean not null default false`);
 }
 
 async function generateJobCode(client, postedAt) {
@@ -139,6 +180,7 @@ export async function createJob(payload) {
         salary,
         package_per_annum,
         status,
+        is_hidden,
         posted_at,
         last_date_to_apply,
         summary,
@@ -148,7 +190,7 @@ export async function createJob(payload) {
         requirements,
         apply_url
       ) values (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,coalesce($11::date, current_date),$12::date,$13,$14,$15,$16,$17,$18
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12::date, current_date),$13::date,$14,$15,$16,$17,$18,$19
       )
       returning *`,
       [
@@ -162,6 +204,7 @@ export async function createJob(payload) {
         payload.salary || null,
         payload.packagePerAnnum || null,
         payload.status,
+        payload.isHidden ?? false,
         payload.postedAt || null,
         payload.lastDateToApply || null,
         payload.summary || "",
@@ -195,12 +238,13 @@ export async function updateJob(id, payload) {
       salary = $8,
       package_per_annum = $9,
       status = $10,
-      last_date_to_apply = $11,
-      summary = $12,
-      description = $13,
-      skills = $14,
-      responsibilities = $15,
-      requirements = $16,
+      is_hidden = $11,
+      last_date_to_apply = $12,
+      summary = $13,
+      description = $14,
+      skills = $15,
+      responsibilities = $16,
+      requirements = $17,
       updated_at = now()
     where id = $1
     returning *`,
@@ -215,6 +259,7 @@ export async function updateJob(id, payload) {
       payload.salary || null,
       payload.packagePerAnnum || null,
       payload.status,
+      payload.isHidden ?? false,
       payload.lastDateToApply || null,
       payload.summary || "",
       payload.description,

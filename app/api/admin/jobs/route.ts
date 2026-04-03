@@ -1,5 +1,8 @@
-import { NextResponse } from "next/server";
-import { createJob, getJobs, splitMultiline, type JobFormPayload, type JobStatus } from "@/lib/jobs";
+import {
+  NextResponse,
+  type NextRequest,
+} from "next/server";
+import { createJob, getAdminJobs, splitMultiline, type JobFormPayload, type JobStatus } from "@/lib/jobs";
 
 function slugify(value: string) {
   return value
@@ -24,6 +27,7 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
     salary: body.salary ? String(body.salary) : undefined,
     packagePerAnnum: body.packagePerAnnum ? String(body.packagePerAnnum) : undefined,
     status: (body.status as JobStatus) ?? "draft",
+    isHidden: Boolean(body.isHidden),
     postedAt: body.postedAt ? String(body.postedAt) : undefined,
     lastDateToApply: body.lastDateToApply ? String(body.lastDateToApply) : undefined,
     description:
@@ -34,9 +38,16 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const jobs = await getJobs();
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "").trim();
+
+    if (!token) {
+      return NextResponse.json({ message: "Admin token is required." }, { status: 401 });
+    }
+
+    const jobs = await getAdminJobs(token);
     return NextResponse.json({ jobs });
   } catch (error) {
     const message =

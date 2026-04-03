@@ -14,6 +14,7 @@ type JobEditorState = {
   salary: string;
   packagePerAnnum: string;
   status: JobStatus;
+  isHidden: boolean;
   lastDateToApply: string;
   responsibilities: string;
   requirements: string;
@@ -28,6 +29,7 @@ const emptyForm: JobEditorState = {
   salary: "",
   packagePerAnnum: "",
   status: "draft",
+  isHidden: false,
   lastDateToApply: "",
   responsibilities: "",
   requirements: "",
@@ -54,8 +56,19 @@ export function AdminJobsDashboard() {
     const savedEmail = window.localStorage.getItem("werklyAdminEmail") ?? "";
     setToken(savedToken);
     setAdminEmail(savedEmail);
+  }, []);
 
-    fetch("/api/admin/jobs")
+  useEffect(() => {
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    fetch("/api/admin/jobs", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
       .then(async (response) => {
         const result = (await response.json()) as { jobs?: JobSummary[]; message?: string };
         if (!response.ok) {
@@ -67,7 +80,7 @@ export function AdminJobsDashboard() {
         setError(loadError instanceof Error ? loadError.message : "Unable to load jobs.");
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [token]);
 
   const sortedJobs = useMemo(
     () =>
@@ -93,6 +106,7 @@ export function AdminJobsDashboard() {
       salary: job.salary ?? "",
       packagePerAnnum: job.packagePerAnnum ?? "",
       status: job.status,
+      isHidden: Boolean(job.isHidden),
       lastDateToApply: job.lastDateToApply ?? "",
       responsibilities: (job.responsibilities ?? []).join("\n"),
       requirements: (job.requirements ?? []).join("\n"),
@@ -105,7 +119,11 @@ export function AdminJobsDashboard() {
   }
 
   async function refreshJobs() {
-    const response = await fetch("/api/admin/jobs");
+    const response = await fetch("/api/admin/jobs", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     const result = (await response.json()) as { jobs?: JobSummary[]; message?: string };
     if (!response.ok) {
       throw new Error(result.message || "Unable to refresh jobs.");
@@ -153,7 +171,7 @@ export function AdminJobsDashboard() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleVisibilityToggle(job: JobSummary) {
     if (!token) {
       setError("Please sign in again. Admin token is missing.");
       return;
@@ -163,26 +181,39 @@ export function AdminJobsDashboard() {
     setMessage("");
 
     try {
-      const response = await fetch(`/api/admin/jobs/${id}`, {
-        method: "DELETE",
+      const response = await fetch(`/api/admin/jobs/${job.id}`, {
+        method: "PUT",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({
+          title: job.title,
+          location: job.location,
+          sector: job.sector,
+          experience: job.experience,
+          employmentType: job.employmentType,
+          salary: job.salary ?? "",
+          packagePerAnnum: job.packagePerAnnum ?? "",
+          status: job.status,
+          isHidden: !job.isHidden,
+          postedAt: job.postedAt,
+          lastDateToApply: job.lastDateToApply ?? "",
+          responsibilities: (job.responsibilities ?? []).join("\n"),
+          requirements: (job.requirements ?? []).join("\n"),
+        }),
       });
 
       const result = (await response.json()) as { message?: string };
       if (!response.ok) {
-        throw new Error(result.message || "Unable to delete job.");
+        throw new Error(result.message || "Unable to update job visibility.");
       }
 
       await refreshJobs();
-      if (form.id === id) {
-        setForm(emptyForm);
-      }
-      setMessage("Job deleted successfully.");
+      setMessage(job.isHidden ? "Job is visible again." : "Job has been hidden from the jobs page.");
     } catch (deleteError) {
       setError(
-        deleteError instanceof Error ? deleteError.message : "Unable to delete job."
+        deleteError instanceof Error ? deleteError.message : "Unable to update job visibility."
       );
     }
   }
@@ -364,7 +395,7 @@ export function AdminJobsDashboard() {
                     ) : null}
                   </div>
                   <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-                    {job.status}
+                    {job.isHidden ? "hidden" : job.status}
                   </span>
                 </div>
                 <p className="muted-copy mt-3 text-sm leading-6">
@@ -388,10 +419,10 @@ export function AdminJobsDashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(job.id)}
+                    onClick={() => handleVisibilityToggle(job)}
                     className="rounded-xl border border-[rgba(190,72,26,0.2)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
                   >
-                    Delete
+                    {job.isHidden ? "Unhide" : "Hide"}
                   </button>
                 </div>
               </article>
