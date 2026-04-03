@@ -3,6 +3,30 @@ import { NextResponse } from 'next/server'
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 export const runtime = 'nodejs'
 
+async function incrementJobApplicationCount(jobSlug: string) {
+  const baseUrl = (
+    process.env.RAILWAY_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_RAILWAY_API_BASE_URL ||
+    ''
+  ).replace(/\/$/, '')
+
+  if (!baseUrl) {
+    return
+  }
+
+  const response = await fetch(`${baseUrl}/jobs/${jobSlug}/applications`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Unable to update application count.')
+  }
+}
+
 function asString(value: FormDataEntryValue | null) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -68,6 +92,7 @@ export async function POST(request: Request) {
     let replyTo = ''
     let rows = ''
     let subject = ''
+    let jobSlug = ''
 
     if (inquiryType === 'company') {
       const fields = {
@@ -110,6 +135,8 @@ export async function POST(request: Request) {
       subject = `Website company enquiry: ${fields.companyName} - ${fields.hiringRole}`
       replyTo = fields.companyEmail
     } else {
+      jobSlug = asString(formData.get('jobSlug'))
+      const jobTitle = asString(formData.get('jobTitle'))
       const fields = {
         candidateName: asString(formData.get('candidateName')),
         candidateEmail: asString(formData.get('candidateEmail')),
@@ -142,6 +169,7 @@ export async function POST(request: Request) {
         ['Preferred Role', fields.preferredRole],
         ['Current CTC', fields.currentCtc],
         ['Expected CTC', fields.expectedCtc],
+        ['Job Applied For', jobTitle],
         ['Preferred Location', fields.preferredLocation],
         ['Preferred Sector', fields.preferredSector],
         ['Details', fields.candidateMessage],
@@ -179,6 +207,10 @@ export async function POST(request: Request) {
         { message: 'Email delivery failed. Check Resend configuration and sender verification.' },
         { status: 502 }
       )
+    }
+
+    if (inquiryType === 'candidate' && jobSlug) {
+      await incrementJobApplicationCount(jobSlug)
     }
 
     return NextResponse.json({

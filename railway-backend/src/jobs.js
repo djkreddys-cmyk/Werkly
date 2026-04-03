@@ -20,6 +20,7 @@ export function mapRow(row) {
     status: row.status,
     postedAt: row.posted_at,
     lastDateToApply: row.last_date_to_apply,
+    applicationsCount: Number(row.applications_count ?? 0),
     summary: row.summary,
     description: row.description,
     skills: normalizeArray(row.skills),
@@ -45,6 +46,7 @@ export async function listJobs() {
       status,
       posted_at,
       last_date_to_apply,
+      applications_count,
       summary,
       description,
       skills,
@@ -74,6 +76,7 @@ export async function getJobBySlug(slug) {
       status,
       posted_at,
       last_date_to_apply,
+      applications_count,
       summary,
       description,
       skills,
@@ -93,6 +96,7 @@ export async function ensureJobsSchema() {
   await query(`create extension if not exists pgcrypto`);
   await query(`alter table jobs add column if not exists job_code text unique`);
   await query(`alter table jobs add column if not exists last_date_to_apply date`);
+  await query(`alter table jobs add column if not exists applications_count integer not null default 0`);
 }
 
 async function generateJobCode(client, postedAt) {
@@ -160,9 +164,9 @@ export async function createJob(payload) {
         payload.status,
         payload.postedAt || null,
         payload.lastDateToApply || null,
-        payload.summary,
+        payload.summary || "",
         payload.description,
-        payload.skills,
+        payload.skills || [],
         payload.responsibilities,
         payload.requirements,
         payload.applyUrl || null,
@@ -212,9 +216,9 @@ export async function updateJob(id, payload) {
       payload.packagePerAnnum || null,
       payload.status,
       payload.lastDateToApply || null,
-      payload.summary,
+      payload.summary || "",
       payload.description,
-      payload.skills,
+      payload.skills || [],
       payload.responsibilities,
       payload.requirements,
     ]
@@ -226,4 +230,17 @@ export async function updateJob(id, payload) {
 export async function deleteJob(id) {
   const result = await query("delete from jobs where id = $1", [id]);
   return result.rowCount > 0;
+}
+
+export async function incrementApplicationsCount(slug) {
+  const result = await query(
+    `update jobs
+     set applications_count = coalesce(applications_count, 0) + 1,
+         updated_at = now()
+     where slug = $1
+     returning *`,
+    [slug]
+  );
+
+  return result.rows[0] ? mapRow(result.rows[0]) : null;
 }

@@ -7,11 +7,15 @@ import { InquiryForm } from '@/components/inquiry-forms'
 type EnquiryModalProps = {
   triggerLabel?: string
   triggerClassName?: string
+  jobSlug?: string
+  jobTitle?: string
 }
 
 export function EnquiryModal({
   triggerLabel = 'Enquiry',
   triggerClassName,
+  jobSlug,
+  jobTitle,
 }: EnquiryModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'candidate' | 'company'>('candidate')
@@ -104,6 +108,8 @@ export function EnquiryModal({
                   </div>
                   <InquiryForm
                     kind={activeTab}
+                    jobSlug={activeTab === 'candidate' ? jobSlug : undefined}
+                    jobTitle={activeTab === 'candidate' ? jobTitle : undefined}
                     className="rounded-t-none border-t-0 shadow-[0_30px_70px_rgba(10,22,42,0.18)]"
                   />
                 </div>

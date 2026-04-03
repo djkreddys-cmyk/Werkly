@@ -23,9 +23,7 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
     status: (body.status as JobStatus) ?? "draft",
     postedAt: body.postedAt ? String(body.postedAt) : undefined,
     lastDateToApply: body.lastDateToApply ? String(body.lastDateToApply) : undefined,
-    summary: String(body.summary ?? ""),
     description: String(body.description ?? ""),
-    skills: splitMultiline(String(body.skills ?? "")),
     responsibilities: splitMultiline(String(body.responsibilities ?? "")),
     requirements: splitMultiline(String(body.requirements ?? "")),
   };

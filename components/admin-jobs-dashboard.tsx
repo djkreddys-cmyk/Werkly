@@ -15,9 +15,7 @@ type JobEditorState = {
   packagePerAnnum: string;
   status: JobStatus;
   lastDateToApply: string;
-  summary: string;
   description: string;
-  skills: string;
   responsibilities: string;
   requirements: string;
 };
@@ -32,9 +30,7 @@ const emptyForm: JobEditorState = {
   packagePerAnnum: "",
   status: "draft",
   lastDateToApply: "",
-  summary: "",
   description: "",
-  skills: "",
   responsibilities: "",
   requirements: "",
 };
@@ -99,9 +95,7 @@ export function AdminJobsDashboard() {
       packagePerAnnum: job.packagePerAnnum ?? "",
       status: job.status,
       lastDateToApply: job.lastDateToApply ?? "",
-      summary: job.summary,
       description: "Open the job detail page to review the full description before editing.",
-      skills: job.skills.join("\n"),
       responsibilities: "",
       requirements: "",
     });
@@ -292,24 +286,11 @@ export function AdminJobsDashboard() {
 
         <div className="mt-4 space-y-4">
           <textarea
-            className={`${fieldClassName} min-h-[90px] resize-y`}
-            placeholder="Short summary"
-            value={form.summary}
-            onChange={(event) => updateForm("summary", event.target.value)}
-            required
-          />
-          <textarea
             className={`${fieldClassName} min-h-[120px] resize-y`}
             placeholder="Detailed description"
             value={form.description}
             onChange={(event) => updateForm("description", event.target.value)}
             required
-          />
-          <textarea
-            className={`${fieldClassName} min-h-[110px] resize-y`}
-            placeholder="Skills (one per line)"
-            value={form.skills}
-            onChange={(event) => updateForm("skills", event.target.value)}
           />
           <textarea
             className={`${fieldClassName} min-h-[120px] resize-y`}
@@ -392,6 +373,9 @@ export function AdminJobsDashboard() {
                 </div>
                 <p className="muted-copy mt-3 text-sm leading-6">
                   {job.location} | {job.experience}
+                </p>
+                <p className="mt-2 text-sm text-[var(--color-muted)]">
+                  Applied people: {job.applicationsCount}
                 </p>
                 {job.lastDateToApply ? (
                   <p className="mt-2 text-sm text-[var(--color-muted)]">

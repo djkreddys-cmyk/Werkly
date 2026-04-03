@@ -8,6 +8,8 @@ type InquiryFormProps = {
   id?: string
   kind: InquiryKind
   className?: string
+  jobSlug?: string
+  jobTitle?: string
 }
 
 type FormState = {
@@ -23,7 +25,13 @@ const initialState: FormState = {
   message: '',
 }
 
-export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
+export function InquiryForm({
+  id,
+  kind,
+  className = '',
+  jobSlug,
+  jobTitle,
+}: InquiryFormProps) {
   const [state, setState] = useState<FormState>(initialState)
   const isCompany = kind === 'company'
 
@@ -33,6 +41,12 @@ export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
     const form = event.currentTarget
     const formData = new FormData(form)
     formData.set('inquiryType', kind)
+    if (jobSlug) {
+      formData.set('jobSlug', jobSlug)
+    }
+    if (jobTitle) {
+      formData.set('jobTitle', jobTitle)
+    }
 
     setState({
       status: 'submitting',
@@ -117,6 +131,11 @@ export function InquiryForm({ id, kind, className = '' }: InquiryFormProps) {
           </>
         ) : (
           <>
+            {jobTitle ? (
+              <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-paper)]/65 px-4 py-3 text-sm text-slate-700">
+                Applying for: <span className="font-semibold text-slate-950">{jobTitle}</span>
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <input className={fieldClassName} type="text" name="candidateName" placeholder="Full name" required />
               <input className={fieldClassName} type="email" name="candidateEmail" placeholder="Email address" required />

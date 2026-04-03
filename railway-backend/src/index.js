@@ -7,6 +7,7 @@ import {
   deleteJob,
   ensureJobsSchema,
   getJobBySlug,
+  incrementApplicationsCount,
   listJobs,
   updateJob,
 } from "./jobs.js";
@@ -73,6 +74,22 @@ app.get("/jobs/:slug", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load job.",
+    });
+  }
+});
+
+app.post("/jobs/:slug/applications", async (request, response) => {
+  try {
+    const job = await incrementApplicationsCount(request.params.slug);
+
+    if (!job) {
+      return response.status(404).json({ message: "Job not found." });
+    }
+
+    response.json(job);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update application count.",
     });
   }
 });

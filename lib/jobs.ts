@@ -14,6 +14,7 @@ export type JobSummary = {
   status: JobStatus;
   postedAt: string;
   lastDateToApply?: string;
+  applicationsCount: number;
   summary: string;
   skills: string[];
 };
@@ -50,9 +51,7 @@ export type JobFormPayload = {
   status: JobStatus;
   postedAt?: string;
   lastDateToApply?: string;
-  summary: string;
   description: string;
-  skills: string[];
   responsibilities: string[];
   requirements: string[];
 };
@@ -72,6 +71,7 @@ const demoJobs: JobDetail[] = [
     status: "open",
     postedAt: "2026-04-03",
     lastDateToApply: "2026-04-30",
+    applicationsCount: 0,
     summary:
       "Lead ERP operations, stakeholder alignment, and rollout discipline for a growing education-focused organization.",
     description:
@@ -102,6 +102,7 @@ const demoJobs: JobDetail[] = [
     status: "open",
     postedAt: "2026-04-01",
     lastDateToApply: "2026-04-24",
+    applicationsCount: 0,
     summary:
       "Support regulated quality processes, documentation discipline, and batch-release readiness in a pharma setting.",
     description:
@@ -132,6 +133,7 @@ const demoJobs: JobDetail[] = [
     status: "open",
     postedAt: "2026-03-29",
     lastDateToApply: "2026-04-20",
+    applicationsCount: 0,
     summary:
       "Drive dealer and project sales growth across building materials, channel development, and regional expansion.",
     description:
@@ -173,6 +175,10 @@ function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
     status: (job.status as JobStatus) ?? "open",
     postedAt: String(job.postedAt ?? ""),
     lastDateToApply: job.lastDateToApply ? String(job.lastDateToApply) : undefined,
+    applicationsCount:
+      typeof job.applicationsCount === "number"
+        ? job.applicationsCount
+        : Number(job.applicationsCount ?? 0),
     summary: String(job.summary ?? ""),
     skills: Array.isArray(job.skills) ? job.skills.map(String) : [],
   };

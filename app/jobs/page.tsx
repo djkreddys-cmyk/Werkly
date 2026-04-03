@@ -64,19 +64,9 @@ export default async function JobsPage() {
                       Apply by {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
                     </span>
                   ) : null}
-                </div>
-
-                <p className="muted-copy mt-5 text-base leading-7">{job.summary}</p>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {job.skills.map((skill) => (
-                    <span
-                      key={skill}
-                      className="rounded-full bg-[rgba(190,72,26,0.08)] px-3 py-1 text-sm font-medium text-[var(--color-accent-strong)]"
-                    >
-                      {skill}
-                    </span>
-                  ))}
+                  <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
+                    Applied {job.applicationsCount}
+                  </span>
                 </div>
 
                 <div className="mt-auto flex items-center justify-between gap-4 pt-8">

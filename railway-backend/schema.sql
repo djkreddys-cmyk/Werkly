@@ -14,6 +14,7 @@ create table if not exists jobs (
   status text not null default 'draft',
   posted_at date not null default current_date,
   last_date_to_apply date,
+  applications_count integer not null default 0,
   summary text not null,
   description text not null,
   skills text[] not null default '{}',

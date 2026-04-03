@@ -117,17 +117,10 @@ export default async function JobDetailPage({
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Skills</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {job.skills.map((skill) => (
-                        <span
-                          key={skill}
-                          className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-sm font-medium text-[var(--color-dark)]"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Applied People</p>
+                    <p className="mt-1 font-semibold text-[var(--color-ink)]">
+                      {job.applicationsCount}
+                    </p>
                   </div>
                 </div>
               </article>
@@ -141,6 +134,8 @@ export default async function JobDetailPage({
                 <div className="mt-5">
                   <EnquiryModal
                     triggerLabel="Apply Now"
+                    jobSlug={job.slug}
+                    jobTitle={job.title}
                     triggerClassName="inline-flex items-center justify-center rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
                   />
                 </div>
