@@ -541,30 +541,52 @@ export function AdminJobsDashboard() {
               ) : applications.length === 0 ? (
                 <p className="muted-copy text-sm">No candidate details captured for this job yet.</p>
               ) : (
-                <div className="space-y-3">
-                  {applications.map((application) => (
-                    <article
-                      key={application.id}
-                      className="rounded-2xl border border-[var(--color-line)] bg-[rgba(255,252,247,0.7)] p-4"
-                    >
-                      <p className="text-base font-semibold text-[var(--color-ink)]">
-                        {application.candidateName}
-                      </p>
-                      <a
-                        href={`mailto:${application.candidateEmail}`}
-                        className="mt-1 block text-sm font-medium text-[var(--color-accent-strong)]"
-                      >
-                        {application.candidateEmail}
-                      </a>
-                      <p className="mt-2 text-sm text-[var(--color-muted)]">
-                        Applied on{" "}
-                        {new Date(application.appliedAt).toLocaleString("en-IN", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      </p>
-                    </article>
-                  ))}
+                <div className="overflow-hidden rounded-2xl border border-[var(--color-line)]">
+                  <table className="w-full border-collapse bg-[rgba(255,252,247,0.7)]">
+                    <thead>
+                      <tr className="bg-[rgba(8,96,108,0.06)] text-left">
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Candidate Name
+                        </th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Mail ID
+                        </th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Applied Date
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {applications.map((application, index) => (
+                        <tr
+                          key={application.id}
+                          className={
+                            index === applications.length - 1
+                              ? "align-top"
+                              : "align-top border-b border-[var(--color-line)]"
+                          }
+                        >
+                          <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                            {application.candidateName}
+                          </td>
+                          <td className="px-4 py-4 text-sm">
+                            <a
+                              href={`mailto:${application.candidateEmail}`}
+                              className="font-medium text-[var(--color-accent-strong)]"
+                            >
+                              {application.candidateEmail}
+                            </a>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                            {new Date(application.appliedAt).toLocaleString("en-IN", {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
