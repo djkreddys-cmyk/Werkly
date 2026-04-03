@@ -1,15 +1,33 @@
- "use client";
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 
 const quickLinks = [
+  { label: "Jobs", href: "/jobs" },
   { label: "Sectors", target: "expertise" },
   { label: "Process", target: "process" },
   { label: "Contact", target: "contact" },
   { label: "Resume Builder", target: "resume-builder" },
+  { label: "Admin", href: "/admin/login" },
 ];
 
+function isLinkItem(
+  item: (typeof quickLinks)[number]
+): item is { label: string; href: string } {
+  return "href" in item;
+}
+
 export function SiteFooter() {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const handleNavClick = (target: string) => {
     if (typeof window === "undefined") return;
+    if (pathname !== "/") {
+      router.push(`/#${target}`);
+      return;
+    }
     const nextUrl = `${window.location.pathname}#${target}`;
     window.history.pushState(null, "", nextUrl);
     document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -31,14 +49,20 @@ export function SiteFooter() {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-white/80">
           {quickLinks.map((item) => (
-            <button
-              key={item.target}
-              type="button"
-              onClick={() => handleNavClick(item.target)}
-              className="transition hover:text-white"
-            >
-              {item.label}
-            </button>
+            isLinkItem(item) ? (
+              <Link key={item.href} href={item.href} className="transition hover:text-white">
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={item.target}
+                type="button"
+                onClick={() => handleNavClick(item.target)}
+                className="transition hover:text-white"
+              >
+                {item.label}
+              </button>
+            )
           ))}
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 text-sm">

@@ -1,18 +1,35 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { EnquiryModal } from "@/components/enquiry-modal";
 
 const navItems = [
+  { label: "Jobs", href: "/jobs" },
   { label: "Sectors", target: "expertise" },
   { label: "Process", target: "process" },
   { label: "Contact", target: "contact" },
   { label: "Resume Builder", target: "resume-builder" },
+  { label: "Admin", href: "/admin/login" },
 ];
 
+function isLinkItem(
+  item: (typeof navItems)[number]
+): item is { label: string; href: string } {
+  return "href" in item;
+}
+
 export function SiteHeader() {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const handleNavClick = (target: string) => {
     if (typeof window === "undefined") return;
+    if (pathname !== "/") {
+      router.push(`/#${target}`);
+      return;
+    }
     const nextUrl = `${window.location.pathname}#${target}`;
     window.history.pushState(null, "", nextUrl);
     document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -20,6 +37,10 @@ export function SiteHeader() {
 
   const handleLogoClick = () => {
     if (typeof window === "undefined") return;
+    if (pathname !== "/") {
+      router.push("/");
+      return;
+    }
     window.history.pushState(null, "", window.location.pathname);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -39,14 +60,20 @@ export function SiteHeader() {
         </button>
         <nav className="hidden items-center gap-9 text-sm font-medium uppercase tracking-[0.16em] text-white/78 md:flex">
           {navItems.map((item) => (
-            <button
-              key={item.target}
-              type="button"
-              onClick={() => handleNavClick(item.target)}
-              className="transition hover:text-white"
-            >
-              {item.label}
-            </button>
+            isLinkItem(item) ? (
+              <Link key={item.href} href={item.href} className="transition hover:text-white">
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={item.target}
+                type="button"
+                onClick={() => handleNavClick(item.target)}
+                className="transition hover:text-white"
+              >
+                {item.label}
+              </button>
+            )
           ))}
         </nav>
         <EnquiryModal />

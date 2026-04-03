@@ -4,7 +4,15 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { InquiryForm } from '@/components/inquiry-forms'
 
-export function EnquiryModal() {
+type EnquiryModalProps = {
+  triggerLabel?: string
+  triggerClassName?: string
+}
+
+export function EnquiryModal({
+  triggerLabel = 'Enquiry',
+  triggerClassName,
+}: EnquiryModalProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'candidate' | 'company'>('candidate')
 
@@ -45,9 +53,12 @@ export function EnquiryModal() {
           setActiveTab('candidate')
           setIsOpen(true)
         }}
-        className="inline-flex items-center justify-center rounded-xl border border-[var(--color-accent)] bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium text-[var(--color-dark)] transition hover:opacity-95"
+        className={
+          triggerClassName ??
+          "inline-flex items-center justify-center rounded-xl border border-[var(--color-accent)] bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium text-[var(--color-dark)] transition hover:opacity-95"
+        }
       >
-        Enquiry
+        {triggerLabel}
       </button>
 
       {typeof document !== 'undefined' && isOpen
