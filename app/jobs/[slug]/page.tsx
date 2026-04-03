@@ -71,7 +71,7 @@ export default async function JobDetailPage({
           <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-5">
               <article className="accent-card p-7">
-                <p className="eyebrow">Responsibilities</p>
+                <p className="eyebrow">Job Description</p>
                 <ul className="mt-5 space-y-4 text-base leading-7 text-[var(--color-ink)]">
                   {job.responsibilities.map((item) => (
                     <li key={item} className="flex gap-3">
@@ -82,7 +82,7 @@ export default async function JobDetailPage({
                 </ul>
               </article>
               <article className="accent-card p-7">
-                <p className="eyebrow">Requirements</p>
+                <p className="eyebrow">Key Skills</p>
                 <ul className="mt-5 space-y-4 text-base leading-7 text-[var(--color-ink)]">
                   {job.requirements.map((item) => (
                     <li key={item} className="flex gap-3">

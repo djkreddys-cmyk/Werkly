@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobSummary, JobStatus } from "@/lib/jobs";
 
 type JobEditorState = {
@@ -37,6 +37,7 @@ const fieldClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
 
 export function AdminJobsDashboard() {
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [token, setToken] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
@@ -93,11 +94,14 @@ export function AdminJobsDashboard() {
       packagePerAnnum: job.packagePerAnnum ?? "",
       status: job.status,
       lastDateToApply: job.lastDateToApply ?? "",
-      responsibilities: "",
-      requirements: "",
+      responsibilities: (job.responsibilities ?? []).join("\n"),
+      requirements: (job.requirements ?? []).join("\n"),
     });
     setMessage("");
     setError("");
+    window.requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   async function refreshJobs() {
@@ -191,7 +195,7 @@ export function AdminJobsDashboard() {
 
   return (
     <div className="space-y-6">
-      <form className="accent-card p-7" onSubmit={handleSubmit}>
+      <form ref={formRef} className="accent-card p-7" onSubmit={handleSubmit}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow">{isEditing ? "Edit Job" : "New Job"}</p>
@@ -285,13 +289,13 @@ export function AdminJobsDashboard() {
           <div className="grid gap-4 sm:grid-cols-2">
             <textarea
               className={`${fieldClassName} min-h-[160px] resize-y`}
-              placeholder="Responsibilities (one per line)"
+              placeholder="Job Description (one per line)"
               value={form.responsibilities}
               onChange={(event) => updateForm("responsibilities", event.target.value)}
             />
             <textarea
               className={`${fieldClassName} min-h-[160px] resize-y`}
-              placeholder="Requirements (one per line)"
+              placeholder="Key Skills (one per line)"
               value={form.requirements}
               onChange={(event) => updateForm("requirements", event.target.value)}
             />

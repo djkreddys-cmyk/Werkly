@@ -17,6 +17,9 @@ export type JobSummary = {
   applicationsCount: number;
   summary: string;
   skills: string[];
+  description?: string;
+  responsibilities?: string[];
+  requirements?: string[];
 };
 
 export type JobDetail = JobSummary & {
