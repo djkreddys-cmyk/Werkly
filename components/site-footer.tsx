@@ -9,7 +9,6 @@ const quickLinks = [
   { label: "Process", target: "process" },
   { label: "Contact", target: "contact" },
   { label: "Resume Builder", target: "resume-builder" },
-  { label: "Admin", href: "/admin/login" },
 ];
 
 function isLinkItem(
