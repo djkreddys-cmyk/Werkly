@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { JobSummary, JobStatus } from "@/lib/jobs";
+import type { JobApplication, JobSummary, JobStatus } from "@/lib/jobs";
 
 type JobEditorState = {
   id?: string;
@@ -48,6 +48,9 @@ export function AdminJobsDashboard() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [applicationsJob, setApplicationsJob] = useState<JobSummary | null>(null);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
 
   const isEditing = Boolean(form.id);
 
@@ -215,6 +218,42 @@ export function AdminJobsDashboard() {
       setError(
         deleteError instanceof Error ? deleteError.message : "Unable to update job visibility."
       );
+    }
+  }
+
+  async function openApplications(job: JobSummary) {
+    if (!token) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    setApplicationsJob(job);
+    setApplications([]);
+    setIsApplicationsLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/jobs/${job.id}/applications`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const result = (await response.json()) as {
+        applications?: JobApplication[];
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to load applied candidates.");
+      }
+
+      setApplications(result.applications ?? []);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error ? loadError.message : "Unable to load applied candidates."
+      );
+    } finally {
+      setIsApplicationsLoading(false);
     }
   }
 
@@ -401,9 +440,13 @@ export function AdminJobsDashboard() {
                 <p className="muted-copy mt-3 text-sm leading-6">
                   {job.location} | {job.experience}
                 </p>
-                <p className="mt-2 text-sm text-[var(--color-muted)]">
+                <button
+                  type="button"
+                  onClick={() => openApplications(job)}
+                  className="mt-2 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:text-[var(--color-dark)]"
+                >
                   Applied people: {job.applicationsCount}
-                </p>
+                </button>
                 {job.lastDateToApply ? (
                   <p className="mt-2 text-sm text-[var(--color-muted)]">
                     Last date to apply: {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
@@ -430,6 +473,65 @@ export function AdminJobsDashboard() {
           </div>
         )}
       </section>
+
+      {applicationsJob ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Applied Candidates</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {applicationsJob.title}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Job ID {applicationsJob.jobCode || "Pending"} | {applicationsJob.applicationsCount} applications
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApplicationsJob(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6">
+              {isApplicationsLoading ? (
+                <p className="muted-copy text-sm">Loading applied candidates...</p>
+              ) : applications.length === 0 ? (
+                <p className="muted-copy text-sm">No candidate details captured for this job yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {applications.map((application) => (
+                    <article
+                      key={application.id}
+                      className="rounded-2xl border border-[var(--color-line)] bg-[rgba(255,252,247,0.7)] p-4"
+                    >
+                      <p className="text-base font-semibold text-[var(--color-ink)]">
+                        {application.candidateName}
+                      </p>
+                      <a
+                        href={`mailto:${application.candidateEmail}`}
+                        className="mt-1 block text-sm font-medium text-[var(--color-accent-strong)]"
+                      >
+                        {application.candidateEmail}
+                      </a>
+                      <p className="mt-2 text-sm text-[var(--color-muted)]">
+                        Applied on{" "}
+                        {new Date(application.appliedAt).toLocaleString("en-IN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

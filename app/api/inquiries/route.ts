@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 export const runtime = 'nodejs'
 
-async function incrementJobApplicationCount(jobSlug: string) {
+async function recordJobApplication(
+  jobSlug: string,
+  candidateName: string,
+  candidateEmail: string
+) {
   const baseUrl = (
     process.env.RAILWAY_API_BASE_URL ||
     process.env.NEXT_PUBLIC_RAILWAY_API_BASE_URL ||
@@ -18,7 +22,12 @@ async function incrementJobApplicationCount(jobSlug: string) {
     method: 'POST',
     headers: {
       accept: 'application/json',
+      'content-type': 'application/json',
     },
+    body: JSON.stringify({
+      candidateName,
+      candidateEmail,
+    }),
   })
 
   if (!response.ok) {
@@ -210,7 +219,9 @@ export async function POST(request: Request) {
     }
 
     if (inquiryType === 'candidate' && jobSlug) {
-      await incrementJobApplicationCount(jobSlug)
+      const candidateName = asString(formData.get('candidateName'))
+      const candidateEmail = asString(formData.get('candidateEmail'))
+      await recordJobApplication(jobSlug, candidateName, candidateEmail)
     }
 
     return NextResponse.json({

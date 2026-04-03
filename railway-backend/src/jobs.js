@@ -31,6 +31,16 @@ export function mapRow(row) {
   };
 }
 
+export function mapApplicationRow(row) {
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    candidateName: row.candidate_name,
+    candidateEmail: row.candidate_email,
+    appliedAt: row.applied_at,
+  };
+}
+
 export async function listJobs() {
   const result = await query(
     `select
@@ -138,6 +148,18 @@ export async function ensureJobsSchema() {
   await query(`alter table jobs add column if not exists last_date_to_apply date`);
   await query(`alter table jobs add column if not exists applications_count integer not null default 0`);
   await query(`alter table jobs add column if not exists is_hidden boolean not null default false`);
+  await query(`
+    create table if not exists job_applications (
+      id uuid primary key default gen_random_uuid(),
+      job_id uuid not null references jobs(id) on delete cascade,
+      candidate_name text not null,
+      candidate_email text not null,
+      applied_at timestamptz not null default now()
+    )
+  `);
+  await query(
+    `create index if not exists idx_job_applications_job_id on job_applications(job_id)`
+  );
 }
 
 async function generateJobCode(client, postedAt) {
@@ -277,15 +299,67 @@ export async function deleteJob(id) {
   return result.rowCount > 0;
 }
 
-export async function incrementApplicationsCount(slug) {
+export async function recordJobApplication(slug, payload) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const jobResult = await client.query(
+      `select id
+       from jobs
+       where slug = $1
+       limit 1`,
+      [slug]
+    );
+
+    const jobId = jobResult.rows[0]?.id;
+    if (!jobId) {
+      await client.query("rollback");
+      return null;
+    }
+
+    await client.query(
+      `insert into job_applications (
+        job_id,
+        candidate_name,
+        candidate_email
+      ) values ($1, $2, $3)`,
+      [jobId, payload.candidateName, payload.candidateEmail]
+    );
+
+    const result = await client.query(
+      `update jobs
+       set applications_count = coalesce(applications_count, 0) + 1,
+           updated_at = now()
+       where id = $1
+       returning *`,
+      [jobId]
+    );
+
+    await client.query("commit");
+    return result.rows[0] ? mapRow(result.rows[0]) : null;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listJobApplications(jobId) {
   const result = await query(
-    `update jobs
-     set applications_count = coalesce(applications_count, 0) + 1,
-         updated_at = now()
-     where slug = $1
-     returning *`,
-    [slug]
+    `select
+      id,
+      job_id,
+      candidate_name,
+      candidate_email,
+      applied_at
+     from job_applications
+     where job_id = $1
+     order by applied_at desc`,
+    [jobId]
   );
 
-  return result.rows[0] ? mapRow(result.rows[0]) : null;
+  return result.rows.map(mapApplicationRow);
 }

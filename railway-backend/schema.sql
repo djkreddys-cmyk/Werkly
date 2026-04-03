@@ -25,3 +25,13 @@ create table if not exists jobs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table if not exists job_applications (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references jobs(id) on delete cascade,
+  candidate_name text not null,
+  candidate_email text not null,
+  applied_at timestamptz not null default now()
+);
+
+create index if not exists idx_job_applications_job_id on job_applications(job_id);

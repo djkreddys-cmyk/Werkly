@@ -6,9 +6,10 @@ import {
   createJob,
   ensureJobsSchema,
   getJobBySlug,
-  incrementApplicationsCount,
+  listJobApplications,
   listAdminJobs,
   listJobs,
+  recordJobApplication,
   updateJob,
 } from "./jobs.js";
 
@@ -91,7 +92,18 @@ app.get("/jobs/:slug", async (request, response) => {
 
 app.post("/jobs/:slug/applications", async (request, response) => {
   try {
-    const job = await incrementApplicationsCount(request.params.slug);
+    const { candidateName, candidateEmail } = request.body ?? {};
+
+    if (!candidateName || !candidateEmail) {
+      return response.status(400).json({
+        message: "Candidate name and email are required.",
+      });
+    }
+
+    const job = await recordJobApplication(request.params.slug, {
+      candidateName,
+      candidateEmail,
+    });
 
     if (!job) {
       return response.status(404).json({ message: "Job not found." });
@@ -101,6 +113,17 @@ app.post("/jobs/:slug/applications", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update application count.",
+    });
+  }
+});
+
+app.get("/admin/jobs/:id/applications", requireAdmin, async (request, response) => {
+  try {
+    const applications = await listJobApplications(request.params.id);
+    response.json({ applications });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load job applications.",
     });
   }
 });

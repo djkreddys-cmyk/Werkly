@@ -31,6 +31,14 @@ export type JobDetail = JobSummary & {
   applyUrl?: string;
 };
 
+export type JobApplication = {
+  id: string;
+  jobId: string;
+  candidateName: string;
+  candidateEmail: string;
+  appliedAt: string;
+};
+
 export type JobsResponse = {
   jobs: JobSummary[];
 };
@@ -41,6 +49,10 @@ export type AdminLoginResponse = {
     name: string;
     email: string;
   };
+};
+
+export type JobApplicationsResponse = {
+  applications: JobApplication[];
 };
 
 export type JobFormPayload = {
@@ -282,6 +294,18 @@ export async function updateJob(id: string, payload: JobFormPayload, token: stri
       Authorization: `Bearer ${token}`,
     },
   });
+}
+
+export async function getJobApplications(id: string, token: string) {
+  const data = await readJson<JobApplicationsResponse | JobApplication[]>(
+    `/admin/jobs/${id}/applications`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return Array.isArray(data) ? data : data.applications;
 }
 
 export async function deleteJob(id: string, token: string) {
