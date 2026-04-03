@@ -17,6 +17,10 @@ export default async function JobDetailPage({
     notFound();
   }
 
+  const introCopy =
+    job.description?.trim() ||
+    `${job.title} opportunity in ${job.location} for ${job.sector} professionals with ${job.experience} experience.`;
+
   return (
     <div className="min-h-screen bg-[var(--color-paper)]">
       <SiteHeader />
@@ -59,9 +63,7 @@ export default async function JobDetailPage({
                 </span>
               ) : null}
             </div>
-            <p className="muted-copy mt-6 max-w-3xl text-base leading-8 sm:text-lg">
-              {job.description}
-            </p>
+            <p className="muted-copy mt-6 max-w-3xl text-base leading-8 sm:text-lg">{introCopy}</p>
           </div>
         </section>
 

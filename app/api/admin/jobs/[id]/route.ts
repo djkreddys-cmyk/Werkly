@@ -11,19 +11,24 @@ function slugify(value: string) {
 
 function normalizePayload(body: Record<string, unknown>): JobFormPayload {
   const title = String(body.title ?? "");
+  const location = String(body.location ?? "");
+  const sector = String(body.sector ?? "");
+  const experience = String(body.experience ?? "");
   return {
     title,
     slug: slugify(String(body.slug ?? title)),
-    location: String(body.location ?? ""),
-    sector: String(body.sector ?? ""),
-    experience: String(body.experience ?? ""),
+    location,
+    sector,
+    experience,
     employmentType: String(body.employmentType ?? "Full Time"),
     salary: body.salary ? String(body.salary) : undefined,
     packagePerAnnum: body.packagePerAnnum ? String(body.packagePerAnnum) : undefined,
     status: (body.status as JobStatus) ?? "draft",
     postedAt: body.postedAt ? String(body.postedAt) : undefined,
     lastDateToApply: body.lastDateToApply ? String(body.lastDateToApply) : undefined,
-    description: String(body.description ?? ""),
+    description:
+      String(body.description ?? "").trim() ||
+      `${title} opening in ${location} for ${sector} hiring with ${experience} experience expectations.`,
     responsibilities: splitMultiline(String(body.responsibilities ?? "")),
     requirements: splitMultiline(String(body.requirements ?? "")),
   };

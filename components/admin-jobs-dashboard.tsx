@@ -15,7 +15,6 @@ type JobEditorState = {
   packagePerAnnum: string;
   status: JobStatus;
   lastDateToApply: string;
-  description: string;
   responsibilities: string;
   requirements: string;
 };
@@ -30,7 +29,6 @@ const emptyForm: JobEditorState = {
   packagePerAnnum: "",
   status: "draft",
   lastDateToApply: "",
-  description: "",
   responsibilities: "",
   requirements: "",
 };
@@ -95,7 +93,6 @@ export function AdminJobsDashboard() {
       packagePerAnnum: job.packagePerAnnum ?? "",
       status: job.status,
       lastDateToApply: job.lastDateToApply ?? "",
-      description: "Open the job detail page to review the full description before editing.",
       responsibilities: "",
       requirements: "",
     });
@@ -285,25 +282,20 @@ export function AdminJobsDashboard() {
         </div>
 
         <div className="mt-4 space-y-4">
-          <textarea
-            className={`${fieldClassName} min-h-[120px] resize-y`}
-            placeholder="Detailed description"
-            value={form.description}
-            onChange={(event) => updateForm("description", event.target.value)}
-            required
-          />
-          <textarea
-            className={`${fieldClassName} min-h-[120px] resize-y`}
-            placeholder="Responsibilities (one per line)"
-            value={form.responsibilities}
-            onChange={(event) => updateForm("responsibilities", event.target.value)}
-          />
-          <textarea
-            className={`${fieldClassName} min-h-[120px] resize-y`}
-            placeholder="Requirements (one per line)"
-            value={form.requirements}
-            onChange={(event) => updateForm("requirements", event.target.value)}
-          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <textarea
+              className={`${fieldClassName} min-h-[160px] resize-y`}
+              placeholder="Responsibilities (one per line)"
+              value={form.responsibilities}
+              onChange={(event) => updateForm("responsibilities", event.target.value)}
+            />
+            <textarea
+              className={`${fieldClassName} min-h-[160px] resize-y`}
+              placeholder="Requirements (one per line)"
+              value={form.requirements}
+              onChange={(event) => updateForm("requirements", event.target.value)}
+            />
+          </div>
         </div>
 
         {message ? <p className="mt-4 text-sm font-medium text-emerald-700">{message}</p> : null}
