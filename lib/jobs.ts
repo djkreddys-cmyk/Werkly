@@ -202,6 +202,13 @@ function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
         : Number(job.applicationsCount ?? 0),
     summary: String(job.summary ?? ""),
     skills: Array.isArray(job.skills) ? job.skills.map(String) : [],
+    description: job.description ? String(job.description) : undefined,
+    responsibilities: Array.isArray(job.responsibilities)
+      ? job.responsibilities.map(String)
+      : [],
+    requirements: Array.isArray(job.requirements)
+      ? job.requirements.map(String)
+      : [],
   };
 }
 
