@@ -33,6 +33,11 @@ export default async function JobDetailPage({
             <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-tight text-[var(--color-ink)] sm:text-5xl">
               {job.title}
             </h1>
+            {job.jobCode ? (
+              <p className="mt-5 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
+                Job ID {job.jobCode}
+              </p>
+            ) : null}
             <div className="mt-6 flex flex-wrap gap-3 text-sm text-[var(--color-muted)]">
               <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
                 {job.location}
@@ -46,6 +51,11 @@ export default async function JobDetailPage({
               {job.packagePerAnnum ? (
                 <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
                   {job.packagePerAnnum}
+                </span>
+              ) : null}
+              {job.lastDateToApply ? (
+                <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
+                  Apply by {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
                 </span>
               ) : null}
             </div>
@@ -96,6 +106,14 @@ export default async function JobDetailPage({
                     <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Package Per Annum</p>
                     <p className="mt-1 font-semibold text-[var(--color-ink)]">
                       {job.packagePerAnnum ?? "Discussed with shortlisted candidates"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Last Date to Apply</p>
+                    <p className="mt-1 font-semibold text-[var(--color-ink)]">
+                      {job.lastDateToApply
+                        ? new Date(job.lastDateToApply).toLocaleDateString("en-IN")
+                        : "Open until filled"}
                     </p>
                   </div>
                   <div>

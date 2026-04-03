@@ -5,8 +5,8 @@ import type { JobSummary, JobStatus } from "@/lib/jobs";
 
 type JobEditorState = {
   id?: string;
+  jobCode?: string;
   title: string;
-  slug: string;
   location: string;
   sector: string;
   experience: string;
@@ -14,17 +14,16 @@ type JobEditorState = {
   salary: string;
   packagePerAnnum: string;
   status: JobStatus;
+  lastDateToApply: string;
   summary: string;
   description: string;
   skills: string;
   responsibilities: string;
   requirements: string;
-  applyUrl: string;
 };
 
 const emptyForm: JobEditorState = {
   title: "",
-  slug: "",
   location: "",
   sector: "",
   experience: "",
@@ -32,24 +31,16 @@ const emptyForm: JobEditorState = {
   salary: "",
   packagePerAnnum: "",
   status: "draft",
+  lastDateToApply: "",
   summary: "",
   description: "",
   skills: "",
   responsibilities: "",
   requirements: "",
-  applyUrl: "",
 };
 
 const fieldClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 export function AdminJobsDashboard() {
   const [token, setToken] = useState("");
@@ -92,33 +83,27 @@ export function AdminJobsDashboard() {
   );
 
   function updateForm(field: keyof JobEditorState, value: string) {
-    setForm((current) => {
-      const next = { ...current, [field]: value };
-      if (field === "title" && !current.id) {
-        next.slug = slugify(value);
-      }
-      return next;
-    });
+    setForm((current) => ({ ...current, [field]: value }));
   }
 
   function populateForEdit(job: JobSummary) {
     setForm({
       id: job.id,
+      jobCode: job.jobCode,
       title: job.title,
-      slug: job.slug,
       location: job.location,
       sector: job.sector,
       experience: job.experience,
       employmentType: job.employmentType,
       salary: job.salary ?? "",
-      packagePerAnnum: "",
+      packagePerAnnum: job.packagePerAnnum ?? "",
       status: job.status,
+      lastDateToApply: job.lastDateToApply ?? "",
       summary: job.summary,
-      description: "",
+      description: "Open the job detail page to review the full description before editing.",
       skills: job.skills.join("\n"),
       responsibilities: "",
       requirements: "",
-      applyUrl: "",
     });
     setMessage("");
     setError("");
@@ -214,64 +199,7 @@ export function AdminJobsDashboard() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-      <aside className="accent-card p-7">
-        <p className="eyebrow">Admin Jobs</p>
-        <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-          Published roles and active Railway sync.
-        </h2>
-        <p className="muted-copy mt-4 text-base leading-7">
-          Signed in as {adminEmail || "Railway admin"}. Create openings, keep drafts
-          off the public site, and update published roles in one place.
-        </p>
-
-        {isLoading ? (
-          <p className="muted-copy mt-6 text-sm">Loading jobs...</p>
-        ) : (
-          <div className="mt-6 space-y-4">
-            {sortedJobs.map((job) => (
-              <article
-                key={job.id}
-                className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">
-                      {job.sector}
-                    </p>
-                    <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
-                      {job.title}
-                    </h3>
-                  </div>
-                  <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-                    {job.status}
-                  </span>
-                </div>
-                <p className="muted-copy mt-3 text-sm leading-6">
-                  {job.location} | {job.experience}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => populateForEdit(job)}
-                    className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(job.id)}
-                    className="rounded-xl border border-[rgba(190,72,26,0.2)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </aside>
-
+    <div className="space-y-6">
       <form className="accent-card p-7" onSubmit={handleSubmit}>
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -293,17 +221,16 @@ export function AdminJobsDashboard() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <input
+            className={`${fieldClassName} bg-slate-50 text-slate-500`}
+            placeholder="Job ID"
+            value={form.jobCode ?? "Auto generated when published"}
+            disabled
+          />
+          <input
             className={fieldClassName}
             placeholder="Job title"
             value={form.title}
             onChange={(event) => updateForm("title", event.target.value)}
-            required
-          />
-          <input
-            className={fieldClassName}
-            placeholder="Slug"
-            value={form.slug}
-            onChange={(event) => updateForm("slug", slugify(event.target.value))}
             required
           />
           <input
@@ -357,9 +284,9 @@ export function AdminJobsDashboard() {
           </select>
           <input
             className={fieldClassName}
-            placeholder="Apply URL"
-            value={form.applyUrl}
-            onChange={(event) => updateForm("applyUrl", event.target.value)}
+            type="date"
+            value={form.lastDateToApply}
+            onChange={(event) => updateForm("lastDateToApply", event.target.value)}
           />
         </div>
 
@@ -422,6 +349,76 @@ export function AdminJobsDashboard() {
           </button>
         </div>
       </form>
+
+      <section className="accent-card p-7">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow">Existing Jobs</p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+              Review published roles and drafts.
+            </h2>
+            <p className="muted-copy mt-4 text-base leading-7">
+              Signed in as {adminEmail || "Railway admin"}. Use edit to load a role into the form above.
+            </p>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <p className="muted-copy mt-6 text-sm">Loading jobs...</p>
+        ) : (
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            {sortedJobs.map((job) => (
+              <article
+                key={job.id}
+                className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">
+                      {job.sector}
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
+                      {job.title}
+                    </h3>
+                    {job.jobCode ? (
+                      <p className="mt-2 text-sm font-semibold text-[var(--color-accent-strong)]">
+                        Job ID: {job.jobCode}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                    {job.status}
+                  </span>
+                </div>
+                <p className="muted-copy mt-3 text-sm leading-6">
+                  {job.location} | {job.experience}
+                </p>
+                {job.lastDateToApply ? (
+                  <p className="mt-2 text-sm text-[var(--color-muted)]">
+                    Last date to apply: {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
+                  </p>
+                ) : null}
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => populateForEdit(job)}
+                    className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(job.id)}
+                    className="rounded-xl border border-[rgba(190,72,26,0.2)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

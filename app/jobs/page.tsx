@@ -33,6 +33,11 @@ export default async function JobsPage() {
                     <h2 className="mt-3 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
                       {job.title}
                     </h2>
+                    {job.jobCode ? (
+                      <p className="mt-3 text-sm font-semibold text-[var(--color-accent-strong)]">
+                        Job ID: {job.jobCode}
+                      </p>
+                    ) : null}
                   </div>
                   <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-dark)]">
                     {job.status}
@@ -52,6 +57,11 @@ export default async function JobsPage() {
                   {job.salary ? (
                     <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
                       {job.salary}
+                    </span>
+                  ) : null}
+                  {job.lastDateToApply ? (
+                    <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
+                      Apply by {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
                     </span>
                   ) : null}
                 </div>

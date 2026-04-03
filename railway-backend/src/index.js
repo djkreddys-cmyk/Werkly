@@ -2,7 +2,14 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { createAdminToken, requireAdmin, validateAdmin } from "./auth.js";
-import { createJob, deleteJob, getJobBySlug, listJobs, updateJob } from "./jobs.js";
+import {
+  createJob,
+  deleteJob,
+  ensureJobsSchema,
+  getJobBySlug,
+  listJobs,
+  updateJob,
+} from "./jobs.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -113,6 +120,13 @@ app.delete("/admin/jobs/:id", requireAdmin, async (request, response) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Werkly Railway backend listening on port ${port}`);
-});
+ensureJobsSchema()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Werkly Railway backend listening on port ${port}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Failed to initialize jobs schema", error);
+    process.exit(1);
+  });

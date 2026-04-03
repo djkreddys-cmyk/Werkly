@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { deleteJob, splitMultiline, updateJob, type JobFormPayload, type JobStatus } from "@/lib/jobs";
 
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function normalizePayload(body: Record<string, unknown>): JobFormPayload {
+  const title = String(body.title ?? "");
   return {
-    title: String(body.title ?? ""),
-    slug: String(body.slug ?? ""),
+    title,
+    slug: slugify(String(body.slug ?? title)),
     location: String(body.location ?? ""),
     sector: String(body.sector ?? ""),
     experience: String(body.experience ?? ""),
@@ -12,12 +21,13 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
     salary: body.salary ? String(body.salary) : undefined,
     packagePerAnnum: body.packagePerAnnum ? String(body.packagePerAnnum) : undefined,
     status: (body.status as JobStatus) ?? "draft",
+    postedAt: body.postedAt ? String(body.postedAt) : undefined,
+    lastDateToApply: body.lastDateToApply ? String(body.lastDateToApply) : undefined,
     summary: String(body.summary ?? ""),
     description: String(body.description ?? ""),
     skills: splitMultiline(String(body.skills ?? "")),
     responsibilities: splitMultiline(String(body.responsibilities ?? "")),
     requirements: splitMultiline(String(body.requirements ?? "")),
-    applyUrl: body.applyUrl ? String(body.applyUrl) : undefined,
   };
 }
 

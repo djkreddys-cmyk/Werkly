@@ -2,6 +2,7 @@ export type JobStatus = "draft" | "open" | "closed";
 
 export type JobSummary = {
   id: string;
+  jobCode?: string;
   slug: string;
   title: string;
   location: string;
@@ -9,8 +10,10 @@ export type JobSummary = {
   experience: string;
   employmentType: string;
   salary?: string;
+  packagePerAnnum?: string;
   status: JobStatus;
   postedAt: string;
+  lastDateToApply?: string;
   summary: string;
   skills: string[];
 };
@@ -45,17 +48,19 @@ export type JobFormPayload = {
   salary?: string;
   packagePerAnnum?: string;
   status: JobStatus;
+  postedAt?: string;
+  lastDateToApply?: string;
   summary: string;
   description: string;
   skills: string[];
   responsibilities: string[];
   requirements: string[];
-  applyUrl?: string;
 };
 
 const demoJobs: JobDetail[] = [
   {
     id: "job-erp-manager",
+    jobCode: "26040001",
     slug: "erp-manager-hyderabad",
     title: "ERP Manager",
     location: "Hyderabad",
@@ -66,6 +71,7 @@ const demoJobs: JobDetail[] = [
     packagePerAnnum: "12 - 18 LPA",
     status: "open",
     postedAt: "2026-04-03",
+    lastDateToApply: "2026-04-30",
     summary:
       "Lead ERP operations, stakeholder alignment, and rollout discipline for a growing education-focused organization.",
     description:
@@ -81,10 +87,10 @@ const demoJobs: JobDetail[] = [
       "Strong communication and stakeholder management capability.",
       "Experience in process-driven delivery environments.",
     ],
-    applyUrl: "#contact",
   },
   {
     id: "job-pharma-qc",
+    jobCode: "26040002",
     slug: "quality-control-specialist-vijayawada",
     title: "Quality Control Specialist",
     location: "Vijayawada",
@@ -95,6 +101,7 @@ const demoJobs: JobDetail[] = [
     packagePerAnnum: "6 - 9 LPA",
     status: "open",
     postedAt: "2026-04-01",
+    lastDateToApply: "2026-04-24",
     summary:
       "Support regulated quality processes, documentation discipline, and batch-release readiness in a pharma setting.",
     description:
@@ -110,10 +117,10 @@ const demoJobs: JobDetail[] = [
       "Good understanding of GMP and documentation systems.",
       "Ability to work in structured process environments.",
     ],
-    applyUrl: "#contact",
   },
   {
     id: "job-construction-sales",
+    jobCode: "26030001",
     slug: "regional-sales-manager-building-materials",
     title: "Regional Sales Manager",
     location: "Hyderabad / AP",
@@ -124,6 +131,7 @@ const demoJobs: JobDetail[] = [
     packagePerAnnum: "10 - 14 LPA",
     status: "open",
     postedAt: "2026-03-29",
+    lastDateToApply: "2026-04-20",
     summary:
       "Drive dealer and project sales growth across building materials, channel development, and regional expansion.",
     description:
@@ -139,7 +147,6 @@ const demoJobs: JobDetail[] = [
       "Strong regional network and business development capability.",
       "Comfortable with structured reporting and target ownership.",
     ],
-    applyUrl: "#contact",
   },
 ];
 
@@ -154,6 +161,7 @@ function getBaseUrl() {
 function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
   return {
     id: String(job.id ?? ""),
+    jobCode: job.jobCode ? String(job.jobCode) : undefined,
     slug: String(job.slug ?? ""),
     title: String(job.title ?? ""),
     location: String(job.location ?? ""),
@@ -161,8 +169,10 @@ function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
     experience: String(job.experience ?? ""),
     employmentType: String(job.employmentType ?? "Full Time"),
     salary: job.salary ? String(job.salary) : undefined,
+    packagePerAnnum: job.packagePerAnnum ? String(job.packagePerAnnum) : undefined,
     status: (job.status as JobStatus) ?? "open",
     postedAt: String(job.postedAt ?? ""),
+    lastDateToApply: job.lastDateToApply ? String(job.lastDateToApply) : undefined,
     summary: String(job.summary ?? ""),
     skills: Array.isArray(job.skills) ? job.skills.map(String) : [],
   };
@@ -177,7 +187,6 @@ function normalizeJobDetail(job: Partial<JobDetail>): JobDetail {
       : [],
     requirements: Array.isArray(job.requirements) ? job.requirements.map(String) : [],
     packagePerAnnum: job.packagePerAnnum ? String(job.packagePerAnnum) : undefined,
-    applyUrl: job.applyUrl ? String(job.applyUrl) : undefined,
   };
 }
 
