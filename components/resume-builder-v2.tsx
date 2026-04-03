@@ -509,7 +509,7 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
 
   const launcherContent =
     typeof document !== "undefined" ? (
-      <div className="motion-float fixed bottom-5 right-5 z-[60] hidden w-[260px] rounded-[1.5rem] border border-[var(--color-line)] bg-white/95 p-4 shadow-[0_24px_60px_rgba(15,47,54,0.16)] backdrop-blur-md lg:block no-print">
+      <div className="motion-float fixed right-5 top-1/2 z-[60] hidden w-[260px] -translate-y-1/2 rounded-[1.5rem] border border-[var(--color-line)] bg-white/95 p-4 shadow-[0_24px_60px_rgba(15,47,54,0.16)] backdrop-blur-md lg:block no-print">
         <p className="eyebrow">Resume Builder</p>
         <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
           Open the builder anytime from the home screen and generate a resume in a popup.
