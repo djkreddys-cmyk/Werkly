@@ -31,6 +31,18 @@ create table if not exists job_applications (
   job_id uuid not null references jobs(id) on delete cascade,
   candidate_name text not null,
   candidate_email text not null,
+  candidate_phone text,
+  experience text,
+  current_company text,
+  current_location text,
+  current_designation text,
+  preferred_role text,
+  current_ctc text,
+  expected_ctc text,
+  preferred_location text,
+  preferred_sector text,
+  candidate_message text,
+  job_title text,
   applied_at timestamptz not null default now()
 );
 

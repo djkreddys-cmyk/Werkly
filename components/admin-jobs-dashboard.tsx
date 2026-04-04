@@ -352,6 +352,71 @@ export function AdminJobsDashboard() {
     setError("");
   }
 
+  function escapeCsv(value: string | undefined) {
+    const normalized = value ?? "";
+    return `"${normalized.replaceAll('"', '""')}"`;
+  }
+
+  function downloadApplicationsCsv() {
+    if (!applicationsJob || applications.length === 0) {
+      return;
+    }
+
+    const rows = [
+      [
+        "Candidate Name",
+        "Mail ID",
+        "Phone",
+        "Experience",
+        "Current Company",
+        "Current Location",
+        "Current Designation",
+        "Preferred Role",
+        "Current CTC",
+        "Expected CTC",
+        "Preferred Location",
+        "Preferred Sector",
+        "Job Applied For",
+        "Applied Date",
+        "Notes",
+      ],
+      ...applications.map((application) => [
+        application.candidateName,
+        application.candidateEmail,
+        application.candidatePhone,
+        application.experience,
+        application.currentCompany,
+        application.currentLocation,
+        application.currentDesignation,
+        application.preferredRole,
+        application.currentCtc,
+        application.expectedCtc,
+        application.preferredLocation,
+        application.preferredSector,
+        application.jobTitle,
+        new Date(application.appliedAt).toLocaleString("en-IN", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+        application.candidateMessage,
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) => row.map((value) => escapeCsv(value)).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${applicationsJob.jobCode || applicationsJob.slug}-applications.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6">
       <form ref={formRef} className="accent-card p-7" onSubmit={handleSubmit}>
@@ -541,7 +606,17 @@ export function AdminJobsDashboard() {
               ) : applications.length === 0 ? (
                 <p className="muted-copy text-sm">No candidate details captured for this job yet.</p>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-[var(--color-line)]">
+                <div>
+                  <div className="mb-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={downloadApplicationsCsv}
+                      className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    >
+                      Download Excel
+                    </button>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-[var(--color-line)]">
                   <table className="w-full border-collapse bg-[rgba(255,252,247,0.7)]">
                     <thead>
                       <tr className="bg-[rgba(8,96,108,0.06)] text-left">
@@ -587,6 +662,7 @@ export function AdminJobsDashboard() {
                       ))}
                     </tbody>
                   </table>
+                </div>
                 </div>
               )}
             </div>

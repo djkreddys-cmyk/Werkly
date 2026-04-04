@@ -92,7 +92,22 @@ app.get("/jobs/:slug", async (request, response) => {
 
 app.post("/jobs/:slug/applications", async (request, response) => {
   try {
-    const { candidateName, candidateEmail } = request.body ?? {};
+    const {
+      candidateName,
+      candidateEmail,
+      candidatePhone,
+      experience,
+      currentCompany,
+      currentLocation,
+      currentDesignation,
+      preferredRole,
+      currentCtc,
+      expectedCtc,
+      preferredLocation,
+      preferredSector,
+      candidateMessage,
+      jobTitle,
+    } = request.body ?? {};
 
     if (!candidateName || !candidateEmail) {
       return response.status(400).json({
@@ -103,6 +118,18 @@ app.post("/jobs/:slug/applications", async (request, response) => {
     const job = await recordJobApplication(request.params.slug, {
       candidateName,
       candidateEmail,
+      candidatePhone,
+      experience,
+      currentCompany,
+      currentLocation,
+      currentDesignation,
+      preferredRole,
+      currentCtc,
+      expectedCtc,
+      preferredLocation,
+      preferredSector,
+      candidateMessage,
+      jobTitle,
     });
 
     if (!job) {

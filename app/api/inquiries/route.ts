@@ -3,11 +3,7 @@ import { NextResponse } from 'next/server'
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 export const runtime = 'nodejs'
 
-async function recordJobApplication(
-  jobSlug: string,
-  candidateName: string,
-  candidateEmail: string
-) {
+async function recordJobApplication(jobSlug: string, payload: Record<string, string>) {
   const baseUrl = (
     process.env.RAILWAY_API_BASE_URL ||
     process.env.NEXT_PUBLIC_RAILWAY_API_BASE_URL ||
@@ -25,8 +21,7 @@ async function recordJobApplication(
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      candidateName,
-      candidateEmail,
+      ...payload,
     }),
   })
 
@@ -219,9 +214,22 @@ export async function POST(request: Request) {
     }
 
     if (inquiryType === 'candidate' && jobSlug) {
-      const candidateName = asString(formData.get('candidateName'))
-      const candidateEmail = asString(formData.get('candidateEmail'))
-      await recordJobApplication(jobSlug, candidateName, candidateEmail)
+      await recordJobApplication(jobSlug, {
+        candidateName: asString(formData.get('candidateName')),
+        candidateEmail: asString(formData.get('candidateEmail')),
+        candidatePhone: asString(formData.get('candidatePhone')),
+        experience: asString(formData.get('experience')),
+        currentCompany: asString(formData.get('currentCompany')),
+        currentLocation: asString(formData.get('currentLocation')),
+        currentDesignation: asString(formData.get('currentDesignation')),
+        preferredRole: asString(formData.get('preferredRole')),
+        currentCtc: asString(formData.get('currentCtc')),
+        expectedCtc: asString(formData.get('expectedCtc')),
+        preferredLocation: asString(formData.get('preferredLocation')),
+        preferredSector: asString(formData.get('preferredSector')),
+        candidateMessage: asString(formData.get('candidateMessage')),
+        jobTitle: asString(formData.get('jobTitle')),
+      })
     }
 
     return NextResponse.json({

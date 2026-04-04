@@ -36,6 +36,18 @@ export type JobApplication = {
   jobId: string;
   candidateName: string;
   candidateEmail: string;
+  candidatePhone?: string;
+  experience?: string;
+  currentCompany?: string;
+  currentLocation?: string;
+  currentDesignation?: string;
+  preferredRole?: string;
+  currentCtc?: string;
+  expectedCtc?: string;
+  preferredLocation?: string;
+  preferredSector?: string;
+  candidateMessage?: string;
+  jobTitle?: string;
   appliedAt: string;
 };
 

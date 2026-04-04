@@ -37,6 +37,18 @@ export function mapApplicationRow(row) {
     jobId: row.job_id,
     candidateName: row.candidate_name,
     candidateEmail: row.candidate_email,
+    candidatePhone: row.candidate_phone,
+    experience: row.experience,
+    currentCompany: row.current_company,
+    currentLocation: row.current_location,
+    currentDesignation: row.current_designation,
+    preferredRole: row.preferred_role,
+    currentCtc: row.current_ctc,
+    expectedCtc: row.expected_ctc,
+    preferredLocation: row.preferred_location,
+    preferredSector: row.preferred_sector,
+    candidateMessage: row.candidate_message,
+    jobTitle: row.job_title,
     appliedAt: row.applied_at,
   };
 }
@@ -154,12 +166,36 @@ export async function ensureJobsSchema() {
       job_id uuid not null references jobs(id) on delete cascade,
       candidate_name text not null,
       candidate_email text not null,
+      candidate_phone text,
+      experience text,
+      current_company text,
+      current_location text,
+      current_designation text,
+      preferred_role text,
+      current_ctc text,
+      expected_ctc text,
+      preferred_location text,
+      preferred_sector text,
+      candidate_message text,
+      job_title text,
       applied_at timestamptz not null default now()
     )
   `);
   await query(
     `create index if not exists idx_job_applications_job_id on job_applications(job_id)`
   );
+  await query(`alter table job_applications add column if not exists candidate_phone text`);
+  await query(`alter table job_applications add column if not exists experience text`);
+  await query(`alter table job_applications add column if not exists current_company text`);
+  await query(`alter table job_applications add column if not exists current_location text`);
+  await query(`alter table job_applications add column if not exists current_designation text`);
+  await query(`alter table job_applications add column if not exists preferred_role text`);
+  await query(`alter table job_applications add column if not exists current_ctc text`);
+  await query(`alter table job_applications add column if not exists expected_ctc text`);
+  await query(`alter table job_applications add column if not exists preferred_location text`);
+  await query(`alter table job_applications add column if not exists preferred_sector text`);
+  await query(`alter table job_applications add column if not exists candidate_message text`);
+  await query(`alter table job_applications add column if not exists job_title text`);
 }
 
 async function generateJobCode(client, postedAt) {
@@ -323,9 +359,37 @@ export async function recordJobApplication(slug, payload) {
       `insert into job_applications (
         job_id,
         candidate_name,
-        candidate_email
-      ) values ($1, $2, $3)`,
-      [jobId, payload.candidateName, payload.candidateEmail]
+        candidate_email,
+        candidate_phone,
+        experience,
+        current_company,
+        current_location,
+        current_designation,
+        preferred_role,
+        current_ctc,
+        expected_ctc,
+        preferred_location,
+        preferred_sector,
+        candidate_message,
+        job_title
+      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [
+        jobId,
+        payload.candidateName,
+        payload.candidateEmail,
+        payload.candidatePhone || null,
+        payload.experience || null,
+        payload.currentCompany || null,
+        payload.currentLocation || null,
+        payload.currentDesignation || null,
+        payload.preferredRole || null,
+        payload.currentCtc || null,
+        payload.expectedCtc || null,
+        payload.preferredLocation || null,
+        payload.preferredSector || null,
+        payload.candidateMessage || null,
+        payload.jobTitle || null,
+      ]
     );
 
     const result = await client.query(
@@ -354,6 +418,18 @@ export async function listJobApplications(jobId) {
       job_id,
       candidate_name,
       candidate_email,
+      candidate_phone,
+      experience,
+      current_company,
+      current_location,
+      current_designation,
+      preferred_role,
+      current_ctc,
+      expected_ctc,
+      preferred_location,
+      preferred_sector,
+      candidate_message,
+      job_title,
       applied_at
      from job_applications
      where job_id = $1
