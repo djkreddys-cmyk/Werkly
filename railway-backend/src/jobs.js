@@ -372,7 +372,7 @@ export async function recordJobApplication(slug, payload) {
         preferred_sector,
         candidate_message,
         job_title
-      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         jobId,
         payload.candidateName,
