@@ -59,7 +59,16 @@ export function InquiryForm({
         body: formData,
       })
 
-      const result = (await response.json()) as { message?: string }
+      const responseText = await response.text()
+      let result: { message?: string } = {}
+
+      if (responseText) {
+        try {
+          result = JSON.parse(responseText) as { message?: string }
+        } catch {
+          result = { message: responseText }
+        }
+      }
 
       if (!response.ok) {
         throw new Error(result.message || 'Submission failed.')
