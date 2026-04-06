@@ -3,6 +3,8 @@ export type JobStatus = "draft" | "open" | "closed";
 export type JobSummary = {
   id: string;
   jobCode?: string;
+  clientId?: string;
+  clientName?: string;
   slug: string;
   title: string;
   location: string;
@@ -70,6 +72,7 @@ export type JobApplicationsResponse = {
 export type JobFormPayload = {
   title: string;
   slug: string;
+  clientId?: string;
   location: string;
   sector: string;
   experience: string;
@@ -196,6 +199,8 @@ function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
   return {
     id: String(job.id ?? ""),
     jobCode: job.jobCode ? String(job.jobCode) : undefined,
+    clientId: job.clientId ? String(job.clientId) : undefined,
+    clientName: job.clientName ? String(job.clientName) : undefined,
     slug: String(job.slug ?? ""),
     title: String(job.title ?? ""),
     location: String(job.location ?? ""),

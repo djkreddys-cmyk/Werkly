@@ -27,6 +27,9 @@ type ClientFormState = {
   assignedEmployeeId: string;
   status: ClientStatus;
   notes: string;
+  agreementFileName: string;
+  agreementFileType: string;
+  agreementFileData: string;
 };
 
 const emptyEmployeeForm: EmployeeFormState = {
@@ -48,6 +51,9 @@ const emptyClientForm: ClientFormState = {
   assignedEmployeeId: "",
   status: "active",
   notes: "",
+  agreementFileName: "",
+  agreementFileType: "",
+  agreementFileData: "",
 };
 
 const fieldClassName =
@@ -249,6 +255,35 @@ function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
                 {client.assignedEmployeeName ? (
                   <p className="sm:col-span-2">Assigned to: {client.assignedEmployeeName}</p>
                 ) : null}
+                {client.linkedJobsCount ? (
+                  <div className="sm:col-span-2">
+                    <p className="font-medium text-[var(--color-ink)]">
+                      Linked jobs: {client.linkedJobsCount}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {client.linkedJobs.map((job) => (
+                        <span
+                          key={job.id}
+                          className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]"
+                        >
+                          {job.jobCode ? `${job.jobCode} - ` : ""}
+                          {job.title}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {client.agreementFileData && client.agreementFileName ? (
+                  <p className="sm:col-span-2">
+                    <a
+                      href={client.agreementFileData}
+                      download={client.agreementFileName}
+                      className="font-medium text-[var(--color-accent-strong)]"
+                    >
+                      Download signed agreement
+                    </a>
+                  </p>
+                ) : null}
                 {client.notes ? <p className="sm:col-span-2">Notes: {client.notes}</p> : null}
               </div>
             </article>
@@ -430,6 +465,48 @@ export function AdminClientsPanel() {
     setClientForm((current) => ({ ...current, [field]: value }));
   }
 
+  async function handleAgreementUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setClientForm((current) => ({
+        ...current,
+        agreementFileName: "",
+        agreementFileType: "",
+        agreementFileData: "",
+      }));
+      return;
+    }
+
+    if (file.type !== "application/pdf") {
+      setError("Signed agreement must be uploaded as a PDF.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 4 * 1024 * 1024) {
+      setError("Signed agreement PDF must be 4 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    setError("");
+
+    const fileData = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Unable to read the signed agreement PDF."));
+      reader.readAsDataURL(file);
+    });
+
+    setClientForm((current) => ({
+      ...current,
+      agreementFileName: file.name,
+      agreementFileType: file.type,
+      agreementFileData: fileData,
+    }));
+  }
+
   async function handleClientSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -562,6 +639,25 @@ export function AdminClientsPanel() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+            <div className="sm:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-4">
+              <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/72">
+                Signed agreement (PDF)
+              </label>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center rounded-2xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white">
+                  Upload PDF
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="sr-only"
+                    onChange={handleAgreementUpload}
+                  />
+                </label>
+                <span className="text-sm text-white/78">
+                  {clientForm.agreementFileName || "No file chosen"}
+                </span>
+              </div>
+            </div>
             <textarea
               className={`${fieldClassName} min-h-[116px] resize-y sm:col-span-2`}
               placeholder="Notes / onboarding context"

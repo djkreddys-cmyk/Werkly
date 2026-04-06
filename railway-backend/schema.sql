@@ -71,6 +71,11 @@ create table if not exists clients (
   assigned_employee_id uuid references employees(id) on delete set null,
   status text not null default 'active',
   notes text,
+  agreement_file_name text,
+  agreement_file_type text,
+  agreement_file_data text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table jobs add column if not exists client_id uuid references clients(id) on delete set null;

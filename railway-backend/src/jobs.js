@@ -9,6 +9,8 @@ export function mapRow(row) {
   return {
     id: row.id,
     jobCode: row.job_code,
+    clientId: row.client_id,
+    clientName: row.client_name,
     slug: row.slug,
     title: row.title,
     location: row.location,
@@ -58,6 +60,8 @@ export async function listJobs() {
     `select
       id,
       job_code,
+      client_id,
+      clients.company_name as client_name,
       slug,
       title,
       location,
@@ -78,6 +82,7 @@ export async function listJobs() {
       requirements,
       apply_url
      from jobs
+     left join clients on clients.id = jobs.client_id
      where coalesce(is_hidden, false) = false
        and status = 'open'
        and (last_date_to_apply is null or last_date_to_apply >= current_date)
@@ -92,6 +97,8 @@ export async function listAdminJobs() {
     `select
       id,
       job_code,
+      client_id,
+      clients.company_name as client_name,
       slug,
       title,
       location,
@@ -112,6 +119,7 @@ export async function listAdminJobs() {
       requirements,
       apply_url
      from jobs
+     left join clients on clients.id = jobs.client_id
      order by posted_at desc, created_at desc`
   );
 
@@ -123,6 +131,8 @@ export async function getJobBySlug(slug) {
     `select
       id,
       job_code,
+      client_id,
+      clients.company_name as client_name,
       slug,
       title,
       location,
@@ -143,6 +153,7 @@ export async function getJobBySlug(slug) {
       requirements,
       apply_url
      from jobs
+     left join clients on clients.id = jobs.client_id
      where slug = $1
        and coalesce(is_hidden, false) = false
        and status = 'open'
@@ -160,6 +171,7 @@ export async function ensureJobsSchema() {
   await query(`alter table jobs add column if not exists last_date_to_apply date`);
   await query(`alter table jobs add column if not exists applications_count integer not null default 0`);
   await query(`alter table jobs add column if not exists is_hidden boolean not null default false`);
+  await query(`alter table jobs add column if not exists client_id uuid references clients(id) on delete set null`);
   await query(`
     create table if not exists job_applications (
       id uuid primary key default gen_random_uuid(),
@@ -229,6 +241,7 @@ export async function createJob(payload) {
     const result = await client.query(
       `insert into jobs (
         job_code,
+        client_id,
         slug,
         title,
         location,
@@ -248,11 +261,12 @@ export async function createJob(payload) {
         requirements,
         apply_url
       ) values (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12::date, current_date),$13::date,$14,$15,$16,$17,$18,$19
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,coalesce($13::date, current_date),$14::date,$15,$16,$17,$18,$19,$20
       )
       returning *`,
       [
         jobCode,
+        payload.clientId || null,
         payload.slug,
         payload.title,
         payload.location,
@@ -288,27 +302,29 @@ export async function updateJob(id, payload) {
   const result = await query(
     `update jobs set
       slug = $2,
-      title = $3,
-      location = $4,
-      sector = $5,
-      experience = $6,
-      employment_type = $7,
-      salary = $8,
-      package_per_annum = $9,
-      status = $10,
-      is_hidden = $11,
-      last_date_to_apply = $12,
-      summary = $13,
-      description = $14,
-      skills = $15,
-      responsibilities = $16,
-      requirements = $17,
+      client_id = $3,
+      title = $4,
+      location = $5,
+      sector = $6,
+      experience = $7,
+      employment_type = $8,
+      salary = $9,
+      package_per_annum = $10,
+      status = $11,
+      is_hidden = $12,
+      last_date_to_apply = $13,
+      summary = $14,
+      description = $15,
+      skills = $16,
+      responsibilities = $17,
+      requirements = $18,
       updated_at = now()
     where id = $1
     returning *`,
     [
       id,
       payload.slug,
+      payload.clientId || null,
       payload.title,
       payload.location,
       payload.sector,

@@ -28,10 +28,17 @@ export async function ensureCrmSchema() {
       assigned_employee_id uuid references employees(id) on delete set null,
       status text not null default 'active',
       notes text,
+      agreement_file_name text,
+      agreement_file_type text,
+      agreement_file_data text,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )
   `);
+
+  await query(`alter table clients add column if not exists agreement_file_name text`);
+  await query(`alter table clients add column if not exists agreement_file_type text`);
+  await query(`alter table clients add column if not exists agreement_file_data text`);
 }
 
 function mapEmployeeRow(row) {
@@ -59,6 +66,11 @@ function mapClientRow(row) {
     assignedEmployeeName: row.assigned_employee_name,
     status: row.status,
     notes: row.notes,
+    agreementFileName: row.agreement_file_name,
+    agreementFileType: row.agreement_file_type,
+    agreementFileData: row.agreement_file_data,
+    linkedJobsCount: Number(row.linked_jobs_count ?? 0),
+    linkedJobs: Array.isArray(row.linked_jobs) ? row.linked_jobs : [],
     createdAt: row.created_at,
   };
 }
@@ -111,10 +123,33 @@ export async function listClients() {
       clients.assigned_employee_id,
       clients.status,
       clients.notes,
+      clients.agreement_file_name,
+      clients.agreement_file_type,
+      clients.agreement_file_data,
       clients.created_at,
-      employees.full_name as assigned_employee_name
+      employees.full_name as assigned_employee_name,
+      coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
+      coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
+     left join lateral (
+       select
+         count(*)::int as linked_jobs_count,
+         coalesce(
+           json_agg(
+             json_build_object(
+               'id', jobs.id,
+               'jobCode', jobs.job_code,
+               'title', jobs.title,
+               'status', jobs.status
+             )
+             order by jobs.created_at desc
+           ),
+           '[]'::json
+         ) as linked_jobs
+       from jobs
+       where jobs.client_id = clients.id
+     ) job_summary on true
      order by clients.created_at desc`
   );
 
@@ -132,9 +167,12 @@ export async function createClient(payload) {
       branch,
       assigned_employee_id,
       status,
-      notes
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    returning id, company_name, contact_person, contact_email, contact_phone, sector, branch, assigned_employee_id, status, notes, created_at`,
+      notes,
+      agreement_file_name,
+      agreement_file_type,
+      agreement_file_data
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    returning id, company_name, contact_person, contact_email, contact_phone, sector, branch, assigned_employee_id, status, notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
     [
       payload.companyName,
       payload.contactPerson,
@@ -145,6 +183,9 @@ export async function createClient(payload) {
       payload.assignedEmployeeId || null,
       payload.status || "active",
       payload.notes || null,
+      payload.agreementFileName || null,
+      payload.agreementFileType || null,
+      payload.agreementFileData || null,
     ]
   );
 
@@ -152,5 +193,7 @@ export async function createClient(payload) {
   if (payload.assignedEmployeeName) {
     client.assignedEmployeeName = payload.assignedEmployeeName;
   }
+  client.linkedJobsCount = 0;
+  client.linkedJobs = [];
   return client;
 }

@@ -24,6 +24,16 @@ export type ClientRecord = {
   assignedEmployeeName?: string;
   status: ClientStatus;
   notes?: string;
+  agreementFileName?: string;
+  agreementFileType?: string;
+  agreementFileData?: string;
+  linkedJobsCount: number;
+  linkedJobs: Array<{
+    id: string;
+    jobCode?: string;
+    title: string;
+    status: string;
+  }>;
   createdAt: string;
 };
 
@@ -47,6 +57,9 @@ export type ClientFormPayload = {
   assignedEmployeeName?: string;
   status: ClientStatus;
   notes?: string;
+  agreementFileName?: string;
+  agreementFileType?: string;
+  agreementFileData?: string;
 };
 
 function getBaseUrl() {

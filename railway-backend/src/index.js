@@ -30,7 +30,7 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "12mb" }));
 
 app.get("/health", (_request, response) => {
   response.json({ ok: true });
@@ -224,6 +224,9 @@ app.post("/admin/clients", requireAdmin, async (request, response) => {
       assignedEmployeeName,
       status,
       notes,
+      agreementFileName,
+      agreementFileType,
+      agreementFileData,
     } = request.body ?? {};
 
     if (!companyName || !contactPerson) {
@@ -243,6 +246,9 @@ app.post("/admin/clients", requireAdmin, async (request, response) => {
       assignedEmployeeName,
       status,
       notes,
+      agreementFileName,
+      agreementFileType,
+      agreementFileData,
     });
 
     response.status(201).json(client);
@@ -280,7 +286,8 @@ app.put("/admin/jobs/:id", requireAdmin, async (request, response) => {
   }
 });
 
-Promise.all([ensureJobsSchema(), ensureCrmSchema()])
+ensureCrmSchema()
+  .then(() => ensureJobsSchema())
   .then(() => {
     app.listen(port, () => {
       console.log(`Werkly Railway backend listening on port ${port}`);

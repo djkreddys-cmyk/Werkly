@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ClientRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary, JobStatus } from "@/lib/jobs";
 
 type JobEditorState = {
   id?: string;
   jobCode?: string;
+  clientId: string;
   title: string;
   location: string;
   sector: string;
@@ -21,6 +23,7 @@ type JobEditorState = {
 };
 
 const emptyForm: JobEditorState = {
+  clientId: "",
   title: "",
   location: "",
   sector: "",
@@ -43,6 +46,7 @@ export function AdminJobsDashboard() {
   const [token, setToken] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
   const [form, setForm] = useState<JobEditorState>(emptyForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -67,17 +71,37 @@ export function AdminJobsDashboard() {
       return;
     }
 
-    fetch("/api/admin/jobs", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then(async (response) => {
-        const result = (await response.json()) as { jobs?: JobSummary[]; message?: string };
-        if (!response.ok) {
-          throw new Error(result.message || "Unable to load jobs.");
+    Promise.all([
+      fetch("/api/admin/jobs", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      fetch("/api/admin/clients", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+    ])
+      .then(async ([jobsResponse, clientsResponse]) => {
+        const jobsResult = (await jobsResponse.json()) as {
+          jobs?: JobSummary[];
+          message?: string;
+        };
+        if (!jobsResponse.ok) {
+          throw new Error(jobsResult.message || "Unable to load jobs.");
         }
-        setJobs(result.jobs ?? []);
+
+        const clientsResult = (await clientsResponse.json()) as {
+          clients?: ClientRecord[];
+          message?: string;
+        };
+        if (!clientsResponse.ok) {
+          throw new Error(clientsResult.message || "Unable to load clients.");
+        }
+
+        setJobs(jobsResult.jobs ?? []);
+        setClients(clientsResult.clients ?? []);
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load jobs.");
@@ -107,6 +131,19 @@ export function AdminJobsDashboard() {
             value={form.jobCode ?? "Auto generated when published"}
             disabled
           />
+          <select
+            className={fieldClassName}
+            value={form.clientId}
+            onChange={(event) => updateForm("clientId", event.target.value)}
+            required
+          >
+            <option value="">Select client</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.companyName}
+              </option>
+            ))}
+          </select>
           <input
             className={fieldClassName}
             placeholder="Job title"
@@ -193,6 +230,7 @@ export function AdminJobsDashboard() {
     setForm({
       id: job.id,
       jobCode: job.jobCode,
+      clientId: job.clientId ?? "",
       title: job.title,
       location: job.location,
       sector: job.sector,
@@ -211,16 +249,31 @@ export function AdminJobsDashboard() {
   }
 
   async function refreshJobs() {
-    const response = await fetch("/api/admin/jobs", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    const result = (await response.json()) as { jobs?: JobSummary[]; message?: string };
-    if (!response.ok) {
-      throw new Error(result.message || "Unable to refresh jobs.");
+    const [jobsResponse, clientsResponse] = await Promise.all([
+      fetch("/api/admin/jobs", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      fetch("/api/admin/clients", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+    ]);
+    const jobsResult = (await jobsResponse.json()) as { jobs?: JobSummary[]; message?: string };
+    if (!jobsResponse.ok) {
+      throw new Error(jobsResult.message || "Unable to refresh jobs.");
     }
-    setJobs(result.jobs ?? []);
+    const clientsResult = (await clientsResponse.json()) as {
+      clients?: ClientRecord[];
+      message?: string;
+    };
+    if (!clientsResponse.ok) {
+      throw new Error(clientsResult.message || "Unable to refresh clients.");
+    }
+    setJobs(jobsResult.jobs ?? []);
+    setClients(clientsResult.clients ?? []);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -280,6 +333,7 @@ export function AdminJobsDashboard() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          clientId: job.clientId ?? "",
           title: job.title,
           location: job.location,
           sector: job.sector,
@@ -482,6 +536,11 @@ export function AdminJobsDashboard() {
                     <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
                       {job.title}
                     </h3>
+                    {job.clientName ? (
+                      <p className="mt-2 text-sm font-medium text-[var(--color-muted)]">
+                        Client: {job.clientName}
+                      </p>
+                    ) : null}
                     {job.jobCode ? (
                       <p className="mt-2 text-sm font-semibold text-[var(--color-accent-strong)]">
                         Job ID: {job.jobCode}
