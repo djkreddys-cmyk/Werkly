@@ -1,12 +1,24 @@
 import Link from "next/link";
-import { getJobs } from "@/lib/jobs";
+import { headers } from "next/headers";
+import type { JobSummary } from "@/lib/jobs";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const dynamic = "force-dynamic";
 
 export default async function JobsPage() {
-  const jobs = await getJobs().catch(() => []);
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "www.werkly.in";
+  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
+  const response = await fetch(`${protocol}://${host}/api/jobs`, { cache: "no-store" }).catch(
+    () => null
+  );
+
+  let jobs: JobSummary[] = [];
+  if (response?.ok) {
+    const data = (await response.json()) as { jobs?: JobSummary[] };
+    jobs = data.jobs ?? [];
+  }
 
   return (
     <div className="min-h-screen bg-[var(--color-paper)]">
