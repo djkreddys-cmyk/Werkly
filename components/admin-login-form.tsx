@@ -46,12 +46,12 @@ export function AdminLoginForm() {
 
   return (
     <form className="accent-card mx-auto max-w-xl p-8 sm:p-9" onSubmit={handleSubmit}>
-      <p className="eyebrow">Admin Access</p>
+      <p className="eyebrow">Employee Login</p>
       <h1 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)] sm:text-4xl">
-        Sign in to publish and manage jobs.
+        Sign in to access Werkly CRM.
       </h1>
       <p className="muted-copy mt-4 text-base leading-7">
-        Use your Railway-backed admin credentials to access the job posting dashboard.
+        Use your internal credentials to manage openings, candidate activity, and daily follow-ups.
       </p>
 
       <div className="mt-8 space-y-4">
