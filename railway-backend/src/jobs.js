@@ -80,12 +80,12 @@ export async function listJobs() {
       jobs.skills,
       jobs.responsibilities,
       jobs.requirements,
-      jobs.apply_url
+     jobs.apply_url
      from jobs
      left join clients on clients.id = jobs.client_id
-     where coalesce(is_hidden, false) = false
-       and status = 'open'
-       and (last_date_to_apply is null or last_date_to_apply >= current_date)
+     where coalesce(jobs.is_hidden, false) = false
+       and jobs.status = 'open'
+       and (jobs.last_date_to_apply is null or jobs.last_date_to_apply >= current_date)
      order by jobs.posted_at desc, jobs.created_at desc`
   );
 
@@ -151,13 +151,13 @@ export async function getJobBySlug(slug) {
       jobs.skills,
       jobs.responsibilities,
       jobs.requirements,
-      jobs.apply_url
+     jobs.apply_url
      from jobs
      left join clients on clients.id = jobs.client_id
-     where slug = $1
-       and coalesce(is_hidden, false) = false
-       and status = 'open'
-       and (last_date_to_apply is null or last_date_to_apply >= current_date)
+     where jobs.slug = $1
+       and coalesce(jobs.is_hidden, false) = false
+       and jobs.status = 'open'
+       and (jobs.last_date_to_apply is null or jobs.last_date_to_apply >= current_date)
      limit 1`,
     [slug]
   );
