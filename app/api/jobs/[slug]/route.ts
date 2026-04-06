@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getJobBySlug } from "@/lib/jobs";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ slug: string }> }
