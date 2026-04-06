@@ -117,6 +117,24 @@ export function AdminJobsDashboard() {
     [jobs]
   );
 
+  function isLiveOnWebsite(job: JobSummary) {
+    if (job.isHidden) {
+      return false;
+    }
+
+    if (job.status !== "open") {
+      return false;
+    }
+
+    if (!job.lastDateToApply) {
+      return true;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(job.lastDateToApply) >= today;
+  }
+
   function updateForm(field: keyof JobEditorState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
   }
@@ -547,6 +565,17 @@ export function AdminJobsDashboard() {
                 </div>
                 <p className="muted-copy mt-3 text-sm leading-6">
                   {job.location} | {job.experience}
+                </p>
+                <p
+                  className={`mt-2 text-sm font-semibold ${
+                    isLiveOnWebsite(job)
+                      ? "text-emerald-700"
+                      : "text-[var(--color-accent-strong)]"
+                  }`}
+                >
+                  {isLiveOnWebsite(job)
+                    ? "Live on website"
+                    : "Not showing on website"}
                 </p>
                 <button
                   type="button"
