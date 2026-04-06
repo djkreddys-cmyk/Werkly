@@ -195,6 +195,10 @@ function getBaseUrl() {
   ).replace(/\/$/, "");
 }
 
+function canUseDemoFallback() {
+  return process.env.NODE_ENV !== "production" && !getBaseUrl();
+}
+
 function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
   return {
     id: String(job.id ?? ""),
@@ -282,13 +286,13 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getJobs(): Promise<JobSummary[]> {
-  try {
-    const data = await readJson<JobsResponse | JobSummary[]>("/jobs");
-    const jobs = Array.isArray(data) ? data : data.jobs;
-    return jobs.map(normalizeJobSummary);
-  } catch {
+  if (canUseDemoFallback()) {
     return demoJobs.map(normalizeJobSummary);
   }
+
+  const data = await readJson<JobsResponse | JobSummary[]>("/jobs");
+  const jobs = Array.isArray(data) ? data : data.jobs;
+  return jobs.map(normalizeJobSummary);
 }
 
 export async function getAdminJobs(token: string): Promise<JobSummary[]> {
@@ -302,12 +306,12 @@ export async function getAdminJobs(token: string): Promise<JobSummary[]> {
 }
 
 export async function getJobBySlug(slug: string): Promise<JobDetail | null> {
-  try {
-    const job = await readJson<JobDetail>(`/jobs/${slug}`);
-    return normalizeJobDetail(job);
-  } catch {
+  if (canUseDemoFallback()) {
     return demoJobs.find((job) => job.slug === slug) ?? null;
   }
+
+  const job = await readJson<JobDetail>(`/jobs/${slug}`);
+  return normalizeJobDetail(job);
 }
 
 export async function adminLogin(email: string, password: string) {

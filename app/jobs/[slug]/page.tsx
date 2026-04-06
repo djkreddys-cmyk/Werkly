@@ -5,13 +5,15 @@ import { EnquiryModal } from "@/components/enquiry-modal";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
+export const dynamic = "force-dynamic";
+
 export default async function JobDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const job = await getJobBySlug(slug);
+  const job = await getJobBySlug(slug).catch(() => null);
 
   if (!job) {
     notFound();
