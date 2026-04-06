@@ -31,53 +31,48 @@ export function AdminShell({
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(241,166,75,0.16),transparent_16%),linear-gradient(180deg,#075560_0%,#083f48_34%,#f4efe7_34%,#f8f4ee_100%)]">
       <header className="border-b border-[rgba(255,255,255,0.08)] bg-[rgba(7,70,79,0.9)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
-          <div className="flex items-center gap-4">
+          <Link href="/admin/jobs" className="flex items-center">
             <Image
               src="/Werkly Logo.png"
               alt="Werkly logo"
               width={640}
               height={176}
-              className="h-12 w-auto object-contain"
+              className="h-14 w-auto object-contain sm:h-16"
               priority
             />
-            <div className="hidden sm:block">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                Werkly CRM
-              </p>
-              <p className="mt-1 text-sm text-white/72">
-                Internal hiring operations workspace
-              </p>
-            </div>
-          </div>
-
-          <Link
-            href="https://www.werkly.in"
-            className="inline-flex items-center justify-center rounded-xl border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] px-4 py-2 text-sm font-semibold text-white transition hover:border-[var(--color-accent)] hover:bg-[rgba(255,255,255,0.16)]"
-          >
-            Open Website
           </Link>
-        </div>
-        {showMenu ? (
-          <div className="mx-auto flex w-full max-w-7xl flex-wrap gap-3 px-5 pb-4 sm:px-8">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    isActive
-                      ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
-                      : "border border-[rgba(255,255,255,0.16)] bg-[rgba(255,255,255,0.08)] text-white hover:border-[var(--color-accent)] hover:bg-[rgba(255,255,255,0.14)]"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+          <div className="flex items-center gap-3 sm:gap-4">
+            {showMenu ? (
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {menuItems.map((item) => {
+                  const isActive = pathname === item.href;
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                        isActive
+                          ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
+                          : "border border-[rgba(255,255,255,0.16)] bg-[rgba(255,255,255,0.08)] text-white hover:border-[var(--color-accent)] hover:bg-[rgba(255,255,255,0.14)]"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <Link
+              href="https://www.werkly.in"
+              className="inline-flex items-center justify-center rounded-xl border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] px-4 py-2 text-sm font-semibold text-white transition hover:border-[var(--color-accent)] hover:bg-[rgba(255,255,255,0.16)]"
+            >
+              Open Website
+            </Link>
           </div>
-        ) : null}
+        </div>
       </header>
 
       <main>
