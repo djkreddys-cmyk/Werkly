@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 
 type AdminShellProps = {
@@ -9,6 +10,7 @@ type AdminShellProps = {
   title: string;
   description: string;
   children: ReactNode;
+  showMenu?: boolean;
 };
 
 export function AdminShell({
@@ -16,7 +18,15 @@ export function AdminShell({
   title,
   description,
   children,
+  showMenu = true,
 }: AdminShellProps) {
+  const pathname = usePathname();
+  const menuItems = [
+    { href: "/admin/jobs", label: "Jobs" },
+    { href: "/admin/employees", label: "Employees" },
+    { href: "/admin/clients", label: "Clients" },
+  ];
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(241,166,75,0.16),transparent_16%),linear-gradient(180deg,#075560_0%,#083f48_34%,#f4efe7_34%,#f8f4ee_100%)]">
       <header className="border-b border-[rgba(255,255,255,0.08)] bg-[rgba(7,70,79,0.9)] backdrop-blur">
@@ -47,6 +57,27 @@ export function AdminShell({
             Open Website
           </Link>
         </div>
+        {showMenu ? (
+          <div className="mx-auto flex w-full max-w-7xl flex-wrap gap-3 px-5 pb-4 sm:px-8">
+            {menuItems.map((item) => {
+              const isActive = pathname === item.href;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    isActive
+                      ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
+                      : "border border-[rgba(255,255,255,0.16)] bg-[rgba(255,255,255,0.08)] text-white hover:border-[var(--color-accent)] hover:bg-[rgba(255,255,255,0.14)]"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
       </header>
 
       <main>
