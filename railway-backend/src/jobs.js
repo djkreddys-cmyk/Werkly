@@ -86,7 +86,7 @@ export async function listJobs() {
      where coalesce(is_hidden, false) = false
        and status = 'open'
        and (last_date_to_apply is null or last_date_to_apply >= current_date)
-     order by posted_at desc, created_at desc`
+     order by jobs.posted_at desc, jobs.created_at desc`
   );
 
   return result.rows.map(mapRow);
@@ -120,7 +120,7 @@ export async function listAdminJobs() {
       jobs.apply_url
      from jobs
      left join clients on clients.id = jobs.client_id
-     order by posted_at desc, created_at desc`
+     order by jobs.posted_at desc, jobs.created_at desc`
   );
 
   return result.rows.map(mapRow);

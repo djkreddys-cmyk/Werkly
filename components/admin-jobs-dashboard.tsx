@@ -125,12 +125,6 @@ export function AdminJobsDashboard() {
     return (
       <>
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <input
-            className={`${fieldClassName} bg-slate-50 text-slate-500`}
-            placeholder="Job ID"
-            value={form.jobCode ?? "Auto generated when published"}
-            disabled
-          />
           <select
             className={fieldClassName}
             value={form.clientId}
