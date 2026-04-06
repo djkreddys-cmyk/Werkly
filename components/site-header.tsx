@@ -23,8 +23,15 @@ export function SiteHeader() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const isAdminHost = () =>
+    typeof window !== "undefined" && window.location.hostname === "admin.werkly.in";
+
   const handleNavClick = (target: string) => {
     if (typeof window === "undefined") return;
+    if (isAdminHost()) {
+      window.location.assign(`https://www.werkly.in/#${target}`);
+      return;
+    }
     if (pathname !== "/") {
       router.push(`/#${target}`);
       return;
@@ -36,6 +43,10 @@ export function SiteHeader() {
 
   const handleLogoClick = () => {
     if (typeof window === "undefined") return;
+    if (isAdminHost()) {
+      window.location.assign("https://www.werkly.in/");
+      return;
+    }
     if (pathname !== "/") {
       router.push("/");
       return;
