@@ -253,7 +253,24 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Railway request failed with status ${response.status}`);
+    let message = text || `Railway request failed with status ${response.status}`;
+
+    try {
+      const parsed = JSON.parse(text) as { message?: string; error?: { message?: string } };
+      message =
+        parsed.message ||
+        parsed.error?.message ||
+        message;
+    } catch {
+      // Keep original text when response is not JSON.
+    }
+
+    if (message.includes("Application not found")) {
+      message =
+        "Railway backend is not responding on the configured domain. Redeploy the backend service and verify the Railway public domain in Vercel.";
+    }
+
+    throw new Error(message);
   }
 
   return response.json() as Promise<T>;
