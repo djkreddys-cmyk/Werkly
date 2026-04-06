@@ -47,3 +47,30 @@ create table if not exists job_applications (
 );
 
 create index if not exists idx_job_applications_job_id on job_applications(job_id);
+
+create table if not exists employees (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text not null unique,
+  phone text,
+  role text not null,
+  status text not null default 'active',
+  password_hash text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists clients (
+  id uuid primary key default gen_random_uuid(),
+  company_name text not null,
+  contact_person text not null,
+  contact_email text,
+  contact_phone text,
+  sector text,
+  branch text,
+  assigned_employee_id uuid references employees(id) on delete set null,
+  status text not null default 'active',
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);

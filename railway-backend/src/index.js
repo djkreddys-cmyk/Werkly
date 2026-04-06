@@ -3,6 +3,13 @@ import cors from "cors";
 import express from "express";
 import { createAdminToken, requireAdmin, validateAdmin } from "./auth.js";
 import {
+  createClient,
+  createEmployee,
+  ensureCrmSchema,
+  listClients,
+  listEmployees,
+} from "./crm.js";
+import {
   createJob,
   ensureJobsSchema,
   getJobBySlug,
@@ -155,6 +162,97 @@ app.get("/admin/jobs/:id/applications", requireAdmin, async (request, response) 
   }
 });
 
+app.get("/admin/employees", requireAdmin, async (_request, response) => {
+  try {
+    const employees = await listEmployees();
+    response.json({ employees });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load employees.",
+    });
+  }
+});
+
+app.post("/admin/employees", requireAdmin, async (request, response) => {
+  try {
+    const { fullName, email, phone, role, password, status } = request.body ?? {};
+
+    if (!fullName || !email || !role || !password) {
+      return response.status(400).json({
+        message: "Full name, email, role, and password are required.",
+      });
+    }
+
+    const employee = await createEmployee({
+      fullName,
+      email,
+      phone,
+      role,
+      password,
+      status,
+    });
+
+    response.status(201).json(employee);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to create employee.",
+    });
+  }
+});
+
+app.get("/admin/clients", requireAdmin, async (_request, response) => {
+  try {
+    const clients = await listClients();
+    response.json({ clients });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load clients.",
+    });
+  }
+});
+
+app.post("/admin/clients", requireAdmin, async (request, response) => {
+  try {
+    const {
+      companyName,
+      contactPerson,
+      contactEmail,
+      contactPhone,
+      sector,
+      branch,
+      assignedEmployeeId,
+      assignedEmployeeName,
+      status,
+      notes,
+    } = request.body ?? {};
+
+    if (!companyName || !contactPerson) {
+      return response.status(400).json({
+        message: "Company name and contact person are required.",
+      });
+    }
+
+    const client = await createClient({
+      companyName,
+      contactPerson,
+      contactEmail,
+      contactPhone,
+      sector,
+      branch,
+      assignedEmployeeId,
+      assignedEmployeeName,
+      status,
+      notes,
+    });
+
+    response.status(201).json(client);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to create client.",
+    });
+  }
+});
+
 app.post("/admin/jobs", requireAdmin, async (request, response) => {
   try {
     const job = await createJob(request.body);
@@ -182,7 +280,7 @@ app.put("/admin/jobs/:id", requireAdmin, async (request, response) => {
   }
 });
 
-ensureJobsSchema()
+Promise.all([ensureJobsSchema(), ensureCrmSchema()])
   .then(() => {
     app.listen(port, () => {
       console.log(`Werkly Railway backend listening on port ${port}`);

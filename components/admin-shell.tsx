@@ -18,8 +18,8 @@ export function AdminShell({
   children,
 }: AdminShellProps) {
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,rgba(8,96,108,0.08),rgba(255,255,255,0)_22%),var(--color-paper)]">
-      <header className="border-b border-[rgba(8,96,108,0.12)] bg-white/92 backdrop-blur">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(241,166,75,0.16),transparent_16%),linear-gradient(180deg,#075560_0%,#083f48_34%,#f4efe7_34%,#f8f4ee_100%)]">
+      <header className="border-b border-[rgba(255,255,255,0.08)] bg-[rgba(7,70,79,0.9)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
           <div className="flex items-center gap-4">
             <Image
@@ -31,10 +31,10 @@ export function AdminShell({
               priority
             />
             <div className="hidden sm:block">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
                 Werkly CRM
               </p>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-white/72">
                 Internal hiring operations workspace
               </p>
             </div>
@@ -42,7 +42,7 @@ export function AdminShell({
 
           <Link
             href="https://www.werkly.in"
-            className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[rgba(8,96,108,0.2)] hover:text-[var(--color-dark)]"
+            className="inline-flex items-center justify-center rounded-xl border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.1)] px-4 py-2 text-sm font-semibold text-white transition hover:border-[var(--color-accent)] hover:bg-[rgba(255,255,255,0.16)]"
           >
             Open Website
           </Link>
@@ -51,12 +51,14 @@ export function AdminShell({
 
       <main>
         <section className="section-shell py-12 sm:py-16">
-          <div className="mb-10 max-w-3xl">
-            <p className="eyebrow">{eyebrow}</p>
-            <h1 className="mt-4 text-4xl font-semibold leading-tight text-[var(--color-ink)] sm:text-5xl">
+          <div className="mb-10 max-w-4xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+              {eyebrow}
+            </p>
+            <h1 className="mt-4 text-4xl font-semibold leading-tight text-white sm:text-5xl">
               {title}
             </h1>
-            <p className="muted-copy mt-5 text-base leading-8 sm:text-lg">
+            <p className="mt-5 max-w-3xl text-base leading-8 text-white/74 sm:text-lg">
               {description}
             </p>
           </div>
