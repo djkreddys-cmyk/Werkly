@@ -15,9 +15,17 @@ export default async function JobsPage() {
   );
 
   let jobs: JobSummary[] = [];
+  let jobsError = "";
   if (response?.ok) {
     const data = (await response.json()) as { jobs?: JobSummary[] };
     jobs = data.jobs ?? [];
+  } else if (response) {
+    const data = (await response.json().catch(() => ({ message: "Unable to load public jobs." }))) as {
+      message?: string;
+    };
+    jobsError = data.message || "Unable to load public jobs.";
+  } else {
+    jobsError = "Unable to reach the public jobs API.";
   }
 
   return (
@@ -38,7 +46,15 @@ export default async function JobsPage() {
         </section>
 
         <section className="section-shell py-16 sm:py-20">
-          {jobs.length === 0 ? (
+          {jobsError ? (
+            <div className="accent-card p-8 text-center">
+              <p className="eyebrow">Current Openings</p>
+              <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+                Public jobs could not be loaded.
+              </h2>
+              <p className="mt-4 text-base leading-7 text-red-700">{jobsError}</p>
+            </div>
+          ) : jobs.length === 0 ? (
             <div className="accent-card p-8 text-center">
               <p className="eyebrow">Current Openings</p>
               <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
