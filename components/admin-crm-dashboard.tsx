@@ -65,6 +65,15 @@ const fieldClassName =
   "w-full rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.12)] px-4 py-3 text-sm text-white placeholder:text-white/55 outline-none transition focus:border-[var(--color-accent)] focus:bg-[rgba(255,255,255,0.16)]";
 
 function formatErrorMessage(message: string) {
+  try {
+    const parsed = JSON.parse(message) as { message?: string };
+    if (parsed.message) {
+      return parsed.message;
+    }
+  } catch {
+    // Keep the original message when the response is not JSON text.
+  }
+
   if (message.includes("404") || message.includes("Application not found")) {
     return "CRM backend route is not available yet. Redeploy the Railway backend to enable this module.";
   }
@@ -171,9 +180,11 @@ function CrmFeedback({ message, error }: { message: string; error: string }) {
 function CrmEmployeesList({
   employees,
   onEdit,
+  canEdit,
 }: {
   employees: EmployeeRecord[];
   onEdit: (employee: EmployeeRecord) => void;
+  canEdit: boolean;
 }) {
   return (
     <section className="accent-card p-6">
@@ -224,15 +235,17 @@ function CrmEmployeesList({
                   <p>Remarks: {employee.inactiveRemarks}</p>
                 ) : null}
               </div>
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => onEdit(employee)}
-                  className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                >
-                  Edit
-                </button>
-              </div>
+              {canEdit ? (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(employee)}
+                    className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                  >
+                    Edit
+                  </button>
+                </div>
+              ) : null}
             </article>
           ))
         )}
@@ -336,9 +349,15 @@ export function AdminEmployeesPanel() {
     setError,
     refreshCrm,
   } = useAdminCrmData();
+  const [authRole] = useState(() =>
+    typeof window === "undefined"
+      ? "admin"
+      : window.localStorage.getItem("werklyAuthRole") ?? "admin"
+  );
   const [employeeForm, setEmployeeForm] = useState<EmployeeFormState>(emptyEmployeeForm);
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
   const isEditingEmployee = Boolean(employeeForm.id);
+  const canManageEmployees = authRole === "admin";
 
   function updateEmployeeField(field: keyof EmployeeFormState, value: string) {
     setEmployeeForm((current) => ({ ...current, [field]: value }));
@@ -426,134 +445,151 @@ export function AdminEmployeesPanel() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-[2rem] border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]">
-        <div className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
-            Employee Onboarding
-          </p>
-          <h2 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
-            Create internal login credentials for your hiring team.
-          </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
-            Add recruiter and employee accounts with their role and starting password.
-            Employee login codes are auto-generated as `YYMM` plus a 3-digit running number.
-          </p>
-        </div>
-
-        <CrmFeedback message={message} error={error} />
-
-        <form
-          className="mt-8 rounded-[1.7rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.08)] p-6 backdrop-blur"
-          onSubmit={handleEmployeeSubmit}
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <input
-              className={fieldClassName}
-              placeholder="Full name"
-              value={employeeForm.fullName}
-              onChange={(event) => updateEmployeeField("fullName", event.target.value)}
-              required
-            />
-            <input
-              className={fieldClassName}
-              type="email"
-              placeholder="Email"
-              value={employeeForm.email}
-              onChange={(event) => updateEmployeeField("email", event.target.value)}
-              required
-            />
-            <input
-              className={fieldClassName}
-              placeholder="Phone"
-              value={employeeForm.phone}
-              onChange={(event) => updateEmployeeField("phone", event.target.value)}
-            />
-            <input
-              className={fieldClassName}
-              placeholder="Role"
-              value={employeeForm.role}
-              onChange={(event) => updateEmployeeField("role", event.target.value)}
-              required
-            />
-            <input
-              className={fieldClassName}
-              type="password"
-              placeholder={
-                isEditingEmployee ? "New password (optional)" : "Temporary password"
-              }
-              value={employeeForm.password}
-              onChange={(event) => updateEmployeeField("password", event.target.value)}
-              required={!isEditingEmployee}
-            />
-            <select
-              className={fieldClassName}
-              value={employeeForm.status}
-              onChange={(event) => {
-                const nextStatus = event.target.value as EmployeeStatus;
-                setEmployeeForm((current) => ({
-                  ...current,
-                  status: nextStatus,
-                  inactiveDate: nextStatus === "inactive" ? current.inactiveDate : "",
-                  inactiveRemarks:
-                    nextStatus === "inactive" ? current.inactiveRemarks : "",
-                }));
-              }}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            {employeeForm.status === "inactive" ? (
-              <>
-                <input
-                  className={fieldClassName}
-                  type="date"
-                  value={employeeForm.inactiveDate}
-                  onChange={(event) =>
-                    updateEmployeeField("inactiveDate", event.target.value)
-                  }
-                  required
-                />
-                <textarea
-                  className={`${fieldClassName} min-h-[116px] resize-y sm:col-span-2`}
-                  placeholder="Inactive remarks"
-                  value={employeeForm.inactiveRemarks}
-                  onChange={(event) =>
-                    updateEmployeeField("inactiveRemarks", event.target.value)
-                  }
-                  required
-                />
-              </>
-            ) : null}
+      {canManageEmployees ? (
+        <div className="rounded-[2rem] border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
+              Employee Onboarding
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
+              Create internal login credentials for your hiring team.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
+              Add recruiter and employee accounts with their role and starting password.
+              Employee login codes are auto-generated as `YYMM` plus a 3-digit running number.
+            </p>
           </div>
 
-          <div className="mt-5 flex gap-3">
-            <button
-              type="submit"
-              disabled={isSavingEmployee || isLoading}
-              className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isSavingEmployee
-                ? isEditingEmployee
-                  ? "Updating..."
-                  : "Creating..."
-                : isEditingEmployee
-                  ? "Update Employee"
-                  : "Create Employee Login"}
-            </button>
-            {isEditingEmployee ? (
-              <button
-                type="button"
-                onClick={() => setEmployeeForm(emptyEmployeeForm)}
-                className="rounded-2xl border border-[rgba(255,255,255,0.14)] px-5 py-3 text-sm font-semibold text-white"
+          <CrmFeedback message={message} error={error} />
+
+          <form
+            className="mt-8 rounded-[1.7rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.08)] p-6 backdrop-blur"
+            onSubmit={handleEmployeeSubmit}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input
+                className={fieldClassName}
+                placeholder="Full name"
+                value={employeeForm.fullName}
+                onChange={(event) => updateEmployeeField("fullName", event.target.value)}
+                required
+              />
+              <input
+                className={fieldClassName}
+                type="email"
+                placeholder="Email"
+                value={employeeForm.email}
+                onChange={(event) => updateEmployeeField("email", event.target.value)}
+                required
+              />
+              <input
+                className={fieldClassName}
+                placeholder="Phone"
+                value={employeeForm.phone}
+                onChange={(event) => updateEmployeeField("phone", event.target.value)}
+              />
+              <input
+                className={fieldClassName}
+                placeholder="Role"
+                value={employeeForm.role}
+                onChange={(event) => updateEmployeeField("role", event.target.value)}
+                required
+              />
+              <input
+                className={fieldClassName}
+                type="password"
+                placeholder={
+                  isEditingEmployee ? "New password (optional)" : "Temporary password"
+                }
+                value={employeeForm.password}
+                onChange={(event) => updateEmployeeField("password", event.target.value)}
+                required={!isEditingEmployee}
+              />
+              <select
+                className={fieldClassName}
+                value={employeeForm.status}
+                onChange={(event) => {
+                  const nextStatus = event.target.value as EmployeeStatus;
+                  setEmployeeForm((current) => ({
+                    ...current,
+                    status: nextStatus,
+                    inactiveDate: nextStatus === "inactive" ? current.inactiveDate : "",
+                    inactiveRemarks:
+                      nextStatus === "inactive" ? current.inactiveRemarks : "",
+                  }));
+                }}
               >
-                Cancel Edit
-              </button>
-            ) : null}
-          </div>
-        </form>
-      </div>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              {employeeForm.status === "inactive" ? (
+                <>
+                  <input
+                    className={fieldClassName}
+                    type="date"
+                    value={employeeForm.inactiveDate}
+                    onChange={(event) =>
+                      updateEmployeeField("inactiveDate", event.target.value)
+                    }
+                    required
+                  />
+                  <textarea
+                    className={`${fieldClassName} min-h-[116px] resize-y sm:col-span-2`}
+                    placeholder="Inactive remarks"
+                    value={employeeForm.inactiveRemarks}
+                    onChange={(event) =>
+                      updateEmployeeField("inactiveRemarks", event.target.value)
+                    }
+                    required
+                  />
+                </>
+              ) : null}
+            </div>
 
-      <CrmEmployeesList employees={employees} onEdit={loadEmployeeForEdit} />
+            <div className="mt-5 flex gap-3">
+              <button
+                type="submit"
+                disabled={isSavingEmployee || isLoading}
+                className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSavingEmployee
+                  ? isEditingEmployee
+                    ? "Updating..."
+                    : "Creating..."
+                  : isEditingEmployee
+                    ? "Update Employee"
+                    : "Create Employee Login"}
+              </button>
+              {isEditingEmployee ? (
+                <button
+                  type="button"
+                  onClick={() => setEmployeeForm(emptyEmployeeForm)}
+                  className="rounded-2xl border border-[rgba(255,255,255,0.14)] px-5 py-3 text-sm font-semibold text-white"
+                >
+                  Cancel Edit
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </div>
+      ) : (
+        <section className="accent-card p-6">
+          <p className="eyebrow">Employees</p>
+          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            Employee records are view-only for this login.
+          </h2>
+          <p className="muted-copy mt-4 max-w-3xl text-sm leading-7">
+            Only admin accounts can create or edit employee logins. You can still review the
+            current employee list below.
+          </p>
+        </section>
+      )}
+
+      <CrmEmployeesList
+        employees={employees}
+        onEdit={loadEmployeeForEdit}
+        canEdit={canManageEmployees}
+      />
     </section>
   );
 }
