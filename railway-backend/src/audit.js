@@ -68,3 +68,57 @@ export async function recordLogoutSession(payload) {
     ]
   );
 }
+
+function mapAttendanceRow(row) {
+  return {
+    sessionId: row.session_id,
+    userType: row.user_type,
+    userId: row.user_id,
+    userIdentifier: row.user_identifier,
+    userName: row.user_name,
+    userRole: row.user_role,
+    loginAt: row.login_at,
+    loginClientTime: row.login_client_time,
+    loginClientTimezone: row.login_client_timezone,
+    loginClientUtcOffsetMinutes: row.login_client_utc_offset_minutes,
+    logoutAt: row.logout_at,
+    logoutClientTime: row.logout_client_time,
+    logoutClientTimezone: row.logout_client_timezone,
+    logoutClientUtcOffsetMinutes: row.logout_client_utc_offset_minutes,
+  };
+}
+
+export async function listAttendanceSessions(userId = null) {
+  const values = [];
+  const userScopeClause = userId
+    ? (() => {
+        values.push(userId);
+        return `where user_id = $${values.length}`;
+      })()
+    : "";
+
+  const result = await query(
+    `select
+      session_id,
+      user_type,
+      user_id,
+      user_identifier,
+      user_name,
+      user_role,
+      login_at,
+      login_client_time,
+      login_client_timezone,
+      login_client_utc_offset_minutes,
+      logout_at,
+      logout_client_time,
+      logout_client_timezone,
+      logout_client_utc_offset_minutes
+     from auth_session_logs
+     ${userScopeClause}
+     order by login_at desc
+     limit 100`,
+    values
+  );
+
+  return result.rows.map(mapAttendanceRow);
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobApplication, JobApplicationStageHistory } from "@/lib/jobs";
 
@@ -9,6 +10,7 @@ type ReportState = {
   history: JobApplicationStageHistory[];
   clients: ClientRecord[];
   employees: EmployeeRecord[];
+  attendance: AttendanceSessionRecord[];
 };
 
 export function AdminReportsPanel() {
@@ -42,6 +44,7 @@ export function AdminReportsPanel() {
     history: [],
     clients: [],
     employees: [],
+    attendance: [],
   });
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
@@ -51,28 +54,43 @@ export function AdminReportsPanel() {
       return;
     }
 
+    const loadJson = async (path: string) => {
+      const response = await fetch(path, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to load report data.");
+      }
+
+      return result;
+    };
+
     Promise.all([
-      fetch("/api/admin/applications", {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((response) => response.json()),
-      fetch("/api/admin/applications/history", {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((response) => response.json()),
-      fetch("/api/admin/clients", {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((response) => response.json()),
-      fetch("/api/admin/employees", {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((response) => response.json()),
+      loadJson("/api/admin/applications"),
+      loadJson("/api/admin/applications/history"),
+      loadJson("/api/admin/clients"),
+      loadJson("/api/admin/employees"),
+      loadJson("/api/admin/attendance"),
     ])
-      .then(([applicationsResult, historyResult, clientsResult, employeesResult]) => {
+      .then(
+        ([
+          applicationsResult,
+          historyResult,
+          clientsResult,
+          employeesResult,
+          attendanceResult,
+        ]) => {
         setState({
           applications: applicationsResult.applications ?? [],
           history: historyResult.history ?? [],
           clients: clientsResult.clients ?? [],
           employees: employeesResult.employees ?? [],
+          attendance: attendanceResult.attendance ?? [],
         });
-      })
+        }
+      )
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load reports.");
       })
@@ -80,8 +98,7 @@ export function AdminReportsPanel() {
   }, [token]);
 
   const recruiterReport = useMemo(() => {
-    const isEmployeeSession =
-      authType === "employee" || authRole !== "admin" || Boolean(authEmployeeCode);
+    const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
 
     const visibleEmployees =
       isEmployeeSession
@@ -125,6 +142,23 @@ export function AdminReportsPanel() {
       .sort((a, b) => b.totalApplications - a.totalApplications);
   }, [authEmployeeCode, authEmail, authRole, authType, state]);
 
+  const visibleAttendance = useMemo(() => {
+    if (authType !== "employee" && !authEmployeeCode) {
+      return state.attendance;
+    }
+
+    return state.attendance.filter(
+      (session) =>
+        session.userIdentifier === authEmployeeCode ||
+        session.userIdentifier === authEmail ||
+        session.userId ===
+          state.employees.find(
+            (employee) =>
+              employee.employeeCode === authEmployeeCode || employee.email === authEmail
+          )?.id
+    );
+  }, [authEmail, authEmployeeCode, authType, state.attendance, state.employees]);
+
   const totals = useMemo(() => {
     const countByStage = (stage: string) =>
       state.applications.filter((application) => (application.stage ?? "applied") === stage)
@@ -161,6 +195,122 @@ export function AdminReportsPanel() {
             </p>
           </article>
         ))}
+      </section>
+
+      <section className="accent-card p-7">
+        <p className="eyebrow">Attendance Log</p>
+        <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+          Track login and logout time for daily attendance.
+        </h2>
+        <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+          Login and logout entries combine server audit timestamps with laptop local time so you can review attendance alongside recruiter activity.
+        </p>
+
+        {isLoading ? (
+          <p className="muted-copy mt-6 text-sm">Loading attendance log...</p>
+        ) : visibleAttendance.length === 0 ? (
+          <p className="muted-copy mt-6 text-sm">No attendance records are available yet.</p>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                    {[
+                      "Employee",
+                      "Login Time",
+                      "Laptop Login",
+                      "Logout Time",
+                      "Laptop Logout",
+                      "Status",
+                    ].map((heading) => (
+                      <th
+                        key={heading}
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                      >
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleAttendance.map((session, index) => (
+                    <tr
+                      key={session.sessionId}
+                      className={
+                        index === visibleAttendance.length - 1
+                          ? "align-top"
+                          : "align-top border-b border-[var(--color-line)]"
+                      }
+                    >
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {session.userName || session.userIdentifier}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">
+                          {session.userIdentifier}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {new Date(session.loginAt).toLocaleString("en-IN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {session.loginClientTime ? (
+                          <>
+                            <p>
+                              {new Date(session.loginClientTime).toLocaleString("en-IN", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </p>
+                            <p className="mt-1 text-xs">
+                              {session.loginClientTimezone || "Local timezone not shared"}
+                            </p>
+                          </>
+                        ) : (
+                          "Not captured"
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {session.logoutAt
+                          ? new Date(session.logoutAt).toLocaleString("en-IN", {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })
+                          : "Active session"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {session.logoutClientTime ? (
+                          <>
+                            <p>
+                              {new Date(session.logoutClientTime).toLocaleString("en-IN", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </p>
+                            <p className="mt-1 text-xs">
+                              {session.logoutClientTimezone || "Local timezone not shared"}
+                            </p>
+                          </>
+                        ) : (
+                          "Not captured"
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-sm">
+                        <span className="font-semibold text-[var(--color-accent-strong)]">
+                          {session.logoutAt ? "Logged out" : "Logged in"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="accent-card p-7">

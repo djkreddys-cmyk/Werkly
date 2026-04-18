@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 
 type AdminShellProps = {
   eyebrow: string;
@@ -19,8 +19,11 @@ const menuItems = [
   { href: "/admin/candidates", label: "Candidates" },
   { href: "/admin/employees", label: "Employees" },
   { href: "/admin/clients", label: "Clients" },
+  { href: "/admin/leaves", label: "Leaves" },
   { href: "/admin/reports", label: "Reports" },
 ];
+
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
 
 export function AdminShell({
   eyebrow,
@@ -41,6 +44,7 @@ export function AdminShell({
       ? "super-admin"
       : window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
   );
+  const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const visibleMenuItems =
     authType === "admin" || authRole === "super-admin"
@@ -82,6 +86,50 @@ export function AdminShell({
       router.refresh();
     }
   }
+
+  useEffect(() => {
+    if (!showMenu || typeof window === "undefined") {
+      return;
+    }
+
+    const token = window.localStorage.getItem("werklyAdminToken") ?? "";
+    if (!token) {
+      return;
+    }
+
+    const resetLogoutTimer = () => {
+      if (logoutTimerRef.current) {
+        window.clearTimeout(logoutTimerRef.current);
+      }
+
+      logoutTimerRef.current = window.setTimeout(() => {
+        void handleLogout();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      "mousemove",
+      "keydown",
+      "click",
+      "scroll",
+      "touchstart",
+    ];
+
+    resetLogoutTimer();
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetLogoutTimer, { passive: true });
+    });
+
+    return () => {
+      if (logoutTimerRef.current) {
+        window.clearTimeout(logoutTimerRef.current);
+      }
+
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetLogoutTimer);
+      });
+    };
+  }, [pathname, showMenu]);
 
   if (!showMenu) {
     return (

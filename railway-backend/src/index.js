@@ -2,7 +2,12 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { randomUUID } from "crypto";
-import { ensureAuthAuditSchema, recordLoginSession, recordLogoutSession } from "./audit.js";
+import {
+  ensureAuthAuditSchema,
+  listAttendanceSessions,
+  recordLoginSession,
+  recordLogoutSession,
+} from "./audit.js";
 import {
   createAdminToken,
   createEmployeeToken,
@@ -21,6 +26,16 @@ import {
   listEmployees,
   updateEmployee,
 } from "./crm.js";
+import {
+  createLeaveRequest,
+  createLeaveType,
+  ensureLeaveSchema,
+  listLeaveAssignments,
+  listLeaveRequests,
+  listLeaveTypes,
+  updateLeaveRequestStatus,
+  upsertLeaveAssignment,
+} from "./leave.js";
 import {
   createJob,
   ensureJobsSchema,
@@ -161,6 +176,19 @@ app.post("/auth/logout", requireInternalUser, async (request, response) => {
   } catch (error) {
     return response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to record logout time.",
+    });
+  }
+});
+
+app.get("/admin/attendance", requireInternalUser, async (request, response) => {
+  try {
+    const attendance = await listAttendanceSessions(
+      request.user?.type === "employee" ? request.user.id : null
+    );
+    response.json({ attendance });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load attendance.",
     });
   }
 });
@@ -494,6 +522,143 @@ app.get("/admin/clients", requireInternalUser, async (_request, response) => {
   }
 });
 
+app.get("/admin/leaves/types", requireInternalUser, async (_request, response) => {
+  try {
+    const leaveTypes = await listLeaveTypes();
+    response.json({ leaveTypes });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load leave types.",
+    });
+  }
+});
+
+app.post("/admin/leaves/types", requireAdmin, async (request, response) => {
+  try {
+    const { name, description, isActive } = request.body ?? {};
+
+    if (!name) {
+      return response.status(400).json({ message: "Leave type name is required." });
+    }
+
+    const leaveType = await createLeaveType({ name, description, isActive });
+    response.status(201).json(leaveType);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to create leave type.",
+    });
+  }
+});
+
+app.get("/admin/leaves/assignments", requireInternalUser, async (request, response) => {
+  try {
+    const assignments = await listLeaveAssignments(
+      request.user?.type === "employee" ? request.user.id : null
+    );
+    response.json({ assignments });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load leave assignments.",
+    });
+  }
+});
+
+app.post("/admin/leaves/assignments", requireAdmin, async (request, response) => {
+  try {
+    const { employeeId, leaveTypeId, allocatedDays } = request.body ?? {};
+
+    if (!employeeId || !leaveTypeId) {
+      return response.status(400).json({
+        message: "Employee and leave type are required.",
+      });
+    }
+
+    const days = Number(allocatedDays ?? 0);
+    if (!Number.isFinite(days) || days < 0) {
+      return response.status(400).json({
+        message: "Allocated days must be zero or more.",
+      });
+    }
+
+    const assignment = await upsertLeaveAssignment({
+      employeeId,
+      leaveTypeId,
+      allocatedDays: days,
+    });
+    response.status(201).json(assignment);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to assign leave balance.",
+    });
+  }
+});
+
+app.get("/admin/leaves/requests", requireInternalUser, async (request, response) => {
+  try {
+    const requests = await listLeaveRequests(
+      request.user?.type === "employee" ? request.user.id : null
+    );
+    response.json({ requests });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load leave requests.",
+    });
+  }
+});
+
+app.post("/admin/leaves/requests", requireInternalUser, async (request, response) => {
+  try {
+    if (request.user?.type !== "employee" || !request.user?.id) {
+      return response.status(403).json({
+        message: "Only employee accounts can apply for leave.",
+      });
+    }
+
+    const { leaveTypeId, startDate, endDate, reason } = request.body ?? {};
+    if (!leaveTypeId || !startDate || !endDate || !reason) {
+      return response.status(400).json({
+        message: "Leave type, start date, end date, and reason are required.",
+      });
+    }
+
+    const leaveRequest = await createLeaveRequest(request.user.id, {
+      leaveTypeId,
+      startDate,
+      endDate,
+      reason,
+    });
+    response.status(201).json(leaveRequest);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to submit leave request.",
+    });
+  }
+});
+
+app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) => {
+  try {
+    const { status, adminNote } = request.body ?? {};
+    if (!["approved", "rejected", "pending"].includes(status)) {
+      return response.status(400).json({ message: "Invalid leave request status." });
+    }
+
+    const leaveRequest = await updateLeaveRequestStatus(request.params.id, {
+      status,
+      adminNote,
+    });
+
+    if (!leaveRequest) {
+      return response.status(404).json({ message: "Leave request not found." });
+    }
+
+    response.json(leaveRequest);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update leave request.",
+    });
+  }
+});
+
 app.post("/admin/clients", requireInternalUser, async (request, response) => {
   try {
     const {
@@ -572,6 +737,7 @@ app.put("/admin/jobs/:id", requireInternalUser, async (request, response) => {
 ensureCrmSchema()
   .then(() => ensureJobsSchema())
   .then(() => ensureAuthAuditSchema())
+  .then(() => ensureLeaveSchema())
   .then(() => {
     app.listen(port, () => {
       console.log(`Werkly Railway backend listening on port ${port}`);

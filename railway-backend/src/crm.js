@@ -278,6 +278,8 @@ export async function authenticateEmployee(identifier, password) {
     return null;
   }
 
+  const normalizedEmail = normalizedIdentifier.toLowerCase();
+
   const result = await query(
     `select
       id,
@@ -293,8 +295,9 @@ export async function authenticateEmployee(identifier, password) {
       inactive_remarks,
       created_at
      from employees
-     where employee_code = $1`,
-    [normalizedIdentifier]
+     where employee_code = $1
+        or lower(email) = $2`,
+    [normalizedIdentifier, normalizedEmail]
   );
 
   const employee = result.rows[0];
