@@ -330,7 +330,15 @@ export async function changeEmployeePassword(employeeId, newPassword) {
   return result.rows[0] ? mapEmployeeRow(result.rows[0]) : null;
 }
 
-export async function listClients() {
+export async function listClients(employeeId = null) {
+  const values = [];
+  const employeeScopeClause = employeeId
+    ? (() => {
+        values.push(employeeId);
+        return `where clients.assigned_employee_id = $${values.length}`;
+      })()
+    : "";
+
   const result = await query(
     `select
       clients.id,
@@ -368,9 +376,11 @@ export async function listClients() {
            '[]'::json
          ) as linked_jobs
        from jobs
-       where jobs.client_id = clients.id
+        where jobs.client_id = clients.id
      ) job_summary on true
-     order by clients.created_at desc`
+     ${employeeScopeClause}
+     order by clients.created_at desc`,
+    values
   );
 
   return result.rows.map(mapClientRow);

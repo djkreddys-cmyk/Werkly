@@ -170,7 +170,9 @@ app.get("/jobs", async (_request, response) => {
 
 app.get("/admin/jobs", requireInternalUser, async (_request, response) => {
   try {
-    const jobs = await listAdminJobs();
+    const jobs = await listAdminJobs(
+      _request.user?.type === "employee" ? _request.user.id : null
+    );
     response.json({ jobs });
   } catch (error) {
     response.status(500).json({
@@ -181,7 +183,9 @@ app.get("/admin/jobs", requireInternalUser, async (_request, response) => {
 
 app.get("/admin/applications", requireInternalUser, async (_request, response) => {
   try {
-    const applications = await listAdminApplications();
+    const applications = await listAdminApplications(
+      _request.user?.type === "employee" ? _request.user.id : null
+    );
     response.json({ applications });
   } catch (error) {
     response.status(500).json({
@@ -193,7 +197,9 @@ app.get("/admin/applications", requireInternalUser, async (_request, response) =
 
 app.get("/admin/applications/history", requireInternalUser, async (_request, response) => {
   try {
-    const history = await listApplicationStageHistory();
+    const history = await listApplicationStageHistory(
+      _request.user?.type === "employee" ? _request.user.id : null
+    );
     response.json({ history });
   } catch (error) {
     response.status(500).json({
@@ -275,7 +281,10 @@ app.post("/jobs/:slug/applications", async (request, response) => {
 
 app.get("/admin/jobs/:id/applications", requireInternalUser, async (request, response) => {
   try {
-    const applications = await listJobApplications(request.params.id);
+    const applications = await listJobApplications(
+      request.params.id,
+      request.user?.type === "employee" ? request.user.id : null
+    );
     response.json({ applications });
   } catch (error) {
     response.status(500).json({
@@ -307,7 +316,8 @@ app.put(
         request.params.id,
         stage,
         stageNote,
-        stageDate
+        stageDate,
+        request.user?.type === "employee" ? request.user.id : null
       );
 
       if (!application) {
@@ -415,7 +425,9 @@ app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
 
 app.get("/admin/clients", requireInternalUser, async (_request, response) => {
   try {
-    const clients = await listClients();
+    const clients = await listClients(
+      _request.user?.type === "employee" ? _request.user.id : null
+    );
     response.json({ clients });
   } catch (error) {
     response.status(500).json({

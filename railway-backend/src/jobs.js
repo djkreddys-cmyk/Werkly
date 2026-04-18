@@ -129,7 +129,15 @@ export async function listJobs() {
   return result.rows.map(mapRow);
 }
 
-export async function listAdminJobs() {
+export async function listAdminJobs(employeeId = null) {
+  const values = [];
+  const employeeScopeClause = employeeId
+    ? (() => {
+        values.push(employeeId);
+        return `where coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
+      })()
+    : "";
+
   const result = await query(
     `select
       jobs.id,
@@ -161,7 +169,9 @@ export async function listAdminJobs() {
      from jobs
      left join clients on clients.id = jobs.client_id
      left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
-     order by jobs.posted_at desc, jobs.created_at desc`
+     ${employeeScopeClause}
+     order by jobs.posted_at desc, jobs.created_at desc`,
+    values
   );
 
   return result.rows.map(mapRow);
@@ -508,46 +518,66 @@ export async function recordJobApplication(slug, payload) {
   }
 }
 
-export async function listJobApplications(jobId) {
+export async function listJobApplications(jobId, employeeId = null) {
+  const values = [jobId];
+  const employeeScopeClause = employeeId
+    ? `and coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+    : "";
+
+  if (employeeId) {
+    values.push(employeeId);
+  }
+
   const result = await query(
     `select
-      id,
-      job_id,
-      stage,
-      stage_note,
-      stage_date,
-      stage_updated_at,
+      job_applications.id,
+      job_applications.job_id,
+      job_applications.stage,
+      job_applications.stage_note,
+      job_applications.stage_date,
+      job_applications.stage_updated_at,
       null::text as job_code,
       null::text as client_name,
       null::text as recruiter_name,
       null::text as recruiter_email,
       null::text as job_location,
       null::text as sector,
-      candidate_name,
-      candidate_email,
-      candidate_phone,
-      experience,
-      current_company,
-      current_location,
-      current_designation,
-      preferred_role,
-      current_ctc,
-      expected_ctc,
-      preferred_location,
-      preferred_sector,
-      candidate_message,
-      job_title,
-      applied_at
+      job_applications.candidate_name,
+      job_applications.candidate_email,
+      job_applications.candidate_phone,
+      job_applications.experience,
+      job_applications.current_company,
+      job_applications.current_location,
+      job_applications.current_designation,
+      job_applications.preferred_role,
+      job_applications.current_ctc,
+      job_applications.expected_ctc,
+      job_applications.preferred_location,
+      job_applications.preferred_sector,
+      job_applications.candidate_message,
+      job_applications.job_title,
+      job_applications.applied_at
      from job_applications
+     left join jobs on jobs.id = job_applications.job_id
+     left join clients on clients.id = jobs.client_id
      where job_id = $1
+       ${employeeScopeClause}
      order by applied_at desc`,
-    [jobId]
+    values
   );
 
   return result.rows.map(mapApplicationRow);
 }
 
-export async function listAdminApplications() {
+export async function listAdminApplications(employeeId = null) {
+  const values = [];
+  const employeeScopeClause = employeeId
+    ? (() => {
+        values.push(employeeId);
+        return `where coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
+      })()
+    : "";
+
   const result = await query(
     `select
       job_applications.id,
@@ -581,13 +611,23 @@ export async function listAdminApplications() {
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
      left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
-     order by job_applications.applied_at desc`
+     ${employeeScopeClause}
+     order by job_applications.applied_at desc`,
+    values
   );
 
   return result.rows.map(mapApplicationRow);
 }
 
-export async function listApplicationStageHistory() {
+export async function listApplicationStageHistory(employeeId = null) {
+  const values = [];
+  const employeeScopeClause = employeeId
+    ? (() => {
+        values.push(employeeId);
+        return `where coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
+      })()
+    : "";
+
   const result = await query(
     `select
       history.id,
@@ -610,24 +650,44 @@ export async function listApplicationStageHistory() {
      left join jobs on jobs.id = applications.job_id
      left join clients on clients.id = jobs.client_id
      left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
-     order by coalesce(history.stage_date, history.changed_at::date) desc, history.changed_at desc`
+     ${employeeScopeClause}
+     order by coalesce(history.stage_date, history.changed_at::date) desc, history.changed_at desc`,
+    values
   );
 
   return result.rows.map(mapApplicationHistoryRow);
 }
 
-export async function updateJobApplicationStage(applicationId, stage, stageNote, stageDate) {
+export async function updateJobApplicationStage(
+  applicationId,
+  stage,
+  stageNote,
+  stageDate,
+  employeeId = null
+) {
   const client = await pool.connect();
 
   try {
     await client.query("begin");
 
+    const values = [applicationId];
+    const employeeScopeClause = employeeId
+      ? `and coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+      : "";
+
+    if (employeeId) {
+      values.push(employeeId);
+    }
+
     const currentResult = await client.query(
-      `select *
+      `select job_applications.*
        from job_applications
-       where id = $1
+       left join jobs on jobs.id = job_applications.job_id
+       left join clients on clients.id = jobs.client_id
+       where job_applications.id = $1
+         ${employeeScopeClause}
        limit 1`,
-      [applicationId]
+      values
     );
 
     if (!currentResult.rows[0]) {
