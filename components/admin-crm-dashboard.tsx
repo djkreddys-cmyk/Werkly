@@ -16,6 +16,8 @@ type EmployeeFormState = {
   role: string;
   password: string;
   status: EmployeeStatus;
+  inactiveDate: string;
+  inactiveRemarks: string;
 };
 
 type ClientFormState = {
@@ -40,6 +42,8 @@ const emptyEmployeeForm: EmployeeFormState = {
   role: "",
   password: "",
   status: "active",
+  inactiveDate: "",
+  inactiveRemarks: "",
 };
 
 const emptyClientForm: ClientFormState = {
@@ -206,8 +210,19 @@ function CrmEmployeesList({
                 </span>
               </div>
               <div className="mt-3 space-y-1 text-sm text-[var(--color-muted)]">
+                {employee.employeeCode ? (
+                  <p className="font-semibold text-[var(--color-accent-strong)]">
+                    Employee Code: {employee.employeeCode}
+                  </p>
+                ) : null}
                 <p>{employee.email}</p>
                 {employee.phone ? <p>{employee.phone}</p> : null}
+                {employee.status === "inactive" && employee.inactiveDate ? (
+                  <p>Inactive Date: {employee.inactiveDate}</p>
+                ) : null}
+                {employee.status === "inactive" && employee.inactiveRemarks ? (
+                  <p>Remarks: {employee.inactiveRemarks}</p>
+                ) : null}
               </div>
               <div className="mt-4">
                 <button
@@ -338,6 +353,8 @@ export function AdminEmployeesPanel() {
       role: employee.role,
       password: "",
       status: employee.status,
+      inactiveDate: employee.inactiveDate ?? "",
+      inactiveRemarks: employee.inactiveRemarks ?? "",
     });
     setMessage("");
     setError("");
@@ -355,6 +372,15 @@ export function AdminEmployeesPanel() {
     setError("");
     setMessage("");
 
+    if (
+      employeeForm.status === "inactive" &&
+      (!employeeForm.inactiveDate || !employeeForm.inactiveRemarks.trim())
+    ) {
+      setError("Inactive date and remarks are required when employee is inactive.");
+      setIsSavingEmployee(false);
+      return;
+    }
+
     try {
       const endpoint = employeeForm.id
         ? `/api/admin/employees/${employeeForm.id}`
@@ -370,7 +396,10 @@ export function AdminEmployeesPanel() {
 
       const actualResponse = await fetch(endpoint, requestConfig);
 
-      const result = (await actualResponse.json()) as { message?: string };
+      const result = (await actualResponse.json()) as {
+        message?: string;
+        employeeCode?: string;
+      };
       if (!actualResponse.ok) {
         throw new Error(result.message || "Unable to create employee.");
       }
@@ -380,7 +409,9 @@ export function AdminEmployeesPanel() {
       setMessage(
         employeeForm.id
           ? "Employee details updated successfully."
-          : "Employee login created successfully."
+          : `Employee login created successfully.${
+              result.employeeCode ? ` Code: ${result.employeeCode}` : ""
+            }`
       );
     } catch (saveError) {
       setError(
@@ -404,8 +435,8 @@ export function AdminEmployeesPanel() {
             Create internal login credentials for your hiring team.
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
-            Add recruiter and employee accounts with their role and starting password so
-            client assignments can be routed inside Werkly CRM.
+            Add recruiter and employee accounts with their role and starting password.
+            Employee login codes are auto-generated as `YYMM` plus a 3-digit running number.
           </p>
         </div>
 
@@ -457,13 +488,42 @@ export function AdminEmployeesPanel() {
             <select
               className={fieldClassName}
               value={employeeForm.status}
-              onChange={(event) =>
-                updateEmployeeField("status", event.target.value as EmployeeStatus)
-              }
+              onChange={(event) => {
+                const nextStatus = event.target.value as EmployeeStatus;
+                setEmployeeForm((current) => ({
+                  ...current,
+                  status: nextStatus,
+                  inactiveDate: nextStatus === "inactive" ? current.inactiveDate : "",
+                  inactiveRemarks:
+                    nextStatus === "inactive" ? current.inactiveRemarks : "",
+                }));
+              }}
             >
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+            {employeeForm.status === "inactive" ? (
+              <>
+                <input
+                  className={fieldClassName}
+                  type="date"
+                  value={employeeForm.inactiveDate}
+                  onChange={(event) =>
+                    updateEmployeeField("inactiveDate", event.target.value)
+                  }
+                  required
+                />
+                <textarea
+                  className={`${fieldClassName} min-h-[116px] resize-y sm:col-span-2`}
+                  placeholder="Inactive remarks"
+                  value={employeeForm.inactiveRemarks}
+                  onChange={(event) =>
+                    updateEmployeeField("inactiveRemarks", event.target.value)
+                  }
+                  required
+                />
+              </>
+            ) : null}
           </div>
 
           <div className="mt-5 flex gap-3">

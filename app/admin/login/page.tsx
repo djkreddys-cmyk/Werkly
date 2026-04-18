@@ -6,7 +6,7 @@ export default function AdminLoginPage() {
     <AdminShell
       eyebrow="Werkly CRM"
       title="Sign in to the internal recruitment workspace."
-      description="Use employee credentials to access client assignments, active openings, candidate activity, and end-of-day follow-up reporting."
+      description="Use your employee code and password to access client assignments, active openings, candidate activity, and end-of-day follow-up reporting."
       showMenu={false}
     >
       <AdminLoginForm />

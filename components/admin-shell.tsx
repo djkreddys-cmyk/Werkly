@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 
 type AdminShellProps = {
   eyebrow: string;
@@ -30,6 +30,16 @@ export function AdminShell({
   showMenu = true,
 }: AdminShellProps) {
   const pathname = usePathname();
+  const [authType] = useState(() =>
+    typeof window === "undefined"
+      ? "admin"
+      : window.localStorage.getItem("werklyAuthType") ?? "admin"
+  );
+
+  const visibleMenuItems =
+    authType === "admin"
+      ? menuItems
+      : menuItems.filter((item) => item.href !== "/admin/employees");
 
   if (!showMenu) {
     return (
@@ -115,7 +125,7 @@ export function AdminShell({
             </div>
 
             <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:mt-8 lg:flex-col lg:overflow-visible">
-              {menuItems.map((item) => {
+              {visibleMenuItems.map((item) => {
                 const isActive =
                   item.href === "/admin"
                     ? pathname === "/admin"

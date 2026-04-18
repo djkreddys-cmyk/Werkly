@@ -3,16 +3,21 @@ import { adminLogin } from "@/lib/jobs";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { email?: string; password?: string };
+    const body = (await request.json()) as {
+      identifier?: string;
+      email?: string;
+      password?: string;
+    };
+    const identifier = body.identifier ?? body.email;
 
-    if (!body.email || !body.password) {
+    if (!identifier || !body.password) {
       return NextResponse.json(
-        { message: "Email and password are required." },
+        { message: "Employee code or admin email, and password are required." },
         { status: 400 }
       );
     }
 
-    const result = await adminLogin(body.email, body.password);
+    const result = await adminLogin(identifier, body.password);
     return NextResponse.json(result);
   } catch (error) {
     const message =

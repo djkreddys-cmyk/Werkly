@@ -98,9 +98,14 @@ export type JobsResponse = {
 
 export type AdminLoginResponse = {
   token: string;
-  admin: {
+  requiresPasswordChange: boolean;
+  user: {
+    type: "admin" | "employee";
     name: string;
-    email: string;
+    email?: string;
+    role: string;
+    id?: string;
+    employeeCode?: string;
   };
 };
 
@@ -365,10 +370,20 @@ export async function getJobBySlug(slug: string): Promise<JobDetail | null> {
   return normalizeJobDetail(job);
 }
 
-export async function adminLogin(email: string, password: string) {
+export async function adminLogin(identifier: string, password: string) {
   return readJson<AdminLoginResponse>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ identifier, password }),
+  });
+}
+
+export async function changeEmployeePassword(newPassword: string, token: string) {
+  return readJson<AdminLoginResponse>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ newPassword }),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }
 

@@ -4,9 +4,13 @@ export type EmployeeRecord = {
   id: string;
   fullName: string;
   email: string;
+  employeeCode?: string;
   phone?: string;
   role: string;
   status: EmployeeStatus;
+  mustChangePassword?: boolean;
+  inactiveDate?: string;
+  inactiveRemarks?: string;
   createdAt: string;
 };
 
@@ -44,6 +48,8 @@ export type EmployeeFormPayload = {
   role: string;
   password?: string;
   status: EmployeeStatus;
+  inactiveDate?: string;
+  inactiveRemarks?: string;
 };
 
 export type ClientFormPayload = {

@@ -1,8 +1,17 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
-import { createAdminToken, requireAdmin, validateAdmin } from "./auth.js";
 import {
+  createAdminToken,
+  createEmployeeToken,
+  requireAdmin,
+  requireInternalUser,
+  requirePasswordChangeEligibleUser,
+  validateAdmin,
+} from "./auth.js";
+import {
+  authenticateEmployee,
+  changeEmployeePassword,
   createClient,
   createEmployee,
   ensureCrmSchema,
@@ -41,27 +50,112 @@ app.get("/health", (_request, response) => {
 });
 
 app.post("/auth/login", async (request, response) => {
-  const { email, password } = request.body ?? {};
+  const { identifier, email, password } = request.body ?? {};
+  const loginIdentifier = String(identifier ?? email ?? "").trim();
 
-  if (!email || !password) {
-    return response.status(400).json({ message: "Email and password are required." });
+  if (!loginIdentifier || !password) {
+    return response
+      .status(400)
+      .json({ message: "Employee code or admin email, and password are required." });
   }
 
-  const isValid = await validateAdmin(email, password);
+  const isAdminLogin = loginIdentifier.includes("@");
 
-  if (!isValid) {
-    return response.status(401).json({ message: "Invalid credentials." });
+  if (isAdminLogin) {
+    const isValid = await validateAdmin(loginIdentifier, password);
+
+    if (!isValid) {
+      return response.status(401).json({ message: "Invalid credentials." });
+    }
+
+    const token = createAdminToken(loginIdentifier);
+    return response.json({
+      token,
+      requiresPasswordChange: false,
+      user: {
+        type: "admin",
+        role: "admin",
+        email: loginIdentifier,
+        name: "Werkly Admin",
+      },
+    });
   }
 
-  const token = createAdminToken(email);
-  return response.json({
-    token,
-    admin: {
-      email,
-      name: "Werkly Admin",
-    },
-  });
+  try {
+    const employee = await authenticateEmployee(loginIdentifier, password);
+
+    if (!employee) {
+      return response.status(401).json({ message: "Invalid credentials." });
+    }
+
+    const token = createEmployeeToken(employee);
+    return response.json({
+      token,
+      requiresPasswordChange: employee.mustChangePassword,
+      user: {
+        type: "employee",
+        id: employee.id,
+        role: employee.role,
+        name: employee.fullName,
+        email: employee.email,
+        employeeCode: employee.employeeCode,
+      },
+    });
+  } catch (error) {
+    return response.status(403).json({
+      message: error instanceof Error ? error.message : "Unable to log in.",
+    });
+  }
 });
+
+app.post(
+  "/auth/change-password",
+  requirePasswordChangeEligibleUser,
+  async (request, response) => {
+    try {
+      if (request.user?.type !== "employee" || !request.user?.id) {
+        return response.status(400).json({
+          message: "Only employee logins can change passwords here.",
+        });
+      }
+
+      const { newPassword } = request.body ?? {};
+
+      if (!newPassword || String(newPassword).trim().length < 6) {
+        return response.status(400).json({
+          message: "New password must be at least 6 characters long.",
+        });
+      }
+
+      const employee = await changeEmployeePassword(
+        request.user.id,
+        String(newPassword).trim()
+      );
+
+      if (!employee) {
+        return response.status(404).json({ message: "Employee not found." });
+      }
+
+      const token = createEmployeeToken(employee);
+      return response.json({
+        token,
+        requiresPasswordChange: false,
+        user: {
+          type: "employee",
+          id: employee.id,
+          role: employee.role,
+          name: employee.fullName,
+          email: employee.email,
+          employeeCode: employee.employeeCode,
+        },
+      });
+    } catch (error) {
+      return response.status(500).json({
+        message: error instanceof Error ? error.message : "Unable to change password.",
+      });
+    }
+  }
+);
 
 app.get("/jobs", async (_request, response) => {
   try {
@@ -74,7 +168,7 @@ app.get("/jobs", async (_request, response) => {
   }
 });
 
-app.get("/admin/jobs", requireAdmin, async (_request, response) => {
+app.get("/admin/jobs", requireInternalUser, async (_request, response) => {
   try {
     const jobs = await listAdminJobs();
     response.json({ jobs });
@@ -85,7 +179,7 @@ app.get("/admin/jobs", requireAdmin, async (_request, response) => {
   }
 });
 
-app.get("/admin/applications", requireAdmin, async (_request, response) => {
+app.get("/admin/applications", requireInternalUser, async (_request, response) => {
   try {
     const applications = await listAdminApplications();
     response.json({ applications });
@@ -97,7 +191,7 @@ app.get("/admin/applications", requireAdmin, async (_request, response) => {
   }
 });
 
-app.get("/admin/applications/history", requireAdmin, async (_request, response) => {
+app.get("/admin/applications/history", requireInternalUser, async (_request, response) => {
   try {
     const history = await listApplicationStageHistory();
     response.json({ history });
@@ -179,7 +273,7 @@ app.post("/jobs/:slug/applications", async (request, response) => {
   }
 });
 
-app.get("/admin/jobs/:id/applications", requireAdmin, async (request, response) => {
+app.get("/admin/jobs/:id/applications", requireInternalUser, async (request, response) => {
   try {
     const applications = await listJobApplications(request.params.id);
     response.json({ applications });
@@ -192,7 +286,7 @@ app.get("/admin/jobs/:id/applications", requireAdmin, async (request, response) 
 
 app.put(
   "/admin/jobs/applications/:id/stage",
-  requireAdmin,
+  requireInternalUser,
   async (request, response) => {
     try {
       const { stage, stageNote, stageDate } = request.body ?? {};
@@ -232,7 +326,7 @@ app.put(
   }
 );
 
-app.get("/admin/employees", requireAdmin, async (_request, response) => {
+app.get("/admin/employees", requireInternalUser, async (_request, response) => {
   try {
     const employees = await listEmployees();
     response.json({ employees });
@@ -245,11 +339,18 @@ app.get("/admin/employees", requireAdmin, async (_request, response) => {
 
 app.post("/admin/employees", requireAdmin, async (request, response) => {
   try {
-    const { fullName, email, phone, role, password, status } = request.body ?? {};
+    const { fullName, email, phone, role, password, status, inactiveDate, inactiveRemarks } =
+      request.body ?? {};
 
     if (!fullName || !email || !role || !password) {
       return response.status(400).json({
         message: "Full name, email, role, and password are required.",
+      });
+    }
+
+    if (status === "inactive" && (!inactiveDate || !inactiveRemarks)) {
+      return response.status(400).json({
+        message: "Inactive date and remarks are required when employee is inactive.",
       });
     }
 
@@ -260,6 +361,8 @@ app.post("/admin/employees", requireAdmin, async (request, response) => {
       role,
       password,
       status,
+      inactiveDate,
+      inactiveRemarks,
     });
 
     response.status(201).json(employee);
@@ -272,11 +375,18 @@ app.post("/admin/employees", requireAdmin, async (request, response) => {
 
 app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
   try {
-    const { fullName, email, phone, role, password, status } = request.body ?? {};
+    const { fullName, email, phone, role, password, status, inactiveDate, inactiveRemarks } =
+      request.body ?? {};
 
     if (!fullName || !email || !role) {
       return response.status(400).json({
         message: "Full name, email, and role are required.",
+      });
+    }
+
+    if (status === "inactive" && (!inactiveDate || !inactiveRemarks)) {
+      return response.status(400).json({
+        message: "Inactive date and remarks are required when employee is inactive.",
       });
     }
 
@@ -287,6 +397,8 @@ app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
       role,
       password,
       status,
+      inactiveDate,
+      inactiveRemarks,
     });
 
     if (!employee) {
@@ -301,7 +413,7 @@ app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
   }
 });
 
-app.get("/admin/clients", requireAdmin, async (_request, response) => {
+app.get("/admin/clients", requireInternalUser, async (_request, response) => {
   try {
     const clients = await listClients();
     response.json({ clients });
@@ -312,7 +424,7 @@ app.get("/admin/clients", requireAdmin, async (_request, response) => {
   }
 });
 
-app.post("/admin/clients", requireAdmin, async (request, response) => {
+app.post("/admin/clients", requireInternalUser, async (request, response) => {
   try {
     const {
       companyName,
@@ -360,7 +472,7 @@ app.post("/admin/clients", requireAdmin, async (request, response) => {
   }
 });
 
-app.post("/admin/jobs", requireAdmin, async (request, response) => {
+app.post("/admin/jobs", requireInternalUser, async (request, response) => {
   try {
     const job = await createJob(request.body);
     response.status(201).json(job);
@@ -371,7 +483,7 @@ app.post("/admin/jobs", requireAdmin, async (request, response) => {
   }
 });
 
-app.put("/admin/jobs/:id", requireAdmin, async (request, response) => {
+app.put("/admin/jobs/:id", requireInternalUser, async (request, response) => {
   try {
     const job = await updateJob(request.params.id, request.body);
 
