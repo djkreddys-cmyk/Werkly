@@ -351,13 +351,13 @@ export function AdminEmployeesPanel() {
   } = useAdminCrmData();
   const [authRole] = useState(() =>
     typeof window === "undefined"
-      ? "admin"
-      : window.localStorage.getItem("werklyAuthRole") ?? "admin"
+      ? "super-admin"
+      : window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
   );
   const [employeeForm, setEmployeeForm] = useState<EmployeeFormState>(emptyEmployeeForm);
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
   const isEditingEmployee = Boolean(employeeForm.id);
-  const canManageEmployees = authRole === "admin";
+  const canManageEmployees = authRole === "super-admin";
 
   function updateEmployeeField(field: keyof EmployeeFormState, value: string) {
     setEmployeeForm((current) => ({ ...current, [field]: value }));

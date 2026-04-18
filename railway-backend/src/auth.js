@@ -40,9 +40,9 @@ function createAuthToken(payload) {
 export function createAdminToken(email) {
   return createAuthToken({
     type: "admin",
-    role: "admin",
+    role: "super-admin",
     email,
-    name: "Werkly Admin",
+    name: "Werkly Super Admin",
     mustChangePassword: false,
   });
 }

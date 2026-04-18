@@ -103,7 +103,7 @@ export type AdminLoginResponse = {
     type: "admin" | "employee";
     name: string;
     email?: string;
-    role: string;
+    role: "super-admin" | string;
     id?: string;
     employeeCode?: string;
   };

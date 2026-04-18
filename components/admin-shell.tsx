@@ -35,9 +35,14 @@ export function AdminShell({
       ? "admin"
       : window.localStorage.getItem("werklyAuthType") ?? "admin"
   );
+  const [authRole] = useState(() =>
+    typeof window === "undefined"
+      ? "super-admin"
+      : window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
+  );
 
   const visibleMenuItems =
-    authType === "admin"
+    authType === "admin" || authRole === "super-admin"
       ? menuItems
       : menuItems.filter((item) => item.href !== "/admin/employees");
 

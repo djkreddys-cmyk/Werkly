@@ -74,9 +74,9 @@ app.post("/auth/login", async (request, response) => {
       requiresPasswordChange: false,
       user: {
         type: "admin",
-        role: "admin",
+        role: "super-admin",
         email: loginIdentifier,
-        name: "Werkly Admin",
+        name: "Werkly Super Admin",
       },
     });
   }
