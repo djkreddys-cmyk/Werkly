@@ -8,7 +8,6 @@ import type {
   JobSummary,
   JobStatus,
 } from "@/lib/jobs";
-import { updateJobApplicationStage as updateStageOnServer } from "@/lib/jobs";
 
 type JobEditorState = {
   id?: string;
@@ -452,7 +451,19 @@ export function AdminJobsDashboard() {
     setError("");
 
     try {
-      const result = await updateStageOnServer(applicationId, stage, token);
+      const response = await fetch(`/api/admin/jobs/applications/${applicationId}/stage`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ stage }),
+      });
+
+      const result = (await response.json()) as JobApplication & { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to update application stage.");
+      }
 
       setApplications((current) =>
         current.map((application) =>

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  updateJobApplicationStage,
   type JobApplication,
   type JobApplicationStage,
 } from "@/lib/jobs";
@@ -106,7 +105,20 @@ export function AdminCandidatesPanel() {
     setError("");
 
     try {
-      const updated = await updateJobApplicationStage(id, stage, token);
+      const response = await fetch(`/api/admin/jobs/applications/${id}/stage`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ stage }),
+      });
+
+      const updated = (await response.json()) as JobApplication & { message?: string };
+      if (!response.ok) {
+        throw new Error(updated.message || "Unable to update candidate stage.");
+      }
+
       setApplications((current) =>
         current.map((application) =>
           application.id === id ? { ...application, stage: updated.stage } : application
