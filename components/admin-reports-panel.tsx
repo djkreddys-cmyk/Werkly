@@ -22,6 +22,11 @@ export function AdminReportsPanel() {
       ? window.localStorage.getItem("werklyAuthType") ?? "admin"
       : "admin"
   );
+  const [authRole] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthRole") ?? "admin"
+      : "admin"
+  );
   const [authEmail] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminEmail") ?? ""
@@ -75,11 +80,16 @@ export function AdminReportsPanel() {
   }, [token]);
 
   const recruiterReport = useMemo(() => {
+    const isEmployeeSession =
+      authType === "employee" || authRole !== "admin" || Boolean(authEmployeeCode);
+
     const visibleEmployees =
-      authType === "employee"
+      isEmployeeSession
         ? state.employees.filter(
             (employee) =>
-              employee.employeeCode === authEmployeeCode || employee.email === authEmail
+              employee.employeeCode === authEmployeeCode ||
+              employee.email === authEmail ||
+              employee.employeeCode === authEmail
           )
         : state.employees;
 
@@ -113,7 +123,7 @@ export function AdminReportsPanel() {
         };
       })
       .sort((a, b) => b.totalApplications - a.totalApplications);
-  }, [authEmployeeCode, authEmail, authType, state]);
+  }, [authEmployeeCode, authEmail, authRole, authType, state]);
 
   const totals = useMemo(() => {
     const countByStage = (stage: string) =>
