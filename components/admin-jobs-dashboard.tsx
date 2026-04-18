@@ -73,6 +73,7 @@ export function AdminJobsDashboard() {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
   const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
+  const [recruiterFilter, setRecruiterFilter] = useState("all");
   const [stageDraft, setStageDraft] = useState<{
     application: JobApplication;
     stage: JobApplicationStage;
@@ -153,6 +154,18 @@ export function AdminJobsDashboard() {
       ),
     [jobs]
   );
+
+  const filteredJobs = useMemo(() => {
+    if (recruiterFilter === "all") {
+      return sortedJobs;
+    }
+
+    if (recruiterFilter === "unassigned") {
+      return sortedJobs.filter((job) => !job.recruiterId);
+    }
+
+    return sortedJobs.filter((job) => job.recruiterId === recruiterFilter);
+  }, [recruiterFilter, sortedJobs]);
 
   function isLiveOnWebsite(job: JobSummary) {
     if (job.isHidden) {
@@ -646,13 +659,33 @@ export function AdminJobsDashboard() {
               Signed in as {adminEmail || "Railway admin"}. Use edit to load a role into the form above.
             </p>
           </div>
+          <div className="w-full max-w-xs">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              Filter by recruiter
+            </label>
+            <select
+              value={recruiterFilter}
+              onChange={(event) => setRecruiterFilter(event.target.value)}
+              className={fieldClassName}
+            >
+              <option value="all">All recruiters</option>
+              <option value="unassigned">Unassigned jobs</option>
+              {employees
+                .filter((employee) => employee.status === "active")
+                .map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.fullName}
+                  </option>
+                ))}
+            </select>
+          </div>
         </div>
 
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading jobs...</p>
         ) : (
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            {sortedJobs.map((job) => (
+            {filteredJobs.map((job) => (
               <article
                 key={job.id}
                 className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5"
@@ -742,6 +775,11 @@ export function AdminJobsDashboard() {
             ))}
           </div>
         )}
+        {!isLoading && filteredJobs.length === 0 ? (
+          <p className="muted-copy mt-6 text-sm">
+            No jobs matched the selected recruiter filter.
+          </p>
+        ) : null}
       </section>
 
       {isEditing ? (
