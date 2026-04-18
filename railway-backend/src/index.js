@@ -1,6 +1,8 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import { randomUUID } from "crypto";
+import { ensureAuthAuditSchema, recordLoginSession, recordLogoutSession } from "./audit.js";
 import {
   createAdminToken,
   createEmployeeToken,
@@ -50,7 +52,14 @@ app.get("/health", (_request, response) => {
 });
 
 app.post("/auth/login", async (request, response) => {
-  const { identifier, email, password } = request.body ?? {};
+  const {
+    identifier,
+    email,
+    password,
+    clientTime,
+    clientTimezone,
+    clientUtcOffsetMinutes,
+  } = request.body ?? {};
   const loginIdentifier = String(identifier ?? email ?? "").trim();
 
   if (!loginIdentifier || !password) {
@@ -68,9 +77,22 @@ app.post("/auth/login", async (request, response) => {
       return response.status(401).json({ message: "Invalid credentials." });
     }
 
-    const token = createAdminToken(loginIdentifier);
+    const sessionId = randomUUID();
+    await recordLoginSession({
+      sessionId,
+      userType: "admin",
+      userIdentifier: loginIdentifier,
+      userName: "Werkly Super Admin",
+      userRole: "super-admin",
+      clientTime,
+      clientTimezone,
+      clientUtcOffsetMinutes,
+    });
+
+    const token = createAdminToken(loginIdentifier, sessionId);
     return response.json({
       token,
+      sessionId,
       requiresPasswordChange: false,
       user: {
         type: "admin",
@@ -88,9 +110,23 @@ app.post("/auth/login", async (request, response) => {
       return response.status(401).json({ message: "Invalid credentials." });
     }
 
-    const token = createEmployeeToken(employee);
+    const sessionId = randomUUID();
+    await recordLoginSession({
+      sessionId,
+      userType: "employee",
+      userId: employee.id,
+      userIdentifier: employee.employeeCode ?? employee.email,
+      userName: employee.fullName,
+      userRole: employee.role,
+      clientTime,
+      clientTimezone,
+      clientUtcOffsetMinutes,
+    });
+
+    const token = createEmployeeToken(employee, sessionId);
     return response.json({
       token,
+      sessionId,
       requiresPasswordChange: employee.mustChangePassword,
       user: {
         type: "employee",
@@ -104,6 +140,27 @@ app.post("/auth/login", async (request, response) => {
   } catch (error) {
     return response.status(403).json({
       message: error instanceof Error ? error.message : "Unable to log in.",
+    });
+  }
+});
+
+app.post("/auth/logout", requireInternalUser, async (request, response) => {
+  try {
+    const { clientTime, clientTimezone, clientUtcOffsetMinutes } = request.body ?? {};
+
+    if (request.user?.sessionId) {
+      await recordLogoutSession({
+        sessionId: request.user.sessionId,
+        clientTime,
+        clientTimezone,
+        clientUtcOffsetMinutes,
+      });
+    }
+
+    return response.json({ success: true });
+  } catch (error) {
+    return response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to record logout time.",
     });
   }
 });
@@ -136,9 +193,10 @@ app.post(
         return response.status(404).json({ message: "Employee not found." });
       }
 
-      const token = createEmployeeToken(employee);
+      const token = createEmployeeToken(employee, request.user.sessionId);
       return response.json({
         token,
+        sessionId: request.user.sessionId,
         requiresPasswordChange: false,
         user: {
           type: "employee",
@@ -513,6 +571,7 @@ app.put("/admin/jobs/:id", requireInternalUser, async (request, response) => {
 
 ensureCrmSchema()
   .then(() => ensureJobsSchema())
+  .then(() => ensureAuthAuditSchema())
   .then(() => {
     app.listen(port, () => {
       console.log(`Werkly Railway backend listening on port ${port}`);

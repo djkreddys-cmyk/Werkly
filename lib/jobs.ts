@@ -98,6 +98,7 @@ export type JobsResponse = {
 
 export type AdminLoginResponse = {
   token: string;
+  sessionId?: string;
   requiresPasswordChange: boolean;
   user: {
     type: "admin" | "employee";
@@ -107,6 +108,12 @@ export type AdminLoginResponse = {
     id?: string;
     employeeCode?: string;
   };
+};
+
+type AuthClientContext = {
+  clientTime?: string;
+  clientTimezone?: string;
+  clientUtcOffsetMinutes?: number;
 };
 
 export type JobApplicationsResponse = {
@@ -370,10 +377,20 @@ export async function getJobBySlug(slug: string): Promise<JobDetail | null> {
   return normalizeJobDetail(job);
 }
 
-export async function adminLogin(identifier: string, password: string) {
+export async function adminLogin(
+  identifier: string,
+  password: string,
+  clientContext?: AuthClientContext
+) {
   return readJson<AdminLoginResponse>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ identifier, password }),
+    body: JSON.stringify({
+      identifier,
+      password,
+      clientTime: clientContext?.clientTime,
+      clientTimezone: clientContext?.clientTimezone,
+      clientUtcOffsetMinutes: clientContext?.clientUtcOffsetMinutes,
+    }),
   });
 }
 
@@ -381,6 +398,20 @@ export async function changeEmployeePassword(newPassword: string, token: string)
   return readJson<AdminLoginResponse>("/auth/change-password", {
     method: "POST",
     body: JSON.stringify({ newPassword }),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function adminLogout(token: string, clientContext?: AuthClientContext) {
+  return readJson<{ success: boolean }>("/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({
+      clientTime: clientContext?.clientTime,
+      clientTimezone: clientContext?.clientTimezone,
+      clientUtcOffsetMinutes: clientContext?.clientUtcOffsetMinutes,
+    }),
     headers: {
       Authorization: `Bearer ${token}`,
     },

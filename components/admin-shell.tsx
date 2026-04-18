@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useState } from "react";
 
 type AdminShellProps = {
@@ -30,6 +30,7 @@ export function AdminShell({
   showMenu = true,
 }: AdminShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [authType] = useState(() =>
     typeof window === "undefined"
       ? "admin"
@@ -45,6 +46,42 @@ export function AdminShell({
     authType === "admin" || authRole === "super-admin"
       ? menuItems
       : menuItems.filter((item) => item.href !== "/admin/employees");
+
+  async function handleLogout() {
+    const token =
+      typeof window === "undefined"
+        ? ""
+        : window.localStorage.getItem("werklyAdminToken") ?? "";
+
+    try {
+      if (token) {
+        const clientTime = new Date();
+        await fetch("/api/admin/logout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            clientTime: clientTime.toISOString(),
+            clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            clientUtcOffsetMinutes: -clientTime.getTimezoneOffset(),
+          }),
+        });
+      }
+    } catch {
+      // Clear local session even if the logout audit call fails.
+    } finally {
+      window.localStorage.removeItem("werklyAdminToken");
+      window.localStorage.removeItem("werklyAdminEmail");
+      window.localStorage.removeItem("werklyAuthType");
+      window.localStorage.removeItem("werklyAuthName");
+      window.localStorage.removeItem("werklyAuthRole");
+      window.localStorage.removeItem("werklyEmployeeCode");
+      router.push("/admin/login");
+      router.refresh();
+    }
+  }
 
   if (!showMenu) {
     return (
@@ -127,6 +164,13 @@ export function AdminShell({
               >
                 Open Website
               </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="hidden rounded-xl border border-white/14 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition hover:border-[var(--color-accent)] hover:bg-white/12 lg:inline-flex"
+              >
+                Sign Out
+              </button>
             </div>
 
             <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:mt-8 lg:flex-col lg:overflow-visible">
@@ -175,6 +219,13 @@ export function AdminShell({
               >
                 Website
               </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
+              >
+                Sign Out
+              </button>
             </div>
           </header>
 

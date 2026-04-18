@@ -16,6 +16,7 @@ type LoginUser = {
 
 type LoginResponse = {
   token?: string;
+  sessionId?: string;
   message?: string;
   requiresPasswordChange?: boolean;
   user?: LoginUser;
@@ -31,6 +32,15 @@ export function AdminLoginForm() {
   const [pendingUserLabel, setPendingUserLabel] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  function getClientContext() {
+    const clientTime = new Date();
+    return {
+      clientTime: clientTime.toISOString(),
+      clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      clientUtcOffsetMinutes: -clientTime.getTimezoneOffset(),
+    };
+  }
 
   function persistSession(token: string, user: LoginUser) {
     window.localStorage.setItem("werklyAdminToken", token);
@@ -58,7 +68,7 @@ export function AdminLoginForm() {
       const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({ identifier, password, ...getClientContext() }),
       });
 
       const result = (await response.json()) as LoginResponse;

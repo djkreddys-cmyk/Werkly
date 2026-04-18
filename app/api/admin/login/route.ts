@@ -7,6 +7,9 @@ export async function POST(request: Request) {
       identifier?: string;
       email?: string;
       password?: string;
+      clientTime?: string;
+      clientTimezone?: string;
+      clientUtcOffsetMinutes?: number;
     };
     const identifier = body.identifier ?? body.email;
 
@@ -17,7 +20,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await adminLogin(identifier, body.password);
+    const result = await adminLogin(identifier, body.password, {
+      clientTime: body.clientTime,
+      clientTimezone: body.clientTimezone,
+      clientUtcOffsetMinutes: body.clientUtcOffsetMinutes,
+    });
     return NextResponse.json(result);
   } catch (error) {
     const message =

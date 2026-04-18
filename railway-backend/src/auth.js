@@ -37,17 +37,18 @@ function createAuthToken(payload) {
   });
 }
 
-export function createAdminToken(email) {
+export function createAdminToken(email, sessionId) {
   return createAuthToken({
     type: "admin",
     role: "super-admin",
     email,
     name: "Werkly Super Admin",
+    sessionId,
     mustChangePassword: false,
   });
 }
 
-export function createEmployeeToken(employee) {
+export function createEmployeeToken(employee, sessionId = employee.sessionId) {
   return createAuthToken({
     type: "employee",
     id: employee.id,
@@ -55,6 +56,7 @@ export function createEmployeeToken(employee) {
     name: employee.fullName,
     email: employee.email,
     employeeCode: employee.employeeCode,
+    sessionId,
     mustChangePassword: Boolean(employee.mustChangePassword),
   });
 }
