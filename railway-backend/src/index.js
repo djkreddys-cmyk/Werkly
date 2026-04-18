@@ -13,10 +13,12 @@ import {
   createJob,
   ensureJobsSchema,
   getJobBySlug,
+  listAdminApplications,
   listJobApplications,
   listAdminJobs,
   listJobs,
   recordJobApplication,
+  updateJobApplicationStage,
   updateJob,
 } from "./jobs.js";
 
@@ -77,6 +79,18 @@ app.get("/admin/jobs", requireAdmin, async (_request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load admin jobs.",
+    });
+  }
+});
+
+app.get("/admin/applications", requireAdmin, async (_request, response) => {
+  try {
+    const applications = await listAdminApplications();
+    response.json({ applications });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load candidate applications.",
     });
   }
 });
@@ -161,6 +175,43 @@ app.get("/admin/jobs/:id/applications", requireAdmin, async (request, response) 
     });
   }
 });
+
+app.put(
+  "/admin/jobs/applications/:id/stage",
+  requireAdmin,
+  async (request, response) => {
+    try {
+      const { stage } = request.body ?? {};
+      const allowedStages = [
+        "applied",
+        "shortlisted",
+        "interview",
+        "offered",
+        "joined",
+        "rejected",
+      ];
+
+      if (!allowedStages.includes(stage)) {
+        return response.status(400).json({ message: "Invalid application stage." });
+      }
+
+      const application = await updateJobApplicationStage(request.params.id, stage);
+
+      if (!application) {
+        return response.status(404).json({ message: "Application not found." });
+      }
+
+      response.json(application);
+    } catch (error) {
+      response.status(500).json({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to update application stage.",
+      });
+    }
+  }
+);
 
 app.get("/admin/employees", requireAdmin, async (_request, response) => {
   try {

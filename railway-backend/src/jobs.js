@@ -37,6 +37,13 @@ export function mapApplicationRow(row) {
   return {
     id: row.id,
     jobId: row.job_id,
+    stage: row.stage,
+    jobCode: row.job_code,
+    clientName: row.client_name,
+    recruiterName: row.recruiter_name,
+    recruiterEmail: row.recruiter_email,
+    jobLocation: row.job_location,
+    sector: row.sector,
     candidateName: row.candidate_name,
     candidateEmail: row.candidate_email,
     candidatePhone: row.candidate_phone,
@@ -195,6 +202,9 @@ export async function ensureJobsSchema() {
   `);
   await query(
     `create index if not exists idx_job_applications_job_id on job_applications(job_id)`
+  );
+  await query(
+    `alter table job_applications add column if not exists stage text not null default 'applied'`
   );
   await query(`alter table job_applications add column if not exists candidate_phone text`);
   await query(`alter table job_applications add column if not exists experience text`);
@@ -374,6 +384,7 @@ export async function recordJobApplication(slug, payload) {
     await client.query(
       `insert into job_applications (
         job_id,
+        stage,
         candidate_name,
         candidate_email,
         candidate_phone,
@@ -388,9 +399,10 @@ export async function recordJobApplication(slug, payload) {
         preferred_sector,
         candidate_message,
         job_title
-      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
       [
         jobId,
+        "applied",
         payload.candidateName,
         payload.candidateEmail,
         payload.candidatePhone || null,
@@ -432,6 +444,13 @@ export async function listJobApplications(jobId) {
     `select
       id,
       job_id,
+      stage,
+      null::text as job_code,
+      null::text as client_name,
+      null::text as recruiter_name,
+      null::text as recruiter_email,
+      null::text as job_location,
+      null::text as sector,
       candidate_name,
       candidate_email,
       candidate_phone,
@@ -454,4 +473,71 @@ export async function listJobApplications(jobId) {
   );
 
   return result.rows.map(mapApplicationRow);
+}
+
+export async function listAdminApplications() {
+  const result = await query(
+    `select
+      job_applications.id,
+      job_applications.job_id,
+      job_applications.stage,
+      jobs.job_code,
+      clients.company_name as client_name,
+      employees.full_name as recruiter_name,
+      employees.email as recruiter_email,
+      jobs.location as job_location,
+      jobs.sector,
+      job_applications.candidate_name,
+      job_applications.candidate_email,
+      job_applications.candidate_phone,
+      job_applications.experience,
+      job_applications.current_company,
+      job_applications.current_location,
+      job_applications.current_designation,
+      job_applications.preferred_role,
+      job_applications.current_ctc,
+      job_applications.expected_ctc,
+      job_applications.preferred_location,
+      job_applications.preferred_sector,
+      job_applications.candidate_message,
+      coalesce(job_applications.job_title, jobs.title) as job_title,
+      job_applications.applied_at
+     from job_applications
+     left join jobs on jobs.id = job_applications.job_id
+     left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = clients.assigned_employee_id
+     order by job_applications.applied_at desc`
+  );
+
+  return result.rows.map(mapApplicationRow);
+}
+
+export async function updateJobApplicationStage(applicationId, stage) {
+  const result = await query(
+    `update job_applications
+     set stage = $2
+     where id = $1
+     returning
+       id,
+       job_id,
+       stage,
+       candidate_name,
+       candidate_email,
+       candidate_phone,
+       experience,
+       current_company,
+       current_location,
+       current_designation,
+       preferred_role,
+       current_ctc,
+       expected_ctc,
+       preferred_location,
+       preferred_sector,
+       candidate_message,
+       job_title,
+       applied_at`,
+    [applicationId, stage]
+  );
+
+  return result.rows[0] ? mapApplicationRow(result.rows[0]) : null;
 }

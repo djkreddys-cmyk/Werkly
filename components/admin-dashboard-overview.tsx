@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
-import type { JobSummary } from "@/lib/jobs";
+import { getAdminApplications, type JobApplication, type JobSummary } from "@/lib/jobs";
 
 type DashboardState = {
   jobs: JobSummary[];
   clients: ClientRecord[];
   employees: EmployeeRecord[];
+  applications: JobApplication[];
 };
 
 function formatDateLabel(value?: string) {
@@ -33,6 +34,7 @@ export function AdminDashboardOverview() {
     jobs: [],
     clients: [],
     employees: [],
+    applications: [],
   });
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
@@ -52,8 +54,9 @@ export function AdminDashboardOverview() {
       fetch("/api/admin/employees", {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      getAdminApplications(token),
     ])
-      .then(async ([jobsResponse, clientsResponse, employeesResponse]) => {
+      .then(async ([jobsResponse, clientsResponse, employeesResponse, applications]) => {
         const jobsResult = (await jobsResponse.json()) as {
           jobs?: JobSummary[];
           message?: string;
@@ -81,6 +84,7 @@ export function AdminDashboardOverview() {
           jobs: jobsResult.jobs ?? [],
           clients: clientsResult.clients ?? [],
           employees: employeesResult.employees ?? [],
+          applications,
         });
       })
       .catch((loadError) => {
@@ -103,15 +107,49 @@ export function AdminDashboardOverview() {
     return {
       liveJobs: liveJobs.length,
       draftJobs: state.jobs.filter((job) => job.status === "draft").length,
-      totalApplications: state.jobs.reduce(
-        (sum, job) => sum + Number(job.applicationsCount || 0),
-        0
-      ),
+      totalApplications: state.applications.length,
       activeClients: state.clients.filter((client) => client.status === "active").length,
       activeEmployees: state.employees.filter((employee) => employee.status === "active")
         .length,
+      shortlisted: state.applications.filter(
+        (application) => (application.stage ?? "applied") === "shortlisted"
+      ).length,
+      interview: state.applications.filter(
+        (application) => (application.stage ?? "applied") === "interview"
+      ).length,
+      offered: state.applications.filter(
+        (application) => (application.stage ?? "applied") === "offered"
+      ).length,
+      joined: state.applications.filter(
+        (application) => (application.stage ?? "applied") === "joined"
+      ).length,
       latestJobs: [...state.jobs]
         .sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
+        .slice(0, 5),
+      recruiterSummary: state.employees
+        .filter((employee) => employee.status === "active")
+        .map((employee) => {
+          const assignedClients = state.clients.filter(
+            (client) => client.assignedEmployeeId === employee.id
+          ).length;
+          const applications = state.applications.filter(
+            (application) => application.recruiterEmail === employee.email
+          );
+
+          return {
+            id: employee.id,
+            fullName: employee.fullName,
+            assignedClients,
+            applications: applications.length,
+            interviews: applications.filter(
+              (application) => (application.stage ?? "applied") === "interview"
+            ).length,
+            joined: applications.filter(
+              (application) => (application.stage ?? "applied") === "joined"
+            ).length,
+          };
+        })
+        .sort((a, b) => b.applications - a.applications)
         .slice(0, 5),
     };
   }, [state]);
@@ -151,6 +189,24 @@ export function AdminDashboardOverview() {
               {card.label}
             </p>
             <p className="mt-4 text-4xl font-semibold text-[var(--color-ink)]">
+              {card.value}
+            </p>
+          </article>
+        ))}
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Shortlisted", value: metrics.shortlisted },
+          { label: "Interview", value: metrics.interview },
+          { label: "Offered", value: metrics.offered },
+          { label: "Joined", value: metrics.joined },
+        ].map((card) => (
+          <article key={card.label} className="accent-card p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
+              {card.label}
+            </p>
+            <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
               {card.value}
             </p>
           </article>
@@ -274,6 +330,76 @@ export function AdminDashboardOverview() {
             ))}
           </div>
         </article>
+      </section>
+
+      <section className="accent-card p-7">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="eyebrow">Recruiter Snapshot</p>
+            <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+              Follow-up ownership across active employees
+            </h2>
+          </div>
+          <Link
+            href="/admin/reports"
+            className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+          >
+            Open Reports
+          </Link>
+        </div>
+
+        {isLoading ? (
+          <p className="muted-copy mt-6 text-sm">Loading recruiter summary...</p>
+        ) : metrics.recruiterSummary.length === 0 ? (
+          <p className="muted-copy mt-6 text-sm">No recruiter summary is available yet.</p>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[var(--color-line)]">
+            <table className="w-full border-collapse bg-white">
+              <thead>
+                <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                  {["Recruiter", "Clients", "Applications", "Interviews", "Joined"].map(
+                    (heading) => (
+                      <th
+                        key={heading}
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                      >
+                        {heading}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.recruiterSummary.map((row, index) => (
+                  <tr
+                    key={row.id}
+                    className={
+                      index === metrics.recruiterSummary.length - 1
+                        ? "align-top"
+                        : "align-top border-b border-[var(--color-line)]"
+                    }
+                  >
+                    <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
+                      {row.fullName}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {row.assignedClients}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {row.applications}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {row.interviews}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {row.joined}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

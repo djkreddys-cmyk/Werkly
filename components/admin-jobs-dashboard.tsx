@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
-import type { JobApplication, JobSummary, JobStatus } from "@/lib/jobs";
+import type {
+  JobApplication,
+  JobApplicationStage,
+  JobSummary,
+  JobStatus,
+} from "@/lib/jobs";
+import { updateJobApplicationStage as updateStageOnServer } from "@/lib/jobs";
 
 type JobEditorState = {
   id?: string;
@@ -41,6 +47,15 @@ const emptyForm: JobEditorState = {
 const fieldClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
 
+const applicationStages: JobApplicationStage[] = [
+  "applied",
+  "shortlisted",
+  "interview",
+  "offered",
+  "joined",
+  "rejected",
+];
+
 export function AdminJobsDashboard() {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [token, setToken] = useState("");
@@ -55,6 +70,7 @@ export function AdminJobsDashboard() {
   const [applicationsJob, setApplicationsJob] = useState<JobSummary | null>(null);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
+  const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
 
   const isEditing = Boolean(form.id);
 
@@ -423,6 +439,35 @@ export function AdminJobsDashboard() {
     return `"${normalized.replaceAll('"', '""')}"`;
   }
 
+  async function updateApplicationStage(
+    applicationId: string,
+    stage: JobApplicationStage
+  ) {
+    if (!token) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    setIsUpdatingStageId(applicationId);
+    setError("");
+
+    try {
+      const result = await updateStageOnServer(applicationId, stage, token);
+
+      setApplications((current) =>
+        current.map((application) =>
+          application.id === applicationId ? { ...application, stage: result.stage } : application
+        )
+      );
+    } catch (stageError) {
+      setError(
+        stageError instanceof Error ? stageError.message : "Unable to update application stage."
+      );
+    } finally {
+      setIsUpdatingStageId("");
+    }
+  }
+
   function downloadApplicationsCsv() {
     if (!applicationsJob || applications.length === 0) {
       return;
@@ -559,9 +604,20 @@ export function AdminJobsDashboard() {
                       </p>
                     ) : null}
                   </div>
-                  <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-                    {job.isHidden ? "hidden" : job.status}
-                  </span>
+                  {job.slug ? (
+                    <a
+                      href={`/jobs/${job.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.16)]"
+                    >
+                      {job.isHidden ? "hidden" : job.status}
+                    </a>
+                  ) : (
+                    <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                      {job.isHidden ? "hidden" : job.status}
+                    </span>
+                  )}
                 </div>
                 <p className="muted-copy mt-3 text-sm leading-6">
                   {job.location} | {job.experience}
@@ -709,6 +765,9 @@ export function AdminJobsDashboard() {
                           Mail ID
                         </th>
                         <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Stage
+                        </th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                           Applied Date
                         </th>
                       </tr>
@@ -733,6 +792,25 @@ export function AdminJobsDashboard() {
                             >
                               {application.candidateEmail}
                             </a>
+                          </td>
+                          <td className="px-4 py-4 text-sm">
+                            <select
+                              value={application.stage ?? "applied"}
+                              disabled={isUpdatingStageId === application.id}
+                              onChange={(event) =>
+                                updateApplicationStage(
+                                  application.id,
+                                  event.target.value as JobApplicationStage
+                                )
+                              }
+                              className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                            >
+                              {applicationStages.map((stage) => (
+                                <option key={stage} value={stage}>
+                                  {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                                </option>
+                              ))}
+                            </select>
                           </td>
                           <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                             {new Date(application.appliedAt).toLocaleString("en-IN", {

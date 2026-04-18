@@ -36,6 +36,13 @@ export type JobDetail = JobSummary & {
 export type JobApplication = {
   id: string;
   jobId: string;
+  stage?: JobApplicationStage;
+  jobCode?: string;
+  clientName?: string;
+  recruiterName?: string;
+  recruiterEmail?: string;
+  jobLocation?: string;
+  sector?: string;
   candidateName: string;
   candidateEmail: string;
   candidatePhone?: string;
@@ -53,6 +60,14 @@ export type JobApplication = {
   appliedAt: string;
 };
 
+export type JobApplicationStage =
+  | "applied"
+  | "shortlisted"
+  | "interview"
+  | "offered"
+  | "joined"
+  | "rejected";
+
 export type JobsResponse = {
   jobs: JobSummary[];
 };
@@ -66,6 +81,10 @@ export type AdminLoginResponse = {
 };
 
 export type JobApplicationsResponse = {
+  applications: JobApplication[];
+};
+
+export type AdminApplicationsResponse = {
   applications: JobApplication[];
 };
 
@@ -351,6 +370,33 @@ export async function getJobApplications(id: string, token: string) {
     }
   );
   return Array.isArray(data) ? data : data.applications;
+}
+
+export async function getAdminApplications(token: string) {
+  const data = await readJson<AdminApplicationsResponse | JobApplication[]>(
+    "/admin/applications",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Array.isArray(data) ? data : data.applications;
+}
+
+export async function updateJobApplicationStage(
+  id: string,
+  stage: JobApplicationStage,
+  token: string
+) {
+  return readJson<JobApplication>(`/admin/jobs/applications/${id}/stage`, {
+    method: "PUT",
+    body: JSON.stringify({ stage }),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
 
 export async function deleteJob(id: string, token: string) {
