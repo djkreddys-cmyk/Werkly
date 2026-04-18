@@ -17,6 +17,21 @@ export function AdminReportsPanel() {
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
       : ""
   );
+  const [authType] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthType") ?? "admin"
+      : "admin"
+  );
+  const [authEmail] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAdminEmail") ?? ""
+      : ""
+  );
+  const [authEmployeeCode] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyEmployeeCode") ?? ""
+      : ""
+  );
   const [state, setState] = useState<ReportState>({
     applications: [],
     history: [],
@@ -60,7 +75,15 @@ export function AdminReportsPanel() {
   }, [token]);
 
   const recruiterReport = useMemo(() => {
-    return state.employees
+    const visibleEmployees =
+      authType === "employee"
+        ? state.employees.filter(
+            (employee) =>
+              employee.employeeCode === authEmployeeCode || employee.email === authEmail
+          )
+        : state.employees;
+
+    return visibleEmployees
       .filter((employee) => employee.status === "active")
       .map((employee) => {
         const assignedClients = state.clients.filter(
@@ -90,7 +113,7 @@ export function AdminReportsPanel() {
         };
       })
       .sort((a, b) => b.totalApplications - a.totalApplications);
-  }, [state]);
+  }, [authEmployeeCode, authEmail, authType, state]);
 
   const totals = useMemo(() => {
     const countByStage = (stage: string) =>
