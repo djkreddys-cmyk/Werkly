@@ -4,9 +4,9 @@ import { AdminShell } from "@/components/admin-shell";
 export default function AdminJobsPage() {
   return (
     <AdminShell
-      eyebrow="Werkly CRM"
-      title="Manage openings, applications, and delivery activity."
-      description="Post roles, edit active mandates, review applied candidates, and keep hiring execution structured inside the internal CRM."
+      eyebrow="Jobs Workspace"
+      title="Manage openings, applications, and publishing."
+      description="Create mandates, assign them to clients, review applied candidates, and control which jobs are live on the public website."
     >
       <AdminJobsDashboard />
     </AdminShell>

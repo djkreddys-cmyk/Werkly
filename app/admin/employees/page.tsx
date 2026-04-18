@@ -4,9 +4,9 @@ import { AdminShell } from "@/components/admin-shell";
 export default function AdminEmployeesPage() {
   return (
     <AdminShell
-      eyebrow="Werkly CRM"
-      title="Create employee logins and manage internal access."
-      description="Set up recruiter accounts, assign internal roles, and keep user access organized before clients and jobs are distributed."
+      eyebrow="Employees"
+      title="Create employee access and role ownership."
+      description="Set up recruiter logins, define user roles, and keep internal access structured across hiring operations."
     >
       <AdminEmployeesPanel />
     </AdminShell>
