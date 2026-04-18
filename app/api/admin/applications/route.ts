@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAdminApplications } from "@/lib/jobs";
+import { getClients, getEmployees } from "@/lib/crm";
+import { getAdminApplications, getAdminJobs, getJobApplications } from "@/lib/jobs";
 
 export async function GET(request: Request) {
   try {
@@ -10,7 +11,44 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Admin token is required." }, { status: 401 });
     }
 
-    const applications = await getAdminApplications(token);
+    let applications;
+
+    try {
+      applications = await getAdminApplications(token);
+    } catch {
+      const [jobs, clients, employees] = await Promise.all([
+        getAdminJobs(token),
+        getClients(token),
+        getEmployees(token),
+      ]);
+
+      const jobApplications = await Promise.all(
+        jobs.map(async (job) => {
+          const client = clients.find((item) => item.id === job.clientId);
+          const recruiter = employees.find(
+            (item) => item.id === client?.assignedEmployeeId
+          );
+          const items = await getJobApplications(job.id, token);
+
+          return items.map((application) => ({
+            ...application,
+            stage: application.stage ?? "applied",
+            jobCode: job.jobCode,
+            clientName: job.clientName ?? client?.companyName,
+            recruiterName: recruiter?.fullName,
+            recruiterEmail: recruiter?.email,
+            jobLocation: job.location,
+            sector: job.sector,
+            jobTitle: application.jobTitle || job.title,
+          }));
+        })
+      );
+
+      applications = jobApplications.flat().sort(
+        (a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
+      );
+    }
+
     return NextResponse.json({ applications });
   } catch (error) {
     const message =

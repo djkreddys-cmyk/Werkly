@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  getAdminApplications,
   updateJobApplicationStage,
   type JobApplication,
   type JobApplicationStage,
@@ -41,9 +40,20 @@ export function AdminCandidatesPanel() {
       return;
     }
 
-    getAdminApplications(token)
-      .then((result) => {
-        setApplications(result);
+    fetch("/api/admin/applications", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          applications?: JobApplication[];
+          message?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(result.message || "Unable to load candidates.");
+        }
+
+        setApplications(result.applications ?? []);
       })
       .catch((loadError) => {
         setError(

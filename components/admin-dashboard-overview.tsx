@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
-import { getAdminApplications, type JobApplication, type JobSummary } from "@/lib/jobs";
+import type { JobApplication, JobSummary } from "@/lib/jobs";
 
 type DashboardState = {
   jobs: JobSummary[];
@@ -54,9 +54,11 @@ export function AdminDashboardOverview() {
       fetch("/api/admin/employees", {
         headers: { Authorization: `Bearer ${token}` },
       }),
-      getAdminApplications(token),
+      fetch("/api/admin/applications", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([jobsResponse, clientsResponse, employeesResponse, applications]) => {
+      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse]) => {
         const jobsResult = (await jobsResponse.json()) as {
           jobs?: JobSummary[];
           message?: string;
@@ -69,6 +71,10 @@ export function AdminDashboardOverview() {
           employees?: EmployeeRecord[];
           message?: string;
         };
+        const applicationsResult = (await applicationsResponse.json()) as {
+          applications?: JobApplication[];
+          message?: string;
+        };
 
         if (!jobsResponse.ok) {
           throw new Error(jobsResult.message || "Unable to load jobs.");
@@ -79,12 +85,15 @@ export function AdminDashboardOverview() {
         if (!employeesResponse.ok) {
           throw new Error(employeesResult.message || "Unable to load employees.");
         }
+        if (!applicationsResponse.ok) {
+          throw new Error(applicationsResult.message || "Unable to load applications.");
+        }
 
         setState({
           jobs: jobsResult.jobs ?? [],
           clients: clientsResult.clients ?? [],
           employees: employeesResult.employees ?? [],
-          applications,
+          applications: applicationsResult.applications ?? [],
         });
       })
       .catch((loadError) => {

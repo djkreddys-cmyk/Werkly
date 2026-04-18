@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
-import { getAdminApplications, type JobApplication } from "@/lib/jobs";
+import type { JobApplication } from "@/lib/jobs";
 
 type ReportState = {
   applications: JobApplication[];
@@ -30,7 +30,9 @@ export function AdminReportsPanel() {
     }
 
     Promise.all([
-      getAdminApplications(token),
+      fetch("/api/admin/applications", {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((response) => response.json()),
       fetch("/api/admin/clients", {
         headers: { Authorization: `Bearer ${token}` },
       }).then((response) => response.json()),
@@ -38,9 +40,9 @@ export function AdminReportsPanel() {
         headers: { Authorization: `Bearer ${token}` },
       }).then((response) => response.json()),
     ])
-      .then(([applications, clientsResult, employeesResult]) => {
+      .then(([applicationsResult, clientsResult, employeesResult]) => {
         setState({
-          applications,
+          applications: applicationsResult.applications ?? [],
           clients: clientsResult.clients ?? [],
           employees: employeesResult.employees ?? [],
         });
