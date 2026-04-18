@@ -5,6 +5,9 @@ export type JobSummary = {
   jobCode?: string;
   clientId?: string;
   clientName?: string;
+  recruiterId?: string;
+  recruiterName?: string;
+  recruiterEmail?: string;
   slug: string;
   title: string;
   location: string;
@@ -117,6 +120,7 @@ export type JobFormPayload = {
   title: string;
   slug: string;
   clientId?: string;
+  recruiterId?: string;
   location: string;
   sector: string;
   experience: string;
@@ -249,6 +253,9 @@ function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
     jobCode: job.jobCode ? String(job.jobCode) : undefined,
     clientId: job.clientId ? String(job.clientId) : undefined,
     clientName: job.clientName ? String(job.clientName) : undefined,
+    recruiterId: job.recruiterId ? String(job.recruiterId) : undefined,
+    recruiterName: job.recruiterName ? String(job.recruiterName) : undefined,
+    recruiterEmail: job.recruiterEmail ? String(job.recruiterEmail) : undefined,
     slug: String(job.slug ?? ""),
     title: String(job.title ?? ""),
     location: String(job.location ?? ""),

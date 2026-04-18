@@ -9,6 +9,7 @@ import type {
 } from "@/lib/crm";
 
 type EmployeeFormState = {
+  id?: string;
   fullName: string;
   email: string;
   phone: string;
@@ -163,7 +164,13 @@ function CrmFeedback({ message, error }: { message: string; error: string }) {
   );
 }
 
-function CrmEmployeesList({ employees }: { employees: EmployeeRecord[] }) {
+function CrmEmployeesList({
+  employees,
+  onEdit,
+}: {
+  employees: EmployeeRecord[];
+  onEdit: (employee: EmployeeRecord) => void;
+}) {
   return (
     <section className="accent-card p-6">
       <div className="flex items-center justify-between gap-4">
@@ -201,6 +208,15 @@ function CrmEmployeesList({ employees }: { employees: EmployeeRecord[] }) {
               <div className="mt-3 space-y-1 text-sm text-[var(--color-muted)]">
                 <p>{employee.email}</p>
                 {employee.phone ? <p>{employee.phone}</p> : null}
+              </div>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => onEdit(employee)}
+                  className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                >
+                  Edit
+                </button>
               </div>
             </article>
           ))
@@ -307,9 +323,24 @@ export function AdminEmployeesPanel() {
   } = useAdminCrmData();
   const [employeeForm, setEmployeeForm] = useState<EmployeeFormState>(emptyEmployeeForm);
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
+  const isEditingEmployee = Boolean(employeeForm.id);
 
   function updateEmployeeField(field: keyof EmployeeFormState, value: string) {
     setEmployeeForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function loadEmployeeForEdit(employee: EmployeeRecord) {
+    setEmployeeForm({
+      id: employee.id,
+      fullName: employee.fullName,
+      email: employee.email,
+      phone: employee.phone ?? "",
+      role: employee.role,
+      password: "",
+      status: employee.status,
+    });
+    setMessage("");
+    setError("");
   }
 
   async function handleEmployeeSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -325,23 +356,32 @@ export function AdminEmployeesPanel() {
     setMessage("");
 
     try {
-      const response = await fetch("/api/admin/employees", {
-        method: "POST",
+      const endpoint = employeeForm.id
+        ? `/api/admin/employees/${employeeForm.id}`
+        : "/api/admin/employees";
+      const requestConfig = {
+        method: employeeForm.id ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(employeeForm),
-      });
+      };
 
-      const result = (await response.json()) as { message?: string };
-      if (!response.ok) {
+      const actualResponse = await fetch(endpoint, requestConfig);
+
+      const result = (await actualResponse.json()) as { message?: string };
+      if (!actualResponse.ok) {
         throw new Error(result.message || "Unable to create employee.");
       }
 
       await refreshCrm(token);
       setEmployeeForm(emptyEmployeeForm);
-      setMessage("Employee login created successfully.");
+      setMessage(
+        employeeForm.id
+          ? "Employee details updated successfully."
+          : "Employee login created successfully."
+      );
     } catch (saveError) {
       setError(
         formatErrorMessage(
@@ -407,10 +447,12 @@ export function AdminEmployeesPanel() {
             <input
               className={fieldClassName}
               type="password"
-              placeholder="Temporary password"
+              placeholder={
+                isEditingEmployee ? "New password (optional)" : "Temporary password"
+              }
               value={employeeForm.password}
               onChange={(event) => updateEmployeeField("password", event.target.value)}
-              required
+              required={!isEditingEmployee}
             />
             <select
               className={fieldClassName}
@@ -430,13 +472,28 @@ export function AdminEmployeesPanel() {
               disabled={isSavingEmployee || isLoading}
               className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSavingEmployee ? "Creating..." : "Create Employee Login"}
+              {isSavingEmployee
+                ? isEditingEmployee
+                  ? "Updating..."
+                  : "Creating..."
+                : isEditingEmployee
+                  ? "Update Employee"
+                  : "Create Employee Login"}
             </button>
+            {isEditingEmployee ? (
+              <button
+                type="button"
+                onClick={() => setEmployeeForm(emptyEmployeeForm)}
+                className="rounded-2xl border border-[rgba(255,255,255,0.14)] px-5 py-3 text-sm font-semibold text-white"
+              >
+                Cancel Edit
+              </button>
+            ) : null}
           </div>
         </form>
       </div>
 
-      <CrmEmployeesList employees={employees} />
+      <CrmEmployeesList employees={employees} onEdit={loadEmployeeForEdit} />
     </section>
   );
 }

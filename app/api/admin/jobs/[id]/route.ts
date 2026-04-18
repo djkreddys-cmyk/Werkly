@@ -18,6 +18,7 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
     title,
     slug: slugify(String(body.slug ?? title)),
     clientId: body.clientId ? String(body.clientId) : undefined,
+    recruiterId: body.recruiterId ? String(body.recruiterId) : undefined,
     location,
     sector,
     experience,

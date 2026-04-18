@@ -110,6 +110,42 @@ export async function createEmployee(payload) {
   return mapEmployeeRow(result.rows[0]);
 }
 
+export async function updateEmployee(id, payload) {
+  const values = [
+    payload.fullName,
+    payload.email,
+    payload.phone || null,
+    payload.role,
+    payload.status || "active",
+  ];
+
+  let passwordClause = "";
+
+  if (payload.password) {
+    const passwordHash = await bcrypt.hash(payload.password, 12);
+    values.push(passwordHash);
+    passwordClause = `, password_hash = $6`;
+  }
+
+  values.push(id);
+
+  const result = await query(
+    `update employees
+     set full_name = $1,
+         email = $2,
+         phone = $3,
+         role = $4,
+         status = $5
+         ${passwordClause},
+         updated_at = now()
+     where id = $${values.length}
+     returning id, full_name, email, phone, role, status, created_at`,
+    values
+  );
+
+  return result.rows[0] ? mapEmployeeRow(result.rows[0]) : null;
+}
+
 export async function listClients() {
   const result = await query(
     `select

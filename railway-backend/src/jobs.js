@@ -11,6 +11,9 @@ export function mapRow(row) {
     jobCode: row.job_code,
     clientId: row.client_id,
     clientName: row.client_name,
+    recruiterId: row.assigned_employee_id,
+    recruiterName: row.recruiter_name,
+    recruiterEmail: row.recruiter_email,
     slug: row.slug,
     title: row.title,
     location: row.location,
@@ -92,6 +95,9 @@ export async function listJobs() {
       jobs.job_code,
       jobs.client_id,
       clients.company_name as client_name,
+      jobs.assigned_employee_id,
+      employees.full_name as recruiter_name,
+      employees.email as recruiter_email,
       jobs.slug,
       jobs.title,
       jobs.location,
@@ -113,6 +119,7 @@ export async function listJobs() {
      jobs.apply_url
      from jobs
      left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
      where coalesce(jobs.is_hidden, false) = false
        and jobs.status = 'open'
        and (jobs.last_date_to_apply is null or jobs.last_date_to_apply >= current_date)
@@ -129,6 +136,9 @@ export async function listAdminJobs() {
       jobs.job_code,
       jobs.client_id,
       clients.company_name as client_name,
+      jobs.assigned_employee_id,
+      employees.full_name as recruiter_name,
+      employees.email as recruiter_email,
       jobs.slug,
       jobs.title,
       jobs.location,
@@ -150,6 +160,7 @@ export async function listAdminJobs() {
       jobs.apply_url
      from jobs
      left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
      order by jobs.posted_at desc, jobs.created_at desc`
   );
 
@@ -163,6 +174,9 @@ export async function getJobBySlug(slug) {
       jobs.job_code,
       jobs.client_id,
       clients.company_name as client_name,
+      jobs.assigned_employee_id,
+      employees.full_name as recruiter_name,
+      employees.email as recruiter_email,
       jobs.slug,
       jobs.title,
       jobs.location,
@@ -184,6 +198,7 @@ export async function getJobBySlug(slug) {
      jobs.apply_url
      from jobs
      left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
      where jobs.slug = $1
        and coalesce(jobs.is_hidden, false) = false
        and jobs.status = 'open'
@@ -202,6 +217,9 @@ export async function ensureJobsSchema() {
   await query(`alter table jobs add column if not exists applications_count integer not null default 0`);
   await query(`alter table jobs add column if not exists is_hidden boolean not null default false`);
   await query(`alter table jobs add column if not exists client_id uuid references clients(id) on delete set null`);
+  await query(
+    `alter table jobs add column if not exists assigned_employee_id uuid references employees(id) on delete set null`
+  );
   await query(`
     create table if not exists job_applications (
       id uuid primary key default gen_random_uuid(),
@@ -295,6 +313,7 @@ export async function createJob(payload) {
       `insert into jobs (
         job_code,
         client_id,
+        assigned_employee_id,
         slug,
         title,
         location,
@@ -314,12 +333,13 @@ export async function createJob(payload) {
         requirements,
         apply_url
       ) values (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,coalesce($13::date, current_date),$14::date,$15,$16,$17,$18,$19,$20
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,coalesce($14::date, current_date),$15::date,$16,$17,$18,$19,$20,$21
       )
       returning *`,
       [
         jobCode,
         payload.clientId || null,
+        payload.recruiterId || null,
         payload.slug,
         payload.title,
         payload.location,
@@ -356,21 +376,22 @@ export async function updateJob(id, payload) {
     `update jobs set
       slug = $2,
       client_id = $3,
-      title = $4,
-      location = $5,
-      sector = $6,
-      experience = $7,
-      employment_type = $8,
-      salary = $9,
-      package_per_annum = $10,
-      status = $11,
-      is_hidden = $12,
-      last_date_to_apply = $13,
-      summary = $14,
-      description = $15,
-      skills = $16,
-      responsibilities = $17,
-      requirements = $18,
+      assigned_employee_id = $4,
+      title = $5,
+      location = $6,
+      sector = $7,
+      experience = $8,
+      employment_type = $9,
+      salary = $10,
+      package_per_annum = $11,
+      status = $12,
+      is_hidden = $13,
+      last_date_to_apply = $14,
+      summary = $15,
+      description = $16,
+      skills = $17,
+      responsibilities = $18,
+      requirements = $19,
       updated_at = now()
     where id = $1
     returning *`,
@@ -378,6 +399,7 @@ export async function updateJob(id, payload) {
       id,
       payload.slug,
       payload.clientId || null,
+      payload.recruiterId || null,
       payload.title,
       payload.location,
       payload.sector,
@@ -558,7 +580,7 @@ export async function listAdminApplications() {
      from job_applications
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
-     left join employees on employees.id = clients.assigned_employee_id
+     left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
      order by job_applications.applied_at desc`
   );
 
@@ -587,7 +609,7 @@ export async function listApplicationStageHistory() {
      left join job_applications applications on applications.id = history.application_id
      left join jobs on jobs.id = applications.job_id
      left join clients on clients.id = jobs.client_id
-     left join employees on employees.id = clients.assigned_employee_id
+     left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
      order by coalesce(history.stage_date, history.changed_at::date) desc, history.changed_at desc`
   );
 

@@ -8,6 +8,7 @@ import {
   ensureCrmSchema,
   listClients,
   listEmployees,
+  updateEmployee,
 } from "./crm.js";
 import {
   createJob,
@@ -265,6 +266,37 @@ app.post("/admin/employees", requireAdmin, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to create employee.",
+    });
+  }
+});
+
+app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
+  try {
+    const { fullName, email, phone, role, password, status } = request.body ?? {};
+
+    if (!fullName || !email || !role) {
+      return response.status(400).json({
+        message: "Full name, email, and role are required.",
+      });
+    }
+
+    const employee = await updateEmployee(request.params.id, {
+      fullName,
+      email,
+      phone,
+      role,
+      password,
+      status,
+    });
+
+    if (!employee) {
+      return response.status(404).json({ message: "Employee not found." });
+    }
+
+    response.json(employee);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update employee.",
     });
   }
 });
