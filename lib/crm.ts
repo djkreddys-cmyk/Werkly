@@ -42,7 +42,7 @@ export type EmployeeFormPayload = {
   email: string;
   phone?: string;
   role: string;
-  password: string;
+  password?: string;
   status: EmployeeStatus;
 };
 
@@ -109,6 +109,16 @@ export async function getEmployees(token: string) {
 export async function createEmployee(payload: EmployeeFormPayload, token: string) {
   return readJson<EmployeeRecord>("/admin/employees", {
     method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function updateEmployee(id: string, payload: EmployeeFormPayload, token: string) {
+  return readJson<EmployeeRecord>(`/admin/employees/${id}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
     headers: {
       Authorization: `Bearer ${token}`,
