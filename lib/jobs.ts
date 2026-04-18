@@ -37,6 +37,9 @@ export type JobApplication = {
   id: string;
   jobId: string;
   stage?: JobApplicationStage;
+  stageNote?: string;
+  stageDate?: string;
+  stageUpdatedAt?: string;
   jobCode?: string;
   clientName?: string;
   recruiterName?: string;
@@ -58,6 +61,24 @@ export type JobApplication = {
   candidateMessage?: string;
   jobTitle?: string;
   appliedAt: string;
+};
+
+export type JobApplicationStageHistory = {
+  id: string;
+  applicationId: string;
+  jobId?: string;
+  jobCode?: string;
+  jobTitle?: string;
+  clientName?: string;
+  recruiterName?: string;
+  recruiterEmail?: string;
+  candidateName: string;
+  candidateEmail: string;
+  fromStage?: string;
+  toStage: JobApplicationStage;
+  stageNote?: string;
+  stageDate?: string;
+  changedAt: string;
 };
 
 export type JobApplicationStage =
@@ -86,6 +107,10 @@ export type JobApplicationsResponse = {
 
 export type AdminApplicationsResponse = {
   applications: JobApplication[];
+};
+
+export type AdminApplicationHistoryResponse = {
+  history: JobApplicationStageHistory[];
 };
 
 export type JobFormPayload = {
@@ -385,14 +410,29 @@ export async function getAdminApplications(token: string) {
   return Array.isArray(data) ? data : data.applications;
 }
 
+export async function getAdminApplicationHistory(token: string) {
+  const data = await readJson<AdminApplicationHistoryResponse | JobApplicationStageHistory[]>(
+    "/admin/applications/history",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Array.isArray(data) ? data : data.history;
+}
+
 export async function updateJobApplicationStage(
   id: string,
   stage: JobApplicationStage,
+  stageNote: string,
+  stageDate: string,
   token: string
 ) {
   return readJson<JobApplication>(`/admin/jobs/applications/${id}/stage`, {
     method: "PUT",
-    body: JSON.stringify({ stage }),
+    body: JSON.stringify({ stage, stageNote, stageDate }),
     headers: {
       Authorization: `Bearer ${token}`,
     },

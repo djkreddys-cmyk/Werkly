@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
-import type { JobApplication } from "@/lib/jobs";
+import type { JobApplication, JobApplicationStageHistory } from "@/lib/jobs";
 
 type ReportState = {
   applications: JobApplication[];
+  history: JobApplicationStageHistory[];
   clients: ClientRecord[];
   employees: EmployeeRecord[];
 };
@@ -18,6 +19,7 @@ export function AdminReportsPanel() {
   );
   const [state, setState] = useState<ReportState>({
     applications: [],
+    history: [],
     clients: [],
     employees: [],
   });
@@ -33,6 +35,9 @@ export function AdminReportsPanel() {
       fetch("/api/admin/applications", {
         headers: { Authorization: `Bearer ${token}` },
       }).then((response) => response.json()),
+      fetch("/api/admin/applications/history", {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then((response) => response.json()),
       fetch("/api/admin/clients", {
         headers: { Authorization: `Bearer ${token}` },
       }).then((response) => response.json()),
@@ -40,9 +45,10 @@ export function AdminReportsPanel() {
         headers: { Authorization: `Bearer ${token}` },
       }).then((response) => response.json()),
     ])
-      .then(([applicationsResult, clientsResult, employeesResult]) => {
+      .then(([applicationsResult, historyResult, clientsResult, employeesResult]) => {
         setState({
           applications: applicationsResult.applications ?? [],
+          history: historyResult.history ?? [],
           clients: clientsResult.clients ?? [],
           employees: employeesResult.employees ?? [],
         });
@@ -200,6 +206,87 @@ export function AdminReportsPanel() {
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{item.offered}</td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{item.joined}</td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{item.rejected}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="accent-card p-7">
+        <p className="eyebrow">Stage Movement Log</p>
+        <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+          Review remarks and dates behind every pipeline move.
+        </h2>
+        <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+          Shortlist notes, interview remarks, offer updates, and joining confirmations will appear here for end-of-day reporting.
+        </p>
+
+        {isLoading ? (
+          <p className="muted-copy mt-6 text-sm">Loading stage movement log...</p>
+        ) : state.history.length === 0 ? (
+          <p className="muted-copy mt-6 text-sm">No stage updates have been recorded yet.</p>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                    {["Candidate", "Job", "Stage", "Stage Date", "Remarks", "Changed At"].map(
+                      (heading) => (
+                        <th
+                          key={heading}
+                          className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        >
+                          {heading}
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.history.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className={
+                        index === state.history.length - 1
+                          ? "align-top"
+                          : "align-top border-b border-[var(--color-line)]"
+                      }
+                    >
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-[var(--color-ink)]">{item.candidateName}</p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">{item.candidateEmail}</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p className="font-medium text-[var(--color-ink)]">{item.jobTitle || "Untitled job"}</p>
+                        <p className="mt-1">{item.jobCode || "Pending ID"}</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <span className="font-semibold text-[var(--color-accent-strong)]">
+                          {(item.toStage || "applied").charAt(0).toUpperCase() +
+                            (item.toStage || "applied").slice(1)}
+                        </span>
+                        {item.fromStage ? (
+                          <p className="mt-1 text-xs">From {item.fromStage}</p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {item.stageDate
+                          ? new Date(item.stageDate).toLocaleDateString("en-IN")
+                          : "Not added"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {item.stageNote || "No remarks added"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {new Date(item.changedAt).toLocaleString("en-IN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

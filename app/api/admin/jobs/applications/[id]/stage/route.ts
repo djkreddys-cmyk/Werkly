@@ -17,8 +17,18 @@ export async function PUT(
     }
 
     const { id } = await context.params;
-    const body = (await request.json()) as { stage?: JobApplicationStage };
-    const application = await updateJobApplicationStage(id, body.stage ?? "applied", token);
+    const body = (await request.json()) as {
+      stage?: JobApplicationStage;
+      stageNote?: string;
+      stageDate?: string;
+    };
+    const application = await updateJobApplicationStage(
+      id,
+      body.stage ?? "applied",
+      body.stageNote ?? "",
+      body.stageDate ?? "",
+      token
+    );
     return NextResponse.json(application);
   } catch (error) {
     const message =

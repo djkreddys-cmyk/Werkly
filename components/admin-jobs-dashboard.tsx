@@ -70,6 +70,12 @@ export function AdminJobsDashboard() {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
   const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
+  const [stageDraft, setStageDraft] = useState<{
+    application: JobApplication;
+    stage: JobApplicationStage;
+    note: string;
+    date: string;
+  } | null>(null);
 
   const isEditing = Boolean(form.id);
 
@@ -440,7 +446,9 @@ export function AdminJobsDashboard() {
 
   async function updateApplicationStage(
     applicationId: string,
-    stage: JobApplicationStage
+    stage: JobApplicationStage,
+    stageNote: string,
+    stageDate: string
   ) {
     if (!token) {
       setError("Please sign in again. Admin token is missing.");
@@ -457,7 +465,7 @@ export function AdminJobsDashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ stage }),
+        body: JSON.stringify({ stage, stageNote, stageDate }),
       });
 
       const result = (await response.json()) as JobApplication & { message?: string };
@@ -467,7 +475,15 @@ export function AdminJobsDashboard() {
 
       setApplications((current) =>
         current.map((application) =>
-          application.id === applicationId ? { ...application, stage: result.stage } : application
+          application.id === applicationId
+            ? {
+                ...application,
+                stage: result.stage,
+                stageNote: result.stageNote,
+                stageDate: result.stageDate,
+                stageUpdatedAt: result.stageUpdatedAt,
+              }
+            : application
         )
       );
     } catch (stageError) {
@@ -779,6 +795,9 @@ export function AdminJobsDashboard() {
                           Stage
                         </th>
                         <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Remarks
+                        </th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                           Applied Date
                         </th>
                       </tr>
@@ -809,10 +828,14 @@ export function AdminJobsDashboard() {
                               value={application.stage ?? "applied"}
                               disabled={isUpdatingStageId === application.id}
                               onChange={(event) =>
-                                updateApplicationStage(
-                                  application.id,
-                                  event.target.value as JobApplicationStage
-                                )
+                                setStageDraft({
+                                  application,
+                                  stage: event.target.value as JobApplicationStage,
+                                  note: application.stageNote ?? "",
+                                  date:
+                                    application.stageDate ??
+                                    new Date().toISOString().slice(0, 10),
+                                })
                               }
                               className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
                             >
@@ -822,6 +845,14 @@ export function AdminJobsDashboard() {
                                 </option>
                               ))}
                             </select>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                            <p>{application.stageNote || "No remark added"}</p>
+                            {application.stageDate ? (
+                              <p className="mt-1 text-xs font-medium text-[var(--color-accent-strong)]">
+                                {new Date(application.stageDate).toLocaleDateString("en-IN")}
+                              </p>
+                            ) : null}
                           </td>
                           <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                             {new Date(application.appliedAt).toLocaleString("en-IN", {
@@ -836,6 +867,90 @@ export function AdminJobsDashboard() {
                 </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {stageDraft ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Candidate Stage</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {stageDraft.application.candidateName}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Save a remark and date for the {stageDraft.stage} stage so reporting stays accurate.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStageDraft(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <input
+                value={stageDraft.stage.charAt(0).toUpperCase() + stageDraft.stage.slice(1)}
+                readOnly
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              />
+              <input
+                type="date"
+                value={stageDraft.date}
+                onChange={(event) =>
+                  setStageDraft((current) =>
+                    current ? { ...current, date: event.target.value } : current
+                  )
+                }
+                className={fieldClassName}
+              />
+            </div>
+
+            <textarea
+              value={stageDraft.note}
+              onChange={(event) =>
+                setStageDraft((current) =>
+                  current ? { ...current, note: event.target.value } : current
+                )
+              }
+              placeholder="Add follow-up remarks for this stage change."
+              className={`${fieldClassName} mt-4 min-h-[150px] resize-y`}
+            />
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!stageDraft.note.trim() || !stageDraft.date) {
+                    setError("Please add both remarks and date before saving the stage update.");
+                    return;
+                  }
+
+                  await updateApplicationStage(
+                    stageDraft.application.id,
+                    stageDraft.stage,
+                    stageDraft.note.trim(),
+                    stageDraft.date
+                  );
+                  setStageDraft(null);
+                }}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+              >
+                Save Stage Update
+              </button>
+              <button
+                type="button"
+                onClick={() => setStageDraft(null)}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

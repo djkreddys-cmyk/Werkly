@@ -27,6 +27,12 @@ export function AdminCandidatesPanel() {
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [isUpdatingId, setIsUpdatingId] = useState("");
+  const [stageDraft, setStageDraft] = useState<{
+    application: JobApplication;
+    stage: JobApplicationStage;
+    note: string;
+    date: string;
+  } | null>(null);
 
   useEffect(() => {
     const savedToken = window.localStorage.getItem("werklyAdminToken") ?? "";
@@ -95,7 +101,12 @@ export function AdminCandidatesPanel() {
     }, {} as Record<JobApplicationStage, number>);
   }, [applications]);
 
-  async function handleStageChange(id: string, stage: JobApplicationStage) {
+  async function handleStageChange(
+    id: string,
+    stage: JobApplicationStage,
+    stageNote: string,
+    stageDate: string
+  ) {
     if (!token) {
       setError("Please sign in again. Admin token is missing.");
       return;
@@ -111,7 +122,7 @@ export function AdminCandidatesPanel() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ stage }),
+        body: JSON.stringify({ stage, stageNote, stageDate }),
       });
 
       const updated = (await response.json()) as JobApplication & { message?: string };
@@ -121,7 +132,15 @@ export function AdminCandidatesPanel() {
 
       setApplications((current) =>
         current.map((application) =>
-          application.id === id ? { ...application, stage: updated.stage } : application
+          application.id === id
+            ? {
+                ...application,
+                stage: updated.stage,
+                stageNote: updated.stageNote,
+                stageDate: updated.stageDate,
+                stageUpdatedAt: updated.stageUpdatedAt,
+              }
+            : application
         )
       );
     } catch (stageError) {
@@ -261,10 +280,14 @@ export function AdminCandidatesPanel() {
                           value={application.stage ?? "applied"}
                           disabled={isUpdatingId === application.id}
                           onChange={(event) =>
-                            handleStageChange(
-                              application.id,
-                              event.target.value as JobApplicationStage
-                            )
+                            setStageDraft({
+                              application,
+                              stage: event.target.value as JobApplicationStage,
+                              note: application.stageNote ?? "",
+                              date:
+                                application.stageDate ??
+                                new Date().toISOString().slice(0, 10),
+                            })
                           }
                           className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
                         >
@@ -274,6 +297,16 @@ export function AdminCandidatesPanel() {
                             </option>
                           ))}
                         </select>
+                        {application.stageNote ? (
+                          <p className="mt-2 max-w-[220px] text-xs leading-5 text-[var(--color-muted)]">
+                            {application.stageNote}
+                          </p>
+                        ) : null}
+                        {application.stageDate ? (
+                          <p className="mt-1 text-xs font-medium text-[var(--color-accent-strong)]">
+                            {new Date(application.stageDate).toLocaleDateString("en-IN")}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {new Date(application.appliedAt).toLocaleString("en-IN", {
@@ -289,6 +322,90 @@ export function AdminCandidatesPanel() {
           </div>
         )}
       </section>
+
+      {stageDraft ? (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Stage Update</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {stageDraft.application.candidateName}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Move to {labelizeStage(stageDraft.stage)} and capture the remark plus effective date for reports.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStageDraft(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <input
+                value={labelizeStage(stageDraft.stage)}
+                readOnly
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              />
+              <input
+                type="date"
+                value={stageDraft.date}
+                onChange={(event) =>
+                  setStageDraft((current) =>
+                    current ? { ...current, date: event.target.value } : current
+                  )
+                }
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </div>
+
+            <textarea
+              value={stageDraft.note}
+              onChange={(event) =>
+                setStageDraft((current) =>
+                  current ? { ...current, note: event.target.value } : current
+                )
+              }
+              placeholder="Add stage remarks for shortlist, interview, offer, joining, or rejection."
+              className="mt-4 min-h-[150px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+            />
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!stageDraft.note.trim() || !stageDraft.date) {
+                    setError("Please add both remarks and date before saving the stage update.");
+                    return;
+                  }
+
+                  await handleStageChange(
+                    stageDraft.application.id,
+                    stageDraft.stage,
+                    stageDraft.note.trim(),
+                    stageDraft.date
+                  );
+                  setStageDraft(null);
+                }}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+              >
+                Save Stage Update
+              </button>
+              <button
+                type="button"
+                onClick={() => setStageDraft(null)}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

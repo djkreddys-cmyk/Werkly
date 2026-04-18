@@ -38,6 +38,9 @@ export function mapApplicationRow(row) {
     id: row.id,
     jobId: row.job_id,
     stage: row.stage,
+    stageNote: row.stage_note,
+    stageDate: row.stage_date,
+    stageUpdatedAt: row.stage_updated_at,
     jobCode: row.job_code,
     clientName: row.client_name,
     recruiterName: row.recruiter_name,
@@ -59,6 +62,26 @@ export function mapApplicationRow(row) {
     candidateMessage: row.candidate_message,
     jobTitle: row.job_title,
     appliedAt: row.applied_at,
+  };
+}
+
+export function mapApplicationHistoryRow(row) {
+  return {
+    id: row.id,
+    applicationId: row.application_id,
+    jobId: row.job_id,
+    jobCode: row.job_code,
+    jobTitle: row.job_title,
+    clientName: row.client_name,
+    recruiterName: row.recruiter_name,
+    recruiterEmail: row.recruiter_email,
+    candidateName: row.candidate_name,
+    candidateEmail: row.candidate_email,
+    fromStage: row.from_stage,
+    toStage: row.to_stage,
+    stageNote: row.stage_note,
+    stageDate: row.stage_date,
+    changedAt: row.changed_at,
   };
 }
 
@@ -206,6 +229,11 @@ export async function ensureJobsSchema() {
   await query(
     `alter table job_applications add column if not exists stage text not null default 'applied'`
   );
+  await query(`alter table job_applications add column if not exists stage_note text`);
+  await query(`alter table job_applications add column if not exists stage_date date`);
+  await query(
+    `alter table job_applications add column if not exists stage_updated_at timestamptz not null default now()`
+  );
   await query(`alter table job_applications add column if not exists candidate_phone text`);
   await query(`alter table job_applications add column if not exists experience text`);
   await query(`alter table job_applications add column if not exists current_company text`);
@@ -218,6 +246,21 @@ export async function ensureJobsSchema() {
   await query(`alter table job_applications add column if not exists preferred_sector text`);
   await query(`alter table job_applications add column if not exists candidate_message text`);
   await query(`alter table job_applications add column if not exists job_title text`);
+  await query(`
+    create table if not exists job_application_stage_history (
+      id uuid primary key default gen_random_uuid(),
+      application_id uuid not null references job_applications(id) on delete cascade,
+      from_stage text,
+      to_stage text not null,
+      stage_note text,
+      stage_date date,
+      changed_at timestamptz not null default now()
+    )
+  `);
+  await query(
+    `create index if not exists idx_job_application_stage_history_application_id
+     on job_application_stage_history(application_id)`
+  );
 }
 
 async function generateJobCode(client, postedAt) {
@@ -385,6 +428,9 @@ export async function recordJobApplication(slug, payload) {
       `insert into job_applications (
         job_id,
         stage,
+        stage_note,
+        stage_date,
+        stage_updated_at,
         candidate_name,
         candidate_email,
         candidate_phone,
@@ -399,10 +445,11 @@ export async function recordJobApplication(slug, payload) {
         preferred_sector,
         candidate_message,
         job_title
-      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [
         jobId,
         "applied",
+        "Initial application submitted.",
         payload.candidateName,
         payload.candidateEmail,
         payload.candidatePhone || null,
@@ -445,6 +492,9 @@ export async function listJobApplications(jobId) {
       id,
       job_id,
       stage,
+      stage_note,
+      stage_date,
+      stage_updated_at,
       null::text as job_code,
       null::text as client_name,
       null::text as recruiter_name,
@@ -481,6 +531,9 @@ export async function listAdminApplications() {
       job_applications.id,
       job_applications.job_id,
       job_applications.stage,
+      job_applications.stage_note,
+      job_applications.stage_date,
+      job_applications.stage_updated_at,
       jobs.job_code,
       clients.company_name as client_name,
       employees.full_name as recruiter_name,
@@ -512,32 +565,111 @@ export async function listAdminApplications() {
   return result.rows.map(mapApplicationRow);
 }
 
-export async function updateJobApplicationStage(applicationId, stage) {
+export async function listApplicationStageHistory() {
   const result = await query(
-    `update job_applications
-     set stage = $2
-     where id = $1
-     returning
-       id,
-       job_id,
-       stage,
-       candidate_name,
-       candidate_email,
-       candidate_phone,
-       experience,
-       current_company,
-       current_location,
-       current_designation,
-       preferred_role,
-       current_ctc,
-       expected_ctc,
-       preferred_location,
-       preferred_sector,
-       candidate_message,
-       job_title,
-       applied_at`,
-    [applicationId, stage]
+    `select
+      history.id,
+      history.application_id,
+      applications.job_id,
+      jobs.job_code,
+      coalesce(applications.job_title, jobs.title) as job_title,
+      clients.company_name as client_name,
+      employees.full_name as recruiter_name,
+      employees.email as recruiter_email,
+      applications.candidate_name,
+      applications.candidate_email,
+      history.from_stage,
+      history.to_stage,
+      history.stage_note,
+      history.stage_date,
+      history.changed_at
+     from job_application_stage_history history
+     left join job_applications applications on applications.id = history.application_id
+     left join jobs on jobs.id = applications.job_id
+     left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = clients.assigned_employee_id
+     order by coalesce(history.stage_date, history.changed_at::date) desc, history.changed_at desc`
   );
 
-  return result.rows[0] ? mapApplicationRow(result.rows[0]) : null;
+  return result.rows.map(mapApplicationHistoryRow);
+}
+
+export async function updateJobApplicationStage(applicationId, stage, stageNote, stageDate) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const currentResult = await client.query(
+      `select *
+       from job_applications
+       where id = $1
+       limit 1`,
+      [applicationId]
+    );
+
+    if (!currentResult.rows[0]) {
+      await client.query("rollback");
+      return null;
+    }
+
+    const currentApplication = currentResult.rows[0];
+
+    const updatedResult = await client.query(
+      `update job_applications
+       set stage = $2,
+           stage_note = $3,
+           stage_date = $4::date,
+           stage_updated_at = now()
+       where id = $1
+       returning
+         id,
+         job_id,
+         stage,
+         stage_note,
+         stage_date,
+         stage_updated_at,
+         null::text as job_code,
+         null::text as client_name,
+         null::text as recruiter_name,
+         null::text as recruiter_email,
+         null::text as job_location,
+         null::text as sector,
+         candidate_name,
+         candidate_email,
+         candidate_phone,
+         experience,
+         current_company,
+         current_location,
+         current_designation,
+         preferred_role,
+         current_ctc,
+         expected_ctc,
+         preferred_location,
+         preferred_sector,
+         candidate_message,
+         job_title,
+         applied_at`,
+      [applicationId, stage, stageNote || null, stageDate || null]
+    );
+
+    await client.query(
+      `insert into job_application_stage_history (
+        application_id,
+        from_stage,
+        to_stage,
+        stage_note,
+        stage_date
+      ) values ($1, $2, $3, $4, $5::date)`,
+      [applicationId, currentApplication.stage, stage, stageNote || null, stageDate || null]
+    );
+
+    await client.query("commit");
+    return updatedResult.rows[0] ? mapApplicationRow(updatedResult.rows[0]) : null;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

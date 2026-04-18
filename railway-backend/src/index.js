@@ -14,6 +14,7 @@ import {
   ensureJobsSchema,
   getJobBySlug,
   listAdminApplications,
+  listApplicationStageHistory,
   listJobApplications,
   listAdminJobs,
   listJobs,
@@ -91,6 +92,18 @@ app.get("/admin/applications", requireAdmin, async (_request, response) => {
     response.status(500).json({
       message:
         error instanceof Error ? error.message : "Unable to load candidate applications.",
+    });
+  }
+});
+
+app.get("/admin/applications/history", requireAdmin, async (_request, response) => {
+  try {
+    const history = await listApplicationStageHistory();
+    response.json({ history });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load application history.",
     });
   }
 });
@@ -181,7 +194,7 @@ app.put(
   requireAdmin,
   async (request, response) => {
     try {
-      const { stage } = request.body ?? {};
+      const { stage, stageNote, stageDate } = request.body ?? {};
       const allowedStages = [
         "applied",
         "shortlisted",
@@ -195,7 +208,12 @@ app.put(
         return response.status(400).json({ message: "Invalid application stage." });
       }
 
-      const application = await updateJobApplicationStage(request.params.id, stage);
+      const application = await updateJobApplicationStage(
+        request.params.id,
+        stage,
+        stageNote,
+        stageDate
+      );
 
       if (!application) {
         return response.status(404).json({ message: "Application not found." });
