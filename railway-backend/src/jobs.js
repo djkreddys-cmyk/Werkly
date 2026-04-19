@@ -501,9 +501,37 @@ export async function updateJob(id, payload) {
 
 export async function getAdminJobById(id) {
   const result = await query(
-    `select *
+    `select
+      jobs.id,
+      jobs.job_code,
+      jobs.client_id,
+      clients.company_name as client_name,
+      jobs.assigned_employee_id,
+      employees.full_name as recruiter_name,
+      employees.email as recruiter_email,
+      jobs.slug,
+      jobs.title,
+      jobs.location,
+      jobs.sector,
+      jobs.experience,
+      jobs.employment_type,
+      jobs.salary,
+      jobs.package_per_annum,
+      jobs.status,
+      jobs.is_hidden,
+      jobs.posted_at,
+      jobs.last_date_to_apply,
+      jobs.applications_count,
+      jobs.summary,
+      jobs.description,
+      jobs.skills,
+      jobs.responsibilities,
+      jobs.requirements,
+      jobs.apply_url
      from jobs
-     where id = $1
+     left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
+     where jobs.id = $1
      limit 1`,
     [id]
   );
