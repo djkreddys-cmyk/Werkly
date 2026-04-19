@@ -245,10 +245,6 @@ export function AdminShell({
     setIsHydrated(true);
   }, []);
 
-  useEffect(() => {
-    setExpandedModuleKey(activeModuleKey);
-  }, [activeModuleKey]);
-
   async function handleLogout() {
     const token =
       typeof window === "undefined"
