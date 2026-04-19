@@ -450,17 +450,27 @@ export function AdminDashboardOverview() {
 
       <section className="grid items-stretch gap-5 xl:grid-cols-[1.08fr_0.92fr]">
         <article className="accent-card flex h-full flex-col p-5">
-          <p className="eyebrow">Upcoming Follow-Ups</p>
-          <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)]">
-            Prioritized follow-up queue
-          </h2>
+          <div className="min-h-[112px]">
+            <p className="eyebrow">Upcoming Follow-Ups</p>
+            <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)]">
+              Prioritized follow-up queue
+            </h2>
+            <p className="muted-copy mt-1.5 text-sm leading-5">
+              Review the next scheduled client follow-ups and open the selected date directly from
+              the queue.
+            </p>
+          </div>
 
           {isLoading ? (
-            <p className="muted-copy mt-6 text-sm">Loading follow-up queue...</p>
+            <div className="mt-5 rounded-[1.45rem] border border-[var(--color-line)] bg-white p-5">
+              <p className="muted-copy text-sm">Loading follow-up queue...</p>
+            </div>
           ) : upcomingFollowUps.length === 0 ? (
-            <p className="muted-copy mt-6 text-sm">No scheduled follow-ups are available yet.</p>
+            <div className="mt-5 flex min-h-[272px] items-start rounded-[1.45rem] border border-[var(--color-line)] bg-white p-5">
+              <p className="muted-copy text-sm">No scheduled follow-ups are available yet.</p>
+            </div>
           ) : (
-            <div className="mt-6 space-y-4">
+            <div className="mt-5 space-y-4">
               {upcomingFollowUps.map((item) => (
                 <button
                   key={item.id}
@@ -493,7 +503,7 @@ export function AdminDashboardOverview() {
 
         <article className="accent-card flex h-full flex-col p-5">
           <div className="flex flex-col gap-4">
-            <div className="max-w-[430px]">
+            <div className="min-h-[112px] max-w-[430px]">
               <p className="eyebrow">Follow-Up Calendar</p>
               <h2 className="mt-1.5 text-base font-semibold leading-6 text-[var(--color-ink)]">
                 {isAdminView
