@@ -295,6 +295,16 @@ export function AdminDashboardOverview() {
     }, {});
   }, [filteredFollowUps]);
 
+  function openDateDetails(dateKey: string) {
+    setSelectedDateKey(dateKey);
+    const count = followUpCountsByDate[dateKey] ?? 0;
+    if (count > 0) {
+      setIsDateModalOpen(true);
+    } else {
+      setIsDateModalOpen(false);
+    }
+  }
+
   const metrics = useMemo(() => {
     const liveJobs = state.jobs.filter((job) => {
       if (job.isHidden || job.status !== "open") {
@@ -398,26 +408,26 @@ export function AdminDashboardOverview() {
             value: metrics.upcomingSevenDays,
           },
         ].map((card) => (
-          <article key={card.label} className="accent-card p-5">
+          <article key={card.label} className="accent-card p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
               {card.label}
             </p>
-            <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">{card.value}</p>
+            <p className="mt-2 text-[1.7rem] font-semibold text-[var(--color-ink)]">{card.value}</p>
           </article>
         ))}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <article className="accent-card p-6">
+      <section className="grid gap-5 xl:grid-cols-[0.88fr_1.12fr]">
+        <article className="accent-card p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="eyebrow">{isAdminView ? "Follow-Up Calendar" : "Follow-Up Calendar"}</p>
-              <h2 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
                 {isAdminView
                   ? "Track client follow-ups by employee and date."
                   : `${authName}, here is your follow-up dashboard.`}
               </h2>
-              <p className="muted-copy mt-2 text-sm leading-6">
+              <p className="muted-copy mt-2 text-sm leading-5">
                 {isAdminView
                   ? "Filter by recruiter and date to see client follow-up commitments that need action."
                   : "Click any date in the calendar to open that day's follow-up details."}
@@ -428,7 +438,7 @@ export function AdminDashboardOverview() {
                 <select
                   value={selectedEmployeeId}
                   onChange={(event) => setSelectedEmployeeId(event.target.value)}
-                  className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-2.5 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  className="rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
                 >
                   <option value="all">All Employees</option>
                   {employeeOptions.map((employee) => (
@@ -438,7 +448,7 @@ export function AdminDashboardOverview() {
                   ))}
                 </select>
               ) : authEmployeeCode ? (
-                <div className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-ink)]">
+                <div className="rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm font-semibold text-[var(--color-ink)]">
                   {authEmployeeCode}
                 </div>
               ) : null}
@@ -452,7 +462,7 @@ export function AdminDashboardOverview() {
                     setVisibleMonth(parseDateKey(nextValue));
                   }
                 }}
-                className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-2.5 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                className="rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               />
             </div>
           </div>
@@ -463,7 +473,7 @@ export function AdminDashboardOverview() {
             <p className="mt-6 text-sm font-medium text-red-700">{error}</p>
           ) : (
             <div className="mt-6">
-              <div className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-4">
+              <div className="rounded-[1.45rem] border border-[var(--color-line)] bg-white p-3.5">
                 <div className="flex items-center justify-between gap-3">
                   <button
                     type="button"
@@ -472,7 +482,7 @@ export function AdminDashboardOverview() {
                         (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)
                       )
                     }
-                    className="rounded-xl border border-[var(--color-line)] px-3 py-1.5 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    className="rounded-xl border border-[var(--color-line)] px-2.5 py-1 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                   >
                     Prev
                   </button>
@@ -486,13 +496,13 @@ export function AdminDashboardOverview() {
                         (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)
                       )
                     }
-                    className="rounded-xl border border-[var(--color-line)] px-3 py-1.5 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    className="rounded-xl border border-[var(--color-line)] px-2.5 py-1 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                   >
                     Next
                   </button>
                 </div>
 
-                <div className="mt-4 grid grid-cols-7 gap-1.5">
+                <div className="mt-3 grid grid-cols-7 gap-1">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                     <div
                       key={day}
@@ -511,32 +521,25 @@ export function AdminDashboardOverview() {
                       <button
                         key={day.key}
                         type="button"
-                        onClick={() => {
-                          setSelectedDateKey(day.dateKey);
-                          if (count > 0) {
-                            setIsDateModalOpen(true);
-                          } else {
-                            setIsDateModalOpen(false);
-                          }
-                        }}
-                        className={`min-h-[60px] rounded-[1rem] border p-2 text-left transition ${
+                        onClick={() => openDateDetails(day.dateKey)}
+                        className={`min-h-[50px] rounded-[0.9rem] border p-1.5 text-left transition ${
                           isSelected
                             ? "border-[var(--color-dark)] bg-[rgba(8,96,108,0.09)]"
                             : "border-[var(--color-line)] bg-white hover:border-[var(--color-dark)]"
                         } ${day.inMonth ? "text-[var(--color-ink)]" : "text-[var(--color-muted)]"}`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-semibold">{day.label}</span>
+                          <span className="text-[11px] font-semibold">{day.label}</span>
                           {isToday ? (
-                            <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink)]">
+                            <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink)]">
                               Today
                             </span>
                           ) : null}
                         </div>
-                        <div className="mt-2">
+                        <div className="mt-1.5">
                           {count > 0 ? (
-                            <span className="inline-flex rounded-full bg-[rgba(190,72,26,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent-strong)]">
-                              {count} item{count === 1 ? "" : "s"}
+                            <span className="inline-flex rounded-full bg-[rgba(190,72,26,0.12)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-accent-strong)]">
+                              {count}
                             </span>
                           ) : null}
                         </div>
@@ -550,9 +553,9 @@ export function AdminDashboardOverview() {
         </article>
 
         {isAdminView ? (
-          <article className="accent-card p-6">
+          <article className="accent-card p-5">
             <p className="eyebrow">Upcoming Follow-Ups</p>
-            <h2 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+            <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
               Prioritized follow-up queue
             </h2>
 
@@ -566,15 +569,14 @@ export function AdminDashboardOverview() {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedDateKey(item.nextFollowUpDate);
-                      setVisibleMonth(parseDateKey(item.nextFollowUpDate));
-                      setIsDateModalOpen(true);
-                      if (item.ownerId) {
-                        setSelectedEmployeeId(item.ownerId);
-                      }
-                    }}
-                  className="w-full rounded-[1.2rem] border border-[var(--color-line)] bg-white p-4 text-left transition hover:border-[var(--color-dark)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
+                  onClick={() => {
+                    setVisibleMonth(parseDateKey(item.nextFollowUpDate));
+                    if (item.ownerId) {
+                      setSelectedEmployeeId(item.ownerId);
+                    }
+                    openDateDetails(item.nextFollowUpDate);
+                  }}
+                  className="w-full rounded-[1.1rem] border border-[var(--color-line)] bg-white p-3.5 text-left transition hover:border-[var(--color-dark)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -595,12 +597,12 @@ export function AdminDashboardOverview() {
         ) : null}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <article className="accent-card p-6">
+      <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+        <article className="accent-card p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="eyebrow">Recent Jobs</p>
-              <h2 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
                 Latest mandates in the system
               </h2>
             </div>
@@ -677,11 +679,11 @@ export function AdminDashboardOverview() {
           )}
         </article>
 
-        <article className="accent-card p-6">
+        <article className="accent-card p-5">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="eyebrow">{isAdminView ? "Team Snapshot" : "My Snapshot"}</p>
-              <h2 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
                 {isAdminView ? "Follow-up ownership across the team" : "Your daily CRM activity"}
               </h2>
             </div>
