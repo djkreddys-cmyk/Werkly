@@ -76,6 +76,7 @@ app.post("/auth/login", async (request, response) => {
     clientUtcOffsetMinutes,
   } = request.body ?? {};
   const loginIdentifier = String(identifier ?? email ?? "").trim();
+  const normalizedIdentifier = loginIdentifier.toLowerCase();
 
   if (!loginIdentifier || !password) {
     return response
@@ -83,7 +84,7 @@ app.post("/auth/login", async (request, response) => {
       .json({ message: "Employee code or admin email, and password are required." });
   }
 
-  const isAdminLogin = loginIdentifier.includes("@");
+  const isAdminLogin = normalizedIdentifier === String(process.env.ADMIN_EMAIL ?? "").toLowerCase();
 
   if (isAdminLogin) {
     const isValid = await validateAdmin(loginIdentifier, password);

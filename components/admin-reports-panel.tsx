@@ -24,11 +24,6 @@ export function AdminReportsPanel() {
       ? window.localStorage.getItem("werklyAuthType") ?? "admin"
       : "admin"
   );
-  const [authRole] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAuthRole") ?? "admin"
-      : "admin"
-  );
   const [authEmail] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminEmail") ?? ""
@@ -140,7 +135,7 @@ export function AdminReportsPanel() {
         };
       })
       .sort((a, b) => b.totalApplications - a.totalApplications);
-  }, [authEmployeeCode, authEmail, authRole, authType, state]);
+  }, [authEmployeeCode, authEmail, authType, state]);
 
   const visibleAttendance = useMemo(() => {
     if (authType !== "employee" && !authEmployeeCode) {

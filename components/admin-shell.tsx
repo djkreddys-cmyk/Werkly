@@ -45,6 +45,7 @@ export function AdminShell({
       : window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
   );
   const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const logoutHandlerRef = useRef<() => Promise<void>>(async () => {});
 
   const visibleMenuItems =
     authType === "admin" || authRole === "super-admin"
@@ -88,6 +89,10 @@ export function AdminShell({
   }
 
   useEffect(() => {
+    logoutHandlerRef.current = handleLogout;
+  });
+
+  useEffect(() => {
     if (!showMenu || typeof window === "undefined") {
       return;
     }
@@ -103,7 +108,7 @@ export function AdminShell({
       }
 
       logoutTimerRef.current = window.setTimeout(() => {
-        void handleLogout();
+        void logoutHandlerRef.current();
       }, INACTIVITY_TIMEOUT_MS);
     };
 
