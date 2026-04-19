@@ -281,7 +281,7 @@ export function AdminShell({
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(8,96,108,0.12),transparent_18%),radial-gradient(circle_at_top_right,rgba(241,166,75,0.16),transparent_22%),linear-gradient(180deg,#fffdf8_0%,#f4efe7_52%,#f9f5ef_100%)]">
       <div className="min-h-screen">
         <header className="border-b border-[rgba(8,96,108,0.12)] bg-[linear-gradient(180deg,rgba(11,89,100,0.96),rgba(8,63,71,0.98))] text-white shadow-[0_18px_48px_rgba(10,36,41,0.16)]">
-          <div className="mx-auto w-full max-w-7xl px-5 py-5 sm:px-8">
+          <div className="mx-auto w-full max-w-[1800px] px-5 py-5 sm:px-8">
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between xl:min-w-[420px]">
@@ -412,7 +412,7 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
+        <main className="mx-auto w-full max-w-[1800px] px-5 py-8 sm:px-8 sm:py-10">
           <section className="accent-card overflow-hidden">
             <div className="border-b border-[var(--color-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(250,246,239,0.76))] px-6 py-6 sm:px-8">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">

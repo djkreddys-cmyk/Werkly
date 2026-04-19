@@ -38,6 +38,7 @@ import {
   upsertLeaveAssignment,
 } from "./leave.js";
 import {
+  createManualJobApplication,
   createJob,
   ensureJobsSchema,
   getJobBySlug,
@@ -377,6 +378,81 @@ app.get("/admin/jobs/:id/applications", requireInternalUser, async (request, res
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load job applications.",
+    });
+  }
+});
+
+app.post("/admin/jobs/:id/applications", requireInternalUser, async (request, response) => {
+  try {
+    const {
+      candidateName,
+      candidateEmail,
+      candidatePhone,
+      experience,
+      currentCompany,
+      currentLocation,
+      currentDesignation,
+      preferredRole,
+      currentCtc,
+      expectedCtc,
+      preferredLocation,
+      preferredSector,
+      candidateMessage,
+      sourceType,
+      sourceNote,
+      initialStage,
+      stageNote,
+      stageDate,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+      jobTitle,
+    } = request.body ?? {};
+
+    if (!candidateName || (!candidateEmail && !candidatePhone)) {
+      return response.status(400).json({
+        message: "Candidate name and either email or phone are required.",
+      });
+    }
+
+    const application = await createManualJobApplication(
+      request.params.id,
+      {
+        candidateName,
+        candidateEmail,
+        candidatePhone,
+        experience,
+        currentCompany,
+        currentLocation,
+        currentDesignation,
+        preferredRole,
+        currentCtc,
+        expectedCtc,
+        preferredLocation,
+        preferredSector,
+        candidateMessage,
+        sourceType,
+        sourceNote,
+        initialStage,
+        stageNote,
+        stageDate,
+        resumeFileName,
+        resumeFileType,
+        resumeFileData,
+        jobTitle,
+      },
+      request.user?.type === "employee" ? request.user.id : null
+    );
+
+    if (!application) {
+      return response.status(404).json({ message: "Job not found." });
+    }
+
+    response.status(201).json(application);
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to add candidate to this job.",
     });
   }
 });

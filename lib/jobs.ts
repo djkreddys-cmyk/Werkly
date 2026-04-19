@@ -61,6 +61,14 @@ export type JobApplication = {
   expectedCtc?: string;
   preferredLocation?: string;
   preferredSector?: string;
+  sourceType?: string;
+  sourceNote?: string;
+  entryType?: string;
+  resumeFileName?: string;
+  resumeFileType?: string;
+  resumeFileData?: string;
+  uploadedByEmployeeId?: string;
+  uploadedByEmployeeName?: string;
   candidateMessage?: string;
   jobTitle?: string;
   appliedAt: string;
@@ -146,6 +154,31 @@ export type JobFormPayload = {
   description: string;
   responsibilities: string[];
   requirements: string[];
+};
+
+export type ManualJobApplicationPayload = {
+  candidateName: string;
+  candidateEmail?: string;
+  candidatePhone?: string;
+  experience?: string;
+  currentCompany?: string;
+  currentLocation?: string;
+  currentDesignation?: string;
+  preferredRole?: string;
+  currentCtc?: string;
+  expectedCtc?: string;
+  preferredLocation?: string;
+  preferredSector?: string;
+  candidateMessage?: string;
+  sourceType: string;
+  sourceNote?: string;
+  initialStage: JobApplicationStage;
+  stageNote?: string;
+  stageDate?: string;
+  resumeFileName?: string;
+  resumeFileType?: string;
+  resumeFileData?: string;
+  jobTitle?: string;
 };
 
 const demoJobs: JobDetail[] = [
@@ -448,6 +481,20 @@ export async function getJobApplications(id: string, token: string) {
     }
   );
   return Array.isArray(data) ? data : data.applications;
+}
+
+export async function createManualJobApplication(
+  jobId: string,
+  payload: ManualJobApplicationPayload,
+  token: string
+) {
+  return readJson<JobApplication>(`/admin/jobs/${jobId}/applications`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
 
 export async function getAdminApplications(token: string) {

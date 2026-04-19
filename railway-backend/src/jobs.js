@@ -51,7 +51,7 @@ export function mapApplicationRow(row) {
     jobLocation: row.job_location,
     sector: row.sector,
     candidateName: row.candidate_name,
-    candidateEmail: row.candidate_email,
+    candidateEmail: row.candidate_email || "",
     candidatePhone: row.candidate_phone,
     experience: row.experience,
     currentCompany: row.current_company,
@@ -62,6 +62,14 @@ export function mapApplicationRow(row) {
     expectedCtc: row.expected_ctc,
     preferredLocation: row.preferred_location,
     preferredSector: row.preferred_sector,
+    sourceType: row.source_type,
+    sourceNote: row.source_note,
+    entryType: row.entry_type,
+    resumeFileName: row.resume_file_name,
+    resumeFileType: row.resume_file_type,
+    resumeFileData: row.resume_file_data,
+    uploadedByEmployeeId: row.uploaded_by_employee_id,
+    uploadedByEmployeeName: row.uploaded_by_employee_name,
     candidateMessage: row.candidate_message,
     jobTitle: row.job_title,
     appliedAt: row.applied_at,
@@ -274,6 +282,18 @@ export async function ensureJobsSchema() {
   await query(`alter table job_applications add column if not exists preferred_sector text`);
   await query(`alter table job_applications add column if not exists candidate_message text`);
   await query(`alter table job_applications add column if not exists job_title text`);
+  await query(`alter table job_applications add column if not exists source_type text`);
+  await query(`alter table job_applications add column if not exists source_note text`);
+  await query(
+    `alter table job_applications add column if not exists entry_type text not null default 'website_apply'`
+  );
+  await query(`alter table job_applications add column if not exists resume_file_name text`);
+  await query(`alter table job_applications add column if not exists resume_file_type text`);
+  await query(`alter table job_applications add column if not exists resume_file_data text`);
+  await query(
+    `alter table job_applications add column if not exists uploaded_by_employee_id uuid references employees(id) on delete set null`
+  );
+  await query(`alter table job_applications alter column candidate_email drop not null`);
   await query(`
     create table if not exists job_application_stage_history (
       id uuid primary key default gen_random_uuid(),
@@ -475,9 +495,12 @@ export async function recordJobApplication(slug, payload) {
         expected_ctc,
         preferred_location,
         preferred_sector,
+        source_type,
+        source_note,
+        entry_type,
         candidate_message,
         job_title
-      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)` ,
       [
         jobId,
         "applied",
@@ -494,6 +517,9 @@ export async function recordJobApplication(slug, payload) {
         payload.expectedCtc || null,
         payload.preferredLocation || null,
         payload.preferredSector || null,
+        "Website",
+        payload.sourceNote || null,
+        "website_apply",
         payload.candidateMessage || null,
         payload.jobTitle || null,
       ]
@@ -510,6 +536,175 @@ export async function recordJobApplication(slug, payload) {
 
     await client.query("commit");
     return result.rows[0] ? mapRow(result.rows[0]) : null;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createManualJobApplication(jobId, payload, employeeId = null) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const values = [jobId];
+    const employeeScopeClause = employeeId
+      ? `and coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+      : "";
+
+    if (employeeId) {
+      values.push(employeeId);
+    }
+
+    const jobResult = await client.query(
+      `select
+         jobs.id,
+         jobs.title,
+         jobs.job_code,
+         jobs.client_id,
+         jobs.assigned_employee_id
+       from jobs
+       left join clients on clients.id = jobs.client_id
+       where jobs.id = $1
+         ${employeeScopeClause}
+       limit 1`,
+      values
+    );
+
+    const job = jobResult.rows[0];
+    if (!job) {
+      await client.query("rollback");
+      return null;
+    }
+
+    const stage = payload.initialStage || "applied";
+    const stageNote =
+      payload.stageNote ||
+      (stage === "shortlisted"
+        ? "Candidate added manually from outside source and marked shortlisted."
+        : "Candidate added manually from outside source.");
+    const stageDate = payload.stageDate || new Date().toISOString().slice(0, 10);
+
+    const insertResult = await client.query(
+      `insert into job_applications (
+        job_id,
+        stage,
+        stage_note,
+        stage_date,
+        stage_updated_at,
+        candidate_name,
+        candidate_email,
+        candidate_phone,
+        experience,
+        current_company,
+        current_location,
+        current_designation,
+        preferred_role,
+        current_ctc,
+        expected_ctc,
+        preferred_location,
+        preferred_sector,
+        source_type,
+        source_note,
+        entry_type,
+        resume_file_name,
+        resume_file_type,
+        resume_file_data,
+        uploaded_by_employee_id,
+        candidate_message,
+        job_title
+      ) values (
+        $1, $2, $3, $4::date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+        $17, $18, 'manual_entry', $19, $20, $21, $22, $23, $24
+      )
+      returning
+        id,
+        job_id,
+        stage,
+        stage_note,
+        stage_date,
+        stage_updated_at,
+        null::text as job_code,
+        null::text as client_name,
+        null::text as recruiter_name,
+        null::text as recruiter_email,
+        null::text as job_location,
+        null::text as sector,
+        candidate_name,
+        candidate_email,
+        candidate_phone,
+        experience,
+        current_company,
+        current_location,
+        current_designation,
+        preferred_role,
+        current_ctc,
+        expected_ctc,
+        preferred_location,
+        preferred_sector,
+        source_type,
+        source_note,
+        entry_type,
+        resume_file_name,
+        resume_file_type,
+        resume_file_data,
+        uploaded_by_employee_id,
+        null::text as uploaded_by_employee_name,
+        candidate_message,
+        job_title,
+        applied_at`,
+      [
+        jobId,
+        stage,
+        stageNote,
+        stageDate,
+        payload.candidateName,
+        payload.candidateEmail || null,
+        payload.candidatePhone || null,
+        payload.experience || null,
+        payload.currentCompany || null,
+        payload.currentLocation || null,
+        payload.currentDesignation || null,
+        payload.preferredRole || null,
+        payload.currentCtc || null,
+        payload.expectedCtc || null,
+        payload.preferredLocation || null,
+        payload.preferredSector || null,
+        payload.sourceType || "Other",
+        payload.sourceNote || null,
+        payload.resumeFileName || null,
+        payload.resumeFileType || null,
+        payload.resumeFileData || null,
+        employeeId || null,
+        payload.candidateMessage || null,
+        payload.jobTitle || job.title || null,
+      ]
+    );
+
+    await client.query(
+      `insert into job_application_stage_history (
+        application_id,
+        from_stage,
+        to_stage,
+        stage_note,
+        stage_date
+      ) values ($1, $2, $3, $4, $5::date)`,
+      [insertResult.rows[0].id, null, stage, stageNote, stageDate]
+    );
+
+    await client.query(
+      `update jobs
+       set applications_count = coalesce(applications_count, 0) + 1,
+           updated_at = now()
+       where id = $1`,
+      [jobId]
+    );
+
+    await client.query("commit");
+    return insertResult.rows[0] ? mapApplicationRow(insertResult.rows[0]) : null;
   } catch (error) {
     await client.query("rollback");
     throw error;
@@ -554,12 +749,21 @@ export async function listJobApplications(jobId, employeeId = null) {
       job_applications.expected_ctc,
       job_applications.preferred_location,
       job_applications.preferred_sector,
+      job_applications.source_type,
+      job_applications.source_note,
+      job_applications.entry_type,
+      job_applications.resume_file_name,
+      job_applications.resume_file_type,
+      job_applications.resume_file_data,
+      job_applications.uploaded_by_employee_id,
+      uploader.full_name as uploaded_by_employee_name,
       job_applications.candidate_message,
       job_applications.job_title,
       job_applications.applied_at
      from job_applications
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
+     left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
      where job_id = $1
        ${employeeScopeClause}
      order by applied_at desc`,
@@ -604,6 +808,14 @@ export async function listAdminApplications(employeeId = null) {
       job_applications.expected_ctc,
       job_applications.preferred_location,
       job_applications.preferred_sector,
+      job_applications.source_type,
+      job_applications.source_note,
+      job_applications.entry_type,
+      job_applications.resume_file_name,
+      job_applications.resume_file_type,
+      job_applications.resume_file_data,
+      job_applications.uploaded_by_employee_id,
+      uploader.full_name as uploaded_by_employee_name,
       job_applications.candidate_message,
       coalesce(job_applications.job_title, jobs.title) as job_title,
       job_applications.applied_at
@@ -611,6 +823,7 @@ export async function listAdminApplications(employeeId = null) {
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
      left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
+     left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
      ${employeeScopeClause}
      order by job_applications.applied_at desc`,
     values
@@ -729,6 +942,14 @@ export async function updateJobApplicationStage(
          expected_ctc,
          preferred_location,
          preferred_sector,
+         source_type,
+         source_note,
+         entry_type,
+         resume_file_name,
+         resume_file_type,
+         resume_file_data,
+         uploaded_by_employee_id,
+         null::text as uploaded_by_employee_name,
          candidate_message,
          job_title,
          applied_at`,

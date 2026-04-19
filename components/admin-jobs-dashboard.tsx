@@ -5,6 +5,7 @@ import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type {
   JobApplication,
   JobApplicationStage,
+  ManualJobApplicationPayload,
   JobSummary,
   JobStatus,
 } from "@/lib/jobs";
@@ -26,6 +27,30 @@ type JobEditorState = {
   lastDateToApply: string;
   responsibilities: string;
   requirements: string;
+};
+
+type ManualCandidateState = {
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone: string;
+  experience: string;
+  currentCompany: string;
+  currentLocation: string;
+  currentDesignation: string;
+  preferredRole: string;
+  currentCtc: string;
+  expectedCtc: string;
+  preferredLocation: string;
+  preferredSector: string;
+  candidateMessage: string;
+  sourceType: string;
+  sourceNote: string;
+  initialStage: JobApplicationStage;
+  stageNote: string;
+  stageDate: string;
+  resumeFileName: string;
+  resumeFileType: string;
+  resumeFileData: string;
 };
 
 const emptyForm: JobEditorState = {
@@ -57,6 +82,41 @@ const applicationStages: JobApplicationStage[] = [
   "rejected",
 ];
 
+const manualSourceOptions = [
+  "Referral",
+  "Vendor",
+  "WhatsApp",
+  "Naukri",
+  "LinkedIn",
+  "Internal Database",
+  "Walk-in",
+  "Other",
+];
+
+const emptyManualCandidateForm: ManualCandidateState = {
+  candidateName: "",
+  candidateEmail: "",
+  candidatePhone: "",
+  experience: "",
+  currentCompany: "",
+  currentLocation: "",
+  currentDesignation: "",
+  preferredRole: "",
+  currentCtc: "",
+  expectedCtc: "",
+  preferredLocation: "",
+  preferredSector: "",
+  candidateMessage: "",
+  sourceType: "Referral",
+  sourceNote: "",
+  initialStage: "applied",
+  stageNote: "",
+  stageDate: new Date().toISOString().slice(0, 10),
+  resumeFileName: "",
+  resumeFileType: "",
+  resumeFileData: "",
+};
+
 export function AdminJobsDashboard() {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [token, setToken] = useState("");
@@ -80,6 +140,11 @@ export function AdminJobsDashboard() {
     note: string;
     date: string;
   } | null>(null);
+  const [manualCandidateJob, setManualCandidateJob] = useState<JobSummary | null>(null);
+  const [manualCandidateForm, setManualCandidateForm] = useState<ManualCandidateState>(
+    emptyManualCandidateForm
+  );
+  const [isSavingCandidate, setIsSavingCandidate] = useState(false);
 
   const isEditing = Boolean(form.id);
 
@@ -187,6 +252,13 @@ export function AdminJobsDashboard() {
 
   function updateForm(field: keyof JobEditorState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateManualCandidateField(
+    field: keyof ManualCandidateState,
+    value: string | JobApplicationStage
+  ) {
+    setManualCandidateForm((current) => ({ ...current, [field]: value }));
   }
 
   function renderJobFields() {
@@ -497,6 +569,143 @@ export function AdminJobsDashboard() {
     setError("");
   }
 
+  function openManualCandidateModal(job: JobSummary) {
+    setManualCandidateJob(job);
+    setManualCandidateForm({
+      ...emptyManualCandidateForm,
+      initialStage: "applied",
+      stageDate: new Date().toISOString().slice(0, 10),
+    });
+    setError("");
+    setMessage("");
+  }
+
+  function closeManualCandidateModal() {
+    setManualCandidateJob(null);
+    setManualCandidateForm(emptyManualCandidateForm);
+  }
+
+  async function handleResumeUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setManualCandidateForm((current) => ({
+        ...current,
+        resumeFileName: "",
+        resumeFileType: "",
+        resumeFileData: "",
+      }));
+      return;
+    }
+
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("Resume must be uploaded as PDF, DOC, or DOCX.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 4 * 1024 * 1024) {
+      setError("Resume file must be 4 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    setError("");
+
+    const fileData = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Unable to read the resume file."));
+      reader.readAsDataURL(file);
+    });
+
+    setManualCandidateForm((current) => ({
+      ...current,
+      resumeFileName: file.name,
+      resumeFileType: file.type,
+      resumeFileData: fileData,
+    }));
+  }
+
+  async function handleManualCandidateSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!token || !manualCandidateJob) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    if (
+      !manualCandidateForm.candidateName.trim() ||
+      (!manualCandidateForm.candidateEmail.trim() && !manualCandidateForm.candidatePhone.trim())
+    ) {
+      setError("Candidate name and either email or phone are required.");
+      return;
+    }
+
+    setIsSavingCandidate(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const payload: ManualJobApplicationPayload = {
+        candidateName: manualCandidateForm.candidateName.trim(),
+        candidateEmail: manualCandidateForm.candidateEmail.trim() || undefined,
+        candidatePhone: manualCandidateForm.candidatePhone.trim() || undefined,
+        experience: manualCandidateForm.experience.trim() || undefined,
+        currentCompany: manualCandidateForm.currentCompany.trim() || undefined,
+        currentLocation: manualCandidateForm.currentLocation.trim() || undefined,
+        currentDesignation: manualCandidateForm.currentDesignation.trim() || undefined,
+        preferredRole: manualCandidateForm.preferredRole.trim() || undefined,
+        currentCtc: manualCandidateForm.currentCtc.trim() || undefined,
+        expectedCtc: manualCandidateForm.expectedCtc.trim() || undefined,
+        preferredLocation: manualCandidateForm.preferredLocation.trim() || undefined,
+        preferredSector: manualCandidateForm.preferredSector.trim() || undefined,
+        candidateMessage: manualCandidateForm.candidateMessage.trim() || undefined,
+        sourceType: manualCandidateForm.sourceType,
+        sourceNote: manualCandidateForm.sourceNote.trim() || undefined,
+        initialStage: manualCandidateForm.initialStage,
+        stageNote: manualCandidateForm.stageNote.trim() || undefined,
+        stageDate: manualCandidateForm.stageDate,
+        resumeFileName: manualCandidateForm.resumeFileName || undefined,
+        resumeFileType: manualCandidateForm.resumeFileType || undefined,
+        resumeFileData: manualCandidateForm.resumeFileData || undefined,
+        jobTitle: manualCandidateJob.title,
+      };
+
+      const response = await fetch(`/api/admin/jobs/${manualCandidateJob.id}/applications`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to add candidate.");
+      }
+
+      await refreshJobs();
+      if (applicationsJob?.id === manualCandidateJob.id) {
+        await openApplications(manualCandidateJob);
+      }
+      setMessage("Candidate added successfully against this job.");
+      closeManualCandidateModal();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to add candidate.");
+    } finally {
+      setIsSavingCandidate(false);
+    }
+  }
+
   function escapeCsv(value: string | undefined) {
     const normalized = value ?? "";
     return `"${normalized.replaceAll('"', '""')}"`;
@@ -773,6 +982,13 @@ export function AdminJobsDashboard() {
                           </button>
                           <button
                             type="button"
+                            onClick={() => openManualCandidateModal(job)}
+                            className="rounded-xl border border-[rgba(8,96,108,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                          >
+                            Add Candidate
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleVisibilityToggle(job)}
                             className="rounded-xl border border-[rgba(190,72,26,0.2)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
                           >
@@ -855,7 +1071,7 @@ export function AdminJobsDashboard() {
 
       {applicationsJob ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+          <div className="w-full max-w-6xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="eyebrow">Applied Candidates</p>
@@ -883,13 +1099,22 @@ export function AdminJobsDashboard() {
               ) : (
                 <div>
                   <div className="mb-4 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={downloadApplicationsCsv}
-                      className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                    >
-                      Download Excel
-                    </button>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => openManualCandidateModal(applicationsJob)}
+                        className="rounded-xl border border-[rgba(8,96,108,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                      >
+                        Add Candidate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={downloadApplicationsCsv}
+                        className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                      >
+                        Download Excel
+                      </button>
+                    </div>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-[var(--color-line)]">
                   <table className="w-full border-collapse bg-[rgba(255,252,247,0.7)]">
@@ -900,6 +1125,9 @@ export function AdminJobsDashboard() {
                         </th>
                         <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                           Mail ID
+                        </th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Source
                         </th>
                         <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                           Stage
@@ -926,12 +1154,43 @@ export function AdminJobsDashboard() {
                             {application.candidateName}
                           </td>
                           <td className="px-4 py-4 text-sm">
-                            <a
-                              href={`mailto:${application.candidateEmail}`}
-                              className="font-medium text-[var(--color-accent-strong)]"
-                            >
-                              {application.candidateEmail}
-                            </a>
+                            {application.candidateEmail ? (
+                              <a
+                                href={`mailto:${application.candidateEmail}`}
+                                className="font-medium text-[var(--color-accent-strong)]"
+                              >
+                                {application.candidateEmail}
+                              </a>
+                            ) : (
+                              <span className="text-[var(--color-muted)]">No email</span>
+                            )}
+                            {application.candidatePhone ? (
+                              <p className="mt-1 text-[var(--color-muted)]">
+                                {application.candidatePhone}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                            <p>{application.sourceType || "Website"}</p>
+                            {application.entryType ? (
+                              <p className="mt-1 text-xs uppercase tracking-[0.16em]">
+                                {application.entryType.replaceAll("_", " ")}
+                              </p>
+                            ) : null}
+                            {application.uploadedByEmployeeName ? (
+                              <p className="mt-1 text-xs">
+                                Added by {application.uploadedByEmployeeName}
+                              </p>
+                            ) : null}
+                            {application.resumeFileData && application.resumeFileName ? (
+                              <a
+                                href={application.resumeFileData}
+                                download={application.resumeFileName}
+                                className="mt-1 block font-medium text-[var(--color-accent-strong)]"
+                              >
+                                Resume
+                              </a>
+                            ) : null}
                           </td>
                           <td className="px-4 py-4 text-sm">
                             <select
@@ -978,6 +1237,231 @@ export function AdminJobsDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {manualCandidateJob ? (
+        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-6xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Manual Candidate Entry</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  Add candidate against {manualCandidateJob.title}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Track shortlisted resumes from referral, vendor, WhatsApp, Naukri, LinkedIn, or any outside source directly in the CRM.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeManualCandidateModal}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="mt-6" onSubmit={handleManualCandidateSubmit}>
+              <div className="grid gap-4 md:grid-cols-3">
+                <input
+                  className={fieldClassName}
+                  placeholder="Candidate name"
+                  value={manualCandidateForm.candidateName}
+                  onChange={(event) =>
+                    updateManualCandidateField("candidateName", event.target.value)
+                  }
+                  required
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Email"
+                  value={manualCandidateForm.candidateEmail}
+                  onChange={(event) =>
+                    updateManualCandidateField("candidateEmail", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Phone"
+                  value={manualCandidateForm.candidatePhone}
+                  onChange={(event) =>
+                    updateManualCandidateField("candidatePhone", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Experience"
+                  value={manualCandidateForm.experience}
+                  onChange={(event) =>
+                    updateManualCandidateField("experience", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Current company"
+                  value={manualCandidateForm.currentCompany}
+                  onChange={(event) =>
+                    updateManualCandidateField("currentCompany", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Current location"
+                  value={manualCandidateForm.currentLocation}
+                  onChange={(event) =>
+                    updateManualCandidateField("currentLocation", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Current designation"
+                  value={manualCandidateForm.currentDesignation}
+                  onChange={(event) =>
+                    updateManualCandidateField("currentDesignation", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Preferred role"
+                  value={manualCandidateForm.preferredRole}
+                  onChange={(event) =>
+                    updateManualCandidateField("preferredRole", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Preferred location"
+                  value={manualCandidateForm.preferredLocation}
+                  onChange={(event) =>
+                    updateManualCandidateField("preferredLocation", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Current CTC"
+                  value={manualCandidateForm.currentCtc}
+                  onChange={(event) =>
+                    updateManualCandidateField("currentCtc", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Expected CTC"
+                  value={manualCandidateForm.expectedCtc}
+                  onChange={(event) =>
+                    updateManualCandidateField("expectedCtc", event.target.value)
+                  }
+                />
+                <input
+                  className={fieldClassName}
+                  placeholder="Preferred sector"
+                  value={manualCandidateForm.preferredSector}
+                  onChange={(event) =>
+                    updateManualCandidateField("preferredSector", event.target.value)
+                  }
+                />
+                <select
+                  className={fieldClassName}
+                  value={manualCandidateForm.sourceType}
+                  onChange={(event) =>
+                    updateManualCandidateField("sourceType", event.target.value)
+                  }
+                >
+                  {manualSourceOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className={fieldClassName}
+                  value={manualCandidateForm.initialStage}
+                  onChange={(event) =>
+                    updateManualCandidateField(
+                      "initialStage",
+                      event.target.value as JobApplicationStage
+                    )
+                  }
+                >
+                  {applicationStages.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className={fieldClassName}
+                  type="date"
+                  value={manualCandidateForm.stageDate}
+                  onChange={(event) =>
+                    updateManualCandidateField("stageDate", event.target.value)
+                  }
+                />
+                <textarea
+                  className={`${fieldClassName} min-h-[120px] resize-y md:col-span-3`}
+                  placeholder="Source note: vendor name, referral context, shortlist source, or resume background"
+                  value={manualCandidateForm.sourceNote}
+                  onChange={(event) =>
+                    updateManualCandidateField("sourceNote", event.target.value)
+                  }
+                />
+                <textarea
+                  className={`${fieldClassName} min-h-[120px] resize-y md:col-span-2`}
+                  placeholder="Candidate note / profile summary"
+                  value={manualCandidateForm.candidateMessage}
+                  onChange={(event) =>
+                    updateManualCandidateField("candidateMessage", event.target.value)
+                  }
+                />
+                <textarea
+                  className={`${fieldClassName} min-h-[120px] resize-y`}
+                  placeholder="Initial stage remarks"
+                  value={manualCandidateForm.stageNote}
+                  onChange={(event) =>
+                    updateManualCandidateField("stageNote", event.target.value)
+                  }
+                />
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">
+                <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Resume Upload
+                </label>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]">
+                    Upload Resume
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      className="sr-only"
+                      onChange={handleResumeUpload}
+                    />
+                  </label>
+                  <span className="text-sm text-[var(--color-muted)]">
+                    {manualCandidateForm.resumeFileName || "No file chosen"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  disabled={isSavingCandidate}
+                  className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSavingCandidate ? "Saving..." : "Add Candidate"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeManualCandidateModal}
+                  className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}
