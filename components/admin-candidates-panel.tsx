@@ -59,7 +59,6 @@ export function AdminCandidatesPanel() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
-  const [isUpdatingId, setIsUpdatingId] = useState("");
   const [actionMenuApplicationId, setActionMenuApplicationId] = useState("");
   const [stageDraft, setStageDraft] = useState<{
     application: JobApplication;
@@ -158,7 +157,6 @@ export function AdminCandidatesPanel() {
       return;
     }
 
-    setIsUpdatingId(id);
     setError("");
 
     try {
@@ -196,7 +194,7 @@ export function AdminCandidatesPanel() {
           : "Unable to update candidate stage."
       );
     } finally {
-      setIsUpdatingId("");
+      // No row-level loading indicator needed here because updates happen via modal.
     }
   }
 
@@ -454,25 +452,11 @@ export function AdminCandidatesPanel() {
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm">
-                        <div className="min-w-[180px]">
-                          <select
-                            value={application.stage ?? "applied"}
-                            disabled={isUpdatingId === application.id}
-                            onChange={(event) =>
-                              openStageEditor(
-                                application,
-                                event.target.value as JobApplicationStage
-                              )
-                            }
-                            className="w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-                          >
-                            {stageOptions.map((stage) => (
-                              <option key={stage} value={stage}>
-                                {labelizeStage(stage)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        <span className="inline-flex rounded-full border border-[rgba(8,96,108,0.14)] bg-[rgba(8,96,108,0.05)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-dark)]">
+                          {labelizeStage(
+                            (application.stage ?? "applied") as JobApplicationStage
+                          )}
+                        </span>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {new Date(application.appliedAt).toLocaleString("en-IN", {
@@ -569,11 +553,26 @@ export function AdminCandidatesPanel() {
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                   Stage
                 </span>
-                <input
-                  value={labelizeStage(stageDraft.stage)}
-                  readOnly
-                  className="w-full rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
-                />
+                <select
+                  value={stageDraft.stage}
+                  onChange={(event) =>
+                    setStageDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            stage: event.target.value as JobApplicationStage,
+                          }
+                        : current
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  {stageOptions.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {labelizeStage(stage)}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
