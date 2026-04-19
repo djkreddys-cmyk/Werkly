@@ -5,8 +5,10 @@ import { randomUUID } from "crypto";
 import {
   ensureAuthAuditSchema,
   listAttendanceSessions,
+  listScreenActivity,
   recordLoginSession,
   recordLogoutSession,
+  recordScreenActivity,
 } from "./audit.js";
 import {
   createAdminToken,
@@ -194,6 +196,55 @@ app.get("/admin/attendance", requireInternalUser, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load attendance.",
+    });
+  }
+});
+
+app.get("/admin/activity", requireInternalUser, async (request, response) => {
+  try {
+    const activity = await listScreenActivity(
+      request.user?.type === "employee" ? request.user.id : null
+    );
+    response.json({ activity });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load screen activity.",
+    });
+  }
+});
+
+app.post("/admin/activity", requireInternalUser, async (request, response) => {
+  try {
+    const { routePath, routeLabel, activeSeconds, idleSeconds, clientTime } =
+      request.body ?? {};
+
+    if (!routePath || typeof routePath !== "string") {
+      return response.status(400).json({ message: "Route path is required." });
+    }
+
+    if (!request.user?.sessionId) {
+      return response.status(400).json({ message: "Session id is missing." });
+    }
+
+    await recordScreenActivity({
+      sessionId: request.user.sessionId,
+      userType: request.user.type,
+      userId: request.user.id,
+      userIdentifier:
+        request.user.employeeCode || request.user.email || request.user.name || "internal-user",
+      userName: request.user.name,
+      userRole: request.user.role,
+      routePath,
+      routeLabel,
+      activeSeconds,
+      idleSeconds,
+      clientTime,
+    });
+
+    response.json({ success: true });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to record screen activity.",
     });
   }
 });

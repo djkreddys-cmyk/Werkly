@@ -8,6 +8,7 @@ import type {
   EmployeeStatus,
 } from "@/lib/crm";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
+import type { ScreenActivityRecord } from "@/lib/activity";
 
 type EmployeeFormState = {
   id?: string;
@@ -104,6 +105,7 @@ function useAdminCrmData() {
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [attendance, setAttendance] = useState<AttendanceSessionRecord[]>([]);
+  const [activity, setActivity] = useState<ScreenActivityRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -112,14 +114,16 @@ function useAdminCrmData() {
     employees: EmployeeRecord[];
     clients: ClientRecord[];
     attendance: AttendanceSessionRecord[];
+    activity: ScreenActivityRecord[];
   }) {
     setEmployees(data.employees);
     setClients(data.clients);
     setAttendance(data.attendance);
+    setActivity(data.activity);
   }
 
   async function loadCrm(activeToken: string) {
-    const [employeesResponse, clientsResponse, attendanceResponse] = await Promise.all([
+    const [employeesResponse, clientsResponse, attendanceResponse, activityResponse] = await Promise.all([
       fetch("/api/admin/employees", {
         headers: { Authorization: `Bearer ${activeToken}` },
       }),
@@ -127,6 +131,9 @@ function useAdminCrmData() {
         headers: { Authorization: `Bearer ${activeToken}` },
       }),
       fetch("/api/admin/attendance", {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      }),
+      fetch("/api/admin/activity", {
         headers: { Authorization: `Bearer ${activeToken}` },
       }),
     ]);
@@ -143,6 +150,10 @@ function useAdminCrmData() {
       attendance?: AttendanceSessionRecord[];
       message?: string;
     };
+    const activityResult = (await activityResponse.json()) as {
+      activity?: ScreenActivityRecord[];
+      message?: string;
+    };
 
     if (!employeesResponse.ok) {
       throw new Error(employeesResult.message || "Unable to load employees.");
@@ -156,10 +167,15 @@ function useAdminCrmData() {
       throw new Error(attendanceResult.message || "Unable to load attendance.");
     }
 
+    if (!activityResponse.ok) {
+      throw new Error(activityResult.message || "Unable to load screen activity.");
+    }
+
     return {
       employees: employeesResult.employees ?? [],
       clients: clientsResult.clients ?? [],
       attendance: attendanceResult.attendance ?? [],
+      activity: activityResult.activity ?? [],
     };
   }
 
@@ -187,6 +203,7 @@ function useAdminCrmData() {
     employees,
     clients,
     attendance,
+    activity,
     isLoading,
     message,
     error,
@@ -229,6 +246,7 @@ function CrmFeedback({ message, error }: { message: string; error: string }) {
 function CrmEmployeesList({
   employees,
   attendance,
+  activity,
   onEdit,
   canEdit,
   onResetPassword,
@@ -237,6 +255,7 @@ function CrmEmployeesList({
 }: {
   employees: EmployeeRecord[];
   attendance: AttendanceSessionRecord[];
+  activity: ScreenActivityRecord[];
   onEdit: (employee: EmployeeRecord) => void;
   canEdit: boolean;
   onResetPassword: (employee: EmployeeRecord) => void;
@@ -280,6 +299,40 @@ function CrmEmployeesList({
     return summary;
   }, [attendance, todayKey]);
 
+  const activityByEmployee = useMemo(() => {
+    const summary = new Map<
+      string,
+      { activeSeconds: number; idleSeconds: number; lastSeenAt?: string }
+    >();
+
+    activity
+      .filter(
+        (entry) =>
+          entry.lastSeenAt.slice(0, 10) === todayKey || entry.firstSeenAt.slice(0, 10) === todayKey
+      )
+      .forEach((entry) => {
+        const key = entry.userId || entry.userIdentifier;
+        const existing = summary.get(key) ?? {
+          activeSeconds: 0,
+          idleSeconds: 0,
+        };
+
+        existing.activeSeconds += entry.activeSeconds;
+        existing.idleSeconds += entry.idleSeconds;
+
+        if (
+          !existing.lastSeenAt ||
+          new Date(entry.lastSeenAt).getTime() > new Date(existing.lastSeenAt).getTime()
+        ) {
+          existing.lastSeenAt = entry.lastSeenAt;
+        }
+
+        summary.set(key, existing);
+      });
+
+    return summary;
+  }, [activity, todayKey]);
+
   return (
     <section className="accent-card p-6">
       <div className="flex items-center justify-between gap-4">
@@ -307,7 +360,9 @@ function CrmEmployeesList({
                     "Code",
                     "Email",
                     "Phone",
-                    "Today Spent Time",
+                    "Screen Time",
+                    "Idle Time",
+                    "Last Seen",
                     "First Login",
                     "Last Logout",
                     "Status",
@@ -328,6 +383,10 @@ function CrmEmployeesList({
                     attendanceByEmployee.get(employee.id) ??
                     attendanceByEmployee.get(employee.employeeCode || "") ??
                     attendanceByEmployee.get(employee.email);
+                  const activitySummary =
+                    activityByEmployee.get(employee.id) ??
+                    activityByEmployee.get(employee.employeeCode || "") ??
+                    activityByEmployee.get(employee.email);
 
                   return (
                     <tr
@@ -358,10 +417,22 @@ function CrmEmployeesList({
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <span className="font-semibold text-[var(--color-ink)]">
-                          {attendanceSummary
-                            ? formatWorkedDuration(attendanceSummary.totalWorkedMs)
+                          {activitySummary
+                            ? formatWorkedDuration(activitySummary.activeSeconds * 1000)
                             : "0h 0m"}
                         </span>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <span className="font-semibold text-[var(--color-ink)]">
+                          {activitySummary
+                            ? formatWorkedDuration(activitySummary.idleSeconds * 1000)
+                            : "0h 0m"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {activitySummary?.lastSeenAt
+                          ? formatAttendanceDateTime(activitySummary.lastSeenAt)
+                          : "Not captured"}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {attendanceSummary?.firstLoginAt
@@ -535,6 +606,7 @@ export function AdminEmployeesPanel({
     token,
     employees,
     attendance,
+    activity,
     isLoading,
     message,
     error,
@@ -946,6 +1018,7 @@ export function AdminEmployeesPanel({
           <CrmEmployeesList
             employees={employees}
             attendance={attendance}
+            activity={activity}
             onEdit={loadEmployeeForEdit}
             canEdit={canManageEmployees}
             onResetPassword={loadEmployeeForPasswordReset}

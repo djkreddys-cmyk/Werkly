@@ -59,6 +59,8 @@ const moduleSections = [
 ];
 
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
+const SCREEN_IDLE_THRESHOLD_MS = 60 * 1000;
+const SCREEN_HEARTBEAT_MS = 15 * 1000;
 
 function ChevronDownIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -195,6 +197,10 @@ export function AdminShell({
   );
   const logoutTimerRef = useRef<number | null>(null);
   const logoutHandlerRef = useRef<() => Promise<void>>(async () => {});
+  const lastScreenActivityRef = useRef<number>(Date.now());
+  const lastScreenTickRef = useRef<number>(Date.now());
+  const pendingActiveMsRef = useRef(0);
+  const pendingIdleMsRef = useRef(0);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
   const displayIdentifier = authEmployeeCode || authIdentifier;
@@ -271,6 +277,124 @@ export function AdminShell({
   useEffect(() => {
     logoutHandlerRef.current = handleLogout;
   });
+
+  useEffect(() => {
+    if (!showMenu || typeof window === "undefined" || !isHydrated) {
+      return;
+    }
+
+    const token = window.localStorage.getItem("werklyAdminToken") ?? "";
+    if (!token) {
+      return;
+    }
+
+    lastScreenActivityRef.current = Date.now();
+    lastScreenTickRef.current = Date.now();
+    pendingActiveMsRef.current = 0;
+    pendingIdleMsRef.current = 0;
+
+    const flushScreenActivity = async () => {
+      const activeSeconds = Math.floor(pendingActiveMsRef.current / 1000);
+      const idleSeconds = Math.floor(pendingIdleMsRef.current / 1000);
+
+      if (activeSeconds <= 0 && idleSeconds <= 0) {
+        return;
+      }
+
+      pendingActiveMsRef.current = 0;
+      pendingIdleMsRef.current = 0;
+
+      try {
+        await fetch("/api/admin/activity", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            routePath: pathname,
+            routeLabel: title,
+            activeSeconds,
+            idleSeconds,
+            clientTime: new Date().toISOString(),
+          }),
+          keepalive: true,
+        });
+      } catch {
+        // Ignore activity tracking failures so they do not interrupt CRM usage.
+      }
+    };
+
+    const markInteraction = () => {
+      lastScreenActivityRef.current = Date.now();
+    };
+
+    const captureElapsed = () => {
+      if (document.visibilityState === "hidden") {
+        lastScreenTickRef.current = Date.now();
+        return;
+      }
+
+      const now = Date.now();
+      const elapsed = now - lastScreenTickRef.current;
+      lastScreenTickRef.current = now;
+
+      if (elapsed <= 0) {
+        return;
+      }
+
+      const isIdle = now - lastScreenActivityRef.current > SCREEN_IDLE_THRESHOLD_MS;
+      if (isIdle) {
+        pendingIdleMsRef.current += elapsed;
+      } else {
+        pendingActiveMsRef.current += elapsed;
+      }
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      "mousemove",
+      "keydown",
+      "click",
+      "scroll",
+      "touchstart",
+    ];
+
+    const intervalId = window.setInterval(() => {
+      captureElapsed();
+      void flushScreenActivity();
+    }, SCREEN_HEARTBEAT_MS);
+
+    const handleVisibilityChange = () => {
+      captureElapsed();
+      if (document.visibilityState === "hidden") {
+        void flushScreenActivity();
+      } else {
+        lastScreenActivityRef.current = Date.now();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      captureElapsed();
+      void flushScreenActivity();
+    };
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, markInteraction, { passive: true });
+    });
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      captureElapsed();
+      window.clearInterval(intervalId);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, markInteraction);
+      });
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      void flushScreenActivity();
+    };
+  }, [isHydrated, pathname, showMenu, title]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -557,9 +681,6 @@ export function AdminShell({
                         <div className="mt-3 flex flex-wrap gap-2">
                           <span className="rounded-full border border-[rgba(241,166,75,0.42)] bg-[rgba(241,166,75,0.16)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
                             {displayRole}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-white/7 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/74">
-                            Auto logout 10 min
                           </span>
                         </div>
                       </div>
