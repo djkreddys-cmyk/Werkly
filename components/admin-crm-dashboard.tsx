@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ClientFollowUpStatus,
@@ -759,8 +760,33 @@ function CrmEmployeesList({
   );
 }
 
-function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
+function CrmClientsList({
+  clients,
+  canTransfer,
+  onTransfer,
+}: {
+  clients: ClientRecord[];
+  canTransfer: boolean;
+  onTransfer: (client: ClientRecord) => void;
+}) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
+  const [actionMenuClientId, setActionMenuClientId] = useState("");
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+        setActionMenuClientId("");
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   return (
     <>
@@ -785,7 +811,7 @@ function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                    {["Client", "Contact", "Owner", "Onboarding", "Follow-Up", "Jobs", "Status", "Agreement"].map((heading) => (
+                    {["Client", "Contact", "Owner", "Onboarding", "Follow-Up", "Jobs", "Status", "Agreement", "Actions"].map((heading) => (
                       <th
                         key={heading}
                         className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
@@ -865,6 +891,45 @@ function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
                           </a>
                         ) : (
                           "Not uploaded"
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {canTransfer ? (
+                          <div
+                            className="relative inline-flex"
+                            ref={actionMenuClientId === client.id ? actionsMenuRef : null}
+                          >
+                            <button
+                              type="button"
+                              aria-label={`Open actions for ${client.companyName}`}
+                              aria-expanded={actionMenuClientId === client.id}
+                              onClick={() =>
+                                setActionMenuClientId((current) =>
+                                  current === client.id ? "" : client.id
+                                )
+                              }
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
+                            >
+                              <MoreVerticalIcon />
+                            </button>
+
+                            {actionMenuClientId === client.id ? (
+                              <div className="absolute right-0 top-12 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionMenuClientId("");
+                                    onTransfer(client);
+                                  }}
+                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  Transfer Client
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-[var(--color-muted)]">View only</span>
                         )}
                       </td>
                     </tr>
@@ -1789,6 +1854,7 @@ export function AdminClientsPanel({
 }: {
   viewMode?: "all" | "new" | "existing";
 }) {
+  const router = useRouter();
   const {
     token,
     employees,
@@ -1813,6 +1879,7 @@ export function AdminClientsPanel({
   const [transferRequests, setTransferRequests] = useState<ClientTransferRequestRecord[]>([]);
   const [selectedTransferClient, setSelectedTransferClient] = useState<ClientRecord | null>(null);
   const [transferToEmployeeId, setTransferToEmployeeId] = useState("");
+  const [transferEffectiveFromDate, setTransferEffectiveFromDate] = useState("");
   const [transferReason, setTransferReason] = useState("");
   const [adminTransferNote, setAdminTransferNote] = useState("");
   const [clientForm, setClientForm] = useState<ClientFormState>(emptyClientForm);
@@ -1940,6 +2007,8 @@ export function AdminClientsPanel({
       await refreshCrm(token);
       setClientForm(emptyClientForm);
       setMessage("Client onboarding saved successfully.");
+      router.push("/admin/clients/existing");
+      router.refresh();
     } catch (saveError) {
       setError(
         formatErrorMessage(
@@ -1980,6 +2049,10 @@ export function AdminClientsPanel({
       setError("Please select the employee to transfer this client to.");
       return;
     }
+    if (!transferEffectiveFromDate) {
+      setError("Please select the effective from date.");
+      return;
+    }
 
     setIsSavingTransferRequest(true);
     setError("");
@@ -1995,6 +2068,7 @@ export function AdminClientsPanel({
         body: JSON.stringify({
           clientId: selectedTransferClient.id,
           requestedToEmployeeId: transferToEmployeeId,
+          effectiveFromDate: transferEffectiveFromDate,
           reason: transferReason,
         }),
       });
@@ -2006,6 +2080,7 @@ export function AdminClientsPanel({
       await refreshTransferRequests();
       setSelectedTransferClient(null);
       setTransferToEmployeeId("");
+      setTransferEffectiveFromDate("");
       setTransferReason("");
       setMessage("Client transfer request submitted for Super Admin approval.");
     } catch (requestError) {
@@ -2167,19 +2242,6 @@ export function AdminClientsPanel({
               </select>
             </label>
             <label className="block">
-              <span className={clientFormLabelClassName}>Client Status</span>
-              <select
-                className={clientSelectClassName}
-                value={clientForm.status}
-                onChange={(event) =>
-                  updateClientField("status", event.target.value as ClientStatus)
-                }
-              >
-                <option value="active" style={clientSelectOptionStyle}>Active</option>
-                <option value="inactive" style={clientSelectOptionStyle}>Inactive</option>
-              </select>
-            </label>
-            <label className="block">
               <span className={clientFormLabelClassName}>Onboarding Status</span>
               <select
                 className={clientSelectClassName}
@@ -2200,49 +2262,12 @@ export function AdminClientsPanel({
               </select>
             </label>
             <label className="block">
-              <span className={clientFormLabelClassName}>Follow-Up Status</span>
-              <select
-                className={clientSelectClassName}
-                value={clientForm.followUpStatus}
-                onChange={(event) =>
-                  updateClientField(
-                    "followUpStatus",
-                    event.target.value as ClientFollowUpStatus
-                  )
-                }
-              >
-                <option value="pending" style={clientSelectOptionStyle}>Pending</option>
-                <option value="follow-up-due" style={clientSelectOptionStyle}>Follow-Up Due</option>
-                <option value="in-progress" style={clientSelectOptionStyle}>In Progress</option>
-                <option value="awaiting-client" style={clientSelectOptionStyle}>Awaiting Client</option>
-                <option value="closed" style={clientSelectOptionStyle}>Closed</option>
-              </select>
-            </label>
-            <label className="block">
               <span className={clientFormLabelClassName}>Onboarding Source</span>
               <input
                 className={fieldClassName}
                 placeholder="Onboarding source"
                 value={clientForm.onboardingSource}
                 onChange={(event) => updateClientField("onboardingSource", event.target.value)}
-              />
-            </label>
-            <label className="block">
-              <span className={clientFormLabelClassName}>Next Follow-Up Date</span>
-              <input
-                className={fieldClassName}
-                type="date"
-                value={clientForm.nextFollowUpDate}
-                onChange={(event) => updateClientField("nextFollowUpDate", event.target.value)}
-              />
-            </label>
-            <label className="block">
-              <span className={clientFormLabelClassName}>Last Follow-Up Date</span>
-              <input
-                className={fieldClassName}
-                type="date"
-                value={clientForm.lastFollowUpDate}
-                onChange={(event) => updateClientField("lastFollowUpDate", event.target.value)}
               />
             </label>
             <div className="sm:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-4">
@@ -2273,15 +2298,6 @@ export function AdminClientsPanel({
                 onChange={(event) => updateClientField("notes", event.target.value)}
               />
             </label>
-            <label className="block sm:col-span-2">
-              <span className={clientFormLabelClassName}>Follow-Up Notes</span>
-              <textarea
-                className={`${fieldClassName} min-h-[116px] resize-y`}
-                placeholder="Follow-up notes"
-                value={clientForm.followUpNotes}
-                onChange={(event) => updateClientField("followUpNotes", event.target.value)}
-              />
-            </label>
           </div>
 
           <div className="mt-5 flex gap-3">
@@ -2299,74 +2315,131 @@ export function AdminClientsPanel({
 
       {viewMode !== "new" ? (
         <div id="existing-clients" className="scroll-mt-28">
-          <CrmClientsList clients={clients} />
+          <CrmClientsList
+            clients={clients}
+            canTransfer={!isSuperAdmin}
+            onTransfer={(client) => {
+              setSelectedTransferClient(client);
+              setTransferToEmployeeId("");
+              setTransferEffectiveFromDate(new Date().toISOString().slice(0, 10));
+              setTransferReason("");
+              setError("");
+              setMessage("");
+            }}
+          />
         </div>
       ) : null}
 
-      {viewMode !== "new" && !isSuperAdmin ? (
-        <section className="accent-card p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="eyebrow">Transfer Client</p>
-              <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-                Request client reassignment with Super Admin approval
-              </h3>
+      {selectedTransferClient && !isSuperAdmin ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Transfer Client</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {selectedTransferClient.companyName}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Raise a transfer request for Super Admin approval.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTransferClient(null);
+                  setTransferToEmployeeId("");
+                  setTransferEffectiveFromDate("");
+                  setTransferReason("");
+                }}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Transfer To
+                </span>
+                <select
+                  className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  value={transferToEmployeeId}
+                  onChange={(event) => setTransferToEmployeeId(event.target.value)}
+                >
+                  <option value="">Select employee</option>
+                  {employeeOptions
+                    .filter((employee) => employee.id !== selectedTransferClient.assignedEmployeeId)
+                    .map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.fullName} - {employee.role}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  From When
+                </span>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  type="date"
+                  value={transferEffectiveFromDate}
+                  onChange={(event) => setTransferEffectiveFromDate(event.target.value)}
+                  required
+                />
+              </label>
+
+              <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Current Owner
+                </p>
+                <p className="mt-3 text-sm font-semibold text-[var(--color-ink)]">
+                  {selectedTransferClient.assignedEmployeeName || "Not assigned"}
+                </p>
+              </div>
+
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Remarks
+                </span>
+                <textarea
+                  className="mt-2 min-h-[140px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  placeholder="Reason for transfer / handover notes"
+                  value={transferReason}
+                  onChange={(event) => setTransferReason(event.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void submitTransferRequest()}
+                disabled={isSavingTransferRequest}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSavingTransferRequest ? "Submitting..." : "Submit Transfer Request"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTransferClient(null);
+                  setTransferToEmployeeId("");
+                  setTransferEffectiveFromDate("");
+                  setTransferReason("");
+                }}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
             </div>
           </div>
-
-          <CrmFeedback message={message} error={error} />
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <select
-              value={selectedTransferClient?.id ?? ""}
-              onChange={(event) =>
-                setSelectedTransferClient(
-                  clients.find((client) => client.id === event.target.value) ?? null
-                )
-              }
-              className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-            >
-              <option value="">Select your client</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.companyName}
-                </option>
-              ))}
-            </select>
-            <select
-              value={transferToEmployeeId}
-              onChange={(event) => setTransferToEmployeeId(event.target.value)}
-              className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-            >
-              <option value="">Transfer to employee</option>
-              {employeeOptions.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.fullName} - {employee.role}
-                </option>
-              ))}
-            </select>
-            <textarea
-              value={transferReason}
-              onChange={(event) => setTransferReason(event.target.value)}
-              placeholder="Reason for client reassignment"
-              className="min-h-[120px] rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)] sm:col-span-2"
-            />
-          </div>
-
-          <div className="mt-5">
-            <button
-              type="button"
-              disabled={isSavingTransferRequest}
-              onClick={() => void submitTransferRequest()}
-              className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isSavingTransferRequest ? "Submitting..." : "Request Transfer Approval"}
-            </button>
-          </div>
-        </section>
+        </div>
       ) : null}
 
-      {viewMode !== "new" ? (
+      {viewMode !== "new" && isSuperAdmin ? (
         <CrmClientTransferRequests
           requests={transferRequests}
           isAdmin={isSuperAdmin && !isReviewingTransferRequest ? true : isSuperAdmin}

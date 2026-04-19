@@ -1023,10 +1023,10 @@ app.post("/admin/client-transfer-requests", requireInternalUser, async (request,
       });
     }
 
-    const { clientId, requestedToEmployeeId, reason } = request.body ?? {};
-    if (!clientId || !requestedToEmployeeId) {
+    const { clientId, requestedToEmployeeId, effectiveFromDate, reason } = request.body ?? {};
+    if (!clientId || !requestedToEmployeeId || !effectiveFromDate) {
       return response.status(400).json({
-        message: "Client and target employee are required.",
+        message: "Client, target employee, and effective from date are required.",
       });
     }
 
@@ -1034,6 +1034,7 @@ app.post("/admin/client-transfer-requests", requireInternalUser, async (request,
       clientId,
       requestedByEmployeeId: request.user.id,
       requestedToEmployeeId,
+      effectiveFromDate,
       reason,
     });
     response.status(201).json(transferRequest);

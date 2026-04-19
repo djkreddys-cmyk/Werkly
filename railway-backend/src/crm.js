@@ -111,6 +111,7 @@ export async function ensureCrmSchema() {
       client_id uuid not null references clients(id) on delete cascade,
       requested_by_employee_id uuid not null references employees(id) on delete cascade,
       requested_to_employee_id uuid not null references employees(id) on delete cascade,
+      effective_from_date date,
       reason text,
       status text not null default 'pending',
       admin_note text,
@@ -130,6 +131,7 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists last_follow_up_date date`);
   await query(`alter table clients add column if not exists onboarding_source text`);
   await query(`alter table clients add column if not exists follow_up_notes text`);
+  await query(`alter table client_transfer_requests add column if not exists effective_from_date date`);
   await query(`alter table employees add column if not exists employee_code text`);
   await query(
     `alter table employees add column if not exists must_change_password boolean not null default true`
@@ -290,6 +292,7 @@ function mapClientTransferRequestRow(row) {
     requestedByEmployeeName: row.requested_by_employee_name,
     requestedToEmployeeId: row.requested_to_employee_id,
     requestedToEmployeeName: row.requested_to_employee_name,
+    effectiveFromDate: row.effective_from_date,
     reason: row.reason,
     status: row.status,
     adminNote: row.admin_note,
@@ -634,14 +637,16 @@ export async function createClientTransferRequest(payload) {
       client_id,
       requested_by_employee_id,
       requested_to_employee_id,
+      effective_from_date,
       reason,
       status
-    ) values ($1, $2, $3, $4, 'pending')
-    returning id, client_id, requested_by_employee_id, requested_to_employee_id, reason, status, admin_note, reviewed_by_employee_id, reviewed_at, created_at`,
+    ) values ($1, $2, $3, $4::date, $5, 'pending')
+    returning id, client_id, requested_by_employee_id, requested_to_employee_id, effective_from_date, reason, status, admin_note, reviewed_by_employee_id, reviewed_at, created_at`,
     [
       payload.clientId,
       payload.requestedByEmployeeId,
       payload.requestedToEmployeeId,
+      payload.effectiveFromDate || null,
       payload.reason || null,
     ]
   );
@@ -656,6 +661,7 @@ export async function createClientTransferRequest(payload) {
       requested_by.full_name as requested_by_employee_name,
       requests.requested_to_employee_id,
       requested_to.full_name as requested_to_employee_name,
+      requests.effective_from_date,
       requests.reason,
       requests.status,
       requests.admin_note,
@@ -693,6 +699,7 @@ export async function listClientTransferRequests(employeeId = null, isAdmin = fa
       requested_by.full_name as requested_by_employee_name,
       requests.requested_to_employee_id,
       requested_to.full_name as requested_to_employee_name,
+      requests.effective_from_date,
       requests.reason,
       requests.status,
       requests.admin_note,
@@ -759,6 +766,7 @@ export async function reviewClientTransferRequest(id, payload) {
       requested_by.full_name as requested_by_employee_name,
       requests.requested_to_employee_id,
       requested_to.full_name as requested_to_employee_name,
+      requests.effective_from_date,
       requests.reason,
       requests.status,
       requests.admin_note,

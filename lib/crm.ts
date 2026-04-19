@@ -95,6 +95,7 @@ export type ClientTransferRequestRecord = {
   requestedByEmployeeName: string;
   requestedToEmployeeId: string;
   requestedToEmployeeName: string;
+  effectiveFromDate?: string;
   reason?: string;
   status: ClientTransferRequestStatus;
   adminNote?: string;
@@ -151,6 +152,7 @@ export type ClientFormPayload = {
 export type ClientTransferRequestPayload = {
   clientId: string;
   requestedToEmployeeId: string;
+  effectiveFromDate?: string;
   reason?: string;
 };
 
