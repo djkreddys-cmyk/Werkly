@@ -140,6 +140,25 @@ function getStageLabel(stage?: string) {
   return safeStage.charAt(0).toUpperCase() + safeStage.slice(1);
 }
 
+function getFollowUpStatusLabel(status?: string) {
+  const safeStatus = status || "pending";
+
+  return safeStatus
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getJobFilterLabel(job: JobSummary) {
+  const code = job.jobCode || "Pending ID";
+  return `${code} - ${job.title}`;
+}
+
+function getDateKey(value?: string) {
+  return value?.slice(0, 10) || "";
+}
+
 function isWithinDateRange(value: string | undefined, startDate: string, endDate: string) {
   if (!value) {
     return false;
@@ -270,6 +289,9 @@ function ReportFilterBar({
   clientOptions,
   selectedClient,
   onClientChange,
+  jobOptions,
+  selectedJob,
+  onJobChange,
   onExport,
   exportLabel,
 }: {
@@ -283,13 +305,16 @@ function ReportFilterBar({
   clientOptions?: string[];
   selectedClient?: string;
   onClientChange?: (value: string) => void;
+  jobOptions?: string[];
+  selectedJob?: string;
+  onJobChange?: (value: string) => void;
   onExport: () => void;
   exportLabel: string;
 }) {
   return (
     <section className="accent-card p-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
               Start Date
@@ -346,6 +371,26 @@ function ReportFilterBar({
               >
                 <option value="">All Clients</option>
                 {clientOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {jobOptions && onJobChange ? (
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Job
+              </span>
+              <select
+                value={selectedJob ?? ""}
+                onChange={(event) => onJobChange(event.target.value)}
+                className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="">All Jobs</option>
+                {jobOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -411,6 +456,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
   const [endDate, setEndDate] = useState("");
   const [selectedRecruiter, setSelectedRecruiter] = useState("");
   const [selectedClient, setSelectedClient] = useState("");
+  const [selectedJob, setSelectedJob] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -595,6 +641,19 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
         )
       ),
     [visibleClients]
+  );
+
+  const jobOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          visibleJobs
+            .filter((job) => job.title)
+            .map((job) => getJobFilterLabel(job))
+            .sort((a, b) => a.localeCompare(b))
+        )
+      ),
+    [visibleJobs]
   );
 
   const attendanceSummary = useMemo(() => {
@@ -866,6 +925,50 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
       .sort((a, b) => b.client.linkedJobsCount - a.client.linkedJobsCount);
   }, [visibleApplications, visibleClients]);
 
+  const followUpReportRows = useMemo(() => {
+    return visibleClients
+      .map((client) => {
+        const linkedJobs = visibleJobs.filter(
+          (job) =>
+            job.clientId === client.id ||
+            (job.clientName || "").trim().toLowerCase() ===
+              client.companyName.trim().toLowerCase()
+        );
+
+        const linkedJobLabels =
+          linkedJobs.length > 0
+            ? linkedJobs.map((job) => getJobFilterLabel(job))
+            : client.linkedJobs.map((job) => `${job.jobCode || "Pending ID"} - ${job.title}`);
+
+        const applicationsForClient = visibleApplications.filter(
+          (application) => application.clientName === client.companyName
+        );
+
+        return {
+          client,
+          linkedJobs,
+          linkedJobLabels,
+          recruiterName: client.assignedEmployeeName || "Not assigned",
+          applicationsCount: applicationsForClient.length,
+          joinedCount: applicationsForClient.filter(
+            (application) => (application.stage ?? "applied") === "joined"
+          ).length,
+        };
+      })
+      .filter(
+        (row) =>
+          row.client.followUpStatus ||
+          row.client.nextFollowUpDate ||
+          row.client.lastFollowUpDate ||
+          row.client.followUpNotes
+      )
+      .sort((a, b) => {
+        const aDate = getDateKey(a.client.nextFollowUpDate || a.client.lastFollowUpDate);
+        const bDate = getDateKey(b.client.nextFollowUpDate || b.client.lastFollowUpDate);
+        return bDate.localeCompare(aDate);
+      });
+  }, [visibleApplications, visibleClients, visibleJobs]);
+
   const filteredAttendanceSummary = useMemo(
     () =>
       attendanceSummary.filter(
@@ -955,6 +1058,29 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
           isWithinDateRange(row.client.createdAt, startDate, endDate)
       ),
     [clientReportRows, endDate, selectedClient, selectedRecruiter, startDate]
+  );
+
+  const filteredFollowUpReportRows = useMemo(
+    () =>
+      followUpReportRows.filter((row) => {
+        const followUpDate =
+          row.client.nextFollowUpDate || row.client.lastFollowUpDate || row.client.createdAt;
+
+        return (
+          (!selectedRecruiter || row.client.assignedEmployeeName === selectedRecruiter) &&
+          (!selectedClient || row.client.companyName === selectedClient) &&
+          (!selectedJob || row.linkedJobLabels.includes(selectedJob)) &&
+          isWithinDateRange(followUpDate, startDate, endDate)
+        );
+      }),
+    [
+      endDate,
+      followUpReportRows,
+      selectedClient,
+      selectedJob,
+      selectedRecruiter,
+      startDate,
+    ]
   );
 
   const filteredTransferRequests = useMemo(
@@ -1844,6 +1970,154 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
             ))}
           </ReportTable>
         )}
+      </section>
+
+      <section className="space-y-4">
+        <ReportFilterBar
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          recruiterOptions={recruiterOptions}
+          selectedRecruiter={selectedRecruiter}
+          onRecruiterChange={setSelectedRecruiter}
+          clientOptions={clientOptions}
+          selectedClient={selectedClient}
+          onClientChange={setSelectedClient}
+          jobOptions={jobOptions}
+          selectedJob={selectedJob}
+          onJobChange={setSelectedJob}
+          onExport={() =>
+            downloadExcelReport(
+              "followup-report.xls",
+              "Follow-Up Report",
+              [
+                "Client",
+                "Recruiter",
+                "Linked Jobs",
+                "Follow-Up Status",
+                "Next Follow-Up Date",
+                "Last Follow-Up Date",
+                "Applications",
+                "Joined",
+                "Notes",
+              ],
+              filteredFollowUpReportRows.map((row) => [
+                row.client.companyName,
+                row.recruiterName,
+                row.linkedJobLabels.join(", ") || "No linked jobs",
+                getFollowUpStatusLabel(row.client.followUpStatus),
+                formatDate(row.client.nextFollowUpDate),
+                formatDate(row.client.lastFollowUpDate),
+                row.applicationsCount,
+                row.joinedCount,
+                row.client.followUpNotes || "No notes added",
+              ])
+            )
+          }
+          exportLabel="Download Follow-Up Report"
+        />
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Follow-Up Rows" value={filteredFollowUpReportRows.length} />
+          <MetricCard
+            label="Follow-Up Due"
+            value={
+              filteredFollowUpReportRows.filter(
+                (row) => row.client.followUpStatus === "follow-up-due"
+              ).length
+            }
+          />
+          <MetricCard
+            label="In Discussion"
+            value={
+              filteredFollowUpReportRows.filter(
+                (row) => row.client.followUpStatus === "in-progress"
+              ).length
+            }
+          />
+          <MetricCard
+            label="Awaiting Response"
+            value={
+              filteredFollowUpReportRows.filter(
+                (row) => row.client.followUpStatus === "awaiting-client"
+              ).length
+            }
+          />
+        </section>
+
+        <section className="accent-card p-7">
+          <p className="eyebrow">Follow-Up Report</p>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+            Review client follow-up status by employee, client, job, and date.
+          </h2>
+          <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+            Admin users can filter follow-ups by employee, client, linked job, and date
+            range. Employee logins will only see their own follow-up report rows here.
+          </p>
+
+          {isLoading ? (
+            <p className="muted-copy mt-6 text-sm">Loading follow-up report...</p>
+          ) : filteredFollowUpReportRows.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No follow-up report rows are available yet.</p>
+          ) : (
+            <ReportTable
+              headings={[
+                "Client",
+                "Recruiter",
+                "Linked Job",
+                "Follow-Up Status",
+                "Next Follow-Up",
+                "Last Follow-Up",
+                "Notes",
+              ]}
+            >
+              {filteredFollowUpReportRows.map((row, index) => (
+                <tr
+                  key={row.client.id}
+                  className={
+                    index === filteredFollowUpReportRows.length - 1
+                      ? "align-top"
+                      : "align-top border-b border-[var(--color-line)]"
+                  }
+                >
+                  <td className="px-4 py-4">
+                    <p className="font-semibold text-[var(--color-ink)]">{row.client.companyName}</p>
+                    <p className="mt-1 text-sm text-[var(--color-muted)]">
+                      {row.client.contactPerson}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {row.recruiterName}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {row.linkedJobLabels.length > 0 ? (
+                      row.linkedJobLabels.map((label) => (
+                        <p key={`${row.client.id}-${label}`}>{label}</p>
+                      ))
+                    ) : (
+                      <p>No linked jobs</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    <p className="font-semibold text-[var(--color-ink)]">
+                      {getFollowUpStatusLabel(row.client.followUpStatus)}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {formatDate(row.client.nextFollowUpDate)}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {formatDate(row.client.lastFollowUpDate)}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {row.client.followUpNotes || "No notes added"}
+                  </td>
+                </tr>
+              ))}
+            </ReportTable>
+          )}
+        </section>
       </section>
 
       {(authType === "admin" || authRole === "super-admin") && (
