@@ -167,6 +167,7 @@ export function AdminShell({
   const pathname = usePathname();
   const router = useRouter();
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [authType] = useState(() =>
     typeof window === "undefined"
       ? "admin"
@@ -217,6 +218,10 @@ export function AdminShell({
   });
   const activeSection =
     visibleSections.find((section) => section.key === activeModuleKey) ?? visibleSections[0];
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   useEffect(() => {
     setExpandedModuleKey(activeModuleKey);
@@ -377,6 +382,62 @@ export function AdminShell({
               {children}
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(8,96,108,0.12),transparent_18%),radial-gradient(circle_at_top_right,rgba(241,166,75,0.16),transparent_22%),linear-gradient(180deg,#fffdf8_0%,#f4efe7_52%,#f9f5ef_100%)]">
+        <div className="min-h-screen">
+          <header className="border-b border-[rgba(8,96,108,0.12)] bg-[linear-gradient(180deg,rgba(11,89,100,0.96),rgba(8,63,71,0.98))] text-white shadow-[0_18px_48px_rgba(10,36,41,0.16)]">
+            <div className="mx-auto w-full max-w-[1800px] px-5 py-5 sm:px-8">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8 xl:min-w-[620px]">
+                    <div className="flex items-center gap-4">
+                      <Link href="/admin" className="inline-flex items-center">
+                        <Image
+                          src="/Werkly Logo.png"
+                          alt="Werkly logo"
+                          width={640}
+                          height={176}
+                          className="h-16 w-auto object-contain sm:h-20"
+                          priority
+                        />
+                      </Link>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                        Werkly CRM Modules
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="mx-auto w-full max-w-[1800px] px-5 py-8 sm:px-8 sm:py-10">
+            <section className="accent-card overflow-hidden">
+              <div className="border-b border-[var(--color-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(250,246,239,0.76))] px-6 py-6 sm:px-8">
+                <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="max-w-3xl">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">
+                      {eyebrow}
+                    </p>
+                    <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold leading-tight text-[var(--color-ink)] sm:text-4xl">
+                      {title}
+                    </h1>
+                    <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--color-muted)] sm:text-base">
+                      {description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-5 py-8 sm:px-8 sm:py-10">{children}</div>
+            </section>
+          </main>
         </div>
       </div>
     );
