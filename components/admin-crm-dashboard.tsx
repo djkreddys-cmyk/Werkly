@@ -14,6 +14,10 @@ type EmployeeFormState = {
   email: string;
   phone: string;
   role: string;
+  dateOfBirth: string;
+  dateOfJoining: string;
+  educationQualification: string;
+  previousExperience: string;
   password: string;
   status: EmployeeStatus;
   inactiveDate: string;
@@ -46,6 +50,10 @@ const emptyEmployeeForm: EmployeeFormState = {
   email: "",
   phone: "",
   role: "",
+  dateOfBirth: "",
+  dateOfJoining: "",
+  educationQualification: "",
+  previousExperience: "",
   password: "",
   status: "active",
   inactiveDate: "",
@@ -188,12 +196,14 @@ function CrmEmployeesList({
   onEdit,
   canEdit,
   onResetPassword,
+  onInactivate,
   resettingEmployeeId,
 }: {
   employees: EmployeeRecord[];
   onEdit: (employee: EmployeeRecord) => void;
   canEdit: boolean;
   onResetPassword: (employee: EmployeeRecord) => void;
+  onInactivate: (employee: EmployeeRecord) => void;
   resettingEmployeeId: string;
 }) {
   return (
@@ -285,6 +295,15 @@ function CrmEmployeesList({
                           >
                             Reset Password
                           </button>
+                          {employee.status === "active" ? (
+                            <button
+                              type="button"
+                              onClick={() => onInactivate(employee)}
+                              className="rounded-xl border border-[rgba(190,72,26,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
+                            >
+                              Inactivate
+                            </button>
+                          ) : null}
                         </div>
                       ) : (
                         <span className="text-sm text-[var(--color-muted)]">View only</span>
@@ -427,6 +446,10 @@ export function AdminEmployeesPanel({
   });
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [inactiveEmployee, setInactiveEmployee] = useState<EmployeeRecord | null>(null);
+  const [inactiveDate, setInactiveDate] = useState("");
+  const [inactiveRemarks, setInactiveRemarks] = useState("");
+  const [isSavingInactive, setIsSavingInactive] = useState(false);
   const isEditingEmployee = Boolean(employeeForm.id);
   const resettingEmployee = employees.find((employee) => employee.id === passwordReset.employeeId);
   const canManageEmployees = authRole === "super-admin";
@@ -442,6 +465,10 @@ export function AdminEmployeesPanel({
       email: employee.email,
       phone: employee.phone ?? "",
       role: employee.role,
+      dateOfBirth: employee.dateOfBirth ?? "",
+      dateOfJoining: employee.dateOfJoining ?? "",
+      educationQualification: employee.educationQualification ?? "",
+      previousExperience: employee.previousExperience ?? "",
       password: "",
       status: employee.status,
       inactiveDate: employee.inactiveDate ?? "",
@@ -457,6 +484,14 @@ export function AdminEmployeesPanel({
       password: "",
       mustChangePassword: true,
     });
+    setMessage("");
+    setError("");
+  }
+
+  function loadEmployeeForInactivation(employee: EmployeeRecord) {
+    setInactiveEmployee(employee);
+    setInactiveDate(employee.inactiveDate ?? new Date().toISOString().slice(0, 10));
+    setInactiveRemarks(employee.inactiveRemarks ?? "");
     setMessage("");
     setError("");
   }
@@ -522,6 +557,66 @@ export function AdminEmployeesPanel({
       );
     } finally {
       setIsSavingEmployee(false);
+    }
+  }
+
+  async function handleInactiveSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!token || !inactiveEmployee) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    if (!inactiveDate || !inactiveRemarks.trim()) {
+      setError("Effective inactive date and reason are required.");
+      return;
+    }
+
+    setIsSavingInactive(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/employees/${inactiveEmployee.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          fullName: inactiveEmployee.fullName,
+          email: inactiveEmployee.email,
+          phone: inactiveEmployee.phone ?? "",
+          role: inactiveEmployee.role,
+          dateOfBirth: inactiveEmployee.dateOfBirth ?? "",
+          dateOfJoining: inactiveEmployee.dateOfJoining ?? "",
+          educationQualification: inactiveEmployee.educationQualification ?? "",
+          previousExperience: inactiveEmployee.previousExperience ?? "",
+          status: "inactive",
+          inactiveDate,
+          inactiveRemarks: inactiveRemarks.trim(),
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to inactivate employee.");
+      }
+
+      await refreshCrm(token);
+      setInactiveEmployee(null);
+      setInactiveDate("");
+      setInactiveRemarks("");
+      setMessage("Employee marked inactive successfully.");
+    } catch (saveError) {
+      setError(
+        formatErrorMessage(
+          saveError instanceof Error ? saveError.message : "Unable to inactivate employee."
+        )
+      );
+    } finally {
+      setIsSavingInactive(false);
     }
   }
 
@@ -647,53 +742,40 @@ export function AdminEmployeesPanel({
               />
               <input
                 className={fieldClassName}
-                type="password"
-                placeholder={
-                  isEditingEmployee ? "New password (optional)" : "Temporary password"
+                type="date"
+                value={employeeForm.dateOfBirth}
+                onChange={(event) => updateEmployeeField("dateOfBirth", event.target.value)}
+              />
+              <input
+                className={fieldClassName}
+                type="date"
+                value={employeeForm.dateOfJoining}
+                onChange={(event) => updateEmployeeField("dateOfJoining", event.target.value)}
+              />
+              <input
+                className={fieldClassName}
+                placeholder="Education qualification"
+                value={employeeForm.educationQualification}
+                onChange={(event) =>
+                  updateEmployeeField("educationQualification", event.target.value)
                 }
+              />
+              <input
+                className={fieldClassName}
+                placeholder="Previous experience"
+                value={employeeForm.previousExperience}
+                onChange={(event) =>
+                  updateEmployeeField("previousExperience", event.target.value)
+                }
+              />
+              <input
+                className={fieldClassName}
+                type="password"
+                placeholder="Temporary password"
                 value={employeeForm.password}
                 onChange={(event) => updateEmployeeField("password", event.target.value)}
-                required={!isEditingEmployee}
+                required
               />
-              <select
-                className={fieldClassName}
-                value={employeeForm.status}
-                onChange={(event) => {
-                  const nextStatus = event.target.value as EmployeeStatus;
-                  setEmployeeForm((current) => ({
-                    ...current,
-                    status: nextStatus,
-                    inactiveDate: nextStatus === "inactive" ? current.inactiveDate : "",
-                    inactiveRemarks:
-                      nextStatus === "inactive" ? current.inactiveRemarks : "",
-                  }));
-                }}
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              {employeeForm.status === "inactive" ? (
-                <>
-                  <input
-                    className={fieldClassName}
-                    type="date"
-                    value={employeeForm.inactiveDate}
-                    onChange={(event) =>
-                      updateEmployeeField("inactiveDate", event.target.value)
-                    }
-                    required
-                  />
-                  <textarea
-                    className={`${fieldClassName} min-h-[116px] resize-y sm:col-span-2`}
-                    placeholder="Inactive remarks"
-                    value={employeeForm.inactiveRemarks}
-                    onChange={(event) =>
-                      updateEmployeeField("inactiveRemarks", event.target.value)
-                    }
-                    required
-                  />
-                </>
-              ) : null}
             </div>
 
             <div className="mt-5 flex gap-3">
@@ -722,69 +804,6 @@ export function AdminEmployeesPanel({
             </div>
           </form>
 
-          <form
-            className="mt-6 rounded-[1.7rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.08)] p-6 backdrop-blur"
-            onSubmit={handlePasswordResetSubmit}
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
-                  Password Reset
-                </p>
-                <h3 className="mt-3 text-2xl font-semibold text-white">
-                  Reset employee password from the portal.
-                </h3>
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-white/72">
-                  Choose an employee from the list below, set a new temporary password,
-                  and decide whether they must change it at next login.
-                </p>
-              </div>
-              {resettingEmployee ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-3 text-sm text-white/84">
-                  <p className="font-semibold text-white">{resettingEmployee.fullName}</p>
-                  <p className="mt-1">
-                    {resettingEmployee.employeeCode || resettingEmployee.email}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-              <input
-                className={fieldClassName}
-                type="password"
-                placeholder="Enter new temporary password"
-                value={passwordReset.password}
-                onChange={(event) =>
-                  setPasswordReset((current) => ({
-                    ...current,
-                    password: event.target.value,
-                  }))
-                }
-                required
-              />
-              <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-3 text-sm text-white">
-                <input
-                  type="checkbox"
-                  checked={passwordReset.mustChangePassword}
-                  onChange={(event) =>
-                    setPasswordReset((current) => ({
-                      ...current,
-                      mustChangePassword: event.target.checked,
-                    }))
-                  }
-                />
-                Force password change on next login
-              </label>
-              <button
-                type="submit"
-                disabled={isResettingPassword || !passwordReset.employeeId}
-                className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isResettingPassword ? "Resetting..." : "Reset Password"}
-              </button>
-            </div>
-          </form>
         </div>
       ) : (
         <section className="accent-card p-6">
@@ -806,8 +825,170 @@ export function AdminEmployeesPanel({
             onEdit={loadEmployeeForEdit}
             canEdit={canManageEmployees}
             onResetPassword={loadEmployeeForPasswordReset}
+            onInactivate={loadEmployeeForInactivation}
             resettingEmployeeId={passwordReset.employeeId}
           />
+        </div>
+      ) : null}
+
+      {employeeForm.id && viewMode === "existing" ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-3xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Edit Employee</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  Update employee details
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEmployeeForm(emptyEmployeeForm)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="mt-6" onSubmit={handleEmployeeSubmit}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Full name" value={employeeForm.fullName} onChange={(event) => updateEmployeeField("fullName", event.target.value)} required />
+                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" type="email" placeholder="Email" value={employeeForm.email} onChange={(event) => updateEmployeeField("email", event.target.value)} required />
+                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Phone" value={employeeForm.phone} onChange={(event) => updateEmployeeField("phone", event.target.value)} />
+                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Role" value={employeeForm.role} onChange={(event) => updateEmployeeField("role", event.target.value)} required />
+                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" type="date" value={employeeForm.dateOfBirth} onChange={(event) => updateEmployeeField("dateOfBirth", event.target.value)} />
+                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" type="date" value={employeeForm.dateOfJoining} onChange={(event) => updateEmployeeField("dateOfJoining", event.target.value)} />
+                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Education qualification" value={employeeForm.educationQualification} onChange={(event) => updateEmployeeField("educationQualification", event.target.value)} />
+                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Previous experience" value={employeeForm.previousExperience} onChange={(event) => updateEmployeeField("previousExperience", event.target.value)} />
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button type="submit" disabled={isSavingEmployee} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70">
+                  {isSavingEmployee ? "Updating..." : "Update Employee"}
+                </button>
+                <button type="button" onClick={() => setEmployeeForm(emptyEmployeeForm)} className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {resettingEmployee && viewMode === "existing" ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Reset Password</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {resettingEmployee.fullName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setPasswordReset({ employeeId: "", password: "", mustChangePassword: true })
+                }
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="mt-6" onSubmit={handlePasswordResetSubmit}>
+              <div className="grid gap-4">
+                <input
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  type="password"
+                  placeholder="Enter new temporary password"
+                  value={passwordReset.password}
+                  onChange={(event) =>
+                    setPasswordReset((current) => ({ ...current, password: event.target.value }))
+                  }
+                  required
+                />
+                <label className="flex items-center gap-3 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-3 text-sm text-[var(--color-ink)]">
+                  <input
+                    type="checkbox"
+                    checked={passwordReset.mustChangePassword}
+                    onChange={(event) =>
+                      setPasswordReset((current) => ({
+                        ...current,
+                        mustChangePassword: event.target.checked,
+                      }))
+                    }
+                  />
+                  Force password change on next login
+                </label>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button type="submit" disabled={isResettingPassword} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70">
+                  {isResettingPassword ? "Resetting..." : "Reset Password"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPasswordReset({ employeeId: "", password: "", mustChangePassword: true })
+                  }
+                  className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {inactiveEmployee && viewMode === "existing" ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Inactivate Employee</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {inactiveEmployee.fullName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInactiveEmployee(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="mt-6" onSubmit={handleInactiveSubmit}>
+              <div className="grid gap-4">
+                <input
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  type="date"
+                  value={inactiveDate}
+                  onChange={(event) => setInactiveDate(event.target.value)}
+                  required
+                />
+                <textarea
+                  className="min-h-[140px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  placeholder="Reason for inactivation"
+                  value={inactiveRemarks}
+                  onChange={(event) => setInactiveRemarks(event.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button type="submit" disabled={isSavingInactive} className="rounded-2xl bg-[var(--color-accent-strong)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-70">
+                  {isSavingInactive ? "Saving..." : "Mark Inactive"}
+                </button>
+                <button type="button" onClick={() => setInactiveEmployee(null)} className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       ) : null}
     </section>

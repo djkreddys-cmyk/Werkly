@@ -583,7 +583,20 @@ app.get("/admin/employees", requireInternalUser, async (_request, response) => {
 
 app.post("/admin/employees", requireAdmin, async (request, response) => {
   try {
-    const { fullName, email, phone, role, password, status, inactiveDate, inactiveRemarks } =
+    const {
+      fullName,
+      email,
+      phone,
+      role,
+      dateOfBirth,
+      dateOfJoining,
+      educationQualification,
+      previousExperience,
+      password,
+      status,
+      inactiveDate,
+      inactiveRemarks,
+    } =
       request.body ?? {};
 
     if (!fullName || !email || !role || !password) {
@@ -603,6 +616,10 @@ app.post("/admin/employees", requireAdmin, async (request, response) => {
       email,
       phone,
       role,
+      dateOfBirth,
+      dateOfJoining,
+      educationQualification,
+      previousExperience,
       password,
       status,
       inactiveDate,
@@ -619,7 +636,20 @@ app.post("/admin/employees", requireAdmin, async (request, response) => {
 
 app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
   try {
-    const { fullName, email, phone, role, password, status, inactiveDate, inactiveRemarks } =
+    const {
+      fullName,
+      email,
+      phone,
+      role,
+      dateOfBirth,
+      dateOfJoining,
+      educationQualification,
+      previousExperience,
+      password,
+      status,
+      inactiveDate,
+      inactiveRemarks,
+    } =
       request.body ?? {};
 
     if (!fullName || !email || !role) {
@@ -639,6 +669,10 @@ app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
       email,
       phone,
       role,
+      dateOfBirth,
+      dateOfJoining,
+      educationQualification,
+      previousExperience,
       password,
       status,
       inactiveDate,

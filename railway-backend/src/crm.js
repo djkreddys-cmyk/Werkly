@@ -10,6 +10,10 @@ export async function ensureCrmSchema() {
       employee_code text unique,
       phone text,
       role text not null,
+      date_of_birth date,
+      date_of_joining date,
+      education_qualification text,
+      previous_experience text,
       status text not null default 'active',
       password_hash text not null,
       must_change_password boolean not null default true,
@@ -51,6 +55,10 @@ export async function ensureCrmSchema() {
   await query(
     `alter table employees add column if not exists password_changed_at timestamptz`
   );
+  await query(`alter table employees add column if not exists date_of_birth date`);
+  await query(`alter table employees add column if not exists date_of_joining date`);
+  await query(`alter table employees add column if not exists education_qualification text`);
+  await query(`alter table employees add column if not exists previous_experience text`);
   await query(`alter table employees add column if not exists inactive_date date`);
   await query(`alter table employees add column if not exists inactive_remarks text`);
   await query(
@@ -68,6 +76,10 @@ function mapEmployeeRow(row) {
     employeeCode: row.employee_code,
     phone: row.phone,
     role: row.role,
+    dateOfBirth: row.date_of_birth,
+    dateOfJoining: row.date_of_joining,
+    educationQualification: row.education_qualification,
+    previousExperience: row.previous_experience,
     status: row.status,
     mustChangePassword: Boolean(row.must_change_password),
     inactiveDate: row.inactive_date,
@@ -175,7 +187,7 @@ function mapClientRow(row) {
 
 export async function listEmployees() {
   const result = await query(
-    `select id, full_name, email, employee_code, phone, role, status, must_change_password, inactive_date, inactive_remarks, created_at
+    `select id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, status, must_change_password, inactive_date, inactive_remarks, created_at
      from employees
      order by created_at desc`
   );
@@ -200,19 +212,27 @@ export async function createEmployee(payload) {
         employee_code,
         phone,
         role,
+        date_of_birth,
+        date_of_joining,
+        education_qualification,
+        previous_experience,
         status,
         password_hash,
         must_change_password,
         inactive_date,
         inactive_remarks
-      ) values ($1, $2, $3, $4, $5, $6, $7, true, $8, $9)
-      returning id, full_name, email, employee_code, phone, role, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+      ) values ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9, $10, $11, true, $12, $13)
+      returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, status, must_change_password, inactive_date, inactive_remarks, created_at`,
       [
         payload.fullName,
         payload.email,
         employeeCode,
         payload.phone || null,
         payload.role,
+        payload.dateOfBirth || null,
+        payload.dateOfJoining || null,
+        payload.educationQualification || null,
+        payload.previousExperience || null,
         payload.status || "active",
         passwordHash,
         isInactive ? payload.inactiveDate || null : null,
@@ -237,6 +257,10 @@ export async function updateEmployee(id, payload) {
     payload.email,
     payload.phone || null,
     payload.role,
+    payload.dateOfBirth || null,
+    payload.dateOfJoining || null,
+    payload.educationQualification || null,
+    payload.previousExperience || null,
     payload.status || "active",
     isInactive ? payload.inactiveDate || null : null,
     isInactive ? payload.inactiveRemarks || null : null,
@@ -248,7 +272,7 @@ export async function updateEmployee(id, payload) {
     const passwordHash = await bcrypt.hash(payload.password, 12);
     values.push(passwordHash);
     passwordClause =
-      `, password_hash = $8, must_change_password = true, password_changed_at = null`;
+      `, password_hash = $12, must_change_password = true, password_changed_at = null`;
   }
 
   values.push(id);
@@ -259,13 +283,17 @@ export async function updateEmployee(id, payload) {
          email = $2,
          phone = $3,
          role = $4,
-         status = $5,
-         inactive_date = $6,
-         inactive_remarks = $7
+         date_of_birth = $5::date,
+         date_of_joining = $6::date,
+         education_qualification = $7,
+         previous_experience = $8,
+         status = $9,
+         inactive_date = $10,
+         inactive_remarks = $11
          ${passwordClause},
          updated_at = now()
      where id = $${values.length}
-     returning id, full_name, email, employee_code, phone, role, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+     returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, status, must_change_password, inactive_date, inactive_remarks, created_at`,
     values
   );
 
@@ -288,6 +316,10 @@ export async function authenticateEmployee(identifier, password) {
       employee_code,
       phone,
       role,
+      date_of_birth,
+      date_of_joining,
+      education_qualification,
+      previous_experience,
       status,
       password_hash,
       must_change_password,
@@ -326,7 +358,7 @@ export async function changeEmployeePassword(employeeId, newPassword) {
          password_changed_at = now(),
          updated_at = now()
      where id = $2
-     returning id, full_name, email, employee_code, phone, role, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+     returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, status, must_change_password, inactive_date, inactive_remarks, created_at`,
     [passwordHash, employeeId]
   );
 
@@ -346,7 +378,7 @@ export async function adminResetEmployeePassword(
          password_changed_at = case when $2 then null else now() end,
          updated_at = now()
      where id = $3
-     returning id, full_name, email, employee_code, phone, role, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+     returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, status, must_change_password, inactive_date, inactive_remarks, created_at`,
     [passwordHash, mustChangePassword, employeeId]
   );
 

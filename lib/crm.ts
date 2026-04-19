@@ -7,6 +7,10 @@ export type EmployeeRecord = {
   employeeCode?: string;
   phone?: string;
   role: string;
+  dateOfBirth?: string;
+  dateOfJoining?: string;
+  educationQualification?: string;
+  previousExperience?: string;
   status: EmployeeStatus;
   mustChangePassword?: boolean;
   inactiveDate?: string;
@@ -46,6 +50,10 @@ export type EmployeeFormPayload = {
   email: string;
   phone?: string;
   role: string;
+  dateOfBirth?: string;
+  dateOfJoining?: string;
+  educationQualification?: string;
+  previousExperience?: string;
   password?: string;
   status: EmployeeStatus;
   inactiveDate?: string;
