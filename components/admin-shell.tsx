@@ -389,40 +389,35 @@ export function AdminShell({
 
   if (!isHydrated) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(8,96,108,0.12),transparent_18%),radial-gradient(circle_at_top_right,rgba(241,166,75,0.16),transparent_22%),linear-gradient(180deg,#fffdf8_0%,#f4efe7_52%,#f9f5ef_100%)]">
+      <div className="crm-shell-bg min-h-screen">
         <div className="min-h-screen">
-          <header className="border-b border-[rgba(8,96,108,0.12)] bg-[linear-gradient(180deg,rgba(11,89,100,0.96),rgba(8,63,71,0.98))] text-white shadow-[0_18px_48px_rgba(10,36,41,0.16)]">
-            <div className="mx-auto w-full max-w-[1800px] px-5 py-5 sm:px-8">
-              <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8 xl:min-w-[620px]">
-                    <div className="flex items-center gap-4">
-                      <Link href="/admin" className="inline-flex h-16 items-center overflow-visible sm:h-20">
+          <header className="crm-topbar text-white">
+            <div className="mx-auto w-full max-w-[1800px] px-5 py-4 sm:px-8">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-5 lg:gap-8">
+                  <div className="flex items-center">
+                    <Link href="/admin" className="inline-flex h-16 items-center overflow-visible sm:h-20">
                         <Image
                           src="/Werkly Logo.png"
                           alt="Werkly logo"
                           width={640}
                           height={176}
-                          className="h-[84px] w-auto max-w-none object-contain sm:h-[100px]"
+                          className="h-[104px] w-auto max-w-none object-contain sm:h-[120px]"
                           priority
                         />
                       </Link>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                        Werkly CRM Modules
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-[1800px] px-5 py-8 sm:px-8 sm:py-10">
-            <section className="accent-card overflow-hidden">
-              <div className="border-b border-[var(--color-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(250,246,239,0.76))] px-6 py-6 sm:px-8">
-                <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="max-w-3xl">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">
+        <main className="mx-auto w-full max-w-[1800px] px-5 py-6 sm:px-8 sm:py-8">
+          <section className="crm-panel overflow-hidden">
+            <div className="crm-page-header border-b border-[var(--color-line)] px-6 py-6 sm:px-8">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                <div className="max-w-3xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">
                       {eyebrow}
                     </p>
                     <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold leading-tight text-[var(--color-ink)] sm:text-4xl">
@@ -444,137 +439,132 @@ export function AdminShell({
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(8,96,108,0.12),transparent_18%),radial-gradient(circle_at_top_right,rgba(241,166,75,0.16),transparent_22%),linear-gradient(180deg,#fffdf8_0%,#f4efe7_52%,#f9f5ef_100%)]">
+    <div className="crm-shell-bg min-h-screen">
       <div className="min-h-screen">
-        <header className="border-b border-[rgba(8,96,108,0.12)] bg-[linear-gradient(180deg,rgba(11,89,100,0.96),rgba(8,63,71,0.98))] text-white shadow-[0_18px_48px_rgba(10,36,41,0.16)]">
-          <div className="mx-auto w-full max-w-[1800px] px-5 py-5 sm:px-8">
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8 xl:min-w-[620px]">
-                  <div className="flex items-center gap-4">
-                    <Link href="/admin" className="inline-flex h-16 items-center overflow-visible sm:h-20">
-                      <Image
-                        src="/Werkly Logo.png"
-                        alt="Werkly logo"
-                        width={640}
-                        height={176}
-                        className="h-[84px] w-auto max-w-none object-contain sm:h-[100px]"
-                        priority
-                      />
-                    </Link>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                      Werkly CRM Modules
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    {visibleSections.map((section) => {
-                      const isActive = section.key === activeModuleKey;
-                      const isExpanded = expandedModuleKey === section.key;
-
-                      return (
-                        <div key={section.key} className="relative">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsProfileMenuOpen(false);
-                              setExpandedModuleKey((current) =>
-                                current === section.key ? null : section.key
-                              );
-                            }}
-                            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                              isActive
-                                ? "border-[rgba(241,166,75,0.28)] bg-[linear-gradient(135deg,rgba(241,166,75,0.94),rgba(246,191,113,0.92))] text-[var(--color-ink)] shadow-[0_12px_24px_rgba(241,166,75,0.16)]"
-                                : "border-white/10 bg-white/6 text-white hover:border-[rgba(241,166,75,0.36)] hover:bg-[rgba(241,166,75,0.14)]"
-                            }`}
-                          >
-                            <span>{section.label}</span>
-                            <ChevronDownIcon
-                              className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : ""}`}
-                            />
-                          </button>
-
-                          {section.items.length && isExpanded ? (
-                            <div className="absolute left-0 top-full z-30 mt-3 min-w-[220px] overflow-hidden rounded-[1rem] border border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(12,80,90,0.98),rgba(7,54,61,0.98))] p-2 shadow-[0_22px_44px_rgba(3,18,22,0.34)] backdrop-blur">
-                              {section.items.map((item) => {
-                                const isItemActive =
-                                  item.href === "/admin"
-                                    ? pathname === "/admin"
-                                    : pathname.startsWith(item.href);
-
-                                return (
-                                  <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                                      isItemActive
-                                        ? "bg-[rgba(241,166,75,0.92)] text-[var(--color-ink)] shadow-[0_10px_20px_rgba(15,23,42,0.12)]"
-                                        : "text-white/92 hover:bg-[rgba(255,255,255,0.08)] hover:text-white"
-                                    }`}
-                                    onClick={() => setExpandedModuleKey(null)}
-                                  >
-                                    {item.label}
-                                  </Link>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
+        <header className="crm-topbar text-white">
+          <div className="mx-auto w-full max-w-[1800px] px-5 py-4 sm:px-8">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-wrap items-center gap-4 lg:gap-8 xl:min-w-[620px]">
+                <div className="flex items-center gap-4">
+                  <Link href="/admin" className="inline-flex h-16 items-center overflow-visible sm:h-20">
+                    <Image
+                      src="/Werkly Logo.png"
+                      alt="Werkly logo"
+                      width={640}
+                      height={176}
+                      className="h-[104px] w-auto max-w-none object-contain sm:h-[120px]"
+                      priority
+                    />
+                  </Link>
                 </div>
 
-                <div className="flex justify-start xl:min-w-[420px] xl:justify-end">
-                  <div className="relative" ref={profileMenuRef}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setExpandedModuleKey(null);
-                        setIsProfileMenuOpen((current) => !current);
-                      }}
-                      className="inline-flex items-center gap-3 rounded-[1.3rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-3 py-2 text-left text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(241,166,75,0.16)]"
-                    >
-                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(241,166,75,0.18)] text-sm font-semibold tracking-[0.12em] text-[var(--color-accent)]">
-                        {getInitials(authName)}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{authName}</span>
-                        <span className="block truncate text-xs text-white/68">
-                          {displayRole}
-                        </span>
-                      </span>
-                      <ChevronDownIcon
-                        className={`h-4 w-4 text-white/76 transition ${
-                          isProfileMenuOpen ? "rotate-180" : ""
-                        }`}
-                      />
-                    </button>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {visibleSections.map((section) => {
+                    const isActive = section.key === activeModuleKey;
+                    const isExpanded = expandedModuleKey === section.key;
 
-                    {isProfileMenuOpen ? (
-                      <div className="absolute right-0 z-30 mt-3 w-[320px] overflow-hidden rounded-[1.5rem] border border-white/12 bg-[linear-gradient(180deg,rgba(12,80,90,0.98),rgba(7,54,61,0.98))] p-4 text-white shadow-[0_24px_60px_rgba(5,24,28,0.34)] backdrop-blur">
-                        <div className="rounded-[1.2rem] border border-white/10 bg-white/7 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/58">
-                            Login Details
-                          </p>
-                          <p className="mt-2 text-base font-semibold text-white">{authName}</p>
-                          <p className="mt-1 text-sm text-white/72">{displayIdentifier}</p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="rounded-full border border-[rgba(241,166,75,0.42)] bg-[rgba(241,166,75,0.16)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
-                              {displayRole}
-                            </span>
-                            <span className="rounded-full border border-white/10 bg-white/7 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/74">
-                              Auto logout 10 min
-                            </span>
+                    return (
+                      <div key={section.key} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsProfileMenuOpen(false);
+                            setExpandedModuleKey((current) =>
+                              current === section.key ? null : section.key
+                            );
+                          }}
+                          className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                            isActive
+                              ? "border-[rgba(241,166,75,0.35)] bg-[rgba(241,166,75,0.92)] text-[var(--color-ink)] shadow-[0_10px_22px_rgba(241,166,75,0.16)]"
+                              : "border-white/12 bg-[rgba(255,255,255,0.06)] text-white hover:border-[rgba(241,166,75,0.32)] hover:bg-[rgba(255,255,255,0.11)]"
+                          }`}
+                        >
+                          <span>{section.label}</span>
+                          <ChevronDownIcon
+                            className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        </button>
+
+                        {section.items.length && isExpanded ? (
+                          <div className="absolute left-0 top-full z-30 mt-3 min-w-[220px] overflow-hidden rounded-[1rem] border border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(9,68,76,0.99),rgba(7,52,59,0.99))] p-2 shadow-[0_22px_44px_rgba(3,18,22,0.34)] backdrop-blur">
+                            {section.items.map((item) => {
+                              const isItemActive =
+                                item.href === "/admin"
+                                  ? pathname === "/admin"
+                                  : pathname.startsWith(item.href);
+
+                              return (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                                    isItemActive
+                                      ? "bg-[rgba(241,166,75,0.92)] text-[var(--color-ink)] shadow-[0_10px_20px_rgba(15,23,42,0.12)]"
+                                      : "text-white/92 hover:bg-[rgba(255,255,255,0.08)] hover:text-white"
+                                  }`}
+                                  onClick={() => setExpandedModuleKey(null)}
+                                >
+                                  {item.label}
+                                </Link>
+                              );
+                            })}
                           </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex justify-start xl:ml-auto xl:min-w-[420px] xl:justify-end">
+                <div className="relative" ref={profileMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandedModuleKey(null);
+                      setIsProfileMenuOpen((current) => !current);
+                    }}
+                    className="inline-flex items-center gap-3 rounded-[1rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-3 py-2 text-left text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)]"
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[rgba(241,166,75,0.18)] text-sm font-semibold tracking-[0.12em] text-[var(--color-accent)]">
+                      {getInitials(authName)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">{authName}</span>
+                      <span className="block truncate text-xs text-white/68">
+                        {displayRole}
+                      </span>
+                    </span>
+                    <ChevronDownIcon
+                      className={`h-4 w-4 text-white/76 transition ${
+                        isProfileMenuOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {isProfileMenuOpen ? (
+                    <div className="absolute right-0 z-30 mt-3 w-[320px] overflow-hidden rounded-[1.15rem] border border-white/12 bg-[linear-gradient(180deg,rgba(9,68,76,0.99),rgba(7,52,59,0.99))] p-4 text-white shadow-[0_24px_60px_rgba(5,24,28,0.34)] backdrop-blur">
+                      <div className="rounded-[1rem] border border-white/10 bg-white/7 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/58">
+                          Login Details
+                        </p>
+                        <p className="mt-2 text-base font-semibold text-white">{authName}</p>
+                        <p className="mt-1 text-sm text-white/72">{displayIdentifier}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="rounded-full border border-[rgba(241,166,75,0.42)] bg-[rgba(241,166,75,0.16)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
+                            {displayRole}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/7 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/74">
+                            Auto logout 10 min
+                          </span>
                         </div>
+                      </div>
 
                         <div className="mt-4 grid gap-2">
                           <Link
                             href="https://www.werkly.in"
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(241,166,75,0.16)] hover:text-[var(--color-accent)]"
+                            className="inline-flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)] hover:text-[var(--color-accent)]"
                           >
                             <span>Visit Website</span>
                             <GlobeIcon className="h-4 w-4" />
@@ -592,15 +582,13 @@ export function AdminShell({
                     ) : null}
                   </div>
                 </div>
-              </div>
-
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1800px] px-5 py-8 sm:px-8 sm:py-10">
-          <section className="accent-card overflow-hidden">
-            <div className="border-b border-[var(--color-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(250,246,239,0.76))] px-6 py-6 sm:px-8">
+        <main className="mx-auto w-full max-w-[1800px] px-5 py-6 sm:px-8 sm:py-8">
+          <section className="crm-panel overflow-hidden">
+            <div className="crm-page-header border-b border-[var(--color-line)] px-6 py-5 sm:px-8">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="max-w-3xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">
@@ -615,10 +603,10 @@ export function AdminShell({
               </div>
 
                 <div className="flex flex-wrap gap-2 xl:max-w-[360px] xl:justify-end">
-                  <span className="rounded-full border border-[rgba(8,96,108,0.12)] bg-[rgba(8,96,108,0.05)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                  <span className="rounded-lg border border-[rgba(8,96,108,0.12)] bg-[rgba(8,96,108,0.06)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
                     {activeSection.label}
                   </span>
-                  <span className="rounded-full border border-[rgba(190,72,26,0.12)] bg-[rgba(190,72,26,0.06)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                  <span className="rounded-lg border border-[rgba(190,72,26,0.12)] bg-[rgba(190,72,26,0.06)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
                     {displayRole}
                   </span>
                 </div>
