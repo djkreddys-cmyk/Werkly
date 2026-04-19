@@ -563,100 +563,174 @@ function CrmEmployeesList({
 }
 
 function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
-  return (
-    <section className="accent-card p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="eyebrow">Clients</p>
-          <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-            Assigned client accounts
-          </h3>
-        </div>
-        <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-          {clients.length} clients
-        </span>
-      </div>
+  const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
 
-      <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
-        {clients.length === 0 ? (
-          <p className="muted-copy p-5 text-sm">No clients have been onboarded yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse">
-              <thead>
-                <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                  {["Client", "Contact", "Owner", "Jobs", "Status", "Agreement"].map((heading) => (
-                    <th
-                      key={heading}
-                      className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
-                    >
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {clients.map((client, index) => (
-                  <tr
-                    key={client.id}
-                    className={
-                      index === clients.length - 1
-                        ? "align-top"
-                        : "align-top border-b border-[var(--color-line)]"
-                    }
-                  >
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-[var(--color-ink)]">{client.companyName}</p>
-                      <p className="mt-1 text-sm text-[var(--color-muted)]">
-                        {client.sector || "Sector not added"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      <p>{client.contactPerson}</p>
-                      <p className="mt-1">{client.contactEmail || "No email"}</p>
-                      <p className="mt-1">{client.contactPhone || "No phone"}</p>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {client.assignedEmployeeName || "Not assigned"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      <p className="font-semibold text-[var(--color-ink)]">
-                        {client.linkedJobsCount}
-                      </p>
-                      {client.linkedJobs.length ? (
-                        <p className="mt-1 max-w-[220px] text-xs leading-5">
-                          {client.linkedJobs
-                            .map((job) => `${job.jobCode ? `${job.jobCode} - ` : ""}${job.title}`)
-                            .join(", ")}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
-                        {client.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {client.agreementFileData && client.agreementFileName ? (
-                        <a
-                          href={client.agreementFileData}
-                          download={client.agreementFileName}
-                          className="font-medium text-[var(--color-accent-strong)]"
-                        >
-                          Download PDF
-                        </a>
-                      ) : (
-                        "Not uploaded"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+  return (
+    <>
+      <section className="accent-card p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="eyebrow">Clients</p>
+            <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+              Assigned client accounts
+            </h3>
           </div>
-        )}
-      </div>
-    </section>
+          <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+            {clients.length} clients
+          </span>
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
+          {clients.length === 0 ? (
+            <p className="muted-copy p-5 text-sm">No clients have been onboarded yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                    {["Client", "Contact", "Owner", "Jobs", "Status", "Agreement"].map((heading) => (
+                      <th
+                        key={heading}
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                      >
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map((client, index) => (
+                    <tr
+                      key={client.id}
+                      className={
+                        index === clients.length - 1
+                          ? "align-top"
+                          : "align-top border-b border-[var(--color-line)]"
+                      }
+                    >
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-[var(--color-ink)]">{client.companyName}</p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">
+                          {client.sector || "Sector not added"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p>{client.contactPerson}</p>
+                        <p className="mt-1">{client.contactEmail || "No email"}</p>
+                        <p className="mt-1">{client.contactPhone || "No phone"}</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {client.assignedEmployeeName || "Not assigned"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedClientJobs(client)}
+                          className="font-semibold text-[var(--color-accent-strong)] transition hover:text-[var(--color-dark)]"
+                        >
+                          {client.linkedJobsCount}
+                        </button>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
+                          {client.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {client.agreementFileData && client.agreementFileName ? (
+                          <a
+                            href={client.agreementFileData}
+                            download={client.agreementFileName}
+                            className="font-medium text-[var(--color-accent-strong)]"
+                          >
+                            Download PDF
+                          </a>
+                        ) : (
+                          "Not uploaded"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {selectedClientJobs ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-3xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Client Jobs</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {selectedClientJobs.companyName}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  {selectedClientJobs.linkedJobsCount} linked job
+                  {selectedClientJobs.linkedJobsCount === 1 ? "" : "s"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedClientJobs(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
+              {selectedClientJobs.linkedJobs.length === 0 ? (
+                <p className="muted-copy p-5 text-sm">No jobs are linked to this client yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse">
+                    <thead>
+                      <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                        {["Job Code", "Job Title", "Status"].map((heading) => (
+                          <th
+                            key={heading}
+                            className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                          >
+                            {heading}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedClientJobs.linkedJobs.map((job, index) => (
+                        <tr
+                          key={job.id}
+                          className={
+                            index === selectedClientJobs.linkedJobs.length - 1
+                              ? "align-top"
+                              : "align-top border-b border-[var(--color-line)]"
+                          }
+                        >
+                          <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
+                            {job.jobCode || "Pending"}
+                          </td>
+                          <td className="px-4 py-4 text-sm text-[var(--color-ink)]">
+                            {job.title}
+                          </td>
+                          <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                            <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                              {job.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
