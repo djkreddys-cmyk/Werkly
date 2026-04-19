@@ -20,9 +20,13 @@ function labelizeStage(stage: JobApplicationStage) {
 }
 
 export function AdminCandidatesPanel() {
-  const [token, setToken] = useState("");
+  const [token] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAdminToken") ?? ""
+      : ""
+  );
   const [applications, setApplications] = useState<JobApplication[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
@@ -35,13 +39,7 @@ export function AdminCandidatesPanel() {
   } | null>(null);
 
   useEffect(() => {
-    const savedToken = window.localStorage.getItem("werklyAdminToken") ?? "";
-    setToken(savedToken);
-  }, []);
-
-  useEffect(() => {
     if (!token) {
-      setIsLoading(false);
       return;
     }
 
@@ -154,6 +152,19 @@ export function AdminCandidatesPanel() {
     }
   }
 
+  function openStageEditor(
+    application: JobApplication,
+    nextStage: JobApplicationStage = (application.stage ?? "applied") as JobApplicationStage
+  ) {
+    setStageDraft({
+      application,
+      stage: nextStage,
+      note: application.stageNote ?? "",
+      date: application.stageDate ?? new Date().toISOString().slice(0, 10),
+    });
+    setError("");
+  }
+
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -221,6 +232,7 @@ export function AdminCandidatesPanel() {
                       "Job",
                       "Client",
                       "Recruiter",
+                      "Resume",
                       "Stage",
                       "Applied Date",
                     ].map((heading) => (
@@ -275,19 +287,38 @@ export function AdminCandidatesPanel() {
                           <p className="mt-1">{application.recruiterEmail}</p>
                         ) : null}
                       </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {application.resumeFileData && application.resumeFileName ? (
+                          <div className="flex flex-col gap-2">
+                            <a
+                              href={application.resumeFileData}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold text-[var(--color-accent-strong)] transition hover:text-[var(--color-dark)]"
+                            >
+                              View Resume
+                            </a>
+                            <a
+                              href={application.resumeFileData}
+                              download={application.resumeFileName}
+                              className="text-xs font-medium text-[var(--color-muted)] transition hover:text-[var(--color-ink)]"
+                            >
+                              Download
+                            </a>
+                          </div>
+                        ) : (
+                          "No resume"
+                        )}
+                      </td>
                       <td className="px-4 py-4 text-sm">
                         <select
                           value={application.stage ?? "applied"}
                           disabled={isUpdatingId === application.id}
                           onChange={(event) =>
-                            setStageDraft({
+                            openStageEditor(
                               application,
-                              stage: event.target.value as JobApplicationStage,
-                              note: application.stageNote ?? "",
-                              date:
-                                application.stageDate ??
-                                new Date().toISOString().slice(0, 10),
-                            })
+                              event.target.value as JobApplicationStage
+                            )
                           }
                           className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
                         >
@@ -307,6 +338,13 @@ export function AdminCandidatesPanel() {
                             {new Date(application.stageDate).toLocaleDateString("en-IN")}
                           </p>
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={() => openStageEditor(application)}
+                          className="mt-3 rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.05)]"
+                        >
+                          Edit Stage
+                        </button>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {new Date(application.appliedAt).toLocaleString("en-IN", {
@@ -333,7 +371,7 @@ export function AdminCandidatesPanel() {
                   {stageDraft.application.candidateName}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
-                  Move to {labelizeStage(stageDraft.stage)} and capture the remark plus effective date for reports.
+                  Update the candidate stage, remarks, and effective date whenever the pipeline status changes.
                 </p>
               </div>
               <button
