@@ -46,9 +46,13 @@ function formatDateLabel(value?: string) {
 
 function getTodayKey() {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
+  return formatLocalDateKey(now);
+}
+
+function formatLocalDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, "0");
+  const day = `${value.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -117,7 +121,7 @@ function buildCalendarDays(monthDate: Date) {
   return Array.from({ length: 42 }, (_, index) => {
     const current = new Date(calendarStart);
     current.setDate(calendarStart.getDate() + index);
-    const dateKey = normalizeDateKey(current.toISOString());
+    const dateKey = formatLocalDateKey(current);
 
     return {
       key: dateKey,
