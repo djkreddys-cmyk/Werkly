@@ -762,11 +762,11 @@ function CrmEmployeesList({
 
 function CrmClientsList({
   clients,
-  canTransfer,
+  canManageActions,
   onTransfer,
 }: {
   clients: ClientRecord[];
-  canTransfer: boolean;
+  canManageActions: boolean;
   onTransfer: (client: ClientRecord) => void;
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
@@ -803,11 +803,11 @@ function CrmClientsList({
           </span>
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
+        <div className="mt-5 rounded-[1.35rem] border border-[var(--color-line)] bg-white">
           {clients.length === 0 ? (
             <p className="muted-copy p-5 text-sm">No clients have been onboarded yet.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-visible pb-4">
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
@@ -894,7 +894,7 @@ function CrmClientsList({
                         )}
                       </td>
                       <td className="px-4 py-4">
-                        {canTransfer ? (
+                        {canManageActions ? (
                           <div
                             className="relative inline-flex"
                             ref={actionMenuClientId === client.id ? actionsMenuRef : null}
@@ -2059,36 +2059,63 @@ export function AdminClientsPanel({
     setMessage("");
 
     try {
-      const response = await fetch("/api/admin/client-transfer-requests", {
-        method: "POST",
+      const response = await fetch(
+        isSuperAdmin
+          ? `/api/admin/clients/${selectedTransferClient.id}/reassign`
+          : "/api/admin/client-transfer-requests",
+        {
+          method: isSuperAdmin ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          clientId: selectedTransferClient.id,
-          requestedToEmployeeId: transferToEmployeeId,
-          effectiveFromDate: transferEffectiveFromDate,
-          reason: transferReason,
-        }),
-      });
+            ...(isSuperAdmin
+              ? {
+                  assignedEmployeeId: transferToEmployeeId,
+                  effectiveFromDate: transferEffectiveFromDate,
+                  reason: transferReason,
+                }
+              : {
+                  clientId: selectedTransferClient.id,
+                  requestedToEmployeeId: transferToEmployeeId,
+                  effectiveFromDate: transferEffectiveFromDate,
+                  reason: transferReason,
+                }),
+          }),
+        }
+      );
       const result = (await response.json()) as { message?: string };
       if (!response.ok) {
-        throw new Error(result.message || "Unable to submit client transfer request.");
+        throw new Error(
+          result.message ||
+            (isSuperAdmin
+              ? "Unable to transfer client."
+              : "Unable to submit client transfer request.")
+        );
       }
 
-      await refreshTransferRequests();
+      await refreshCrm(token);
+      if (!isSuperAdmin) {
+        await refreshTransferRequests();
+      }
       setSelectedTransferClient(null);
       setTransferToEmployeeId("");
       setTransferEffectiveFromDate("");
       setTransferReason("");
-      setMessage("Client transfer request submitted for Super Admin approval.");
+      setMessage(
+        isSuperAdmin
+          ? "Client owner updated successfully."
+          : "Client transfer request submitted for Super Admin approval."
+      );
     } catch (requestError) {
       setError(
         formatErrorMessage(
           requestError instanceof Error
             ? requestError.message
-            : "Unable to submit client transfer request."
+            : isSuperAdmin
+              ? "Unable to transfer client."
+              : "Unable to submit client transfer request."
         )
       );
     } finally {
@@ -2317,7 +2344,7 @@ export function AdminClientsPanel({
         <div id="existing-clients" className="scroll-mt-28">
           <CrmClientsList
             clients={clients}
-            canTransfer={!isSuperAdmin}
+            canManageActions
             onTransfer={(client) => {
               setSelectedTransferClient(client);
               setTransferToEmployeeId("");
@@ -2330,7 +2357,7 @@ export function AdminClientsPanel({
         </div>
       ) : null}
 
-      {selectedTransferClient && !isSuperAdmin ? (
+      {selectedTransferClient ? (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
           <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
             <div className="flex items-start justify-between gap-4">
@@ -2340,7 +2367,9 @@ export function AdminClientsPanel({
                   {selectedTransferClient.companyName}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
-                  Raise a transfer request for Super Admin approval.
+                  {isSuperAdmin
+                    ? "Transfer this client directly to another employee."
+                    : "Raise a transfer request for Super Admin approval."}
                 </p>
               </div>
               <button

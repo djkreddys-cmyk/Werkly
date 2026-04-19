@@ -631,6 +631,73 @@ export async function createClient(payload) {
   return client;
 }
 
+export async function reassignClient(clientId, assignedEmployeeId) {
+  const updatedResult = await query(
+    `update clients
+        set assigned_employee_id = $2,
+            updated_at = now()
+      where id = $1
+      returning id`,
+    [clientId, assignedEmployeeId || null]
+  );
+
+  const updated = updatedResult.rows[0];
+  if (!updated) {
+    return null;
+  }
+
+  const hydratedResult = await query(
+    `select
+      clients.id,
+      clients.company_name,
+      clients.contact_person,
+      clients.contact_email,
+      clients.contact_phone,
+      clients.sector,
+      clients.branch,
+      clients.assigned_employee_id,
+      clients.status,
+      clients.onboarding_status,
+      clients.follow_up_status,
+      clients.next_follow_up_date,
+      clients.last_follow_up_date,
+      clients.onboarding_source,
+      clients.notes,
+      clients.follow_up_notes,
+      clients.agreement_file_name,
+      clients.agreement_file_type,
+      clients.agreement_file_data,
+      clients.created_at,
+      employees.full_name as assigned_employee_name,
+      coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
+      coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
+     from clients
+     left join employees on employees.id = clients.assigned_employee_id
+     left join lateral (
+       select
+         count(*)::int as linked_jobs_count,
+         coalesce(
+           json_agg(
+             json_build_object(
+               'id', jobs.id,
+               'jobCode', jobs.job_code,
+               'title', jobs.title,
+               'status', jobs.status
+             )
+             order by jobs.created_at desc
+           ),
+           '[]'::json
+         ) as linked_jobs
+       from jobs
+       where jobs.client_id = clients.id
+     ) job_summary on true
+     where clients.id = $1`,
+    [clientId]
+  );
+
+  return hydratedResult.rows[0] ? mapClientRow(hydratedResult.rows[0]) : null;
+}
+
 export async function createClientTransferRequest(payload) {
   const result = await query(
     `insert into client_transfer_requests (

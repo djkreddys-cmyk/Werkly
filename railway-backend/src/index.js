@@ -29,6 +29,7 @@ import {
   listClients,
   listClientTransferRequests,
   listEmployees,
+  reassignClient,
   reviewClientTransferRequest,
   updateEmployee,
 } from "./crm.js";
@@ -996,6 +997,30 @@ app.post("/admin/clients", requireInternalUser, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to create client.",
+    });
+  }
+});
+
+app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) => {
+  try {
+    const { assignedEmployeeId } = request.body ?? {};
+
+    if (!assignedEmployeeId) {
+      return response.status(400).json({
+        message: "Target employee is required.",
+      });
+    }
+
+    const client = await reassignClient(request.params.id, assignedEmployeeId);
+
+    if (!client) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    response.json(client);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to reassign client.",
     });
   }
 });
