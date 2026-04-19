@@ -456,7 +456,7 @@ export function AdminDashboardOverview() {
       <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
         <article className="accent-card p-5">
           <p className="eyebrow">Upcoming Follow-Ups</p>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+          <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)]">
             Prioritized follow-up queue
           </h2>
 
@@ -498,20 +498,20 @@ export function AdminDashboardOverview() {
 
         <article className="accent-card p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
+            <div className="max-w-[360px]">
               <p className="eyebrow">{isAdminView ? "Follow-Up Calendar" : "Follow-Up Calendar"}</p>
-              <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+              <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)] leading-6">
                 {isAdminView
                   ? "Track client follow-ups by employee and date."
                   : `${authName}, here is your follow-up dashboard.`}
               </h2>
-              <p className="muted-copy mt-2 text-sm leading-5">
+              <p className="muted-copy mt-1.5 text-sm leading-5">
                 {isAdminView
                   ? "Filter by recruiter and date to see client follow-up commitments that need action."
                   : "Click any date in the calendar to open that day's follow-up details."}
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               {isAdminView ? (
                 <select
                   value={selectedEmployeeId}
