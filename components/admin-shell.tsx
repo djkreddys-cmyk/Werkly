@@ -87,7 +87,7 @@ export function AdminShell({
       ? ""
       : window.localStorage.getItem("werklyEmployeeCode") ?? ""
   );
-  const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const logoutTimerRef = useRef<number | null>(null);
   const logoutHandlerRef = useRef<() => Promise<void>>(async () => {});
   const displayIdentifier = authEmployeeCode || authIdentifier;
   const displayRole =
