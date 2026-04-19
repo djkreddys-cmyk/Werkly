@@ -455,6 +455,48 @@ export function AdminDashboardOverview() {
 
       <section className="grid gap-5 xl:grid-cols-[0.88fr_1.12fr]">
         <article className="accent-card p-5">
+          <p className="eyebrow">Upcoming Follow-Ups</p>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+            Prioritized follow-up queue
+          </h2>
+
+          {isLoading ? (
+            <p className="muted-copy mt-6 text-sm">Loading follow-up queue...</p>
+          ) : upcomingFollowUps.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No scheduled follow-ups are available yet.</p>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {upcomingFollowUps.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setVisibleMonth(parseDateKey(item.nextFollowUpDate));
+                    if (item.ownerId) {
+                      setSelectedEmployeeId(item.ownerId);
+                    }
+                    openDateDetails(item.nextFollowUpDate);
+                  }}
+                  className="w-full rounded-[1.1rem] border border-[var(--color-line)] bg-white p-3.5 text-left transition hover:border-[var(--color-dark)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[var(--color-ink)]">{item.clientName}</p>
+                      <p className="mt-1 text-sm text-[var(--color-muted)]">{item.ownerName}</p>
+                    </div>
+                    <FollowUpStatusPill status={item.followUpStatus} />
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-3 text-sm text-[var(--color-muted)]">
+                    <span>{formatDateLabel(item.nextFollowUpDate)}</span>
+                    <span>{item.contactPerson}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="accent-card p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="eyebrow">{isAdminView ? "Follow-Up Calendar" : "Follow-Up Calendar"}</p>
@@ -581,50 +623,6 @@ export function AdminDashboardOverview() {
             </div>
           )}
         </article>
-
-        {isAdminView ? (
-          <article className="accent-card p-5">
-            <p className="eyebrow">Upcoming Follow-Ups</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
-              Prioritized follow-up queue
-            </h2>
-
-            {isLoading ? (
-              <p className="muted-copy mt-6 text-sm">Loading follow-up queue...</p>
-            ) : upcomingFollowUps.length === 0 ? (
-              <p className="muted-copy mt-6 text-sm">No scheduled follow-ups are available yet.</p>
-            ) : (
-              <div className="mt-6 space-y-4">
-                {upcomingFollowUps.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                  onClick={() => {
-                    setVisibleMonth(parseDateKey(item.nextFollowUpDate));
-                    if (item.ownerId) {
-                      setSelectedEmployeeId(item.ownerId);
-                    }
-                    openDateDetails(item.nextFollowUpDate);
-                  }}
-                  className="w-full rounded-[1.1rem] border border-[var(--color-line)] bg-white p-3.5 text-left transition hover:border-[var(--color-dark)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-[var(--color-ink)]">{item.clientName}</p>
-                        <p className="mt-1 text-sm text-[var(--color-muted)]">{item.ownerName}</p>
-                      </div>
-                      <FollowUpStatusPill status={item.followUpStatus} />
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-3 text-sm text-[var(--color-muted)]">
-                      <span>{formatDateLabel(item.nextFollowUpDate)}</span>
-                      <span>{item.contactPerson}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </article>
-        ) : null}
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
