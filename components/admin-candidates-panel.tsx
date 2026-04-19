@@ -37,6 +37,23 @@ function safeCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
+function getStageTone(stage: JobApplicationStage) {
+  switch (stage) {
+    case "joined":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "offered":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    case "interview":
+      return "border-violet-200 bg-violet-50 text-violet-700";
+    case "shortlisted":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "rejected":
+      return "border-rose-200 bg-rose-50 text-rose-700";
+    default:
+      return "border-[rgba(8,96,108,0.14)] bg-[rgba(8,96,108,0.05)] text-[var(--color-dark)]";
+  }
+}
+
 function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
@@ -454,33 +471,65 @@ export function AdminCandidatesPanel() {
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm">
-                        <select
-                          value={application.stage ?? "applied"}
-                          disabled={isUpdatingId === application.id}
-                          onChange={(event) =>
-                            openStageEditor(
-                              application,
-                              event.target.value as JobApplicationStage
-                            )
-                          }
-                          className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-                        >
-                          {stageOptions.map((stage) => (
-                            <option key={stage} value={stage}>
-                              {labelizeStage(stage)}
-                            </option>
-                          ))}
-                        </select>
-                        {application.stageNote ? (
-                          <p className="mt-2 max-w-[220px] text-xs leading-5 text-[var(--color-muted)]">
-                            {application.stageNote}
-                          </p>
-                        ) : null}
-                        {application.stageDate ? (
-                          <p className="mt-1 text-xs font-medium text-[var(--color-accent-strong)]">
-                            {new Date(application.stageDate).toLocaleDateString("en-IN")}
-                          </p>
-                        ) : null}
+                        <div className="min-w-[220px] space-y-3">
+                          <select
+                            value={application.stage ?? "applied"}
+                            disabled={isUpdatingId === application.id}
+                            onChange={(event) =>
+                              openStageEditor(
+                                application,
+                                event.target.value as JobApplicationStage
+                              )
+                            }
+                            className="w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                          >
+                            {stageOptions.map((stage) => (
+                              <option key={stage} value={stage}>
+                                {labelizeStage(stage)}
+                              </option>
+                            ))}
+                          </select>
+
+                          <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(248,250,252,0.9)] p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                                Current
+                              </span>
+                              <span
+                                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
+                                  getStageTone(
+                                    (application.stage ?? "applied") as JobApplicationStage
+                                  )
+                                }`}
+                              >
+                                {labelizeStage(
+                                  (application.stage ?? "applied") as JobApplicationStage
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 space-y-2">
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                                  Remark
+                                </p>
+                                <p className="mt-1 text-xs leading-5 text-[var(--color-ink)]">
+                                  {application.stageNote || "No remark added yet"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                                  Effective Date
+                                </p>
+                                <p className="mt-1 text-xs font-medium text-[var(--color-accent-strong)]">
+                                  {application.stageDate
+                                    ? new Date(application.stageDate).toLocaleDateString("en-IN")
+                                    : "Not updated"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {new Date(application.appliedAt).toLocaleString("en-IN", {
@@ -573,33 +622,48 @@ export function AdminCandidatesPanel() {
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <input
-                value={labelizeStage(stageDraft.stage)}
-                readOnly
-                className="w-full rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
-              />
-              <input
-                type="date"
-                value={stageDraft.date}
-                onChange={(event) =>
-                  setStageDraft((current) =>
-                    current ? { ...current, date: event.target.value } : current
-                  )
-                }
-                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
-              />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Stage
+                </span>
+                <input
+                  value={labelizeStage(stageDraft.stage)}
+                  readOnly
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Effective Date
+                </span>
+                <input
+                  type="date"
+                  value={stageDraft.date}
+                  onChange={(event) =>
+                    setStageDraft((current) =>
+                      current ? { ...current, date: event.target.value } : current
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+                />
+              </label>
             </div>
 
-            <textarea
-              value={stageDraft.note}
-              onChange={(event) =>
-                setStageDraft((current) =>
-                  current ? { ...current, note: event.target.value } : current
-                )
-              }
-              placeholder="Add stage remarks for shortlist, interview, offer, joining, or rejection."
-              className="mt-4 min-h-[150px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
-            />
+            <label className="mt-4 block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Stage Remark
+              </span>
+              <textarea
+                value={stageDraft.note}
+                onChange={(event) =>
+                  setStageDraft((current) =>
+                    current ? { ...current, note: event.target.value } : current
+                  )
+                }
+                placeholder="Add stage remarks for shortlist, interview, offer, joining, or rejection."
+                className="min-h-[150px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </label>
 
             <div className="mt-5 flex flex-wrap gap-3">
               <button
