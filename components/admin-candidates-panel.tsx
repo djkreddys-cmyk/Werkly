@@ -169,15 +169,15 @@ export function AdminCandidatesPanel() {
         ))}
       </section>
 
-      <section id="existing-candidates" className="accent-card scroll-mt-28 p-7">
+      <section id="job-applicants" className="accent-card scroll-mt-28 p-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="eyebrow">Candidate Workspace</p>
+            <p className="eyebrow">Job Applicants</p>
             <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-              Review applicants across every live mandate.
+              Review candidates who applied for active jobs.
             </h2>
             <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
-              Search candidates, move them between pipeline stages, and keep recruiter ownership visible in one table.
+              Search job applicants, move them between pipeline stages, and keep recruiter ownership visible in one table.
             </p>
           </div>
 

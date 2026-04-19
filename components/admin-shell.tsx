@@ -39,9 +39,10 @@ const moduleSections = [
     key: "candidates",
     label: "Candidates",
     href: "/admin/candidates",
-    description: "Candidate pipeline and existing profiles",
+    description: "Job applicants and website enquiries",
     items: [
-      { href: "/admin/candidates#existing-candidates", label: "Existing Candidates" },
+      { href: "/admin/candidates", label: "Job Applicants" },
+      { href: "/admin/candidate-enquiries", label: "Candidate Enquiries" },
     ],
   },
   {
@@ -144,7 +145,7 @@ function getActiveModuleKey(pathname: string) {
     return "jobs";
   }
 
-  if (pathname.startsWith("/admin/candidates")) {
+  if (pathname.startsWith("/admin/candidates") || pathname.startsWith("/admin/candidate-enquiries")) {
     return "candidates";
   }
 

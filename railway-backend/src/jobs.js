@@ -96,6 +96,30 @@ export function mapApplicationHistoryRow(row) {
   };
 }
 
+export function mapCandidateEnquiryRow(row) {
+  return {
+    id: row.id,
+    candidateName: row.candidate_name,
+    candidateEmail: row.candidate_email || "",
+    candidatePhone: row.candidate_phone,
+    experience: row.experience,
+    currentCompany: row.current_company,
+    currentLocation: row.current_location,
+    currentDesignation: row.current_designation,
+    preferredRole: row.preferred_role,
+    currentCtc: row.current_ctc,
+    expectedCtc: row.expected_ctc,
+    preferredLocation: row.preferred_location,
+    preferredSector: row.preferred_sector,
+    candidateMessage: row.candidate_message,
+    resumeFileName: row.resume_file_name,
+    resumeFileType: row.resume_file_type,
+    resumeFileData: row.resume_file_data,
+    sourceType: row.source_type,
+    createdAt: row.created_at,
+  };
+}
+
 export async function listJobs() {
   const result = await query(
     `select
@@ -309,6 +333,30 @@ export async function ensureJobsSchema() {
     `create index if not exists idx_job_application_stage_history_application_id
      on job_application_stage_history(application_id)`
   );
+  await query(`
+    create table if not exists candidate_enquiries (
+      id uuid primary key default gen_random_uuid(),
+      candidate_name text not null,
+      candidate_email text not null,
+      candidate_phone text,
+      experience text,
+      current_company text,
+      current_location text,
+      current_designation text,
+      preferred_role text,
+      current_ctc text,
+      expected_ctc text,
+      preferred_location text,
+      preferred_sector text,
+      candidate_message text,
+      resume_file_name text,
+      resume_file_type text,
+      resume_file_data text,
+      source_type text not null default 'website_candidate_enquiry',
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
 }
 
 async function generateJobCode(client, postedAt) {
@@ -869,6 +917,84 @@ export async function listApplicationStageHistory(employeeId = null) {
   );
 
   return result.rows.map(mapApplicationHistoryRow);
+}
+
+export async function createCandidateEnquiry(payload) {
+  const result = await query(
+    `insert into candidate_enquiries (
+      candidate_name,
+      candidate_email,
+      candidate_phone,
+      experience,
+      current_company,
+      current_location,
+      current_designation,
+      preferred_role,
+      current_ctc,
+      expected_ctc,
+      preferred_location,
+      preferred_sector,
+      candidate_message,
+      resume_file_name,
+      resume_file_type,
+      resume_file_data,
+      source_type,
+      updated_at
+    ) values (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,now()
+    )
+    returning *`,
+    [
+      payload.candidateName,
+      payload.candidateEmail,
+      payload.candidatePhone || null,
+      payload.experience || null,
+      payload.currentCompany || null,
+      payload.currentLocation || null,
+      payload.currentDesignation || null,
+      payload.preferredRole || null,
+      payload.currentCtc || null,
+      payload.expectedCtc || null,
+      payload.preferredLocation || null,
+      payload.preferredSector || null,
+      payload.candidateMessage || null,
+      payload.resumeFileName || null,
+      payload.resumeFileType || null,
+      payload.resumeFileData || null,
+      payload.sourceType || "website_candidate_enquiry",
+    ]
+  );
+
+  return result.rows[0] ? mapCandidateEnquiryRow(result.rows[0]) : null;
+}
+
+export async function listCandidateEnquiries() {
+  const result = await query(
+    `select
+      id,
+      candidate_name,
+      candidate_email,
+      candidate_phone,
+      experience,
+      current_company,
+      current_location,
+      current_designation,
+      preferred_role,
+      current_ctc,
+      expected_ctc,
+      preferred_location,
+      preferred_sector,
+      candidate_message,
+      resume_file_name,
+      resume_file_type,
+      resume_file_data,
+      source_type,
+      created_at
+     from candidate_enquiries
+     order by created_at desc`
+  );
+
+  return result.rows.map(mapCandidateEnquiryRow);
 }
 
 export async function updateJobApplicationStage(

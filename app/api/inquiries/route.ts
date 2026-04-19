@@ -31,6 +31,32 @@ async function recordJobApplication(jobSlug: string, payload: Record<string, str
   }
 }
 
+async function recordCandidateEnquiry(payload: Record<string, string>) {
+  const baseUrl = (
+    process.env.RAILWAY_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_RAILWAY_API_BASE_URL ||
+    ''
+  ).replace(/\/$/, '')
+
+  if (!baseUrl) {
+    return
+  }
+
+  const response = await fetch(`${baseUrl}/candidate-enquiries`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || 'Unable to save candidate enquiry.')
+  }
+}
+
 function asString(value: FormDataEntryValue | null) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -180,6 +206,30 @@ export async function POST(request: Request) {
       ])
       subject = `Website candidate enquiry: ${fields.candidateName} - ${fields.preferredRole}`
       replyTo = fields.candidateEmail
+
+      if (!jobSlug) {
+        await recordCandidateEnquiry({
+          candidateName: fields.candidateName,
+          candidateEmail: fields.candidateEmail,
+          candidatePhone: fields.candidatePhone,
+          experience: fields.experience,
+          currentCompany: fields.currentCompany,
+          currentLocation: fields.currentLocation,
+          currentDesignation: fields.currentDesignation,
+          preferredRole: fields.preferredRole,
+          currentCtc: fields.currentCtc,
+          expectedCtc: fields.expectedCtc,
+          preferredLocation: fields.preferredLocation,
+          preferredSector: fields.preferredSector,
+          candidateMessage: fields.candidateMessage,
+          resumeFileName: attachment?.filename || '',
+          resumeFileType: attachment?.content_type || '',
+          resumeFileData: attachment
+            ? `data:${attachment.content_type || 'application/octet-stream'};base64,${attachment.content}`
+            : '',
+          sourceType: 'website_candidate_enquiry',
+        })
+      }
     }
 
     const response = await fetch('https://api.resend.com/emails', {

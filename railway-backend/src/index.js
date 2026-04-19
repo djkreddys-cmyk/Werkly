@@ -39,10 +39,12 @@ import {
 } from "./leave.js";
 import {
   createManualJobApplication,
+  createCandidateEnquiry,
   createJob,
   ensureJobsSchema,
   getJobBySlug,
   listAdminApplications,
+  listCandidateEnquiries,
   listApplicationStageHistory,
   listJobApplications,
   listAdminJobs,
@@ -284,6 +286,18 @@ app.get("/admin/applications", requireInternalUser, async (_request, response) =
   }
 });
 
+app.get("/admin/candidate-enquiries", requireInternalUser, async (_request, response) => {
+  try {
+    const enquiries = await listCandidateEnquiries();
+    response.json({ enquiries });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load candidate enquiries.",
+    });
+  }
+});
+
 app.get("/admin/applications/history", requireInternalUser, async (_request, response) => {
   try {
     const history = await listApplicationStageHistory(
@@ -364,6 +378,62 @@ app.post("/jobs/:slug/applications", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update application count.",
+    });
+  }
+});
+
+app.post("/candidate-enquiries", async (request, response) => {
+  try {
+    const {
+      candidateName,
+      candidateEmail,
+      candidatePhone,
+      experience,
+      currentCompany,
+      currentLocation,
+      currentDesignation,
+      preferredRole,
+      currentCtc,
+      expectedCtc,
+      preferredLocation,
+      preferredSector,
+      candidateMessage,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+      sourceType,
+    } = request.body ?? {};
+
+    if (!candidateName || !candidateEmail || !candidatePhone || !preferredRole) {
+      return response.status(400).json({
+        message: "Candidate name, email, phone, and preferred role are required.",
+      });
+    }
+
+    const enquiry = await createCandidateEnquiry({
+      candidateName,
+      candidateEmail,
+      candidatePhone,
+      experience,
+      currentCompany,
+      currentLocation,
+      currentDesignation,
+      preferredRole,
+      currentCtc,
+      expectedCtc,
+      preferredLocation,
+      preferredSector,
+      candidateMessage,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+      sourceType,
+    });
+
+    response.status(201).json(enquiry);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to save candidate enquiry.",
     });
   }
 });

@@ -92,6 +92,28 @@ export type JobApplicationStageHistory = {
   changedAt: string;
 };
 
+export type CandidateEnquiry = {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone?: string;
+  experience?: string;
+  currentCompany?: string;
+  currentLocation?: string;
+  currentDesignation?: string;
+  preferredRole?: string;
+  currentCtc?: string;
+  expectedCtc?: string;
+  preferredLocation?: string;
+  preferredSector?: string;
+  candidateMessage?: string;
+  resumeFileName?: string;
+  resumeFileType?: string;
+  resumeFileData?: string;
+  sourceType?: string;
+  createdAt: string;
+};
+
 export type JobApplicationStage =
   | "applied"
   | "shortlisted"
@@ -134,6 +156,10 @@ export type AdminApplicationsResponse = {
 
 export type AdminApplicationHistoryResponse = {
   history: JobApplicationStageHistory[];
+};
+
+export type CandidateEnquiriesResponse = {
+  enquiries: CandidateEnquiry[];
 };
 
 export type JobFormPayload = {
@@ -521,6 +547,19 @@ export async function getAdminApplicationHistory(token: string) {
   );
 
   return Array.isArray(data) ? data : data.history;
+}
+
+export async function getAdminCandidateEnquiries(token: string) {
+  const data = await readJson<CandidateEnquiriesResponse | CandidateEnquiry[]>(
+    "/admin/candidate-enquiries",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Array.isArray(data) ? data : data.enquiries;
 }
 
 export async function updateJobApplicationStage(
