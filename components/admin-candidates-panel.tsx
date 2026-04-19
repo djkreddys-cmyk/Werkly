@@ -37,23 +37,6 @@ function safeCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
-function getStageTone(stage: JobApplicationStage) {
-  switch (stage) {
-    case "joined":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    case "offered":
-      return "border-sky-200 bg-sky-50 text-sky-700";
-    case "interview":
-      return "border-violet-200 bg-violet-50 text-violet-700";
-    case "shortlisted":
-      return "border-amber-200 bg-amber-50 text-amber-700";
-    case "rejected":
-      return "border-rose-200 bg-rose-50 text-rose-700";
-    default:
-      return "border-[rgba(8,96,108,0.14)] bg-[rgba(8,96,108,0.05)] text-[var(--color-dark)]";
-  }
-}
-
 function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
@@ -471,7 +454,7 @@ export function AdminCandidatesPanel() {
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm">
-                        <div className="min-w-[220px] space-y-3">
+                        <div className="min-w-[180px]">
                           <select
                             value={application.stage ?? "applied"}
                             disabled={isUpdatingId === application.id}
@@ -489,46 +472,6 @@ export function AdminCandidatesPanel() {
                               </option>
                             ))}
                           </select>
-
-                          <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(248,250,252,0.9)] p-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                                Current
-                              </span>
-                              <span
-                                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
-                                  getStageTone(
-                                    (application.stage ?? "applied") as JobApplicationStage
-                                  )
-                                }`}
-                              >
-                                {labelizeStage(
-                                  (application.stage ?? "applied") as JobApplicationStage
-                                )}
-                              </span>
-                            </div>
-
-                            <div className="mt-3 space-y-2">
-                              <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                                  Remark
-                                </p>
-                                <p className="mt-1 text-xs leading-5 text-[var(--color-ink)]">
-                                  {application.stageNote || "No remark added yet"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                                  Effective Date
-                                </p>
-                                <p className="mt-1 text-xs font-medium text-[var(--color-accent-strong)]">
-                                  {application.stageDate
-                                    ? new Date(application.stageDate).toLocaleDateString("en-IN")
-                                    : "Not updated"}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
@@ -565,7 +508,7 @@ export function AdminCandidatesPanel() {
                                 onClick={() => openStageEditor(application)}
                                 className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
                               >
-                                Edit Stage
+                                Update Stage
                               </button>
                               {application.resumeFileData && application.resumeFileName ? (
                                 <a

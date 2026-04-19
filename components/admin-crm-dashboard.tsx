@@ -244,6 +244,16 @@ function CrmFeedback({ message, error }: { message: string; error: string }) {
   );
 }
 
+function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <circle cx="10" cy="4.5" r="1.5" />
+      <circle cx="10" cy="10" r="1.5" />
+      <circle cx="10" cy="15.5" r="1.5" />
+    </svg>
+  );
+}
+
 function CrmEmployeesList({
   employees,
   attendance,
@@ -263,6 +273,8 @@ function CrmEmployeesList({
   onInactivate: (employee: EmployeeRecord) => void;
   resettingEmployeeId: string;
 }) {
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const [actionMenuEmployeeId, setActionMenuEmployeeId] = useState("");
   const todayKey = new Date().toISOString().slice(0, 10);
   const attendanceByEmployee = useMemo(() => {
     const summary = new Map<
@@ -333,6 +345,24 @@ function CrmEmployeesList({
 
     return summary;
   }, [activity, todayKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        actionsMenuRef.current &&
+        !actionsMenuRef.current.contains(event.target as Node)
+      ) {
+        setActionMenuEmployeeId("");
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   return (
     <section className="accent-card p-6">
@@ -455,33 +485,65 @@ function CrmEmployeesList({
                       </td>
                       <td className="px-4 py-4">
                         {canEdit ? (
-                          <div className="flex flex-wrap gap-3">
+                          <div
+                            className="relative inline-flex"
+                            ref={
+                              actionMenuEmployeeId === employee.id ? actionsMenuRef : null
+                            }
+                          >
                             <button
                               type="button"
-                              onClick={() => onEdit(employee)}
-                              className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                              aria-label={`Open actions for ${employee.fullName}`}
+                              aria-expanded={actionMenuEmployeeId === employee.id}
+                              onClick={() =>
+                                setActionMenuEmployeeId((current) =>
+                                  current === employee.id ? "" : employee.id
+                                )
+                              }
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
                             >
-                              Edit
+                              <MoreVerticalIcon />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => onResetPassword(employee)}
-                              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                                resettingEmployeeId === employee.id
-                                  ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
-                                  : "border border-[var(--color-line)] text-[var(--color-accent-strong)] hover:border-[var(--color-accent-strong)]"
-                              }`}
-                            >
-                              Reset Password
-                            </button>
-                            {employee.status === "active" ? (
-                              <button
-                                type="button"
-                                onClick={() => onInactivate(employee)}
-                                className="rounded-xl border border-[rgba(190,72,26,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
-                              >
-                                Inactivate
-                              </button>
+
+                            {actionMenuEmployeeId === employee.id ? (
+                              <div className="absolute right-0 top-12 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionMenuEmployeeId("");
+                                    onEdit(employee);
+                                  }}
+                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionMenuEmployeeId("");
+                                    onResetPassword(employee);
+                                  }}
+                                  className={`flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
+                                    resettingEmployeeId === employee.id
+                                      ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
+                                      : "text-[var(--color-accent-strong)] hover:bg-[rgba(190,72,26,0.06)]"
+                                  }`}
+                                >
+                                  Reset Password
+                                </button>
+                                {employee.status === "active" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActionMenuEmployeeId("");
+                                      onInactivate(employee);
+                                    }}
+                                    className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
+                                  >
+                                    Inactivate
+                                  </button>
+                                ) : null}
+                              </div>
                             ) : null}
                           </div>
                         ) : (
