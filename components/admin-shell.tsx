@@ -15,13 +15,6 @@ type AdminShellProps = {
 
 const moduleSections = [
   {
-    key: "dashboard",
-    label: "Dashboard",
-    href: "/admin",
-    description: "Overview and daily pulse",
-    items: [] as Array<{ href: string; label: string }>,
-  },
-  {
     key: "hr",
     label: "HR",
     href: "/admin/employees",
@@ -133,7 +126,7 @@ function getActiveModuleKey(pathname: string) {
     return "jobs";
   }
 
-  return "dashboard";
+  return "hr";
 }
 
 export function AdminShell({
@@ -358,21 +351,85 @@ export function AdminShell({
           <div className="mx-auto w-full max-w-[1800px] px-5 py-5 sm:px-8">
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between xl:min-w-[420px]">
-                  <div>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8 xl:min-w-[620px]">
+                  <div className="flex items-center gap-4">
                     <Link href="/admin" className="inline-flex items-center">
                       <Image
                         src="/Werkly Logo.png"
                         alt="Werkly logo"
                         width={640}
                         height={176}
-                        className="h-14 w-auto object-contain sm:h-16"
+                        className="h-16 w-auto object-contain sm:h-20"
                         priority
                       />
                     </Link>
-                    <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
                       Werkly CRM Modules
                     </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    {visibleSections.map((section) => {
+                      const isActive = section.key === activeModuleKey;
+                      const isExpanded = expandedModuleKey === section.key;
+
+                      return (
+                        <div key={section.key} className="relative">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedModuleKey((current) =>
+                                current === section.key ? null : section.key
+                              )
+                            }
+                            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                              isActive
+                                ? "border-[rgba(241,166,75,0.28)] bg-[linear-gradient(135deg,rgba(241,166,75,0.94),rgba(246,191,113,0.92))] text-[var(--color-ink)] shadow-[0_12px_24px_rgba(241,166,75,0.16)]"
+                                : "border-white/10 bg-white/6 text-white hover:border-[rgba(241,166,75,0.36)] hover:bg-[rgba(241,166,75,0.14)]"
+                            }`}
+                          >
+                            <span>{section.label}</span>
+                            <ChevronDownIcon
+                              className={`h-4 w-4 transition ${isExpanded ? "rotate-180" : ""}`}
+                            />
+                          </button>
+
+                          {section.items.length && isExpanded ? (
+                            <div
+                              className={`absolute left-0 top-full z-30 mt-2 min-w-[240px] overflow-hidden rounded-[1.2rem] border p-2 shadow-[0_18px_40px_rgba(15,23,42,0.2)] ${
+                                isActive
+                                  ? "border-[rgba(241,166,75,0.24)] bg-[linear-gradient(180deg,rgba(255,247,232,0.98),rgba(251,240,218,0.98))]"
+                                  : "border-white/12 bg-[linear-gradient(180deg,rgba(12,80,90,0.98),rgba(7,54,61,0.98))] backdrop-blur"
+                              }`}
+                            >
+                              {section.items.map((item) => {
+                                const isItemActive =
+                                  item.href === "/admin"
+                                    ? pathname === "/admin"
+                                    : pathname.startsWith(item.href);
+
+                                return (
+                                  <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                                      isItemActive
+                                        ? "bg-white/90 text-[var(--color-ink)] shadow-[0_10px_20px_rgba(15,23,42,0.08)]"
+                                        : isActive
+                                          ? "text-[var(--color-ink)] hover:bg-[rgba(23,53,61,0.08)]"
+                                          : "text-white hover:bg-[rgba(241,166,75,0.16)] hover:text-[var(--color-accent)]"
+                                    }`}
+                                    onClick={() => setExpandedModuleKey(null)}
+                                  >
+                                    {item.label}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -442,87 +499,6 @@ export function AdminShell({
                 </div>
               </div>
 
-              <div className="grid gap-3 lg:grid-cols-3">
-                {visibleSections.map((section) => {
-                  const isActive = section.key === activeModuleKey;
-                  const isExpanded = expandedModuleKey === section.key;
-                  const hasItems = section.items.length > 0;
-
-                  return (
-                    <div
-                      key={section.key}
-                      className={`rounded-[1.45rem] border p-4 transition ${
-                        isActive
-                          ? "border-[rgba(241,166,75,0.28)] bg-[linear-gradient(135deg,rgba(241,166,75,0.94),rgba(246,191,113,0.92))] text-[var(--color-ink)] shadow-[0_18px_36px_rgba(241,166,75,0.18)]"
-                          : "border-white/10 bg-white/6 text-white hover:border-[rgba(241,166,75,0.36)] hover:bg-[rgba(241,166,75,0.14)]"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!hasItems) {
-                            router.push(section.href);
-                            return;
-                          }
-
-                          setExpandedModuleKey((current) =>
-                            current === section.key ? null : section.key
-                          );
-                        }}
-                        className="flex w-full items-start justify-between gap-4 text-left"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold">{section.label}</p>
-                          <p
-                            className={`mt-2 text-sm leading-6 ${
-                              isActive ? "text-[rgba(23,53,61,0.78)]" : "text-white/70"
-                            }`}
-                          >
-                            {section.description}
-                          </p>
-                        </div>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
-                            isActive
-                              ? "bg-white/42 text-[var(--color-ink)]"
-                              : "bg-[rgba(241,166,75,0.14)] text-[var(--color-accent)]"
-                          }`}
-                        >
-                          {hasItems ? (isExpanded ? "Hide" : "Menu") : "Open"}
-                          {hasItems ? <ChevronDownIcon className={`h-3 w-3 ${isExpanded ? "rotate-180" : ""}`} /> : null}
-                        </span>
-                      </button>
-
-                      {hasItems && isExpanded ? (
-                        <div className="mt-4 grid gap-2 border-t border-white/10 pt-4">
-                          {section.items.map((item) => {
-                            const isItemActive =
-                              item.href === "/admin"
-                                ? pathname === "/admin"
-                                : pathname.startsWith(item.href);
-
-                            return (
-                              <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                                  isItemActive
-                                    ? "bg-white/88 text-[var(--color-ink)] shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
-                                    : isActive
-                                      ? "bg-[rgba(23,53,61,0.12)] text-[var(--color-ink)] hover:bg-[rgba(23,53,61,0.18)]"
-                                      : "border border-white/10 bg-[rgba(241,166,75,0.08)] text-white hover:border-[rgba(241,166,75,0.32)] hover:bg-[rgba(241,166,75,0.16)] hover:text-[var(--color-accent)]"
-                                }`}
-                              >
-                                {item.label}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </header>
