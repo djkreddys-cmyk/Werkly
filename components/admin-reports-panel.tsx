@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
+import type { ScreenActivityRecord } from "@/lib/activity";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobApplication, JobApplicationStageHistory } from "@/lib/jobs";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
@@ -12,6 +13,7 @@ type ReportState = {
   clients: ClientRecord[];
   employees: EmployeeRecord[];
   attendance: AttendanceSessionRecord[];
+  activity: ScreenActivityRecord[];
 };
 
 type AttendanceDaySummary = {
@@ -25,6 +27,9 @@ type AttendanceDaySummary = {
   totalWorkedMs: number;
   activeSessionCount: number;
   sessions: AttendanceSessionRecord[];
+  screenActiveSeconds: number;
+  screenIdleSeconds: number;
+  lastSeenAt?: string;
 };
 
 function formatDateTime(value?: string) {
@@ -74,6 +79,7 @@ export function AdminReportsPanel() {
     clients: [],
     employees: [],
     attendance: [],
+    activity: [],
   });
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
@@ -102,6 +108,7 @@ export function AdminReportsPanel() {
       loadJson("/api/admin/clients"),
       loadJson("/api/admin/employees"),
       loadJson("/api/admin/attendance"),
+      loadJson("/api/admin/activity"),
     ])
       .then(
         ([
@@ -110,6 +117,7 @@ export function AdminReportsPanel() {
           clientsResult,
           employeesResult,
           attendanceResult,
+          activityResult,
         ]) => {
         setState({
           applications: applicationsResult.applications ?? [],
@@ -117,6 +125,7 @@ export function AdminReportsPanel() {
           clients: clientsResult.clients ?? [],
           employees: employeesResult.employees ?? [],
           attendance: attendanceResult.attendance ?? [],
+          activity: activityResult.activity ?? [],
         });
         }
       )
@@ -190,6 +199,45 @@ export function AdminReportsPanel() {
 
   const attendanceSummary = useMemo(() => {
     const summaries = new Map<string, AttendanceDaySummary>();
+    const activitySummaryMap = new Map<
+      string,
+      { activeSeconds: number; idleSeconds: number; lastSeenAt?: string }
+    >();
+
+    const visibleActivity =
+      authType !== "employee" && !authEmployeeCode
+        ? state.activity
+        : state.activity.filter(
+            (entry) =>
+              entry.userIdentifier === authEmployeeCode ||
+              entry.userIdentifier === authEmail ||
+              entry.userId ===
+                state.employees.find(
+                  (employee) =>
+                    employee.employeeCode === authEmployeeCode || employee.email === authEmail
+                )?.id
+          );
+
+    visibleActivity.forEach((entry) => {
+      const reportDate = entry.lastSeenAt.slice(0, 10);
+      const userKey = entry.userId || entry.userIdentifier;
+      const summaryKey = `${userKey}-${reportDate}`;
+      const existing = activitySummaryMap.get(summaryKey) ?? {
+        activeSeconds: 0,
+        idleSeconds: 0,
+      };
+
+      existing.activeSeconds += entry.activeSeconds;
+      existing.idleSeconds += entry.idleSeconds;
+      if (
+        !existing.lastSeenAt ||
+        new Date(entry.lastSeenAt).getTime() > new Date(existing.lastSeenAt).getTime()
+      ) {
+        existing.lastSeenAt = entry.lastSeenAt;
+      }
+
+      activitySummaryMap.set(summaryKey, existing);
+    });
 
     visibleAttendance.forEach((session) => {
       const reportDate = session.loginAt.slice(0, 10);
@@ -213,6 +261,9 @@ export function AdminReportsPanel() {
           totalWorkedMs: workedMs,
           activeSessionCount: session.logoutAt ? 0 : 1,
           sessions: [session],
+          screenActiveSeconds: activitySummaryMap.get(summaryKey)?.activeSeconds ?? 0,
+          screenIdleSeconds: activitySummaryMap.get(summaryKey)?.idleSeconds ?? 0,
+          lastSeenAt: activitySummaryMap.get(summaryKey)?.lastSeenAt,
         });
         return;
       }
@@ -232,6 +283,10 @@ export function AdminReportsPanel() {
       ) {
         existing.lastLogoutAt = session.logoutAt;
       }
+
+      existing.screenActiveSeconds = activitySummaryMap.get(summaryKey)?.activeSeconds ?? 0;
+      existing.screenIdleSeconds = activitySummaryMap.get(summaryKey)?.idleSeconds ?? 0;
+      existing.lastSeenAt = activitySummaryMap.get(summaryKey)?.lastSeenAt;
     });
 
     return Array.from(summaries.values())
@@ -249,7 +304,7 @@ export function AdminReportsPanel() {
 
         return a.userName.localeCompare(b.userName);
       });
-  }, [visibleAttendance]);
+  }, [authEmail, authEmployeeCode, authType, state.activity, state.employees, visibleAttendance]);
 
   const totals = useMemo(() => {
     const countByStage = (stage: string) =>
@@ -292,10 +347,10 @@ export function AdminReportsPanel() {
       <section className="accent-card p-7">
         <p className="eyebrow">Attendance Log</p>
         <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-          Track login, logout, and end-of-day worked hours.
+          Track login, logout, screen time, and end-of-day worked hours.
         </h2>
         <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
-          This end-of-day report shows first login, last logout, total worked hours, and every in-between login/logout session for each employee.
+          This end-of-day report shows first login, last logout, worked hours, screen time, idle time, and last activity for each employee.
         </p>
 
         {isLoading ? (
@@ -314,6 +369,9 @@ export function AdminReportsPanel() {
                       "First Login",
                       "Last Logout",
                       "Worked Hours",
+                      "Screen Time",
+                      "Idle Time",
+                      "Last Seen",
                       "Status",
                     ].map((heading) => (
                       <th
@@ -366,6 +424,28 @@ export function AdminReportsPanel() {
                         </p>
                         <p className="mt-1 text-xs text-[var(--color-muted)]">
                           Based on completed login/logout pairs
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {formatDuration(summary.screenActiveSeconds * 1000)}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          Active CRM screen usage
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {formatDuration(summary.screenIdleSeconds * 1000)}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          Idle CRM time
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p>{formatDateTime(summary.lastSeenAt)}</p>
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          Last tracked CRM activity
                         </p>
                       </td>
                       <td className="px-4 py-4 text-sm">
