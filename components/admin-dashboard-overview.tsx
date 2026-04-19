@@ -203,6 +203,7 @@ export function AdminDashboardOverview() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
   const isAdminView = authType === "admin" || authRole === "super-admin";
+  const activeDateKey = normalizeDateKey(selectedDateKey) || todayKey;
 
   useEffect(() => {
     if (!token) {
@@ -308,8 +309,8 @@ export function AdminDashboardOverview() {
   }, [followUpItems, selectedEmployeeId]);
 
   const selectedDateFollowUps = useMemo(
-    () => filteredFollowUps.filter((item) => item.nextFollowUpDate === selectedDateKey),
-    [filteredFollowUps, selectedDateKey]
+    () => filteredFollowUps.filter((item) => item.nextFollowUpDate === activeDateKey),
+    [activeDateKey, filteredFollowUps]
   );
 
   const upcomingFollowUps = useMemo(
@@ -325,8 +326,15 @@ export function AdminDashboardOverview() {
   }, [filteredFollowUps]);
 
   function openDateDetails(dateKey: string) {
-    setSelectedDateKey(dateKey);
-    const count = followUpCountsByDate[dateKey] ?? 0;
+    const normalizedDateKey = normalizeDateKey(dateKey);
+    if (!normalizedDateKey) {
+      setIsDateModalOpen(false);
+      return;
+    }
+
+    setSelectedDateKey(normalizedDateKey);
+    setVisibleMonth(parseDateKey(normalizedDateKey));
+    const count = followUpCountsByDate[normalizedDateKey] ?? 0;
     if (count > 0) {
       setIsDateModalOpen(true);
     } else {
@@ -483,14 +491,8 @@ export function AdminDashboardOverview() {
               ) : null}
               <input
                 type="date"
-                value={selectedDateKey}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
-                  setSelectedDateKey(nextValue);
-                  if (nextValue) {
-                    setVisibleMonth(parseDateKey(nextValue));
-                  }
-                }}
+                value={activeDateKey}
+                onChange={(event) => openDateDetails(event.target.value)}
                 className="rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               />
             </div>
@@ -543,7 +545,7 @@ export function AdminDashboardOverview() {
 
                   {calendarDays.map((day) => {
                     const count = followUpCountsByDate[day.dateKey] ?? 0;
-                    const isSelected = day.dateKey === selectedDateKey;
+                    const isSelected = day.dateKey === activeDateKey;
                     const isToday = day.dateKey === todayKey;
 
                     return (
@@ -811,7 +813,7 @@ export function AdminDashboardOverview() {
               <div>
                 <p className="eyebrow">Selected Date</p>
                 <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-                  {formatDateLabel(selectedDateKey)}
+                  {formatDateLabel(activeDateKey)}
                 </h3>
               </div>
               <button
