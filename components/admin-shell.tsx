@@ -23,7 +23,7 @@ const moduleSections = [
       { href: "/admin/employees/new", label: "Employee Creation" },
       { href: "/admin/employees/existing", label: "Existing Employees" },
       { href: "/admin/leaves", label: "Leave Types & Access" },
-      { href: "/admin/reports?view=attendance", label: "Reports" },
+      { href: "/admin/reports/hr", label: "Reports" },
     ],
   },
   {
@@ -34,7 +34,7 @@ const moduleSections = [
     items: [
       { href: "/admin/jobs/new", label: "New Job" },
       { href: "/admin/jobs/existing", label: "Existing Jobs" },
-      { href: "/admin/reports?view=stages", label: "Reports" },
+      { href: "/admin/reports/jobs", label: "Reports" },
     ],
   },
   {
@@ -45,7 +45,7 @@ const moduleSections = [
     items: [
       { href: "/admin/candidates", label: "Job Applicants" },
       { href: "/admin/candidate-enquiries", label: "Candidate Enquiries" },
-      { href: "/admin/reports?view=stages", label: "Reports" },
+      { href: "/admin/reports/candidates", label: "Reports" },
     ],
   },
   {
@@ -56,7 +56,7 @@ const moduleSections = [
     items: [
       { href: "/admin/clients/new", label: "New Client" },
       { href: "/admin/clients/existing", label: "Existing Clients" },
-      { href: "/admin/reports?view=recruiters", label: "Reports" },
+      { href: "/admin/reports/clients", label: "Reports" },
     ],
   },
 ];
@@ -143,19 +143,27 @@ function getInitials(name: string) {
 }
 
 function getActiveModuleKey(pathname: string) {
-  if (pathname.startsWith("/admin/employees") || pathname.startsWith("/admin/leaves") || pathname.startsWith("/admin/reports")) {
+  if (
+    pathname.startsWith("/admin/employees") ||
+    pathname.startsWith("/admin/leaves") ||
+    pathname.startsWith("/admin/reports/hr")
+  ) {
     return "hr";
   }
 
-  if (pathname.startsWith("/admin/jobs")) {
+  if (pathname.startsWith("/admin/jobs") || pathname.startsWith("/admin/reports/jobs")) {
     return "jobs";
   }
 
-  if (pathname.startsWith("/admin/candidates") || pathname.startsWith("/admin/candidate-enquiries")) {
+  if (
+    pathname.startsWith("/admin/candidates") ||
+    pathname.startsWith("/admin/candidate-enquiries") ||
+    pathname.startsWith("/admin/reports/candidates")
+  ) {
     return "candidates";
   }
 
-  if (pathname.startsWith("/admin/clients")) {
+  if (pathname.startsWith("/admin/clients") || pathname.startsWith("/admin/reports/clients")) {
     return "clients";
   }
 
