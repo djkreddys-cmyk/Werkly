@@ -260,6 +260,7 @@ export function AdminShell({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          keepalive: true,
           body: JSON.stringify({
             clientTime: clientTime.toISOString(),
             clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

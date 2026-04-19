@@ -45,6 +45,7 @@ type AttendanceDaySummary = {
   screenActiveSeconds: number;
   screenIdleSeconds: number;
   lastSeenAt?: string;
+  isAutoLoggedOut?: boolean;
 };
 
 type AdminReportsPanelProps = {
@@ -91,6 +92,8 @@ const reportModules: Array<{
       "Track assigned clients, linked mandates, hiring volume, and reassignment requests that need follow-up.",
   },
 ];
+
+const AUTO_LOGOUT_THRESHOLD_MS = 10 * 60 * 1000;
 
 function formatDateTime(value?: string) {
   if (!value) {
@@ -365,6 +368,7 @@ function ReportFilterBar({
 }
 
 export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProps) {
+  const [reportGeneratedAt] = useState(() => Date.now());
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -670,15 +674,34 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
       existing.lastSeenAt = activitySummaryMap.get(summaryKey)?.lastSeenAt;
     });
 
-    return Array.from(summaries.values()).sort((a, b) => {
-      const dateSort = new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime();
-      if (dateSort !== 0) {
-        return dateSort;
-      }
+    return Array.from(summaries.values())
+      .map((summary) => {
+        if (
+          !summary.lastLogoutAt &&
+          summary.lastSeenAt &&
+          reportGeneratedAt - new Date(summary.lastSeenAt).getTime() >= AUTO_LOGOUT_THRESHOLD_MS
+        ) {
+          return {
+            ...summary,
+            lastLogoutAt: new Date(
+              new Date(summary.lastSeenAt).getTime() + AUTO_LOGOUT_THRESHOLD_MS
+            ).toISOString(),
+            activeSessionCount: 0,
+            isAutoLoggedOut: true,
+          };
+        }
 
-      return a.userName.localeCompare(b.userName);
-    });
-  }, [visibleActivity, visibleAttendance]);
+        return summary;
+      })
+      .sort((a, b) => {
+        const dateSort = new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime();
+        if (dateSort !== 0) {
+          return dateSort;
+        }
+
+        return a.userName.localeCompare(b.userName);
+      });
+  }, [reportGeneratedAt, visibleActivity, visibleAttendance]);
 
   const employeeActivityRows = useMemo(() => {
     const todayKey = new Date().toISOString().slice(0, 10);
@@ -751,10 +774,22 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
       return {
         employee,
         activitySummary,
-        attendanceSummary: attendanceSummaryForEmployee,
+        attendanceSummary:
+          attendanceSummaryForEmployee &&
+          !attendanceSummaryForEmployee.lastLogoutAt &&
+          activitySummary?.lastSeenAt &&
+          reportGeneratedAt - new Date(activitySummary.lastSeenAt).getTime() >= AUTO_LOGOUT_THRESHOLD_MS
+            ? {
+                ...attendanceSummaryForEmployee,
+                lastLogoutAt: new Date(
+                  new Date(activitySummary.lastSeenAt).getTime() + AUTO_LOGOUT_THRESHOLD_MS
+                ).toISOString(),
+                activeSessions: 0,
+              }
+            : attendanceSummaryForEmployee,
       };
     });
-  }, [visibleActivity, visibleAttendance, visibleEmployees]);
+  }, [reportGeneratedAt, visibleActivity, visibleAttendance, visibleEmployees]);
 
   const jobsReportRows = useMemo(() => {
     const applicationCounts = new Map<string, number>();
@@ -1104,7 +1139,11 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
                   </td>
                   <td className="px-4 py-4 text-sm">
                     <span className="font-semibold text-[var(--color-accent-strong)]">
-                      {summary.activeSessionCount > 0 ? "Active session" : "Day closed"}
+                      {summary.isAutoLoggedOut
+                        ? "Auto logged out"
+                        : summary.activeSessionCount > 0
+                          ? "Active session"
+                          : "Day closed"}
                     </span>
                   </td>
                 </tr>
