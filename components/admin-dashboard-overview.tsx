@@ -574,7 +574,7 @@ export function AdminDashboardOverview() {
                   </button>
                 </div>
 
-                <div className="mt-3 grid grid-cols-7 gap-0.5">
+                <div className="mt-3 grid grid-cols-7 gap-[3px]">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                     <div
                       key={day}
@@ -594,7 +594,7 @@ export function AdminDashboardOverview() {
                         key={day.key}
                         type="button"
                         onClick={() => openDateDetails(day.dateKey)}
-                        className={`min-h-[44px] rounded-[0.8rem] border px-1 py-1.5 text-left transition ${
+                        className={`min-h-[40px] rounded-[0.7rem] border px-0.5 py-1 text-left transition ${
                           isSelected
                             ? "border-[var(--color-dark)] bg-[rgba(8,96,108,0.09)]"
                             : isToday
@@ -602,7 +602,7 @@ export function AdminDashboardOverview() {
                               : "border-[var(--color-line)] bg-white hover:border-[var(--color-dark)]"
                         } ${day.inMonth ? "text-[var(--color-ink)]" : "text-[var(--color-muted)]"}`}
                       >
-                        <div className="flex items-start justify-between gap-1">
+                        <div className="flex items-start justify-between gap-0.5">
                           <span
                             className={`text-[10px] font-semibold ${
                               isToday ? "text-[var(--color-accent-strong)]" : ""
@@ -611,9 +611,9 @@ export function AdminDashboardOverview() {
                             {day.label}
                           </span>
                         </div>
-                        <div className="mt-1">
+                        <div className="mt-0.5">
                           {count > 0 ? (
-                            <span className="inline-flex rounded-full bg-[rgba(190,72,26,0.12)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-accent-strong)]">
+                            <span className="inline-flex rounded-full bg-[rgba(190,72,26,0.12)] px-1 py-0.5 text-[8px] font-semibold text-[var(--color-accent-strong)]">
                               {count}
                             </span>
                           ) : null}
