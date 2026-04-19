@@ -333,6 +333,26 @@ export async function changeEmployeePassword(employeeId, newPassword) {
   return result.rows[0] ? mapEmployeeRow(result.rows[0]) : null;
 }
 
+export async function adminResetEmployeePassword(
+  employeeId,
+  newPassword,
+  mustChangePassword = true
+) {
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  const result = await query(
+    `update employees
+     set password_hash = $1,
+         must_change_password = $2,
+         password_changed_at = case when $2 then null else now() end,
+         updated_at = now()
+     where id = $3
+     returning id, full_name, email, employee_code, phone, role, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+    [passwordHash, mustChangePassword, employeeId]
+  );
+
+  return result.rows[0] ? mapEmployeeRow(result.rows[0]) : null;
+}
+
 export async function listClients(employeeId = null) {
   const values = [];
   const employeeScopeClause = employeeId

@@ -20,6 +20,12 @@ type EmployeeFormState = {
   inactiveRemarks: string;
 };
 
+type PasswordResetState = {
+  employeeId: string;
+  password: string;
+  mustChangePassword: boolean;
+};
+
 type ClientFormState = {
   companyName: string;
   contactPerson: string;
@@ -181,10 +187,14 @@ function CrmEmployeesList({
   employees,
   onEdit,
   canEdit,
+  onResetPassword,
+  resettingEmployeeId,
 }: {
   employees: EmployeeRecord[];
   onEdit: (employee: EmployeeRecord) => void;
   canEdit: boolean;
+  onResetPassword: (employee: EmployeeRecord) => void;
+  resettingEmployeeId: string;
 }) {
   return (
     <section className="accent-card p-6">
@@ -236,13 +246,24 @@ function CrmEmployeesList({
                 ) : null}
               </div>
               {canEdit ? (
-                <div className="mt-4">
+                <div className="mt-4 flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={() => onEdit(employee)}
                     className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                   >
                     Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onResetPassword(employee)}
+                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                      resettingEmployeeId === employee.id
+                        ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
+                        : "border border-[var(--color-line)] text-[var(--color-accent-strong)] hover:border-[var(--color-accent-strong)]"
+                    }`}
+                  >
+                    Reset Password
                   </button>
                 </div>
               ) : null}
@@ -355,8 +376,15 @@ export function AdminEmployeesPanel() {
       : window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
   );
   const [employeeForm, setEmployeeForm] = useState<EmployeeFormState>(emptyEmployeeForm);
+  const [passwordReset, setPasswordReset] = useState<PasswordResetState>({
+    employeeId: "",
+    password: "",
+    mustChangePassword: true,
+  });
   const [isSavingEmployee, setIsSavingEmployee] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const isEditingEmployee = Boolean(employeeForm.id);
+  const resettingEmployee = employees.find((employee) => employee.id === passwordReset.employeeId);
   const canManageEmployees = authRole === "super-admin";
 
   function updateEmployeeField(field: keyof EmployeeFormState, value: string) {
@@ -374,6 +402,16 @@ export function AdminEmployeesPanel() {
       status: employee.status,
       inactiveDate: employee.inactiveDate ?? "",
       inactiveRemarks: employee.inactiveRemarks ?? "",
+    });
+    setMessage("");
+    setError("");
+  }
+
+  function loadEmployeeForPasswordReset(employee: EmployeeRecord) {
+    setPasswordReset({
+      employeeId: employee.id,
+      password: "",
+      mustChangePassword: true,
     });
     setMessage("");
     setError("");
@@ -440,6 +478,74 @@ export function AdminEmployeesPanel() {
       );
     } finally {
       setIsSavingEmployee(false);
+    }
+  }
+
+  async function handlePasswordResetSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!token) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    if (!passwordReset.employeeId) {
+      setError("Choose an employee first.");
+      return;
+    }
+
+    if (passwordReset.password.trim().length < 6) {
+      setError("New password must be at least 6 characters long.");
+      return;
+    }
+
+    setIsResettingPassword(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/employees/${passwordReset.employeeId}/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            password: passwordReset.password,
+            mustChangePassword: passwordReset.mustChangePassword,
+          }),
+        }
+      );
+
+      const result = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to reset employee password.");
+      }
+
+      await refreshCrm(token);
+      setMessage(
+        passwordReset.mustChangePassword
+          ? "Password reset successfully. Employee will be asked to change it on next login."
+          : "Password reset successfully."
+      );
+      setPasswordReset({
+        employeeId: "",
+        password: "",
+        mustChangePassword: true,
+      });
+    } catch (resetError) {
+      setError(
+        formatErrorMessage(
+          resetError instanceof Error
+            ? resetError.message
+            : "Unable to reset employee password."
+        )
+      );
+    } finally {
+      setIsResettingPassword(false);
     }
   }
 
@@ -571,6 +677,70 @@ export function AdminEmployeesPanel() {
               ) : null}
             </div>
           </form>
+
+          <form
+            className="mt-6 rounded-[1.7rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.08)] p-6 backdrop-blur"
+            onSubmit={handlePasswordResetSubmit}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
+                  Password Reset
+                </p>
+                <h3 className="mt-3 text-2xl font-semibold text-white">
+                  Reset employee password from the portal.
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-white/72">
+                  Choose an employee from the list below, set a new temporary password,
+                  and decide whether they must change it at next login.
+                </p>
+              </div>
+              {resettingEmployee ? (
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-3 text-sm text-white/84">
+                  <p className="font-semibold text-white">{resettingEmployee.fullName}</p>
+                  <p className="mt-1">
+                    {resettingEmployee.employeeCode || resettingEmployee.email}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <input
+                className={fieldClassName}
+                type="password"
+                placeholder="Enter new temporary password"
+                value={passwordReset.password}
+                onChange={(event) =>
+                  setPasswordReset((current) => ({
+                    ...current,
+                    password: event.target.value,
+                  }))
+                }
+                required
+              />
+              <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-3 text-sm text-white">
+                <input
+                  type="checkbox"
+                  checked={passwordReset.mustChangePassword}
+                  onChange={(event) =>
+                    setPasswordReset((current) => ({
+                      ...current,
+                      mustChangePassword: event.target.checked,
+                    }))
+                  }
+                />
+                Force password change on next login
+              </label>
+              <button
+                type="submit"
+                disabled={isResettingPassword || !passwordReset.employeeId}
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isResettingPassword ? "Resetting..." : "Reset Password"}
+              </button>
+            </div>
+          </form>
         </div>
       ) : (
         <section className="accent-card p-6">
@@ -589,6 +759,8 @@ export function AdminEmployeesPanel() {
         employees={employees}
         onEdit={loadEmployeeForEdit}
         canEdit={canManageEmployees}
+        onResetPassword={loadEmployeeForPasswordReset}
+        resettingEmployeeId={passwordReset.employeeId}
       />
     </section>
   );

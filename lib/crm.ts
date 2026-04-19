@@ -52,6 +52,11 @@ export type EmployeeFormPayload = {
   inactiveRemarks?: string;
 };
 
+export type EmployeePasswordResetPayload = {
+  password: string;
+  mustChangePassword?: boolean;
+};
+
 export type ClientFormPayload = {
   companyName: string;
   contactPerson: string;
@@ -125,6 +130,20 @@ export async function createEmployee(payload: EmployeeFormPayload, token: string
 export async function updateEmployee(id: string, payload: EmployeeFormPayload, token: string) {
   return readJson<EmployeeRecord>(`/admin/employees/${id}`, {
     method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function resetEmployeePassword(
+  id: string,
+  payload: EmployeePasswordResetPayload,
+  token: string
+) {
+  return readJson<EmployeeRecord>(`/admin/employees/${id}/reset-password`, {
+    method: "POST",
     body: JSON.stringify(payload),
     headers: {
       Authorization: `Bearer ${token}`,

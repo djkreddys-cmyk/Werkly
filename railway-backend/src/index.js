@@ -17,6 +17,7 @@ import {
   validateAdmin,
 } from "./auth.js";
 import {
+  adminResetEmployeePassword,
   authenticateEmployee,
   changeEmployeePassword,
   createClient,
@@ -506,6 +507,34 @@ app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update employee.",
+    });
+  }
+});
+
+app.post("/admin/employees/:id/reset-password", requireAdmin, async (request, response) => {
+  try {
+    const { password, mustChangePassword } = request.body ?? {};
+
+    if (!password || String(password).trim().length < 6) {
+      return response.status(400).json({
+        message: "New password must be at least 6 characters long.",
+      });
+    }
+
+    const employee = await adminResetEmployeePassword(
+      request.params.id,
+      String(password).trim(),
+      mustChangePassword !== false
+    );
+
+    if (!employee) {
+      return response.status(404).json({ message: "Employee not found." });
+    }
+
+    response.json(employee);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to reset employee password.",
     });
   }
 });
