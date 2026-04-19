@@ -137,9 +137,9 @@ function formatFollowUpStage(stage?: ClientFollowUpStatus) {
     case "follow-up-due":
       return "Follow-Up Due";
     case "in-progress":
-      return "In Progress";
+      return "In Discussion";
     case "awaiting-client":
-      return "Awaiting Client";
+      return "Awaiting Response";
     case "closed":
       return "Closed";
     case "pending":
@@ -453,7 +453,7 @@ export function AdminDashboardOverview() {
         ))}
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.88fr_1.12fr]">
+      <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
         <article className="accent-card p-5">
           <p className="eyebrow">Upcoming Follow-Ups</p>
           <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
@@ -544,8 +544,8 @@ export function AdminDashboardOverview() {
           ) : error ? (
             <p className="mt-6 text-sm font-medium text-red-700">{error}</p>
           ) : (
-            <div className="mt-6">
-              <div className="rounded-[1.45rem] border border-[var(--color-line)] bg-white p-3.5">
+            <div className="mt-6 flex justify-end">
+              <div className="w-full max-w-[560px] rounded-[1.45rem] border border-[var(--color-line)] bg-white p-3.5">
                 <div className="flex items-center justify-between gap-3">
                   <button
                     type="button"

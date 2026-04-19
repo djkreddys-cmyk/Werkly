@@ -2480,8 +2480,8 @@ export function AdminClientsPanel({
                 >
                   <option value="pending">Pending</option>
                   <option value="follow-up-due">Follow-Up Due</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="awaiting-client">Awaiting Client</option>
+                  <option value="in-progress">In Discussion</option>
+                  <option value="awaiting-client">Awaiting Response</option>
                   <option value="closed">Closed</option>
                 </select>
               </label>
