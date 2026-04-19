@@ -127,7 +127,11 @@ function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-export function AdminJobsDashboard() {
+export function AdminJobsDashboard({
+  viewMode = "all",
+}: {
+  viewMode?: "all" | "new" | "existing";
+}) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const [token, setToken] = useState("");
@@ -856,6 +860,7 @@ export function AdminJobsDashboard() {
 
   return (
     <div className="space-y-6">
+      {viewMode !== "existing" ? (
       <form
         id="new-job"
         ref={formRef}
@@ -893,7 +898,9 @@ export function AdminJobsDashboard() {
           </button>
         </div>
       </form>
+      ) : null}
 
+      {viewMode !== "new" ? (
       <section id="existing-jobs" className="accent-card scroll-mt-28 p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -1079,6 +1086,7 @@ export function AdminJobsDashboard() {
           </p>
         ) : null}
       </section>
+      ) : null}
 
       {isEditing ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4">

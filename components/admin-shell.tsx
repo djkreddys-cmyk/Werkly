@@ -20,7 +20,8 @@ const moduleSections = [
     href: "/admin/employees",
     description: "Employees, leaves, attendance",
     items: [
-      { href: "/admin/employees", label: "Employee Creation" },
+      { href: "/admin/employees/new", label: "Employee Creation" },
+      { href: "/admin/employees/existing", label: "Existing Employees" },
       { href: "/admin/leaves", label: "Leave Types & Access" },
       { href: "/admin/reports", label: "Attendance & Reports" },
     ],
@@ -31,8 +32,8 @@ const moduleSections = [
     href: "/admin/jobs",
     description: "Job creation and existing jobs",
     items: [
-      { href: "/admin/jobs#new-job", label: "New Job" },
-      { href: "/admin/jobs#existing-jobs", label: "Existing Jobs" },
+      { href: "/admin/jobs/new", label: "New Job" },
+      { href: "/admin/jobs/existing", label: "Existing Jobs" },
     ],
   },
   {
@@ -51,8 +52,8 @@ const moduleSections = [
     href: "/admin/clients",
     description: "Client onboarding and existing clients",
     items: [
-      { href: "/admin/clients#new-client", label: "New Client" },
-      { href: "/admin/clients#existing-clients", label: "Existing Clients" },
+      { href: "/admin/clients/new", label: "New Client" },
+      { href: "/admin/clients/existing", label: "Existing Clients" },
     ],
   },
 ];
