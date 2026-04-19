@@ -13,14 +13,36 @@ type AdminShellProps = {
   showMenu?: boolean;
 };
 
-const menuItems = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/jobs", label: "Jobs" },
-  { href: "/admin/candidates", label: "Candidates" },
-  { href: "/admin/employees", label: "Employees" },
-  { href: "/admin/clients", label: "Clients" },
-  { href: "/admin/leaves", label: "Leaves" },
-  { href: "/admin/reports", label: "Reports" },
+const moduleSections = [
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    href: "/admin",
+    description: "Overview and daily pulse",
+    items: [] as Array<{ href: string; label: string }>,
+  },
+  {
+    key: "hr",
+    label: "HR Module",
+    href: "/admin/employees",
+    description: "Employees, leaves, attendance",
+    items: [
+      { href: "/admin/employees", label: "Employee Creation" },
+      { href: "/admin/leaves", label: "Leave Types & Access" },
+      { href: "/admin/reports", label: "Attendance & Reports" },
+    ],
+  },
+  {
+    key: "jobs",
+    label: "Jobs Module",
+    href: "/admin/jobs",
+    description: "Jobs, candidates, clients",
+    items: [
+      { href: "/admin/jobs", label: "Jobs" },
+      { href: "/admin/candidates", label: "Candidates" },
+      { href: "/admin/clients", label: "Clients" },
+    ],
+  },
 ];
 
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
@@ -51,6 +73,18 @@ function getInitials(name: string) {
   }
 
   return parts.map((part) => part.charAt(0).toUpperCase()).join("");
+}
+
+function getActiveModuleKey(pathname: string) {
+  if (pathname.startsWith("/admin/employees") || pathname.startsWith("/admin/leaves") || pathname.startsWith("/admin/reports")) {
+    return "hr";
+  }
+
+  if (pathname.startsWith("/admin/jobs") || pathname.startsWith("/admin/candidates") || pathname.startsWith("/admin/clients")) {
+    return "jobs";
+  }
+
+  return "dashboard";
 }
 
 export function AdminShell({
@@ -92,15 +126,24 @@ export function AdminShell({
   const displayIdentifier = authEmployeeCode || authIdentifier;
   const displayRole =
     authType === "employee" ? formatRoleLabel(authRole || "employee") : "Super Admin";
-  const accountPillTone =
-    authType === "employee"
-      ? "border-[rgba(255,255,255,0.14)] bg-white/10 text-white/84"
-      : "border-[rgba(241,166,75,0.42)] bg-[rgba(241,166,75,0.16)] text-white";
+  const activeModuleKey = getActiveModuleKey(pathname);
+  const visibleSections = moduleSections.map((section) => {
+    if (section.key !== "hr") {
+      return section;
+    }
 
-  const visibleMenuItems =
-    authType === "admin" || authRole === "super-admin"
-      ? menuItems
-      : menuItems.filter((item) => item.href !== "/admin/employees");
+    if (authType === "admin" || authRole === "super-admin") {
+      return section;
+    }
+
+    return {
+      ...section,
+      items: section.items.filter((item) => item.href !== "/admin/employees"),
+      href: "/admin/leaves",
+    };
+  });
+  const activeSection =
+    visibleSections.find((section) => section.key === activeModuleKey) ?? visibleSections[0];
 
   async function handleLogout() {
     const token =
@@ -236,109 +279,144 @@ export function AdminShell({
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(8,96,108,0.12),transparent_18%),radial-gradient(circle_at_top_right,rgba(241,166,75,0.16),transparent_22%),linear-gradient(180deg,#fffdf8_0%,#f4efe7_52%,#f9f5ef_100%)]">
-      <div className="flex min-h-screen flex-col lg:flex-row">
-        <aside className="border-b border-[rgba(8,96,108,0.12)] bg-[radial-gradient(circle_at_top,rgba(241,166,75,0.18),transparent_24%),linear-gradient(180deg,#0b5964_0%,#083f47_100%)] text-white lg:min-h-screen lg:w-[310px] lg:border-b-0 lg:border-r lg:border-r-[rgba(255,255,255,0.08)]">
-          <div className="sticky top-0 px-5 py-5 sm:px-6">
-            <div className="flex items-center justify-between gap-4 lg:block">
-              <div>
-                <Link href="/admin" className="inline-flex items-center">
-                  <Image
-                    src="/Werkly Logo.png"
-                    alt="Werkly logo"
-                    width={640}
-                    height={176}
-                    className="h-16 w-auto object-contain sm:h-20"
-                    priority
-                  />
-                </Link>
-                <div className="mt-4 hidden lg:block">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                    Werkly CRM
-                  </p>
-                  <p className="mt-3 max-w-[220px] text-sm leading-6 text-white/72">
-                    Internal hiring operations with role-based access, recruiter visibility, and cleaner daily workflows.
-                  </p>
+      <div className="min-h-screen">
+        <header className="border-b border-[rgba(8,96,108,0.12)] bg-[linear-gradient(180deg,rgba(11,89,100,0.96),rgba(8,63,71,0.98))] text-white shadow-[0_18px_48px_rgba(10,36,41,0.16)]">
+          <div className="mx-auto w-full max-w-7xl px-5 py-5 sm:px-8">
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between xl:min-w-[420px]">
+                  <div>
+                    <Link href="/admin" className="inline-flex items-center">
+                      <Image
+                        src="/Werkly Logo.png"
+                        alt="Werkly logo"
+                        width={640}
+                        height={176}
+                        className="h-14 w-auto object-contain sm:h-16"
+                        priority
+                      />
+                    </Link>
+                    <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                      Werkly CRM Modules
+                    </p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(241,166,75,0.18)] text-sm font-semibold tracking-[0.12em] text-[var(--color-accent)]">
+                    {getInitials(authName)}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 xl:min-w-[420px] xl:items-end">
+                  <div className="flex w-full flex-col gap-3 rounded-[1.5rem] border border-white/10 bg-white/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/58">
+                        Logged In Account
+                      </p>
+                      <p className="mt-1 truncate text-base font-semibold text-white">
+                        {authName}
+                      </p>
+                      <p className="mt-1 truncate text-sm text-white/74">{displayIdentifier}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-[rgba(241,166,75,0.42)] bg-[rgba(241,166,75,0.16)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
+                        {displayRole}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/74">
+                        Auto logout 10 min
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      href="https://www.werkly.in"
+                      className="inline-flex rounded-xl border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition hover:border-[var(--color-accent)] hover:bg-white/12"
+                    >
+                      Open Website
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="inline-flex rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <Link
-                href="https://www.werkly.in"
-                className="hidden rounded-xl border border-white/14 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition hover:border-[var(--color-accent)] hover:bg-white/12 lg:inline-flex"
-              >
-                Open Website
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="hidden rounded-xl border border-white/14 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition hover:border-[var(--color-accent)] hover:bg-white/12 lg:inline-flex"
-              >
-                Sign Out
-              </button>
-            </div>
+              <div className="grid gap-3 lg:grid-cols-3">
+                {visibleSections.map((section) => {
+                  const isActive = section.key === activeModuleKey;
 
-            <div className="mt-6 hidden rounded-[1.7rem] border border-white/10 bg-white/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:block">
-              <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(241,166,75,0.18)] text-sm font-semibold tracking-[0.12em] text-[var(--color-accent)]">
-                  {getInitials(authName)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white">{authName}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/52">
-                    Logged In Account
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span
-                  className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${accountPillTone}`}
-                >
-                  {displayRole}
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/74">
-                  Auto logout 10 min
-                </span>
-              </div>
-              <p className="mt-4 break-all text-sm leading-6 text-white/76">
-                {displayIdentifier}
-              </p>
-            </div>
-
-            <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:mt-8 lg:flex-col lg:overflow-visible">
-              {visibleMenuItems.map((item) => {
-                const isActive =
-                  item.href === "/admin"
-                    ? pathname === "/admin"
-                    : pathname.startsWith(item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`min-w-fit rounded-2xl px-4 py-3 text-sm font-semibold transition lg:w-full ${
-                      isActive
-                        ? "border border-[rgba(241,166,75,0.22)] bg-[linear-gradient(135deg,#f1a64b_0%,#f6bf71_100%)] text-[var(--color-ink)] shadow-[0_18px_36px_rgba(241,166,75,0.22)]"
-                        : "border border-white/10 bg-white/6 text-white/84 hover:border-white/18 hover:bg-white/10"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between gap-3">
-                      <span>{item.label}</span>
-                      {isActive ? (
-                        <span className="rounded-full bg-white/42 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink)]">
-                          Open
+                  return (
+                    <Link
+                      key={section.key}
+                      href={section.href}
+                      className={`rounded-[1.45rem] border p-4 transition ${
+                        isActive
+                          ? "border-[rgba(241,166,75,0.28)] bg-[linear-gradient(135deg,rgba(241,166,75,0.94),rgba(246,191,113,0.92))] text-[var(--color-ink)] shadow-[0_18px_36px_rgba(241,166,75,0.18)]"
+                          : "border-white/10 bg-white/6 text-white hover:border-white/18 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold">{section.label}</p>
+                          <p
+                            className={`mt-2 text-sm leading-6 ${
+                              isActive ? "text-[rgba(23,53,61,0.78)]" : "text-white/68"
+                            }`}
+                          >
+                            {section.description}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                            isActive
+                              ? "bg-white/42 text-[var(--color-ink)]"
+                              : "bg-white/10 text-white/76"
+                          }`}
+                        >
+                          {isActive ? "Open" : "Module"}
                         </span>
-                      ) : null}
-                    </span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        </aside>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
 
-        <div className="flex-1">
-          <header className="border-b border-[rgba(8,96,108,0.12)] bg-white/84 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 sm:px-8 xl:flex-row xl:items-center xl:justify-between">
-              <div className="max-w-3xl">
+              {activeSection.items.length ? (
+                <nav className="flex flex-wrap gap-3">
+                  {activeSection.items.map((item) => {
+                    const isActive =
+                      item.href === "/admin"
+                        ? pathname === "/admin"
+                        : pathname.startsWith(item.href);
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                          isActive
+                            ? "bg-white text-[var(--color-ink)] shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
+                            : "border border-white/10 bg-white/6 text-white/84 hover:border-white/18 hover:bg-white/10"
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              ) : null}
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
+          <section className="accent-card overflow-hidden">
+            <div className="border-b border-[var(--color-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(250,246,239,0.76))] px-6 py-6 sm:px-8">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                <div className="max-w-3xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">
                   {eyebrow}
                 </p>
@@ -350,52 +428,20 @@ export function AdminShell({
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 xl:min-w-[360px] xl:items-end">
-                <div className="flex flex-col gap-3 rounded-[1.5rem] border border-[var(--color-line)] bg-[linear-gradient(180deg,#ffffff_0%,#faf6f0_100%)] p-4 shadow-[0_16px_38px_rgba(15,47,54,0.08)] sm:flex-row sm:items-center sm:justify-between xl:w-full">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
-                      Signed In As
-                    </p>
-                    <p className="mt-1 truncate text-base font-semibold text-[var(--color-ink)]">
-                      {authName}
-                    </p>
-                    <p className="mt-1 truncate text-sm text-[var(--color-muted)]">
-                      {displayIdentifier}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-[rgba(8,96,108,0.12)] bg-[rgba(8,96,108,0.05)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-                      {displayRole}
-                    </span>
-                    <span className="rounded-full border border-[rgba(190,72,26,0.12)] bg-[rgba(190,72,26,0.06)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
-                      Live session
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  <Link
-                    href="https://www.werkly.in"
-                    className="inline-flex rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
-                  >
-                    Open Website
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="inline-flex rounded-xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-                  >
-                    Sign Out
-                  </button>
+                <div className="flex flex-wrap gap-2 xl:max-w-[360px] xl:justify-end">
+                  <span className="rounded-full border border-[rgba(8,96,108,0.12)] bg-[rgba(8,96,108,0.05)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                    {activeSection.label}
+                  </span>
+                  <span className="rounded-full border border-[rgba(190,72,26,0.12)] bg-[rgba(190,72,26,0.06)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                    {displayRole}
+                  </span>
                 </div>
               </div>
             </div>
-          </header>
 
-          <main className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
-            {children}
-          </main>
-        </div>
+            <div className="px-5 py-8 sm:px-8 sm:py-10">{children}</div>
+          </section>
+        </main>
       </div>
     </div>
   );

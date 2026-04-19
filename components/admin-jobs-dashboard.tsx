@@ -684,95 +684,117 @@ export function AdminJobsDashboard() {
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading jobs...</p>
         ) : (
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            {filteredJobs.map((job) => (
-              <article
-                key={job.id}
-                className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">
-                      {job.sector}
-                    </p>
-                    <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
-                      {job.title}
-                    </h3>
-                    {job.clientName ? (
-                      <p className="mt-2 text-sm font-medium text-[var(--color-muted)]">
-                        Client: {job.clientName}
-                      </p>
-                    ) : null}
-                    {job.recruiterName ? (
-                      <p className="mt-1 text-sm font-medium text-[var(--color-muted)]">
-                        Recruiter: {job.recruiterName}
-                      </p>
-                    ) : null}
-                    {job.jobCode ? (
-                      <p className="mt-2 text-sm font-semibold text-[var(--color-accent-strong)]">
-                        Job ID: {job.jobCode}
-                      </p>
-                    ) : null}
-                  </div>
-                  {job.slug ? (
-                    <a
-                      href={`/jobs/${job.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.16)]"
+          <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                    {[
+                      "Job",
+                      "Client",
+                      "Recruiter",
+                      "Location",
+                      "Applications",
+                      "Status",
+                      "Actions",
+                    ].map((heading) => (
+                      <th
+                        key={heading}
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                      >
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredJobs.map((job, index) => (
+                    <tr
+                      key={job.id}
+                      className={
+                        index === filteredJobs.length - 1
+                          ? "align-top"
+                          : "align-top border-b border-[var(--color-line)]"
+                      }
                     >
-                      {job.isHidden ? "hidden" : job.status}
-                    </a>
-                  ) : (
-                    <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-                      {job.isHidden ? "hidden" : job.status}
-                    </span>
-                  )}
-                </div>
-                <p className="muted-copy mt-3 text-sm leading-6">
-                  {job.location} | {job.experience}
-                </p>
-                <p
-                  className={`mt-2 text-sm font-semibold ${
-                    isLiveOnWebsite(job)
-                      ? "text-emerald-700"
-                      : "text-[var(--color-accent-strong)]"
-                  }`}
-                >
-                  {isLiveOnWebsite(job)
-                    ? "Live on website"
-                    : "Not showing on website"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => openApplications(job)}
-                  className="mt-2 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:text-[var(--color-dark)]"
-                >
-                  Applied people: {job.applicationsCount}
-                </button>
-                {job.lastDateToApply ? (
-                  <p className="mt-2 text-sm text-[var(--color-muted)]">
-                    Last date to apply: {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
-                  </p>
-                ) : null}
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => populateForEdit(job)}
-                    className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleVisibilityToggle(job)}
-                    className="rounded-xl border border-[rgba(190,72,26,0.2)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
-                  >
-                    {job.isHidden ? "Unhide" : "Hide"}
-                  </button>
-                </div>
-              </article>
-            ))}
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-[var(--color-ink)]">{job.title}</p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">{job.sector}</p>
+                        <p className="mt-1 text-sm font-semibold text-[var(--color-accent-strong)]">
+                          {job.jobCode || "Pending ID"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {job.clientName || "Not assigned"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {job.recruiterName || "Unassigned"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p>{job.location}</p>
+                        <p className="mt-1">{job.experience}</p>
+                        {job.lastDateToApply ? (
+                          <p className="mt-1 text-xs">
+                            Close by {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <button
+                          type="button"
+                          onClick={() => openApplications(job)}
+                          className="font-semibold text-[var(--color-accent-strong)] transition hover:text-[var(--color-dark)]"
+                        >
+                          {job.applicationsCount}
+                        </button>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                          {job.isHidden ? "hidden" : job.status}
+                        </span>
+                        <p
+                          className={`mt-2 text-xs font-semibold ${
+                            isLiveOnWebsite(job)
+                              ? "text-emerald-700"
+                              : "text-[var(--color-accent-strong)]"
+                          }`}
+                        >
+                          {isLiveOnWebsite(job) ? "Live on website" : "Not live"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => populateForEdit(job)}
+                            className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleVisibilityToggle(job)}
+                            className="rounded-xl border border-[rgba(190,72,26,0.2)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
+                          >
+                            {job.isHidden ? "Unhide" : "Hide"}
+                          </button>
+                          {job.slug ? (
+                            <a
+                              href={`/jobs/${job.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:border-[var(--color-dark)]"
+                            >
+                              View
+                            </a>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
         {!isLoading && filteredJobs.length === 0 ? (

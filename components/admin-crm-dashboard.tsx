@@ -210,65 +210,91 @@ function CrmEmployeesList({
         </span>
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
         {employees.length === 0 ? (
-          <p className="muted-copy text-sm">No employee logins have been created yet.</p>
+          <p className="muted-copy p-5 text-sm">No employee logins have been created yet.</p>
         ) : (
-          employees.map((employee) => (
-            <article
-              key={employee.id}
-              className="rounded-[1.3rem] border border-[var(--color-line)] bg-white/92 p-4"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h4 className="text-lg font-semibold text-[var(--color-ink)]">
-                    {employee.fullName}
-                  </h4>
-                  <p className="mt-1 text-sm text-[var(--color-muted)]">{employee.role}</p>
-                </div>
-                <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
-                  {employee.status}
-                </span>
-              </div>
-              <div className="mt-3 space-y-1 text-sm text-[var(--color-muted)]">
-                {employee.employeeCode ? (
-                  <p className="font-semibold text-[var(--color-accent-strong)]">
-                    Employee Code: {employee.employeeCode}
-                  </p>
-                ) : null}
-                <p>{employee.email}</p>
-                {employee.phone ? <p>{employee.phone}</p> : null}
-                {employee.status === "inactive" && employee.inactiveDate ? (
-                  <p>Inactive Date: {employee.inactiveDate}</p>
-                ) : null}
-                {employee.status === "inactive" && employee.inactiveRemarks ? (
-                  <p>Remarks: {employee.inactiveRemarks}</p>
-                ) : null}
-              </div>
-              {canEdit ? (
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(employee)}
-                    className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                  {["Employee", "Code", "Email", "Phone", "Status", "Actions"].map((heading) => (
+                    <th
+                      key={heading}
+                      className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((employee, index) => (
+                  <tr
+                    key={employee.id}
+                    className={
+                      index === employees.length - 1
+                        ? "align-top"
+                        : "align-top border-b border-[var(--color-line)]"
+                    }
                   >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onResetPassword(employee)}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                      resettingEmployeeId === employee.id
-                        ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
-                        : "border border-[var(--color-line)] text-[var(--color-accent-strong)] hover:border-[var(--color-accent-strong)]"
-                    }`}
-                  >
-                    Reset Password
-                  </button>
-                </div>
-              ) : null}
-            </article>
-          ))
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-[var(--color-ink)]">{employee.fullName}</p>
+                      <p className="mt-1 text-sm text-[var(--color-muted)]">{employee.role}</p>
+                      {employee.status === "inactive" && employee.inactiveRemarks ? (
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          {employee.inactiveRemarks}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
+                      {employee.employeeCode || "Pending"}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {employee.email}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {employee.phone || "Not added"}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
+                        {employee.status}
+                      </span>
+                      {employee.status === "inactive" && employee.inactiveDate ? (
+                        <p className="mt-2 text-xs">Inactive from {employee.inactiveDate}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-4">
+                      {canEdit ? (
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => onEdit(employee)}
+                            className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onResetPassword(employee)}
+                            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                              resettingEmployeeId === employee.id
+                                ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
+                                : "border border-[var(--color-line)] text-[var(--color-accent-strong)] hover:border-[var(--color-accent-strong)]"
+                            }`}
+                          >
+                            Reset Password
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-[var(--color-muted)]">View only</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </section>
@@ -290,69 +316,83 @@ function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
         </span>
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
         {clients.length === 0 ? (
-          <p className="muted-copy text-sm">No clients have been onboarded yet.</p>
+          <p className="muted-copy p-5 text-sm">No clients have been onboarded yet.</p>
         ) : (
-          clients.map((client) => (
-            <article
-              key={client.id}
-              className="rounded-[1.3rem] border border-[var(--color-line)] bg-white/92 p-4"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h4 className="text-lg font-semibold text-[var(--color-ink)]">
-                    {client.companyName}
-                  </h4>
-                  <p className="mt-1 text-sm text-[var(--color-muted)]">
-                    {client.contactPerson}
-                  </p>
-                </div>
-                <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
-                  {client.status}
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2 text-sm text-[var(--color-muted)] sm:grid-cols-2">
-                {client.contactEmail ? <p>{client.contactEmail}</p> : null}
-                {client.contactPhone ? <p>{client.contactPhone}</p> : null}
-                {client.sector ? <p>Sector: {client.sector}</p> : null}
-                {client.branch ? <p>Branch: {client.branch}</p> : null}
-                {client.assignedEmployeeName ? (
-                  <p className="sm:col-span-2">Assigned to: {client.assignedEmployeeName}</p>
-                ) : null}
-                {client.linkedJobsCount ? (
-                  <div className="sm:col-span-2">
-                    <p className="font-medium text-[var(--color-ink)]">
-                      Linked jobs: {client.linkedJobsCount}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {client.linkedJobs.map((job) => (
-                        <span
-                          key={job.id}
-                          className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]"
-                        >
-                          {job.jobCode ? `${job.jobCode} - ` : ""}
-                          {job.title}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {client.agreementFileData && client.agreementFileName ? (
-                  <p className="sm:col-span-2">
-                    <a
-                      href={client.agreementFileData}
-                      download={client.agreementFileName}
-                      className="font-medium text-[var(--color-accent-strong)]"
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                  {["Client", "Contact", "Owner", "Jobs", "Status", "Agreement"].map((heading) => (
+                    <th
+                      key={heading}
+                      className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
                     >
-                      Download signed agreement
-                    </a>
-                  </p>
-                ) : null}
-                {client.notes ? <p className="sm:col-span-2">Notes: {client.notes}</p> : null}
-              </div>
-            </article>
-          ))
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {clients.map((client, index) => (
+                  <tr
+                    key={client.id}
+                    className={
+                      index === clients.length - 1
+                        ? "align-top"
+                        : "align-top border-b border-[var(--color-line)]"
+                    }
+                  >
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-[var(--color-ink)]">{client.companyName}</p>
+                      <p className="mt-1 text-sm text-[var(--color-muted)]">
+                        {client.sector || "Sector not added"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      <p>{client.contactPerson}</p>
+                      <p className="mt-1">{client.contactEmail || "No email"}</p>
+                      <p className="mt-1">{client.contactPhone || "No phone"}</p>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {client.assignedEmployeeName || "Not assigned"}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      <p className="font-semibold text-[var(--color-ink)]">
+                        {client.linkedJobsCount}
+                      </p>
+                      {client.linkedJobs.length ? (
+                        <p className="mt-1 max-w-[220px] text-xs leading-5">
+                          {client.linkedJobs
+                            .map((job) => `${job.jobCode ? `${job.jobCode} - ` : ""}${job.title}`)
+                            .join(", ")}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
+                        {client.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {client.agreementFileData && client.agreementFileName ? (
+                        <a
+                          href={client.agreementFileData}
+                          download={client.agreementFileName}
+                          className="font-medium text-[var(--color-accent-strong)]"
+                        >
+                          Download PDF
+                        </a>
+                      ) : (
+                        "Not uploaded"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </section>
