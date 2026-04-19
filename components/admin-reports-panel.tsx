@@ -676,22 +676,55 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
     return Array.from(summaries.values())
       .map((summary) => {
+        let effectiveLastLogoutAt = summary.lastLogoutAt;
+        let isAutoLoggedOut = false;
+
         if (
           !summary.lastLogoutAt &&
           summary.lastSeenAt &&
           reportGeneratedAt - new Date(summary.lastSeenAt).getTime() >= AUTO_LOGOUT_THRESHOLD_MS
         ) {
-          return {
-            ...summary,
-            lastLogoutAt: new Date(
-              new Date(summary.lastSeenAt).getTime() + AUTO_LOGOUT_THRESHOLD_MS
-            ).toISOString(),
-            activeSessionCount: 0,
-            isAutoLoggedOut: true,
-          };
+          effectiveLastLogoutAt = new Date(
+            new Date(summary.lastSeenAt).getTime() + AUTO_LOGOUT_THRESHOLD_MS
+          ).toISOString();
+          isAutoLoggedOut = true;
         }
 
-        return summary;
+        const recalculatedWorkedMs = summary.sessions.reduce((total, session) => {
+          const loginAtMs = new Date(session.loginAt).getTime();
+          const effectiveLogoutMs = session.logoutAt
+            ? new Date(session.logoutAt).getTime()
+            : effectiveLastLogoutAt
+              ? new Date(effectiveLastLogoutAt).getTime()
+              : null;
+
+          if (!effectiveLogoutMs || effectiveLogoutMs < loginAtMs) {
+            return total;
+          }
+
+          return total + (effectiveLogoutMs - loginAtMs);
+        }, 0);
+
+        const inferredIdleSeconds =
+          isAutoLoggedOut && summary.lastSeenAt && effectiveLastLogoutAt
+            ? Math.max(
+                0,
+                Math.floor(
+                  (new Date(effectiveLastLogoutAt).getTime() -
+                    new Date(summary.lastSeenAt).getTime()) /
+                    1000
+                )
+              )
+            : 0;
+
+        return {
+          ...summary,
+          lastLogoutAt: effectiveLastLogoutAt,
+          totalWorkedMs: recalculatedWorkedMs,
+          screenIdleSeconds: Math.max(summary.screenIdleSeconds, inferredIdleSeconds),
+          activeSessionCount: effectiveLastLogoutAt ? 0 : summary.activeSessionCount,
+          isAutoLoggedOut,
+        };
       })
       .sort((a, b) => {
         const dateSort = new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime();
