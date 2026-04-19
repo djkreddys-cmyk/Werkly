@@ -397,13 +397,13 @@ export function AdminShell({
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8 xl:min-w-[620px]">
                     <div className="flex items-center gap-4">
-                      <Link href="/admin" className="inline-flex items-center">
+                      <Link href="/admin" className="inline-flex h-16 items-center overflow-visible sm:h-20">
                         <Image
                           src="/Werkly Logo.png"
                           alt="Werkly logo"
                           width={640}
                           height={176}
-                          className="h-16 w-auto object-contain sm:h-20"
+                          className="h-[84px] w-auto max-w-none object-contain sm:h-[100px]"
                           priority
                         />
                       </Link>
@@ -452,13 +452,13 @@ export function AdminShell({
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8 xl:min-w-[620px]">
                   <div className="flex items-center gap-4">
-                    <Link href="/admin" className="inline-flex items-center">
+                    <Link href="/admin" className="inline-flex h-16 items-center overflow-visible sm:h-20">
                       <Image
                         src="/Werkly Logo.png"
                         alt="Werkly logo"
                         width={640}
                         height={176}
-                        className="h-16 w-auto object-contain sm:h-20"
+                        className="h-[84px] w-auto max-w-none object-contain sm:h-[100px]"
                         priority
                       />
                     </Link>
