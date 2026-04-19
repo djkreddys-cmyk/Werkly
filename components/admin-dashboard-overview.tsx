@@ -32,7 +32,12 @@ function formatDateLabel(value?: string) {
     return "No deadline";
   }
 
-  return new Date(value).toLocaleDateString("en-IN", {
+  const parsed = parseFlexibleDate(value);
+  if (!parsed) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -57,8 +62,8 @@ function normalizeDateKey(value?: string) {
     return directMatch[0];
   }
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseFlexibleDate(value);
+  if (!parsed) {
     return "";
   }
 
@@ -71,6 +76,30 @@ function normalizeDateKey(value?: string) {
 function parseDateKey(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function parseFlexibleDate(value: string) {
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const dmyMatch = normalized.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+  if (dmyMatch) {
+    const [, day, month, year] = dmyMatch;
+    const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function formatMonthLabel(value: Date) {
