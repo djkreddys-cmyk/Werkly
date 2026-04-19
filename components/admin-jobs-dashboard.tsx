@@ -127,6 +127,24 @@ function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+function formatExportDate(value: string) {
+  return new Date(value).toLocaleDateString("en-GB");
+}
+
+function sanitizeExportCell(value?: string) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed ? trimmed : "-";
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export function AdminJobsDashboard({
   viewMode = "all",
 }: {
@@ -742,11 +760,6 @@ export function AdminJobsDashboard({
     }
   }
 
-  function escapeCsv(value: string | undefined) {
-    const normalized = value ?? "";
-    return `"${normalized.replaceAll('"', '""')}"`;
-  }
-
   async function updateApplicationStage(
     applicationId: string,
     stage: JobApplicationStage,
@@ -798,60 +811,74 @@ export function AdminJobsDashboard({
     }
   }
 
-  function downloadApplicationsCsv() {
+  function downloadApplicationsExcel() {
     if (!applicationsJob || applications.length === 0) {
       return;
     }
 
-    const rows = [
-      [
-        "Candidate Name",
-        "Mail ID",
-        "Phone",
-        "Experience",
-        "Current Company",
-        "Current Location",
-        "Current Designation",
-        "Preferred Role",
-        "Current CTC",
-        "Expected CTC",
-        "Preferred Location",
-        "Preferred Sector",
-        "Job Applied For",
-        "Applied Date",
-        "Notes",
-      ],
-      ...applications.map((application) => [
-        application.candidateName,
-        application.candidateEmail,
-        application.candidatePhone,
-        application.experience,
-        application.currentCompany,
-        application.currentLocation,
-        application.currentDesignation,
-        application.preferredRole,
-        application.currentCtc,
-        application.expectedCtc,
-        application.preferredLocation,
-        application.preferredSector,
-        application.jobTitle,
-        new Date(application.appliedAt).toLocaleString("en-IN", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        }),
-        application.candidateMessage,
-      ]),
-    ];
+    const downloadedDate = formatExportDate(new Date().toISOString());
+    const tableRows = applications
+      .map(
+        (application, index) => `
+          <tr>
+            <td>${escapeHtml(String(index + 1))}</td>
+            <td>${escapeHtml(downloadedDate)}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.jobTitle || applicationsJob.title))}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.candidateName))}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.candidatePhone))}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.candidateEmail))}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.currentCompany))}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.experience))}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.currentCtc))}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.expectedCtc))}</td>
+            <td>${escapeHtml("-")}</td>
+            <td>${escapeHtml(sanitizeExportCell(application.currentLocation || application.preferredLocation))}</td>
+          </tr>
+        `
+      )
+      .join("");
 
-    const csv = rows
-      .map((row) => row.map((value) => escapeCsv(value)).join(","))
-      .join("\n");
+    const workbookMarkup = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="utf-8" />
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+            th, td { border: 1px solid #111827; padding: 8px; font-size: 12px; text-align: left; }
+            th { background: #b9e6f2; font-weight: 700; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <thead>
+              <tr>
+                <th>S No</th>
+                <th>Date</th>
+                <th>Position Name</th>
+                <th>Candidate Name</th>
+                <th>Mobile No.</th>
+                <th>Email ID</th>
+                <th>Current Company</th>
+                <th>Total Exp</th>
+                <th>Current CTC</th>
+                <th>Expected CTC</th>
+                <th>Notice Period</th>
+                <th>Current Location</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([workbookMarkup], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${applicationsJob.jobCode || applicationsJob.slug}-applications.csv`;
+    link.download = `${applicationsJob.jobCode || applicationsJob.slug}-applications.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1177,7 +1204,7 @@ export function AdminJobsDashboard({
                       </button>
                       <button
                         type="button"
-                        onClick={downloadApplicationsCsv}
+                        onClick={downloadApplicationsExcel}
                         className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                       >
                         Download Excel
