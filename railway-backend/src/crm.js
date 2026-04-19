@@ -595,7 +595,7 @@ export async function createClient(payload) {
       agreement_file_name,
       agreement_file_type,
       agreement_file_data
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13, $14, $15, $16, $17)
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::date, $12::date, $13, $14, $15, $16, $17, $18)
     returning id, company_name, contact_person, contact_email, contact_phone, sector, branch, assigned_employee_id, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
     [
       payload.companyName,

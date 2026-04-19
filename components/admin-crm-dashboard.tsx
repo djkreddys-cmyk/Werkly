@@ -142,6 +142,10 @@ const emptyClientForm: ClientFormState = {
 
 const fieldClassName =
   "w-full rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.12)] px-4 py-3 text-sm text-white placeholder:text-white/55 outline-none transition focus:border-[var(--color-accent)] focus:bg-[rgba(255,255,255,0.16)]";
+const clientFormLabelClassName =
+  "mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-white/78";
+const clientSelectClassName =
+  `${fieldClassName} appearance-none`;
 
 function formatErrorMessage(message: string) {
   try {
@@ -2086,118 +2090,157 @@ export function AdminClientsPanel({
           onSubmit={handleClientSubmit}
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <input
-              className={fieldClassName}
-              placeholder="Company name"
-              value={clientForm.companyName}
-              onChange={(event) => updateClientField("companyName", event.target.value)}
-              required
-            />
-            <input
-              className={fieldClassName}
-              placeholder="Contact person"
-              value={clientForm.contactPerson}
-              onChange={(event) => updateClientField("contactPerson", event.target.value)}
-              required
-            />
-            <input
-              className={fieldClassName}
-              type="email"
-              placeholder="Contact email"
-              value={clientForm.contactEmail}
-              onChange={(event) => updateClientField("contactEmail", event.target.value)}
-            />
-            <input
-              className={fieldClassName}
-              placeholder="Contact phone"
-              value={clientForm.contactPhone}
-              onChange={(event) => updateClientField("contactPhone", event.target.value)}
-            />
-            <input
-              className={fieldClassName}
-              placeholder="Sector"
-              value={clientForm.sector}
-              onChange={(event) => updateClientField("sector", event.target.value)}
-            />
-            <input
-              className={fieldClassName}
-              placeholder="Branch / region"
-              value={clientForm.branch}
-              onChange={(event) => updateClientField("branch", event.target.value)}
-            />
-            <select
-              className={fieldClassName}
-              value={clientForm.assignedEmployeeId}
-              onChange={(event) => updateClientField("assignedEmployeeId", event.target.value)}
-            >
-              <option value="">Assign employee</option>
-              {employeeOptions.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.fullName} - {employee.role}
-                </option>
-              ))}
-            </select>
-            <select
-              className={fieldClassName}
-              value={clientForm.status}
-              onChange={(event) =>
-                updateClientField("status", event.target.value as ClientStatus)
-              }
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <select
-              className={fieldClassName}
-              value={clientForm.onboardingStatus}
-              onChange={(event) =>
-                updateClientField(
-                  "onboardingStatus",
-                  event.target.value as ClientOnboardingStatus
-                )
-              }
-            >
-              <option value="new-lead">New Lead</option>
-              <option value="contacted">Contacted</option>
-              <option value="proposal-shared">Proposal Shared</option>
-              <option value="negotiation">Negotiation</option>
-              <option value="onboarded">Onboarded</option>
-              <option value="hold">Hold</option>
-            </select>
-            <select
-              className={fieldClassName}
-              value={clientForm.followUpStatus}
-              onChange={(event) =>
-                updateClientField(
-                  "followUpStatus",
-                  event.target.value as ClientFollowUpStatus
-                )
-              }
-            >
-              <option value="pending">Pending</option>
-              <option value="follow-up-due">Follow-Up Due</option>
-              <option value="in-progress">In Progress</option>
-              <option value="awaiting-client">Awaiting Client</option>
-              <option value="closed">Closed</option>
-            </select>
-            <input
-              className={fieldClassName}
-              placeholder="Onboarding source"
-              value={clientForm.onboardingSource}
-              onChange={(event) => updateClientField("onboardingSource", event.target.value)}
-            />
-            <input
-              className={fieldClassName}
-              type="date"
-              value={clientForm.nextFollowUpDate}
-              onChange={(event) => updateClientField("nextFollowUpDate", event.target.value)}
-            />
-            <input
-              className={fieldClassName}
-              type="date"
-              value={clientForm.lastFollowUpDate}
-              onChange={(event) => updateClientField("lastFollowUpDate", event.target.value)}
-            />
+            <label className="block">
+              <span className={clientFormLabelClassName}>Company Name</span>
+              <input
+                className={fieldClassName}
+                placeholder="Company name"
+                value={clientForm.companyName}
+                onChange={(event) => updateClientField("companyName", event.target.value)}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Contact Person</span>
+              <input
+                className={fieldClassName}
+                placeholder="Contact person"
+                value={clientForm.contactPerson}
+                onChange={(event) => updateClientField("contactPerson", event.target.value)}
+                required
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Contact Email</span>
+              <input
+                className={fieldClassName}
+                type="email"
+                placeholder="Contact email"
+                value={clientForm.contactEmail}
+                onChange={(event) => updateClientField("contactEmail", event.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Contact Phone</span>
+              <input
+                className={fieldClassName}
+                placeholder="Contact phone"
+                value={clientForm.contactPhone}
+                onChange={(event) => updateClientField("contactPhone", event.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Sector</span>
+              <input
+                className={fieldClassName}
+                placeholder="Sector"
+                value={clientForm.sector}
+                onChange={(event) => updateClientField("sector", event.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Branch / Region</span>
+              <input
+                className={fieldClassName}
+                placeholder="Branch / region"
+                value={clientForm.branch}
+                onChange={(event) => updateClientField("branch", event.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Assigned Employee</span>
+              <select
+                className={clientSelectClassName}
+                value={clientForm.assignedEmployeeId}
+                onChange={(event) => updateClientField("assignedEmployeeId", event.target.value)}
+              >
+                <option value="">Assign employee</option>
+                {employeeOptions.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.fullName} - {employee.role}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Client Status</span>
+              <select
+                className={clientSelectClassName}
+                value={clientForm.status}
+                onChange={(event) =>
+                  updateClientField("status", event.target.value as ClientStatus)
+                }
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Onboarding Status</span>
+              <select
+                className={clientSelectClassName}
+                value={clientForm.onboardingStatus}
+                onChange={(event) =>
+                  updateClientField(
+                    "onboardingStatus",
+                    event.target.value as ClientOnboardingStatus
+                  )
+                }
+              >
+                <option value="new-lead">New Lead</option>
+                <option value="contacted">Contacted</option>
+                <option value="proposal-shared">Proposal Shared</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="onboarded">Onboarded</option>
+                <option value="hold">Hold</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Follow-Up Status</span>
+              <select
+                className={clientSelectClassName}
+                value={clientForm.followUpStatus}
+                onChange={(event) =>
+                  updateClientField(
+                    "followUpStatus",
+                    event.target.value as ClientFollowUpStatus
+                  )
+                }
+              >
+                <option value="pending">Pending</option>
+                <option value="follow-up-due">Follow-Up Due</option>
+                <option value="in-progress">In Progress</option>
+                <option value="awaiting-client">Awaiting Client</option>
+                <option value="closed">Closed</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Onboarding Source</span>
+              <input
+                className={fieldClassName}
+                placeholder="Onboarding source"
+                value={clientForm.onboardingSource}
+                onChange={(event) => updateClientField("onboardingSource", event.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Next Follow-Up Date</span>
+              <input
+                className={fieldClassName}
+                type="date"
+                value={clientForm.nextFollowUpDate}
+                onChange={(event) => updateClientField("nextFollowUpDate", event.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Last Follow-Up Date</span>
+              <input
+                className={fieldClassName}
+                type="date"
+                value={clientForm.lastFollowUpDate}
+                onChange={(event) => updateClientField("lastFollowUpDate", event.target.value)}
+              />
+            </label>
             <div className="sm:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-4">
               <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/72">
                 Signed agreement (PDF)
@@ -2217,18 +2260,24 @@ export function AdminClientsPanel({
                 </span>
               </div>
             </div>
-            <textarea
-              className={`${fieldClassName} min-h-[116px] resize-y sm:col-span-2`}
-              placeholder="Notes / onboarding context"
-              value={clientForm.notes}
-              onChange={(event) => updateClientField("notes", event.target.value)}
-            />
-            <textarea
-              className={`${fieldClassName} min-h-[116px] resize-y sm:col-span-2`}
-              placeholder="Follow-up notes"
-              value={clientForm.followUpNotes}
-              onChange={(event) => updateClientField("followUpNotes", event.target.value)}
-            />
+            <label className="block sm:col-span-2">
+              <span className={clientFormLabelClassName}>Onboarding Notes</span>
+              <textarea
+                className={`${fieldClassName} min-h-[116px] resize-y`}
+                placeholder="Notes / onboarding context"
+                value={clientForm.notes}
+                onChange={(event) => updateClientField("notes", event.target.value)}
+              />
+            </label>
+            <label className="block sm:col-span-2">
+              <span className={clientFormLabelClassName}>Follow-Up Notes</span>
+              <textarea
+                className={`${fieldClassName} min-h-[116px] resize-y`}
+                placeholder="Follow-up notes"
+                value={clientForm.followUpNotes}
+                onChange={(event) => updateClientField("followUpNotes", event.target.value)}
+              />
+            </label>
           </div>
 
           <div className="mt-5 flex gap-3">
