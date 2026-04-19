@@ -90,7 +90,13 @@ export async function ensureCrmSchema() {
       branch text,
       assigned_employee_id uuid references employees(id) on delete set null,
       status text not null default 'active',
+      onboarding_status text not null default 'new-lead',
+      follow_up_status text not null default 'pending',
+      next_follow_up_date date,
+      last_follow_up_date date,
+      onboarding_source text,
       notes text,
+      follow_up_notes text,
       agreement_file_name text,
       agreement_file_type text,
       agreement_file_data text,
@@ -118,6 +124,12 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists agreement_file_name text`);
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
+  await query(`alter table clients add column if not exists onboarding_status text not null default 'new-lead'`);
+  await query(`alter table clients add column if not exists follow_up_status text not null default 'pending'`);
+  await query(`alter table clients add column if not exists next_follow_up_date date`);
+  await query(`alter table clients add column if not exists last_follow_up_date date`);
+  await query(`alter table clients add column if not exists onboarding_source text`);
+  await query(`alter table clients add column if not exists follow_up_notes text`);
   await query(`alter table employees add column if not exists employee_code text`);
   await query(
     `alter table employees add column if not exists must_change_password boolean not null default true`
@@ -253,7 +265,13 @@ function mapClientRow(row) {
     assignedEmployeeId: row.assigned_employee_id,
     assignedEmployeeName: row.assigned_employee_name,
     status: row.status,
+    onboardingStatus: row.onboarding_status,
+    followUpStatus: row.follow_up_status,
+    nextFollowUpDate: row.next_follow_up_date,
+    lastFollowUpDate: row.last_follow_up_date,
+    onboardingSource: row.onboarding_source,
     notes: row.notes,
+    followUpNotes: row.follow_up_notes,
     agreementFileName: row.agreement_file_name,
     agreementFileType: row.agreement_file_type,
     agreementFileData: row.agreement_file_data,
@@ -514,7 +532,13 @@ export async function listClients(employeeId = null) {
       clients.branch,
       clients.assigned_employee_id,
       clients.status,
+      clients.onboarding_status,
+      clients.follow_up_status,
+      clients.next_follow_up_date,
+      clients.last_follow_up_date,
+      clients.onboarding_source,
       clients.notes,
+      clients.follow_up_notes,
       clients.agreement_file_name,
       clients.agreement_file_type,
       clients.agreement_file_data,
@@ -561,12 +585,18 @@ export async function createClient(payload) {
       branch,
       assigned_employee_id,
       status,
+      onboarding_status,
+      follow_up_status,
+      next_follow_up_date,
+      last_follow_up_date,
+      onboarding_source,
       notes,
+      follow_up_notes,
       agreement_file_name,
       agreement_file_type,
       agreement_file_data
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-    returning id, company_name, contact_person, contact_email, contact_phone, sector, branch, assigned_employee_id, status, notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13, $14, $15, $16, $17)
+    returning id, company_name, contact_person, contact_email, contact_phone, sector, branch, assigned_employee_id, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
     [
       payload.companyName,
       payload.contactPerson,
@@ -576,7 +606,13 @@ export async function createClient(payload) {
       payload.branch || null,
       payload.assignedEmployeeId || null,
       payload.status || "active",
+      payload.onboardingStatus || "new-lead",
+      payload.followUpStatus || "pending",
+      payload.nextFollowUpDate || null,
+      payload.lastFollowUpDate || null,
+      payload.onboardingSource || null,
       payload.notes || null,
+      payload.followUpNotes || null,
       payload.agreementFileName || null,
       payload.agreementFileType || null,
       payload.agreementFileData || null,

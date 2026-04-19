@@ -1736,13 +1736,29 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
         />
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
         <MetricCard
           label="Pending Transfers"
           value={filteredTransferRequests.filter((request) => request.status === "pending").length}
         />
         <MetricCard label="Approved Transfers" value={approvedTransfers} />
         <MetricCard label="Rejected Transfers" value={rejectedTransfers} />
+        <MetricCard
+          label="Follow-Up Due"
+          value={
+            filteredClientReportRows.filter(
+              (row) => row.client.followUpStatus === "follow-up-due"
+            ).length
+          }
+        />
+        <MetricCard
+          label="Awaiting Client"
+          value={
+            filteredClientReportRows.filter(
+              (row) => row.client.followUpStatus === "awaiting-client"
+            ).length
+          }
+        />
       </section>
 
       <section className="accent-card p-7">
@@ -1764,6 +1780,8 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
             headings={[
               "Client",
               "Owner",
+              "Onboarding",
+              "Follow-Up",
               "Linked Jobs",
               "Applications",
               "Joined",
@@ -1788,6 +1806,22 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
                 </td>
                 <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                   {row.client.assignedEmployeeName || "Not assigned"}
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                  <p className="font-semibold text-[var(--color-ink)]">
+                    {row.client.onboardingStatus || "new-lead"}
+                  </p>
+                  <p className="mt-1 text-xs">
+                    {row.client.onboardingSource || "Source not added"}
+                  </p>
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                  <p className="font-semibold text-[var(--color-ink)]">
+                    {row.client.followUpStatus || "pending"}
+                  </p>
+                  <p className="mt-1 text-xs">
+                    Next: {formatDate(row.client.nextFollowUpDate)}
+                  </p>
                 </td>
                 <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
                   {row.client.linkedJobsCount}

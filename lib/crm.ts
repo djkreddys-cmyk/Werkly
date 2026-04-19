@@ -40,6 +40,19 @@ export type EmployeeRecord = {
 };
 
 export type ClientStatus = "active" | "inactive";
+export type ClientOnboardingStatus =
+  | "new-lead"
+  | "contacted"
+  | "proposal-shared"
+  | "negotiation"
+  | "onboarded"
+  | "hold";
+export type ClientFollowUpStatus =
+  | "pending"
+  | "follow-up-due"
+  | "in-progress"
+  | "awaiting-client"
+  | "closed";
 
 export type ClientRecord = {
   id: string;
@@ -52,7 +65,13 @@ export type ClientRecord = {
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
   status: ClientStatus;
+  onboardingStatus?: ClientOnboardingStatus;
+  followUpStatus?: ClientFollowUpStatus;
+  nextFollowUpDate?: string;
+  lastFollowUpDate?: string;
+  onboardingSource?: string;
   notes?: string;
+  followUpNotes?: string;
   agreementFileName?: string;
   agreementFileType?: string;
   agreementFileData?: string;
@@ -117,7 +136,13 @@ export type ClientFormPayload = {
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
   status: ClientStatus;
+  onboardingStatus?: ClientOnboardingStatus;
+  followUpStatus?: ClientFollowUpStatus;
+  nextFollowUpDate?: string;
+  lastFollowUpDate?: string;
+  onboardingSource?: string;
   notes?: string;
+  followUpNotes?: string;
   agreementFileName?: string;
   agreementFileType?: string;
   agreementFileData?: string;

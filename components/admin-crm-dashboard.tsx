@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
+  ClientFollowUpStatus,
+  ClientOnboardingStatus,
   ClientRecord,
   ClientStatus,
   ClientTransferRequestRecord,
@@ -45,7 +47,13 @@ type ClientFormState = {
   branch: string;
   assignedEmployeeId: string;
   status: ClientStatus;
+  onboardingStatus: ClientOnboardingStatus;
+  followUpStatus: ClientFollowUpStatus;
+  nextFollowUpDate: string;
+  lastFollowUpDate: string;
+  onboardingSource: string;
   notes: string;
+  followUpNotes: string;
   agreementFileName: string;
   agreementFileType: string;
   agreementFileData: string;
@@ -120,7 +128,13 @@ const emptyClientForm: ClientFormState = {
   branch: "",
   assignedEmployeeId: "",
   status: "active",
+  onboardingStatus: "new-lead",
+  followUpStatus: "pending",
+  nextFollowUpDate: "",
+  lastFollowUpDate: "",
+  onboardingSource: "",
   notes: "",
+  followUpNotes: "",
   agreementFileName: "",
   agreementFileType: "",
   agreementFileData: "",
@@ -763,7 +777,7 @@ function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                    {["Client", "Contact", "Owner", "Jobs", "Status", "Agreement"].map((heading) => (
+                    {["Client", "Contact", "Owner", "Onboarding", "Follow-Up", "Jobs", "Status", "Agreement"].map((heading) => (
                       <th
                         key={heading}
                         className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
@@ -796,6 +810,27 @@ function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {client.assignedEmployeeName || "Not assigned"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {client.onboardingStatus || "new-lead"}
+                        </p>
+                        <p className="mt-1 text-xs">
+                          {client.onboardingSource || "Source not added"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {client.followUpStatus || "pending"}
+                        </p>
+                        <p className="mt-1 text-xs">
+                          Next: {client.nextFollowUpDate || "Not scheduled"}
+                        </p>
+                        {client.followUpNotes ? (
+                          <p className="mt-1 max-w-[220px] text-xs leading-5">
+                            {client.followUpNotes}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <button
@@ -2112,6 +2147,57 @@ export function AdminClientsPanel({
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
+            <select
+              className={fieldClassName}
+              value={clientForm.onboardingStatus}
+              onChange={(event) =>
+                updateClientField(
+                  "onboardingStatus",
+                  event.target.value as ClientOnboardingStatus
+                )
+              }
+            >
+              <option value="new-lead">New Lead</option>
+              <option value="contacted">Contacted</option>
+              <option value="proposal-shared">Proposal Shared</option>
+              <option value="negotiation">Negotiation</option>
+              <option value="onboarded">Onboarded</option>
+              <option value="hold">Hold</option>
+            </select>
+            <select
+              className={fieldClassName}
+              value={clientForm.followUpStatus}
+              onChange={(event) =>
+                updateClientField(
+                  "followUpStatus",
+                  event.target.value as ClientFollowUpStatus
+                )
+              }
+            >
+              <option value="pending">Pending</option>
+              <option value="follow-up-due">Follow-Up Due</option>
+              <option value="in-progress">In Progress</option>
+              <option value="awaiting-client">Awaiting Client</option>
+              <option value="closed">Closed</option>
+            </select>
+            <input
+              className={fieldClassName}
+              placeholder="Onboarding source"
+              value={clientForm.onboardingSource}
+              onChange={(event) => updateClientField("onboardingSource", event.target.value)}
+            />
+            <input
+              className={fieldClassName}
+              type="date"
+              value={clientForm.nextFollowUpDate}
+              onChange={(event) => updateClientField("nextFollowUpDate", event.target.value)}
+            />
+            <input
+              className={fieldClassName}
+              type="date"
+              value={clientForm.lastFollowUpDate}
+              onChange={(event) => updateClientField("lastFollowUpDate", event.target.value)}
+            />
             <div className="sm:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-4">
               <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/72">
                 Signed agreement (PDF)
@@ -2136,6 +2222,12 @@ export function AdminClientsPanel({
               placeholder="Notes / onboarding context"
               value={clientForm.notes}
               onChange={(event) => updateClientField("notes", event.target.value)}
+            />
+            <textarea
+              className={`${fieldClassName} min-h-[116px] resize-y sm:col-span-2`}
+              placeholder="Follow-up notes"
+              value={clientForm.followUpNotes}
+              onChange={(event) => updateClientField("followUpNotes", event.target.value)}
             />
           </div>
 
