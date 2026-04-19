@@ -513,7 +513,11 @@ export function AdminDashboardOverview() {
                         type="button"
                         onClick={() => {
                           setSelectedDateKey(day.dateKey);
-                          setIsDateModalOpen(true);
+                          if (count > 0) {
+                            setIsDateModalOpen(true);
+                          } else {
+                            setIsDateModalOpen(false);
+                          }
                         }}
                         className={`min-h-[78px] rounded-2xl border p-2 text-left transition ${
                           isSelected
