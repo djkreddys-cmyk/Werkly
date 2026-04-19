@@ -338,12 +338,7 @@ export function AdminDashboardOverview() {
 
     setSelectedDateKey(normalizedDateKey);
     setVisibleMonth(parseDateKey(normalizedDateKey));
-    const count = followUpCountsByDate[normalizedDateKey] ?? 0;
-    if (count > 0) {
-      setIsDateModalOpen(true);
-    } else {
-      setIsDateModalOpen(false);
-    }
+    setIsDateModalOpen(true);
   }
 
   const metrics = useMemo(() => {
