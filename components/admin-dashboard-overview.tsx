@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type {
-  ClientFollowUpStatus,
-  ClientRecord,
-  EmployeeRecord,
-} from "@/lib/crm";
+import type { ClientFollowUpStatus, ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 
 type DashboardState = {
@@ -174,6 +170,7 @@ export function AdminDashboardOverview() {
   const [error, setError] = useState("");
   const todayKey = getTodayKey();
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
   const isAdminView = authType === "admin" || authRole === "super-admin";
@@ -253,7 +250,7 @@ export function AdminDashboardOverview() {
         ownerId: client.assignedEmployeeId,
         ownerName: client.assignedEmployeeName || "Unassigned",
         followUpStatus: client.followUpStatus || "pending",
-        nextFollowUpDate: normalizeDateKey(client.nextFollowUpDate)!,
+        nextFollowUpDate: normalizeDateKey(client.nextFollowUpDate),
         lastFollowUpDate: normalizeDateKey(client.lastFollowUpDate),
         notes: client.followUpNotes,
         sector: client.sector,
@@ -414,9 +411,7 @@ export function AdminDashboardOverview() {
         <article className="accent-card p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="eyebrow">
-                {isAdminView ? "Follow-Up Calendar" : "My Follow-Up Calendar"}
-              </p>
+              <p className="eyebrow">{isAdminView ? "Follow-Up Calendar" : "Follow-Up Calendar"}</p>
               <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
                 {isAdminView
                   ? "Track client follow-ups by employee and date."
@@ -425,7 +420,7 @@ export function AdminDashboardOverview() {
               <p className="muted-copy mt-3 text-sm leading-6">
                 {isAdminView
                   ? "Filter by recruiter and date to see client follow-up commitments that need action."
-                  : "Use this calendar and todo list to work through your scheduled client follow-ups."}
+                  : "Click any date in the calendar to open that day's follow-up details."}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -467,7 +462,7 @@ export function AdminDashboardOverview() {
           ) : error ? (
             <p className="mt-6 text-sm font-medium text-red-700">{error}</p>
           ) : (
-            <div className="mt-6 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="mt-6">
               <div className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5">
                 <div className="flex items-center justify-between gap-3">
                   <button
@@ -516,7 +511,10 @@ export function AdminDashboardOverview() {
                       <button
                         key={day.key}
                         type="button"
-                        onClick={() => setSelectedDateKey(day.dateKey)}
+                        onClick={() => {
+                          setSelectedDateKey(day.dateKey);
+                          setIsDateModalOpen(true);
+                        }}
                         className={`min-h-[78px] rounded-2xl border p-2 text-left transition ${
                           isSelected
                             ? "border-[var(--color-dark)] bg-[rgba(8,96,108,0.09)]"
@@ -536,139 +534,61 @@ export function AdminDashboardOverview() {
                             <span className="inline-flex rounded-full bg-[rgba(190,72,26,0.12)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent-strong)]">
                               {count} follow-up{count === 1 ? "" : "s"}
                             </span>
-                          ) : (
-                            <span className="text-[11px] text-[var(--color-muted)]">No items</span>
-                          )}
+                          ) : null}
                         </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
-
-              <div className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
-                      {isAdminView ? "Selected Date" : "My Todo List"}
-                    </p>
-                    <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
-                      {formatDateLabel(selectedDateKey)}
-                    </h3>
-                  </div>
-                  <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-                    {selectedDateFollowUps.length} items
-                  </span>
-                </div>
-
-                {selectedDateFollowUps.length === 0 ? (
-                  <p className="muted-copy mt-6 text-sm">
-                    No follow-ups are scheduled for this date.
-                  </p>
-                ) : (
-                  <div className="mt-6 space-y-4">
-                    {selectedDateFollowUps.map((item) => (
-                      <article
-                        key={item.id}
-                        className="rounded-[1.35rem] border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-lg font-semibold text-[var(--color-ink)]">
-                              {item.clientName}
-                            </p>
-                            <p className="mt-1 text-sm text-[var(--color-muted)]">
-                              {item.contactPerson}
-                              {item.sector ? ` • ${item.sector}` : ""}
-                            </p>
-                          </div>
-                          <FollowUpStatusPill status={item.followUpStatus} />
-                        </div>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                              Owner
-                            </p>
-                            <p className="mt-1 text-sm text-[var(--color-ink)]">{item.ownerName}</p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                              Last Follow-Up
-                            </p>
-                            <p className="mt-1 text-sm text-[var(--color-ink)]">
-                              {formatDateLabel(item.lastFollowUpDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                              Contact
-                            </p>
-                            <p className="mt-1 text-sm text-[var(--color-ink)]">
-                              {item.contactPhone || item.contactEmail || "Not added"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                              Next Follow-Up
-                            </p>
-                            <p className="mt-1 text-sm text-[var(--color-ink)]">
-                              {formatDateLabel(item.nextFollowUpDate)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-[var(--color-muted)]">
-                          {item.notes || "No follow-up remarks added yet."}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           )}
         </article>
 
-        <article className="accent-card p-7">
-          <p className="eyebrow">{isAdminView ? "Upcoming Follow-Ups" : "My Upcoming Follow-Ups"}</p>
-          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-            Prioritized follow-up queue
-          </h2>
+        {isAdminView ? (
+          <article className="accent-card p-7">
+            <p className="eyebrow">Upcoming Follow-Ups</p>
+            <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+              Prioritized follow-up queue
+            </h2>
 
-          {isLoading ? (
-            <p className="muted-copy mt-6 text-sm">Loading follow-up queue...</p>
-          ) : upcomingFollowUps.length === 0 ? (
-            <p className="muted-copy mt-6 text-sm">No scheduled follow-ups are available yet.</p>
-          ) : (
-            <div className="mt-6 space-y-4">
-              {upcomingFollowUps.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDateKey(item.nextFollowUpDate);
-                    setVisibleMonth(parseDateKey(item.nextFollowUpDate));
-                    if (isAdminView && item.ownerId) {
-                      setSelectedEmployeeId(item.ownerId);
-                    }
-                  }}
-                  className="w-full rounded-[1.35rem] border border-[var(--color-line)] bg-white p-4 text-left transition hover:border-[var(--color-dark)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-[var(--color-ink)]">{item.clientName}</p>
-                      <p className="mt-1 text-sm text-[var(--color-muted)]">{item.ownerName}</p>
+            {isLoading ? (
+              <p className="muted-copy mt-6 text-sm">Loading follow-up queue...</p>
+            ) : upcomingFollowUps.length === 0 ? (
+              <p className="muted-copy mt-6 text-sm">No scheduled follow-ups are available yet.</p>
+            ) : (
+              <div className="mt-6 space-y-4">
+                {upcomingFollowUps.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDateKey(item.nextFollowUpDate);
+                      setVisibleMonth(parseDateKey(item.nextFollowUpDate));
+                      setIsDateModalOpen(true);
+                      if (item.ownerId) {
+                        setSelectedEmployeeId(item.ownerId);
+                      }
+                    }}
+                    className="w-full rounded-[1.35rem] border border-[var(--color-line)] bg-white p-4 text-left transition hover:border-[var(--color-dark)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-[var(--color-ink)]">{item.clientName}</p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">{item.ownerName}</p>
+                      </div>
+                      <FollowUpStatusPill status={item.followUpStatus} />
                     </div>
-                    <FollowUpStatusPill status={item.followUpStatus} />
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-3 text-sm text-[var(--color-muted)]">
-                    <span>{formatDateLabel(item.nextFollowUpDate)}</span>
-                    <span>{item.contactPerson}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </article>
+                    <div className="mt-4 flex flex-wrap gap-3 text-sm text-[var(--color-muted)]">
+                      <span>{formatDateLabel(item.nextFollowUpDate)}</span>
+                      <span>{item.contactPerson}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </article>
+        ) : null}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -848,6 +768,98 @@ export function AdminDashboardOverview() {
           )}
         </article>
       </section>
+
+      {isDateModalOpen ? (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-3xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Selected Date</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {formatDateLabel(selectedDateKey)}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDateModalOpen(false)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between gap-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                Follow-Up Details
+              </p>
+              <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                {selectedDateFollowUps.length} items
+              </span>
+            </div>
+
+            {selectedDateFollowUps.length === 0 ? (
+              <p className="muted-copy mt-6 text-sm">No follow-ups are scheduled for this date.</p>
+            ) : (
+              <div className="mt-6 max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+                {selectedDateFollowUps.map((item) => (
+                  <article
+                    key={item.id}
+                    className="rounded-[1.35rem] border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-[var(--color-ink)]">
+                          {item.clientName}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">
+                          {item.contactPerson}
+                          {item.sector ? ` - ${item.sector}` : ""}
+                        </p>
+                      </div>
+                      <FollowUpStatusPill status={item.followUpStatus} />
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Owner
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">{item.ownerName}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Last Follow-Up
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                          {formatDateLabel(item.lastFollowUpDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Contact
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                          {item.contactPhone || item.contactEmail || "Not added"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Next Follow-Up
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                          {formatDateLabel(item.nextFollowUpDate)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-[var(--color-muted)]">
+                      {item.notes || "No follow-up remarks added yet."}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
