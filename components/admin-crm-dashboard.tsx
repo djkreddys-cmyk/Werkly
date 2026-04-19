@@ -809,7 +809,7 @@ function CrmClientsList({
           {clients.length === 0 ? (
             <p className="muted-copy p-5 text-sm">No clients have been onboarded yet.</p>
           ) : (
-            <div className="overflow-x-auto overflow-y-visible pb-4">
+            <div className="overflow-x-auto pb-4">
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
@@ -898,7 +898,7 @@ function CrmClientsList({
                       <td className="px-4 py-4">
                         {canManageActions ? (
                           <div
-                            className="relative inline-flex"
+                            className="relative flex justify-end"
                             ref={actionMenuClientId === client.id ? actionsMenuRef : null}
                           >
                             <button
@@ -916,7 +916,7 @@ function CrmClientsList({
                             </button>
 
                             {actionMenuClientId === client.id ? (
-                              <div className="absolute bottom-12 right-0 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                              <div className="absolute right-14 top-1/2 z-20 min-w-[220px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
                                 <button
                                   type="button"
                                   onClick={() => {
