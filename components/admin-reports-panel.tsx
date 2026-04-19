@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobApplication, JobApplicationStageHistory } from "@/lib/jobs";
+import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 type ReportState = {
   applications: JobApplication[];
@@ -516,7 +517,9 @@ export function AdminReportsPanel() {
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <p className="font-medium text-[var(--color-ink)]">{item.jobTitle || "Untitled job"}</p>
-                        <p className="mt-1">{item.jobCode || "Pending ID"}</p>
+                        <p className="mt-1">
+                          <AdminJobIdTrigger jobId={item.jobId} jobCode={item.jobCode} />
+                        </p>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <span className="font-semibold text-[var(--color-accent-strong)]">

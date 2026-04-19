@@ -5,6 +5,7 @@ import {
   type JobApplication,
   type JobApplicationStage,
 } from "@/lib/jobs";
+import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 const stageOptions: JobApplicationStage[] = [
   "applied",
@@ -415,7 +416,10 @@ export function AdminCandidatesPanel() {
                           {application.jobTitle || "Untitled job"}
                         </p>
                         <p className="mt-1">
-                          {application.jobCode || "Pending ID"}
+                          <AdminJobIdTrigger
+                            jobId={application.jobId}
+                            jobCode={application.jobCode}
+                          />
                           {application.jobLocation ? ` • ${application.jobLocation}` : ""}
                         </p>
                       </td>

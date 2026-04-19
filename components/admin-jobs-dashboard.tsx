@@ -9,6 +9,7 @@ import type {
   JobSummary,
   JobStatus,
 } from "@/lib/jobs";
+import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 type JobEditorState = {
   id?: string;
@@ -1005,7 +1006,7 @@ export function AdminJobsDashboard({
                           {job.sector}
                         </p>
                         <p className="mt-1 text-sm font-semibold text-[var(--color-accent-strong)]">
-                          {job.jobCode || "Pending ID"}
+                          <AdminJobIdTrigger jobId={job.id} jobCode={job.jobCode} />
                         </p>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
@@ -1174,7 +1175,13 @@ export function AdminJobsDashboard({
                   {applicationsJob.title}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
-                  Job ID {applicationsJob.jobCode || "Pending"} | {applicationsJob.applicationsCount} applications
+                  Job ID{" "}
+                  <AdminJobIdTrigger
+                    jobId={applicationsJob.id}
+                    jobCode={applicationsJob.jobCode}
+                    fallbackLabel="Pending"
+                  />{" "}
+                  | {applicationsJob.applicationsCount} applications
                 </p>
               </div>
               <button

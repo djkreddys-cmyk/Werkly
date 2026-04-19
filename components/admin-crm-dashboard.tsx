@@ -10,6 +10,7 @@ import type {
 } from "@/lib/crm";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
+import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 type EmployeeFormState = {
   id?: string;
@@ -710,7 +711,7 @@ function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
                           }
                         >
                           <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
-                            {job.jobCode || "Pending"}
+                            <AdminJobIdTrigger jobId={job.id} jobCode={job.jobCode} fallbackLabel="Pending" />
                           </td>
                           <td className="px-4 py-4 text-sm text-[var(--color-ink)]">
                             {job.title}

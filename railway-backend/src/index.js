@@ -47,6 +47,7 @@ import {
   createCandidateEnquiry,
   createJob,
   ensureJobsSchema,
+  getAdminJobById,
   getJobBySlug,
   listAdminApplications,
   listCandidateEnquiries,
@@ -322,6 +323,22 @@ app.get("/admin/jobs", requireInternalUser, async (_request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load admin jobs.",
+    });
+  }
+});
+
+app.get("/admin/jobs/:id", requireInternalUser, async (request, response) => {
+  try {
+    const job = await getAdminJobById(request.params.id);
+
+    if (!job) {
+      return response.status(404).json({ message: "Job not found." });
+    }
+
+    response.json(job);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load job details.",
     });
   }
 });

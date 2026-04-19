@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { splitMultiline, updateJob, type JobFormPayload, type JobStatus } from "@/lib/jobs";
+import {
+  getAdminJobById,
+  splitMultiline,
+  updateJob,
+  type JobFormPayload,
+  type JobStatus,
+} from "@/lib/jobs";
 
 function slugify(value: string) {
   return value
@@ -57,6 +63,33 @@ export async function PUT(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to update job on backend.";
+    return NextResponse.json({ message }, { status: 500 });
+  }
+}
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "").trim();
+
+    if (!token) {
+      return NextResponse.json({ message: "Admin token is required." }, { status: 401 });
+    }
+
+    const { id } = await context.params;
+    const job = await getAdminJobById(id, token);
+
+    if (!job) {
+      return NextResponse.json({ message: "Job not found." }, { status: 404 });
+    }
+
+    return NextResponse.json(job);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to load job details.";
     return NextResponse.json({ message }, { status: 500 });
   }
 }

@@ -499,6 +499,18 @@ export async function updateJob(id, payload) {
   return result.rows[0] ? mapRow(result.rows[0]) : null;
 }
 
+export async function getAdminJobById(id) {
+  const result = await query(
+    `select *
+     from jobs
+     where id = $1
+     limit 1`,
+    [id]
+  );
+
+  return result.rows[0] ? mapRow(result.rows[0]) : null;
+}
+
 export async function deleteJob(id) {
   const result = await query("delete from jobs where id = $1", [id]);
   return result.rowCount > 0;

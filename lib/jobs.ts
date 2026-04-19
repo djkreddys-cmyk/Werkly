@@ -427,6 +427,16 @@ export async function getAdminJobs(token: string): Promise<JobSummary[]> {
   return jobs.map(normalizeJobSummary);
 }
 
+export async function getAdminJobById(id: string, token: string): Promise<JobDetail | null> {
+  const job = await readJson<JobDetail>(`/admin/jobs/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return normalizeJobDetail(job);
+}
+
 export async function getJobBySlug(slug: string): Promise<JobDetail | null> {
   if (canUseDemoFallback()) {
     return demoJobs.find((job) => job.slug === slug) ?? null;
