@@ -137,6 +137,75 @@ function getStageLabel(stage?: string) {
   return safeStage.charAt(0).toUpperCase() + safeStage.slice(1);
 }
 
+function isWithinDateRange(value: string | undefined, startDate: string, endDate: string) {
+  if (!value) {
+    return false;
+  }
+
+  const dateKey = value.slice(0, 10);
+  if (startDate && dateKey < startDate) {
+    return false;
+  }
+  if (endDate && dateKey > endDate) {
+    return false;
+  }
+
+  return true;
+}
+
+function escapeExcelCell(value: string | number | undefined | null) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function downloadExcelReport(
+  filename: string,
+  sheetTitle: string,
+  headings: string[],
+  rows: Array<Array<string | number | undefined | null>>
+) {
+  const tableHead = headings.map((heading) => `<th>${escapeExcelCell(heading)}</th>`).join("");
+  const tableRows = rows
+    .map(
+      (row) =>
+        `<tr>${row.map((cell) => `<td>${escapeExcelCell(cell)}</td>`).join("")}</tr>`
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+      th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+      th { background: #eaf2f4; font-weight: 700; }
+      h1 { font-family: Arial, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeExcelCell(sheetTitle)}</h1>
+    <table>
+      <thead><tr>${tableHead}</tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  </body>
+</html>`;
+
+  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename.endsWith(".xls") ? filename : `${filename}.xls`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
 function MetricCard({
   label,
   value,
@@ -187,6 +256,114 @@ function ReportTable({
   );
 }
 
+function ReportFilterBar({
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  recruiterOptions,
+  selectedRecruiter,
+  onRecruiterChange,
+  clientOptions,
+  selectedClient,
+  onClientChange,
+  onExport,
+  exportLabel,
+}: {
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  recruiterOptions?: string[];
+  selectedRecruiter?: string;
+  onRecruiterChange?: (value: string) => void;
+  clientOptions?: string[];
+  selectedClient?: string;
+  onClientChange?: (value: string) => void;
+  onExport: () => void;
+  exportLabel: string;
+}) {
+  return (
+    <section className="accent-card p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              Start Date
+            </span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => onStartDateChange(event.target.value)}
+              className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              End Date
+            </span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => onEndDateChange(event.target.value)}
+              className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+            />
+          </label>
+
+          {recruiterOptions && onRecruiterChange ? (
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Recruiter
+              </span>
+              <select
+                value={selectedRecruiter ?? ""}
+                onChange={(event) => onRecruiterChange(event.target.value)}
+                className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="">All Recruiters</option>
+                {recruiterOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {clientOptions && onClientChange ? (
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Client
+              </span>
+              <select
+                value={selectedClient ?? ""}
+                onChange={(event) => onClientChange(event.target.value)}
+                className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="">All Clients</option>
+                {clientOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          onClick={onExport}
+          className="inline-flex items-center justify-center rounded-xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[rgba(8,96,108,0.92)]"
+        >
+          {exportLabel}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProps) {
   const [token] = useState(
     typeof window !== "undefined"
@@ -226,6 +403,10 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
   });
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selectedRecruiter, setSelectedRecruiter] = useState("");
+  const [selectedClient, setSelectedClient] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -385,6 +566,32 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
         request.requestedToEmployeeId === currentEmployeeId
     );
   }, [currentEmployeeId, isEmployeeSession, state.transferRequests]);
+
+  const recruiterOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          visibleEmployees
+            .map((employee) => employee.fullName)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+        )
+      ),
+    [visibleEmployees]
+  );
+
+  const clientOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          visibleClients
+            .map((client) => client.companyName)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+        )
+      ),
+    [visibleClients]
+  );
 
   const attendanceSummary = useMemo(() => {
     const summaries = new Map<string, AttendanceDaySummary>();
@@ -573,19 +780,6 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
       .sort((a, b) => b.applicationCount - a.applicationCount);
   }, [visibleApplications, visibleJobs]);
 
-  const candidateSourceMetrics = useMemo(() => {
-    const sourceCounts = new Map<string, number>();
-
-    visibleApplications.forEach((application) => {
-      const source = getCandidateSourceLabel(application);
-      sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
-    });
-
-    return Array.from(sourceCounts.entries())
-      .map(([source, count]) => ({ source, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [visibleApplications]);
-
   const clientReportRows = useMemo(() => {
     return visibleClients
       .map((client) => {
@@ -604,21 +798,117 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
       .sort((a, b) => b.client.linkedJobsCount - a.client.linkedJobsCount);
   }, [visibleApplications, visibleClients]);
 
-  const recentEnquiries = useMemo(
+  const filteredAttendanceSummary = useMemo(
     () =>
-      [...state.enquiries]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 8),
-    [state.enquiries]
+      attendanceSummary.filter(
+        (summary) =>
+          (!selectedRecruiter || summary.userName === selectedRecruiter) &&
+          isWithinDateRange(summary.reportDate, startDate, endDate)
+      ),
+    [attendanceSummary, endDate, selectedRecruiter, startDate]
   );
 
-  const applicationTotals = useMemo(() => {
+  const filteredEmployeeActivityRows = useMemo(
+    () =>
+      employeeActivityRows.filter(
+        (row) =>
+          (!selectedRecruiter || row.employee.fullName === selectedRecruiter) &&
+          (!startDate ||
+            isWithinDateRange(
+              row.activitySummary?.lastSeenAt || row.attendanceSummary?.firstLoginAt,
+              startDate,
+              endDate
+            ))
+      ),
+    [employeeActivityRows, endDate, selectedRecruiter, startDate]
+  );
+
+  const filteredJobsReportRows = useMemo(
+    () =>
+      jobsReportRows.filter(
+        (job) =>
+          (!selectedRecruiter || job.recruiterName === selectedRecruiter) &&
+          (!selectedClient || job.clientName === selectedClient) &&
+          isWithinDateRange(job.postedAt, startDate, endDate)
+      ),
+    [endDate, jobsReportRows, selectedClient, selectedRecruiter, startDate]
+  );
+
+  const filteredHistory = useMemo(
+    () =>
+      visibleHistory.filter(
+        (item) =>
+          (!selectedRecruiter || item.recruiterName === selectedRecruiter) &&
+          (!selectedClient || item.clientName === selectedClient) &&
+          isWithinDateRange(item.stageDate || item.changedAt, startDate, endDate)
+      ),
+    [endDate, selectedClient, selectedRecruiter, startDate, visibleHistory]
+  );
+
+  const filteredApplications = useMemo(
+    () =>
+      visibleApplications.filter(
+        (application) =>
+          (!selectedRecruiter || application.recruiterName === selectedRecruiter) &&
+          (!selectedClient || application.clientName === selectedClient) &&
+          isWithinDateRange(application.appliedAt, startDate, endDate)
+      ),
+    [endDate, selectedClient, selectedRecruiter, startDate, visibleApplications]
+  );
+
+  const filteredSourceMetrics = useMemo(() => {
+    const sourceCounts = new Map<string, number>();
+
+    filteredApplications.forEach((application) => {
+      const source = getCandidateSourceLabel(application);
+      sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
+    });
+
+    return Array.from(sourceCounts.entries())
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [filteredApplications]);
+
+  const filteredRecentEnquiries = useMemo(
+    () =>
+      [...state.enquiries]
+        .filter((enquiry) => isWithinDateRange(enquiry.createdAt, startDate, endDate))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 8),
+    [endDate, startDate, state.enquiries]
+  );
+
+  const filteredClientReportRows = useMemo(
+    () =>
+      clientReportRows.filter(
+        (row) =>
+          (!selectedRecruiter || row.client.assignedEmployeeName === selectedRecruiter) &&
+          (!selectedClient || row.client.companyName === selectedClient) &&
+          isWithinDateRange(row.client.createdAt, startDate, endDate)
+      ),
+    [clientReportRows, endDate, selectedClient, selectedRecruiter, startDate]
+  );
+
+  const filteredTransferRequests = useMemo(
+    () =>
+      visibleTransferRequests.filter(
+        (request) =>
+          (!selectedRecruiter ||
+            request.requestedByEmployeeName === selectedRecruiter ||
+            request.requestedToEmployeeName === selectedRecruiter) &&
+          (!selectedClient || request.clientName === selectedClient) &&
+          isWithinDateRange(request.reviewedAt || request.createdAt, startDate, endDate)
+      ),
+    [endDate, selectedClient, selectedRecruiter, startDate, visibleTransferRequests]
+  );
+
+  const filteredApplicationTotals = useMemo(() => {
     const countByStage = (stage: string) =>
-      visibleApplications.filter((application) => (application.stage ?? "applied") === stage)
+      filteredApplications.filter((application) => (application.stage ?? "applied") === stage)
         .length;
 
     return {
-      totalApplications: visibleApplications.length,
+      totalApplications: filteredApplications.length,
       applied: countByStage("applied"),
       shortlisted: countByStage("shortlisted"),
       interview: countByStage("interview"),
@@ -626,7 +916,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
       joined: countByStage("joined"),
       rejected: countByStage("rejected"),
     };
-  }, [visibleApplications]);
+  }, [filteredApplications]);
 
   const overviewCards = reportModules.map((item) => (
     <Link
@@ -666,17 +956,56 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
   if (module === "hr") {
     const activeEmployees = visibleEmployees.filter((employee) => employee.status === "active").length;
     const inactiveEmployees = visibleEmployees.filter((employee) => employee.status === "inactive").length;
-    const activeSessions = attendanceSummary.filter((item) => item.activeSessionCount > 0).length;
+    const activeSessions = filteredAttendanceSummary.filter((item) => item.activeSessionCount > 0).length;
     const averageScreenTime =
-      attendanceSummary.length > 0
+      filteredAttendanceSummary.length > 0
         ? Math.round(
-            attendanceSummary.reduce((sum, item) => sum + item.screenActiveSeconds, 0) /
-              attendanceSummary.length
+            filteredAttendanceSummary.reduce((sum, item) => sum + item.screenActiveSeconds, 0) /
+              filteredAttendanceSummary.length
           ) * 1000
         : 0;
 
     return (
       <div className="space-y-6">
+        <ReportFilterBar
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          recruiterOptions={recruiterOptions}
+          selectedRecruiter={selectedRecruiter}
+          onRecruiterChange={setSelectedRecruiter}
+          onExport={() =>
+            downloadExcelReport(
+              "hr-report.xls",
+              "HR Attendance Report",
+              [
+                "Employee",
+                "Date",
+                "First Login",
+                "Last Logout",
+                "Worked Hours",
+                "Screen Time",
+                "Idle Time",
+                "Last Seen",
+                "Status",
+              ],
+              filteredAttendanceSummary.map((summary) => [
+                summary.userName,
+                formatDate(summary.reportDate),
+                formatDateTime(summary.firstLoginAt),
+                formatDateTime(summary.lastLogoutAt),
+                formatDuration(summary.totalWorkedMs),
+                formatDuration(summary.screenActiveSeconds * 1000),
+                formatDuration(summary.screenIdleSeconds * 1000),
+                formatDateTime(summary.lastSeenAt),
+                summary.activeSessionCount > 0 ? "Active session" : "Day closed",
+              ])
+            )
+          }
+          exportLabel="Download HR Report"
+        />
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Total Employees" value={visibleEmployees.length} />
           <MetricCard label="Active Employees" value={activeEmployees} />
@@ -684,7 +1013,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
           <MetricCard
             label="Live Sessions"
             value={activeSessions}
-            detail={`${attendanceSummary.length} employee day records`}
+            detail={`${filteredAttendanceSummary.length} employee day records`}
           />
         </section>
 
@@ -696,16 +1025,16 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
           />
           <MetricCard
             label="Attendance Records"
-            value={attendanceSummary.length}
+            value={filteredAttendanceSummary.length}
             detail="End-of-day attendance summaries"
           />
           <MetricCard
             label="Today Login Capture"
-            value={employeeActivityRows.filter((row) => row.attendanceSummary?.firstLoginAt).length}
+            value={filteredEmployeeActivityRows.filter((row) => row.attendanceSummary?.firstLoginAt).length}
           />
           <MetricCard
             label="Last Seen Captured"
-            value={employeeActivityRows.filter((row) => row.activitySummary?.lastSeenAt).length}
+            value={filteredEmployeeActivityRows.filter((row) => row.activitySummary?.lastSeenAt).length}
           />
         </section>
 
@@ -721,7 +1050,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
           {isLoading ? (
             <p className="muted-copy mt-6 text-sm">Loading attendance report...</p>
-          ) : attendanceSummary.length === 0 ? (
+          ) : filteredAttendanceSummary.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No attendance records are available yet.</p>
           ) : (
             <ReportTable
@@ -737,11 +1066,11 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
                 "Status",
               ]}
             >
-              {attendanceSummary.map((summary, index) => (
+              {filteredAttendanceSummary.map((summary, index) => (
                 <tr
                   key={summary.key}
                   className={
-                    index === attendanceSummary.length - 1
+                    index === filteredAttendanceSummary.length - 1
                       ? "align-top"
                       : "align-top border-b border-[var(--color-line)]"
                   }
@@ -796,7 +1125,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
           {isLoading ? (
             <p className="muted-copy mt-6 text-sm">Loading employee activity...</p>
-          ) : employeeActivityRows.length === 0 ? (
+          ) : filteredEmployeeActivityRows.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No employee activity is available yet.</p>
           ) : (
             <ReportTable
@@ -812,11 +1141,11 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
                 "Status",
               ]}
             >
-              {employeeActivityRows.map((row, index) => (
+              {filteredEmployeeActivityRows.map((row, index) => (
                 <tr
                   key={row.employee.id}
                   className={
-                    index === employeeActivityRows.length - 1
+                    index === filteredEmployeeActivityRows.length - 1
                       ? "align-top"
                       : "align-top border-b border-[var(--color-line)]"
                   }
@@ -859,31 +1188,73 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
   }
 
   if (module === "jobs") {
-    const openJobs = visibleJobs.filter((job) => job.status === "open").length;
-    const draftJobs = visibleJobs.filter((job) => job.status === "draft").length;
-    const closedJobs = visibleJobs.filter((job) => job.status === "closed").length;
+    const openJobs = filteredJobsReportRows.filter((job) => job.status === "open").length;
+    const draftJobs = filteredJobsReportRows.filter((job) => job.status === "draft").length;
+    const closedJobs = filteredJobsReportRows.filter((job) => job.status === "closed").length;
     const activeRecruiters = new Set(
-      jobsReportRows.map((job) => job.recruiterEmail || job.recruiterId).filter(Boolean)
+      filteredJobsReportRows.map((job) => job.recruiterEmail || job.recruiterId).filter(Boolean)
     ).size;
 
     return (
       <div className="space-y-6">
+        <ReportFilterBar
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          recruiterOptions={recruiterOptions}
+          selectedRecruiter={selectedRecruiter}
+          onRecruiterChange={setSelectedRecruiter}
+          clientOptions={clientOptions}
+          selectedClient={selectedClient}
+          onClientChange={setSelectedClient}
+          onExport={() =>
+            downloadExcelReport(
+              "jobs-report.xls",
+              "Jobs Report",
+              [
+                "Job",
+                "Job ID",
+                "Client",
+                "Recruiter",
+                "Location",
+                "Status",
+                "Applications",
+                "Latest Application",
+                "Posted Date",
+              ],
+              filteredJobsReportRows.map((job) => [
+                job.title,
+                job.jobCode || "",
+                job.clientName || "Not assigned",
+                job.recruiterName || "Unassigned",
+                job.location,
+                job.status,
+                job.applicationCount,
+                formatDateTime(job.latestAppliedAt),
+                formatDate(job.postedAt),
+              ])
+            )
+          }
+          exportLabel="Download Jobs Report"
+        />
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Open Jobs" value={openJobs} />
           <MetricCard label="Draft Jobs" value={draftJobs} />
           <MetricCard label="Closed Jobs" value={closedJobs} />
-          <MetricCard label="Applications" value={visibleApplications.length} />
+          <MetricCard label="Applications" value={filteredApplications.length} />
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Active Recruiters" value={activeRecruiters} />
           <MetricCard
             label="Shortlisted"
-            value={applicationTotals.shortlisted}
+            value={filteredApplicationTotals.shortlisted}
             detail="Candidates moved beyond applied stage"
           />
-          <MetricCard label="Interview" value={applicationTotals.interview} />
-          <MetricCard label="Joined" value={applicationTotals.joined} />
+          <MetricCard label="Interview" value={filteredApplicationTotals.interview} />
+          <MetricCard label="Joined" value={filteredApplicationTotals.joined} />
         </section>
 
         <section className="accent-card p-7">
@@ -898,7 +1269,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
           {isLoading ? (
             <p className="muted-copy mt-6 text-sm">Loading jobs report...</p>
-          ) : jobsReportRows.length === 0 ? (
+          ) : filteredJobsReportRows.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No jobs are available yet.</p>
           ) : (
             <ReportTable
@@ -913,11 +1284,11 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
                 "Posted Date",
               ]}
             >
-              {jobsReportRows.map((job, index) => (
+              {filteredJobsReportRows.map((job, index) => (
                 <tr
                   key={job.id}
                   className={
-                    index === jobsReportRows.length - 1
+                    index === filteredJobsReportRows.length - 1
                       ? "align-top"
                       : "align-top border-b border-[var(--color-line)]"
                   }
@@ -968,17 +1339,17 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
           {isLoading ? (
             <p className="muted-copy mt-6 text-sm">Loading stage movement report...</p>
-          ) : visibleHistory.length === 0 ? (
+          ) : filteredHistory.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No stage updates have been recorded yet.</p>
           ) : (
             <ReportTable
               headings={["Candidate", "Job", "From", "To", "Effective Date", "Remarks", "Changed At"]}
             >
-              {visibleHistory.map((item, index) => (
+              {filteredHistory.map((item, index) => (
                 <tr
                   key={item.id}
                   className={
-                    index === visibleHistory.length - 1
+                    index === filteredHistory.length - 1
                       ? "align-top"
                       : "align-top border-b border-[var(--color-line)]"
                   }
@@ -1020,22 +1391,64 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
   if (module === "candidates") {
     return (
       <div className="space-y-6">
+        <ReportFilterBar
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          recruiterOptions={recruiterOptions}
+          selectedRecruiter={selectedRecruiter}
+          onRecruiterChange={setSelectedRecruiter}
+          clientOptions={clientOptions}
+          selectedClient={selectedClient}
+          onClientChange={setSelectedClient}
+          onExport={() =>
+            downloadExcelReport(
+              "candidates-report.xls",
+              "Candidates Report",
+              [
+                "Candidate",
+                "Email",
+                "Job",
+                "Job ID",
+                "Client",
+                "Recruiter",
+                "Source",
+                "Current Stage",
+                "Applied Date",
+              ],
+              filteredApplications.map((application) => [
+                application.candidateName,
+                application.candidateEmail,
+                application.jobTitle || "Untitled job",
+                application.jobCode || "",
+                application.clientName || "Not assigned",
+                application.recruiterName || "Unassigned",
+                getCandidateSourceLabel(application),
+                getStageLabel(application.stage),
+                formatDateTime(application.appliedAt),
+              ])
+            )
+          }
+          exportLabel="Download Candidates Report"
+        />
+
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-          <MetricCard label="Applied" value={applicationTotals.applied} />
-          <MetricCard label="Shortlisted" value={applicationTotals.shortlisted} />
-          <MetricCard label="Interview" value={applicationTotals.interview} />
-          <MetricCard label="Offered" value={applicationTotals.offered} />
-          <MetricCard label="Joined" value={applicationTotals.joined} />
-          <MetricCard label="Rejected" value={applicationTotals.rejected} />
+          <MetricCard label="Applied" value={filteredApplicationTotals.applied} />
+          <MetricCard label="Shortlisted" value={filteredApplicationTotals.shortlisted} />
+          <MetricCard label="Interview" value={filteredApplicationTotals.interview} />
+          <MetricCard label="Offered" value={filteredApplicationTotals.offered} />
+          <MetricCard label="Joined" value={filteredApplicationTotals.joined} />
+          <MetricCard label="Rejected" value={filteredApplicationTotals.rejected} />
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Total Applications" value={visibleApplications.length} />
-          <MetricCard label="Website Enquiries" value={state.enquiries.length} />
+          <MetricCard label="Total Applications" value={filteredApplications.length} />
+          <MetricCard label="Website Enquiries" value={filteredRecentEnquiries.length} />
           <MetricCard
             label="Website Apply"
             value={
-              visibleApplications.filter(
+              filteredApplications.filter(
                 (application) => getCandidateSourceLabel(application) === "Website Apply"
               ).length
             }
@@ -1043,7 +1456,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
           <MetricCard
             label="Manual Entries"
             value={
-              visibleApplications.filter(
+              filteredApplications.filter(
                 (application) => getCandidateSourceLabel(application) !== "Website Apply"
               ).length
             }
@@ -1062,7 +1475,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
           {isLoading ? (
             <p className="muted-copy mt-6 text-sm">Loading candidate pipeline...</p>
-          ) : visibleApplications.length === 0 ? (
+          ) : filteredApplications.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No job applicants are available yet.</p>
           ) : (
             <ReportTable
@@ -1076,7 +1489,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
                 "Applied Date",
               ]}
             >
-              {[...visibleApplications]
+              {[...filteredApplications]
                 .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
                 .map((application, index, rows) => (
                   <tr
@@ -1134,11 +1547,11 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
             </h2>
             {isLoading ? (
               <p className="muted-copy mt-6 text-sm">Loading source metrics...</p>
-            ) : candidateSourceMetrics.length === 0 ? (
+            ) : filteredSourceMetrics.length === 0 ? (
               <p className="muted-copy mt-6 text-sm">No source information is available yet.</p>
             ) : (
               <div className="mt-6 space-y-3">
-                {candidateSourceMetrics.map((item) => (
+                {filteredSourceMetrics.map((item) => (
                   <div
                     key={item.source}
                     className="flex items-center justify-between rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3"
@@ -1158,11 +1571,11 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
             </h2>
             {isLoading ? (
               <p className="muted-copy mt-6 text-sm">Loading candidate enquiries...</p>
-            ) : recentEnquiries.length === 0 ? (
+            ) : filteredRecentEnquiries.length === 0 ? (
               <p className="muted-copy mt-6 text-sm">No website enquiries are available yet.</p>
             ) : (
               <div className="mt-6 space-y-4">
-                {recentEnquiries.map((enquiry) => (
+                {filteredRecentEnquiries.map((enquiry) => (
                   <div
                     key={enquiry.id}
                     className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-4"
@@ -1182,7 +1595,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
                     </div>
                     <p className="mt-3 text-sm text-[var(--color-muted)]">
                       {enquiry.preferredRole || "Preferred role not added"}
-                      {enquiry.preferredLocation ? ` • ${enquiry.preferredLocation}` : ""}
+                      {enquiry.preferredLocation ? ` | ${enquiry.preferredLocation}` : ""}
                     </p>
                   </div>
                 ))}
@@ -1194,28 +1607,68 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
     );
   }
 
-  const pendingTransfers = visibleTransferRequests.filter((request) => request.status === "pending").length;
-  const approvedTransfers = visibleTransferRequests.filter((request) => request.status === "approved").length;
-  const rejectedTransfers = visibleTransferRequests.filter((request) => request.status === "rejected").length;
-  const unassignedClients = visibleClients.filter((client) => !client.assignedEmployeeId).length;
+  const approvedTransfers = filteredTransferRequests.filter((request) => request.status === "approved").length;
+  const rejectedTransfers = filteredTransferRequests.filter((request) => request.status === "rejected").length;
+  const unassignedClients = filteredClientReportRows.filter((row) => !row.client.assignedEmployeeId).length;
 
   return (
     <div className="space-y-6">
+      <ReportFilterBar
+        startDate={startDate}
+        endDate={endDate}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
+        recruiterOptions={recruiterOptions}
+        selectedRecruiter={selectedRecruiter}
+        onRecruiterChange={setSelectedRecruiter}
+        clientOptions={clientOptions}
+        selectedClient={selectedClient}
+        onClientChange={setSelectedClient}
+        onExport={() =>
+          downloadExcelReport(
+            "clients-report.xls",
+            "Clients Report",
+            [
+              "Client",
+              "Owner",
+              "Linked Jobs",
+              "Applications",
+              "Joined",
+              "Status",
+              "Created At",
+            ],
+            filteredClientReportRows.map((row) => [
+              row.client.companyName,
+              row.client.assignedEmployeeName || "Not assigned",
+              row.client.linkedJobsCount,
+              row.applicationsCount,
+              row.joinedCount,
+              row.client.status,
+              formatDate(row.client.createdAt),
+            ])
+          )
+        }
+        exportLabel="Download Clients Report"
+      />
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total Clients" value={visibleClients.length} />
+        <MetricCard label="Total Clients" value={filteredClientReportRows.length} />
         <MetricCard
           label="Active Clients"
-          value={visibleClients.filter((client) => client.status === "active").length}
+          value={filteredClientReportRows.filter((row) => row.client.status === "active").length}
         />
         <MetricCard label="Unassigned Clients" value={unassignedClients} />
         <MetricCard
           label="Linked Jobs"
-          value={visibleClients.reduce((sum, client) => sum + client.linkedJobsCount, 0)}
+          value={filteredClientReportRows.reduce((sum, row) => sum + row.client.linkedJobsCount, 0)}
         />
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <MetricCard label="Pending Transfers" value={pendingTransfers} />
+        <MetricCard
+          label="Pending Transfers"
+          value={filteredTransferRequests.filter((request) => request.status === "pending").length}
+        />
         <MetricCard label="Approved Transfers" value={approvedTransfers} />
         <MetricCard label="Rejected Transfers" value={rejectedTransfers} />
       </section>
@@ -1232,7 +1685,7 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading client report...</p>
-        ) : clientReportRows.length === 0 ? (
+        ) : filteredClientReportRows.length === 0 ? (
           <p className="muted-copy mt-6 text-sm">No clients are available yet.</p>
         ) : (
           <ReportTable
@@ -1246,11 +1699,11 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
               "Created At",
             ]}
           >
-            {clientReportRows.map((row, index) => (
+            {filteredClientReportRows.map((row, index) => (
               <tr
                 key={row.client.id}
                 className={
-                  index === clientReportRows.length - 1
+                  index === filteredClientReportRows.length - 1
                     ? "align-top"
                     : "align-top border-b border-[var(--color-line)]"
                 }
@@ -1300,17 +1753,17 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
           {isLoading ? (
             <p className="muted-copy mt-6 text-sm">Loading transfer requests...</p>
-          ) : visibleTransferRequests.length === 0 ? (
+          ) : filteredTransferRequests.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No client transfer requests are available yet.</p>
           ) : (
             <ReportTable
               headings={["Client", "Requested By", "Requested To", "Status", "Reason", "Reviewed At"]}
             >
-              {visibleTransferRequests.map((request, index) => (
+              {filteredTransferRequests.map((request, index) => (
                 <tr
                   key={request.id}
                   className={
-                    index === visibleTransferRequests.length - 1
+                    index === filteredTransferRequests.length - 1
                       ? "align-top"
                       : "align-top border-b border-[var(--color-line)]"
                   }
