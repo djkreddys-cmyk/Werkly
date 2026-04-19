@@ -145,7 +145,11 @@ const fieldClassName =
 const clientFormLabelClassName =
   "mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-white/78";
 const clientSelectClassName =
-  `${fieldClassName} appearance-none`;
+  `${fieldClassName} appearance-none pr-10 [color-scheme:dark]`;
+const clientSelectOptionStyle = {
+  backgroundColor: "#0f5962",
+  color: "#ffffff",
+};
 
 function formatErrorMessage(message: string) {
   try {
@@ -2154,9 +2158,9 @@ export function AdminClientsPanel({
                 value={clientForm.assignedEmployeeId}
                 onChange={(event) => updateClientField("assignedEmployeeId", event.target.value)}
               >
-                <option value="">Assign employee</option>
+                <option value="" style={clientSelectOptionStyle}>Assign employee</option>
                 {employeeOptions.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
+                  <option key={employee.id} value={employee.id} style={clientSelectOptionStyle}>
                     {employee.fullName} - {employee.role}
                   </option>
                 ))}
@@ -2171,8 +2175,8 @@ export function AdminClientsPanel({
                   updateClientField("status", event.target.value as ClientStatus)
                 }
               >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="active" style={clientSelectOptionStyle}>Active</option>
+                <option value="inactive" style={clientSelectOptionStyle}>Inactive</option>
               </select>
             </label>
             <label className="block">
@@ -2187,12 +2191,12 @@ export function AdminClientsPanel({
                   )
                 }
               >
-                <option value="new-lead">New Lead</option>
-                <option value="contacted">Contacted</option>
-                <option value="proposal-shared">Proposal Shared</option>
-                <option value="negotiation">Negotiation</option>
-                <option value="onboarded">Onboarded</option>
-                <option value="hold">Hold</option>
+                <option value="new-lead" style={clientSelectOptionStyle}>New Lead</option>
+                <option value="contacted" style={clientSelectOptionStyle}>Contacted</option>
+                <option value="proposal-shared" style={clientSelectOptionStyle}>Proposal Shared</option>
+                <option value="negotiation" style={clientSelectOptionStyle}>Negotiation</option>
+                <option value="onboarded" style={clientSelectOptionStyle}>Onboarded</option>
+                <option value="hold" style={clientSelectOptionStyle}>Hold</option>
               </select>
             </label>
             <label className="block">
@@ -2207,11 +2211,11 @@ export function AdminClientsPanel({
                   )
                 }
               >
-                <option value="pending">Pending</option>
-                <option value="follow-up-due">Follow-Up Due</option>
-                <option value="in-progress">In Progress</option>
-                <option value="awaiting-client">Awaiting Client</option>
-                <option value="closed">Closed</option>
+                <option value="pending" style={clientSelectOptionStyle}>Pending</option>
+                <option value="follow-up-due" style={clientSelectOptionStyle}>Follow-Up Due</option>
+                <option value="in-progress" style={clientSelectOptionStyle}>In Progress</option>
+                <option value="awaiting-client" style={clientSelectOptionStyle}>Awaiting Client</option>
+                <option value="closed" style={clientSelectOptionStyle}>Closed</option>
               </select>
             </label>
             <label className="block">
