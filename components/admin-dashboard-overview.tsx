@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
+import type {
+  ClientFollowUpStatus,
+  ClientRecord,
+  EmployeeRecord,
+} from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 
 type DashboardState = {
@@ -10,6 +14,21 @@ type DashboardState = {
   clients: ClientRecord[];
   employees: EmployeeRecord[];
   applications: JobApplication[];
+};
+
+type FollowUpItem = {
+  id: string;
+  clientName: string;
+  contactPerson: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  ownerId?: string;
+  ownerName: string;
+  followUpStatus: ClientFollowUpStatus;
+  nextFollowUpDate: string;
+  lastFollowUpDate?: string;
+  notes?: string;
+  sector?: string;
 };
 
 function formatDateLabel(value?: string) {
@@ -24,10 +43,125 @@ function formatDateLabel(value?: string) {
   });
 }
 
+function getTodayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeDateKey(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const directMatch = value.match(/^\d{4}-\d{2}-\d{2}/);
+  if (directMatch) {
+    return directMatch[0];
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  const year = parsed.getFullYear();
+  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
+  const day = `${parsed.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateKey(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function formatMonthLabel(value: Date) {
+  return value.toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function buildCalendarDays(monthDate: Date) {
+  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const calendarStart = new Date(monthStart);
+  calendarStart.setDate(monthStart.getDate() - monthStart.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const current = new Date(calendarStart);
+    current.setDate(calendarStart.getDate() + index);
+    const dateKey = normalizeDateKey(current.toISOString());
+
+    return {
+      key: dateKey,
+      label: current.getDate(),
+      dateKey,
+      inMonth: current.getMonth() === monthDate.getMonth(),
+    };
+  });
+}
+
+function formatFollowUpStage(stage?: ClientFollowUpStatus) {
+  switch (stage) {
+    case "follow-up-due":
+      return "Follow-Up Due";
+    case "in-progress":
+      return "In Progress";
+    case "awaiting-client":
+      return "Awaiting Client";
+    case "closed":
+      return "Closed";
+    case "pending":
+    default:
+      return "Pending";
+  }
+}
+
+function FollowUpStatusPill({ status }: { status: ClientFollowUpStatus }) {
+  const className =
+    status === "closed"
+      ? "bg-[rgba(8,96,108,0.1)] text-[var(--color-dark)]"
+      : status === "follow-up-due"
+        ? "bg-[rgba(190,72,26,0.12)] text-[var(--color-accent-strong)]"
+        : status === "awaiting-client"
+          ? "bg-[rgba(241,166,75,0.14)] text-[var(--color-accent-strong)]"
+          : "bg-[rgba(8,96,108,0.08)] text-[var(--color-dark)]";
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${className}`}
+    >
+      {formatFollowUpStage(status)}
+    </span>
+  );
+}
+
 export function AdminDashboardOverview() {
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
+      : ""
+  );
+  const [authType] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthType") ?? "admin"
+      : "admin"
+  );
+  const [authRole] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
+      : "super-admin"
+  );
+  const [authName] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthName") ?? "Werkly User"
+      : "Werkly User"
+  );
+  const [authEmployeeCode] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyEmployeeCode") ?? ""
       : ""
   );
   const [state, setState] = useState<DashboardState>({
@@ -38,6 +172,11 @@ export function AdminDashboardOverview() {
   });
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
+  const todayKey = getTodayKey();
+  const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
+  const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
+  const isAdminView = authType === "admin" || authRole === "super-admin";
 
   useEffect(() => {
     if (!token) {
@@ -102,6 +241,63 @@ export function AdminDashboardOverview() {
       .finally(() => setIsLoading(false));
   }, [token]);
 
+  const followUpItems = useMemo<FollowUpItem[]>(() => {
+    return state.clients
+      .filter((client) => normalizeDateKey(client.nextFollowUpDate))
+      .map((client) => ({
+        id: client.id,
+        clientName: client.companyName,
+        contactPerson: client.contactPerson,
+        contactEmail: client.contactEmail,
+        contactPhone: client.contactPhone,
+        ownerId: client.assignedEmployeeId,
+        ownerName: client.assignedEmployeeName || "Unassigned",
+        followUpStatus: client.followUpStatus || "pending",
+        nextFollowUpDate: normalizeDateKey(client.nextFollowUpDate)!,
+        lastFollowUpDate: normalizeDateKey(client.lastFollowUpDate),
+        notes: client.followUpNotes,
+        sector: client.sector,
+      }))
+      .sort((a, b) => a.nextFollowUpDate.localeCompare(b.nextFollowUpDate));
+  }, [state.clients]);
+
+  const employeeOptions = useMemo(
+    () =>
+      state.employees
+        .filter((employee) => employee.status === "active")
+        .map((employee) => ({
+          id: employee.id,
+          label: `${employee.fullName}${employee.employeeCode ? ` - ${employee.employeeCode}` : ""}`,
+        })),
+    [state.employees]
+  );
+
+  const filteredFollowUps = useMemo(() => {
+    return followUpItems.filter((item) => {
+      if (selectedEmployeeId !== "all" && item.ownerId !== selectedEmployeeId) {
+        return false;
+      }
+      return true;
+    });
+  }, [followUpItems, selectedEmployeeId]);
+
+  const selectedDateFollowUps = useMemo(
+    () => filteredFollowUps.filter((item) => item.nextFollowUpDate === selectedDateKey),
+    [filteredFollowUps, selectedDateKey]
+  );
+
+  const upcomingFollowUps = useMemo(
+    () => filteredFollowUps.filter((item) => item.nextFollowUpDate >= todayKey).slice(0, 8),
+    [filteredFollowUps, todayKey]
+  );
+
+  const followUpCountsByDate = useMemo(() => {
+    return filteredFollowUps.reduce<Record<string, number>>((accumulator, item) => {
+      accumulator[item.nextFollowUpDate] = (accumulator[item.nextFollowUpDate] ?? 0) + 1;
+      return accumulator;
+    }, {});
+  }, [filteredFollowUps]);
+
   const metrics = useMemo(() => {
     const liveJobs = state.jobs.filter((job) => {
       if (job.isHidden || job.status !== "open") {
@@ -113,55 +309,52 @@ export function AdminDashboardOverview() {
       return new Date(job.lastDateToApply) >= new Date();
     });
 
+    const overdueFollowUps = filteredFollowUps.filter(
+      (item) => item.nextFollowUpDate < todayKey && item.followUpStatus !== "closed"
+    ).length;
+    const dueTodayFollowUps = filteredFollowUps.filter(
+      (item) => item.nextFollowUpDate === todayKey && item.followUpStatus !== "closed"
+    ).length;
+    const upcomingSevenDays = filteredFollowUps.filter((item) => {
+      const diff =
+        (parseDateKey(item.nextFollowUpDate).getTime() - parseDateKey(todayKey).getTime()) /
+        (1000 * 60 * 60 * 24);
+      return diff >= 0 && diff <= 7;
+    }).length;
+
     return {
       liveJobs: liveJobs.length,
-      draftJobs: state.jobs.filter((job) => job.status === "draft").length,
       totalApplications: state.applications.length,
       activeClients: state.clients.filter((client) => client.status === "active").length,
-      activeEmployees: state.employees.filter((employee) => employee.status === "active")
-        .length,
-      shortlisted: state.applications.filter(
-        (application) => (application.stage ?? "applied") === "shortlisted"
-      ).length,
-      interview: state.applications.filter(
-        (application) => (application.stage ?? "applied") === "interview"
-      ).length,
-      offered: state.applications.filter(
-        (application) => (application.stage ?? "applied") === "offered"
-      ).length,
-      joined: state.applications.filter(
-        (application) => (application.stage ?? "applied") === "joined"
-      ).length,
-      latestJobs: [...state.jobs]
-        .sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
-        .slice(0, 5),
+      activeEmployees: state.employees.filter((employee) => employee.status === "active").length,
+      dueTodayFollowUps,
+      overdueFollowUps,
+      upcomingSevenDays,
       recruiterSummary: state.employees
         .filter((employee) => employee.status === "active")
         .map((employee) => {
           const assignedClients = state.clients.filter(
             (client) => client.assignedEmployeeId === employee.id
           ).length;
-          const applications = state.applications.filter(
-            (application) => application.recruiterEmail === employee.email
-          );
+          const followUps = followUpItems.filter((item) => item.ownerId === employee.id);
 
           return {
             id: employee.id,
             fullName: employee.fullName,
             assignedClients,
-            applications: applications.length,
-            interviews: applications.filter(
-              (application) => (application.stage ?? "applied") === "interview"
-            ).length,
-            joined: applications.filter(
-              (application) => (application.stage ?? "applied") === "joined"
+            followUps: followUps.length,
+            today: followUps.filter((item) => item.nextFollowUpDate === todayKey).length,
+            overdue: followUps.filter(
+              (item) => item.nextFollowUpDate < todayKey && item.followUpStatus !== "closed"
             ).length,
           };
         })
-        .sort((a, b) => b.applications - a.applications)
-        .slice(0, 5),
+        .sort((a, b) => b.followUps - a.followUps)
+        .slice(0, 6),
     };
-  }, [state]);
+  }, [filteredFollowUps, followUpItems, state, todayKey]);
+
+  const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
 
   if (!token) {
     return (
@@ -171,13 +364,13 @@ export function AdminDashboardOverview() {
           Sign in to open the CRM dashboard.
         </h2>
         <p className="muted-copy mt-3 text-base leading-7">
-          Your admin session is missing on this browser. Open the login screen and sign in again.
+          Your session is missing on this browser. Open the login screen and sign in again.
         </p>
         <Link
           href="/admin/login"
           className="mt-6 inline-flex rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
         >
-          Go to Admin Login
+          Go to Login
         </Link>
       </section>
     );
@@ -187,42 +380,298 @@ export function AdminDashboardOverview() {
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {[
-          { label: "Live Jobs", value: metrics.liveJobs },
-          { label: "Draft Jobs", value: metrics.draftJobs },
-          { label: "Applications", value: metrics.totalApplications },
-          { label: "Active Clients", value: metrics.activeClients },
-          { label: "Active Employees", value: metrics.activeEmployees },
+          {
+            label: isAdminView ? "Live Jobs" : "My Live Jobs",
+            value: metrics.liveJobs,
+          },
+          {
+            label: isAdminView ? "Active Clients" : "My Clients",
+            value: metrics.activeClients,
+          },
+          {
+            label: "Due Today",
+            value: metrics.dueTodayFollowUps,
+          },
+          {
+            label: "Overdue",
+            value: metrics.overdueFollowUps,
+          },
+          {
+            label: "Next 7 Days",
+            value: metrics.upcomingSevenDays,
+          },
         ].map((card) => (
           <article key={card.label} className="accent-card p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
               {card.label}
             </p>
-            <p className="mt-4 text-4xl font-semibold text-[var(--color-ink)]">
-              {card.value}
-            </p>
+            <p className="mt-4 text-4xl font-semibold text-[var(--color-ink)]">{card.value}</p>
           </article>
         ))}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: "Shortlisted", value: metrics.shortlisted },
-          { label: "Interview", value: metrics.interview },
-          { label: "Offered", value: metrics.offered },
-          { label: "Joined", value: metrics.joined },
-        ].map((card) => (
-          <article key={card.label} className="accent-card p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
-              {card.label}
-            </p>
-            <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
-              {card.value}
-            </p>
-          </article>
-        ))}
+      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <article className="accent-card p-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow">
+                {isAdminView ? "Follow-Up Calendar" : "My Follow-Up Calendar"}
+              </p>
+              <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+                {isAdminView
+                  ? "Track client follow-ups by employee and date."
+                  : `${authName}, here is your follow-up dashboard.`}
+              </h2>
+              <p className="muted-copy mt-3 text-sm leading-6">
+                {isAdminView
+                  ? "Filter by recruiter and date to see client follow-up commitments that need action."
+                  : "Use this calendar and todo list to work through your scheduled client follow-ups."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {isAdminView ? (
+                <select
+                  value={selectedEmployeeId}
+                  onChange={(event) => setSelectedEmployeeId(event.target.value)}
+                  className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value="all">All Employees</option>
+                  {employeeOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.label}
+                    </option>
+                  ))}
+                </select>
+              ) : authEmployeeCode ? (
+                <div className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
+                  {authEmployeeCode}
+                </div>
+              ) : null}
+              <input
+                type="date"
+                value={selectedDateKey}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setSelectedDateKey(nextValue);
+                  if (nextValue) {
+                    setVisibleMonth(parseDateKey(nextValue));
+                  }
+                }}
+                className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </div>
+          </div>
+
+          {isLoading ? (
+            <p className="muted-copy mt-6 text-sm">Loading dashboard data...</p>
+          ) : error ? (
+            <p className="mt-6 text-sm font-medium text-red-700">{error}</p>
+          ) : (
+            <div className="mt-6 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleMonth(
+                        (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)
+                      )
+                    }
+                    className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                  >
+                    Prev
+                  </button>
+                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    {formatMonthLabel(visibleMonth)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleMonth(
+                        (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)
+                      )
+                    }
+                    className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                  >
+                    Next
+                  </button>
+                </div>
+
+                <div className="mt-5 grid grid-cols-7 gap-2">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                    <div
+                      key={day}
+                      className="px-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                    >
+                      {day}
+                    </div>
+                  ))}
+
+                  {calendarDays.map((day) => {
+                    const count = followUpCountsByDate[day.dateKey] ?? 0;
+                    const isSelected = day.dateKey === selectedDateKey;
+                    const isToday = day.dateKey === todayKey;
+
+                    return (
+                      <button
+                        key={day.key}
+                        type="button"
+                        onClick={() => setSelectedDateKey(day.dateKey)}
+                        className={`min-h-[78px] rounded-2xl border p-2 text-left transition ${
+                          isSelected
+                            ? "border-[var(--color-dark)] bg-[rgba(8,96,108,0.09)]"
+                            : "border-[var(--color-line)] bg-white hover:border-[var(--color-dark)]"
+                        } ${day.inMonth ? "text-[var(--color-ink)]" : "text-[var(--color-muted)]"}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-semibold">{day.label}</span>
+                          {isToday ? (
+                            <span className="rounded-full bg-[var(--color-accent)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink)]">
+                              Today
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-4">
+                          {count > 0 ? (
+                            <span className="inline-flex rounded-full bg-[rgba(190,72,26,0.12)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent-strong)]">
+                              {count} follow-up{count === 1 ? "" : "s"}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-[var(--color-muted)]">No items</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                      {isAdminView ? "Selected Date" : "My Todo List"}
+                    </p>
+                    <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+                      {formatDateLabel(selectedDateKey)}
+                    </h3>
+                  </div>
+                  <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                    {selectedDateFollowUps.length} items
+                  </span>
+                </div>
+
+                {selectedDateFollowUps.length === 0 ? (
+                  <p className="muted-copy mt-6 text-sm">
+                    No follow-ups are scheduled for this date.
+                  </p>
+                ) : (
+                  <div className="mt-6 space-y-4">
+                    {selectedDateFollowUps.map((item) => (
+                      <article
+                        key={item.id}
+                        className="rounded-[1.35rem] border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-lg font-semibold text-[var(--color-ink)]">
+                              {item.clientName}
+                            </p>
+                            <p className="mt-1 text-sm text-[var(--color-muted)]">
+                              {item.contactPerson}
+                              {item.sector ? ` • ${item.sector}` : ""}
+                            </p>
+                          </div>
+                          <FollowUpStatusPill status={item.followUpStatus} />
+                        </div>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                              Owner
+                            </p>
+                            <p className="mt-1 text-sm text-[var(--color-ink)]">{item.ownerName}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                              Last Follow-Up
+                            </p>
+                            <p className="mt-1 text-sm text-[var(--color-ink)]">
+                              {formatDateLabel(item.lastFollowUpDate)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                              Contact
+                            </p>
+                            <p className="mt-1 text-sm text-[var(--color-ink)]">
+                              {item.contactPhone || item.contactEmail || "Not added"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                              Next Follow-Up
+                            </p>
+                            <p className="mt-1 text-sm text-[var(--color-ink)]">
+                              {formatDateLabel(item.nextFollowUpDate)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-[var(--color-muted)]">
+                          {item.notes || "No follow-up remarks added yet."}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </article>
+
+        <article className="accent-card p-7">
+          <p className="eyebrow">{isAdminView ? "Upcoming Follow-Ups" : "My Upcoming Follow-Ups"}</p>
+          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            Prioritized follow-up queue
+          </h2>
+
+          {isLoading ? (
+            <p className="muted-copy mt-6 text-sm">Loading follow-up queue...</p>
+          ) : upcomingFollowUps.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No scheduled follow-ups are available yet.</p>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {upcomingFollowUps.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDateKey(item.nextFollowUpDate);
+                    setVisibleMonth(parseDateKey(item.nextFollowUpDate));
+                    if (isAdminView && item.ownerId) {
+                      setSelectedEmployeeId(item.ownerId);
+                    }
+                  }}
+                  className="w-full rounded-[1.35rem] border border-[var(--color-line)] bg-white p-4 text-left transition hover:border-[var(--color-dark)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[var(--color-ink)]">{item.clientName}</p>
+                      <p className="mt-1 text-sm text-[var(--color-muted)]">{item.ownerName}</p>
+                    </div>
+                    <FollowUpStatusPill status={item.followUpStatus} />
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-3 text-sm text-[var(--color-muted)]">
+                    <span>{formatDateLabel(item.nextFollowUpDate)}</span>
+                    <span>{item.contactPerson}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </article>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <article className="accent-card p-7">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -240,65 +689,64 @@ export function AdminDashboardOverview() {
           </div>
 
           {isLoading ? (
-            <p className="muted-copy mt-6 text-sm">Loading dashboard data...</p>
+            <p className="muted-copy mt-6 text-sm">Loading jobs...</p>
           ) : error ? (
             <p className="mt-6 text-sm font-medium text-red-700">{error}</p>
-          ) : metrics.latestJobs.length === 0 ? (
+          ) : state.jobs.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No jobs have been posted yet.</p>
           ) : (
             <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[var(--color-line)]">
               <table className="w-full border-collapse bg-white">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                      Job
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                      Client
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                      Deadline
-                    </th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                      Applied
-                    </th>
+                    {["Job", "Client", "Status", "Deadline", "Applied"].map((heading) => (
+                      <th
+                        key={heading}
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                      >
+                        {heading}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {metrics.latestJobs.map((job, index) => (
-                    <tr
-                      key={job.id}
-                      className={
-                        index === metrics.latestJobs.length - 1
-                          ? "align-top"
-                          : "align-top border-b border-[var(--color-line)]"
-                      }
-                    >
-                      <td className="px-4 py-4">
-                        <div>
-                          <p className="font-semibold text-[var(--color-ink)]">{job.title}</p>
-                          <p className="mt-1 text-sm text-[var(--color-muted)]">
-                            {job.jobCode || "Pending ID"} • {job.location}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {job.clientName || "Not assigned"}
-                      </td>
-                      <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
-                        {job.isHidden ? "Hidden" : job.status}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {formatDateLabel(job.lastDateToApply)}
-                      </td>
-                      <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                        {job.applicationsCount}
-                      </td>
-                    </tr>
-                  ))}
+                  {[...state.jobs]
+                    .sort(
+                      (a, b) =>
+                        new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()
+                    )
+                    .slice(0, 5)
+                    .map((job, index, array) => (
+                      <tr
+                        key={job.id}
+                        className={
+                          index === array.length - 1
+                            ? "align-top"
+                            : "align-top border-b border-[var(--color-line)]"
+                        }
+                      >
+                        <td className="px-4 py-4">
+                          <div>
+                            <p className="font-semibold text-[var(--color-ink)]">{job.title}</p>
+                            <p className="mt-1 text-sm text-[var(--color-muted)]">
+                              {job.jobCode || "Pending ID"} - {job.location}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {job.clientName || "Not assigned"}
+                        </td>
+                        <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
+                          {job.isHidden ? "Hidden" : job.status}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {formatDateLabel(job.lastDateToApply)}
+                        </td>
+                        <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                          {job.applicationsCount}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -306,109 +754,99 @@ export function AdminDashboardOverview() {
         </article>
 
         <article className="accent-card p-7">
-          <p className="eyebrow">Quick Actions</p>
-          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-            Move faster inside the CRM
-          </h2>
-          <div className="mt-6 grid gap-4">
-            {[
-              {
-                href: "/admin/jobs",
-                title: "Post a job",
-                body: "Create a new opening, assign it to a client, and publish it to the public jobs page.",
-              },
-              {
-                href: "/admin/clients",
-                title: "Onboard a client",
-                body: "Capture company contacts, upload the signed agreement PDF, and assign account ownership.",
-              },
-              {
-                href: "/admin/employees",
-                title: "Create employee access",
-                body: "Set up team logins so recruiters can manage clients, jobs, and follow-ups.",
-              },
-            ].map((item) => (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="eyebrow">{isAdminView ? "Team Snapshot" : "My Snapshot"}</p>
+              <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+                {isAdminView ? "Follow-up ownership across the team" : "Your daily CRM activity"}
+              </h2>
+            </div>
+            {isAdminView ? (
               <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5 transition hover:border-[var(--color-dark)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
+                href="/admin/reports/clients"
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
               >
-                <p className="text-lg font-semibold text-[var(--color-ink)]">{item.title}</p>
-                <p className="muted-copy mt-2 text-sm leading-6">{item.body}</p>
+                Open Reports
               </Link>
-            ))}
+            ) : null}
           </div>
-        </article>
-      </section>
 
-      <section className="accent-card p-7">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="eyebrow">Recruiter Snapshot</p>
-            <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-              Follow-up ownership across active employees
-            </h2>
-          </div>
-          <Link
-            href="/admin/reports"
-            className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-          >
-            Open Reports
-          </Link>
-        </div>
-
-        {isLoading ? (
-          <p className="muted-copy mt-6 text-sm">Loading recruiter summary...</p>
-        ) : metrics.recruiterSummary.length === 0 ? (
-          <p className="muted-copy mt-6 text-sm">No recruiter summary is available yet.</p>
-        ) : (
-          <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[var(--color-line)]">
-            <table className="w-full border-collapse bg-white">
-              <thead>
-                <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                  {["Recruiter", "Clients", "Applications", "Interviews", "Joined"].map(
-                    (heading) => (
-                      <th
-                        key={heading}
-                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+          {isLoading ? (
+            <p className="muted-copy mt-6 text-sm">Loading snapshot...</p>
+          ) : isAdminView ? (
+            metrics.recruiterSummary.length === 0 ? (
+              <p className="muted-copy mt-6 text-sm">No employee summary is available yet.</p>
+            ) : (
+              <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[var(--color-line)]">
+                <table className="w-full border-collapse bg-white">
+                  <thead>
+                    <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                      {["Recruiter", "Clients", "Follow-Ups", "Today", "Overdue"].map(
+                        (heading) => (
+                          <th
+                            key={heading}
+                            className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                          >
+                            {heading}
+                          </th>
+                        )
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {metrics.recruiterSummary.map((row, index) => (
+                      <tr
+                        key={row.id}
+                        className={
+                          index === metrics.recruiterSummary.length - 1
+                            ? "align-top"
+                            : "align-top border-b border-[var(--color-line)]"
+                        }
                       >
-                        {heading}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.recruiterSummary.map((row, index) => (
-                  <tr
-                    key={row.id}
-                    className={
-                      index === metrics.recruiterSummary.length - 1
-                        ? "align-top"
-                        : "align-top border-b border-[var(--color-line)]"
-                    }
-                  >
-                    <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
-                      {row.fullName}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {row.assignedClients}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {row.applications}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {row.interviews}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {row.joined}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                        <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
+                          {row.fullName}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {row.assignedClients}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {row.followUps}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {row.today}
+                        </td>
+                        <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
+                          {row.overdue}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {[
+                { label: "My Follow-Ups", value: filteredFollowUps.length },
+                { label: "Applications", value: metrics.totalApplications },
+                { label: "Due Today", value: metrics.dueTodayFollowUps },
+                { label: "Upcoming", value: metrics.upcomingSevenDays },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-[1.35rem] border border-[var(--color-line)] bg-white p-5"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                    {card.label}
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
+                    {card.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
       </section>
     </div>
   );

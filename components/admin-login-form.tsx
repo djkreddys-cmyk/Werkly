@@ -86,7 +86,7 @@ export function AdminLoginForm() {
       }
 
       persistSession(result.token, result.user);
-      router.push("/admin/jobs");
+      router.push("/admin");
       router.refresh();
     } catch (submissionError) {
       setError(
@@ -136,7 +136,7 @@ export function AdminLoginForm() {
 
       persistSession(result.token, result.user);
       setPendingPasswordChangeToken("");
-      router.push("/admin/jobs");
+      router.push("/admin");
       router.refresh();
     } catch (submissionError) {
       setError(
