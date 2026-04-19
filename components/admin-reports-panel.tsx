@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
@@ -52,7 +53,26 @@ function formatDuration(totalMs: number) {
   return `${hours}h ${minutes}m`;
 }
 
+const reportSectionConfig = {
+  attendance: {
+    id: "attendance-report",
+    label: "HR Report",
+    title: "Attendance and screen-time report",
+  },
+  recruiters: {
+    id: "recruiter-report",
+    label: "Client Report",
+    title: "Recruiter and client allocation report",
+  },
+  stages: {
+    id: "stage-report",
+    label: "Jobs and candidates report",
+    title: "Stage movement and pipeline report",
+  },
+} as const;
+
 export function AdminReportsPanel() {
+  const searchParams = useSearchParams();
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -83,6 +103,11 @@ export function AdminReportsPanel() {
   });
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
+  const reportViewParam = searchParams.get("view");
+  const focusedReport =
+    reportViewParam && reportViewParam in reportSectionConfig
+      ? reportSectionConfig[reportViewParam as keyof typeof reportSectionConfig]
+      : null;
 
   useEffect(() => {
     if (!token) {
@@ -134,6 +159,21 @@ export function AdminReportsPanel() {
       })
       .finally(() => setIsLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (!focusedReport) {
+      return;
+    }
+
+    const section = document.getElementById(focusedReport.id);
+    if (!section) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [focusedReport]);
 
   const recruiterReport = useMemo(() => {
     const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
@@ -324,6 +364,23 @@ export function AdminReportsPanel() {
 
   return (
     <div className="space-y-6">
+      {focusedReport ? (
+        <section className="accent-card flex flex-col gap-3 border border-[rgba(241,166,75,0.28)] bg-[linear-gradient(135deg,rgba(241,166,75,0.16),rgba(255,255,255,0.96))] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="eyebrow">{focusedReport.label}</p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
+              {focusedReport.title}
+            </h2>
+          </div>
+          <a
+            href={`#${focusedReport.id}`}
+            className="inline-flex items-center justify-center rounded-xl border border-[rgba(8,96,108,0.16)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[rgba(241,166,75,0.36)] hover:bg-[rgba(241,166,75,0.08)]"
+          >
+            Open Report Section
+          </a>
+        </section>
+      ) : null}
+
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         {[
           { label: "Applied", value: totals.applied },
@@ -344,7 +401,14 @@ export function AdminReportsPanel() {
         ))}
       </section>
 
-      <section className="accent-card p-7">
+      <section
+        id={reportSectionConfig.attendance.id}
+        className={`accent-card p-7 ${
+          focusedReport?.id === reportSectionConfig.attendance.id
+            ? "ring-2 ring-[rgba(241,166,75,0.32)]"
+            : ""
+        }`}
+      >
         <p className="eyebrow">Attendance Log</p>
         <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
           Track login, logout, screen time, and end-of-day worked hours.
@@ -465,7 +529,14 @@ export function AdminReportsPanel() {
         )}
       </section>
 
-      <section className="accent-card p-7">
+      <section
+        id={reportSectionConfig.recruiters.id}
+        className={`accent-card p-7 ${
+          focusedReport?.id === reportSectionConfig.recruiters.id
+            ? "ring-2 ring-[rgba(241,166,75,0.32)]"
+            : ""
+        }`}
+      >
         <p className="eyebrow">Recruiter Follow-Up Report</p>
         <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
           Track recruiter workload and candidate movement.
@@ -550,7 +621,14 @@ export function AdminReportsPanel() {
         )}
       </section>
 
-      <section className="accent-card p-7">
+      <section
+        id={reportSectionConfig.stages.id}
+        className={`accent-card p-7 ${
+          focusedReport?.id === reportSectionConfig.stages.id
+            ? "ring-2 ring-[rgba(241,166,75,0.32)]"
+            : ""
+        }`}
+      >
         <p className="eyebrow">Stage Movement Log</p>
         <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
           Review remarks and dates behind every pipeline move.

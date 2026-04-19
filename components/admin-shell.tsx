@@ -23,7 +23,7 @@ const moduleSections = [
       { href: "/admin/employees/new", label: "Employee Creation" },
       { href: "/admin/employees/existing", label: "Existing Employees" },
       { href: "/admin/leaves", label: "Leave Types & Access" },
-      { href: "/admin/reports", label: "Attendance & Reports" },
+      { href: "/admin/reports?view=attendance", label: "Reports" },
     ],
   },
   {
@@ -34,6 +34,7 @@ const moduleSections = [
     items: [
       { href: "/admin/jobs/new", label: "New Job" },
       { href: "/admin/jobs/existing", label: "Existing Jobs" },
+      { href: "/admin/reports?view=stages", label: "Reports" },
     ],
   },
   {
@@ -44,6 +45,7 @@ const moduleSections = [
     items: [
       { href: "/admin/candidates", label: "Job Applicants" },
       { href: "/admin/candidate-enquiries", label: "Candidate Enquiries" },
+      { href: "/admin/reports?view=stages", label: "Reports" },
     ],
   },
   {
@@ -54,6 +56,7 @@ const moduleSections = [
     items: [
       { href: "/admin/clients/new", label: "New Client" },
       { href: "/admin/clients/existing", label: "Existing Clients" },
+      { href: "/admin/reports?view=recruiters", label: "Reports" },
     ],
   },
 ];
@@ -617,10 +620,11 @@ export function AdminShell({
                         {section.items.length && isExpanded ? (
                           <div className="absolute left-0 top-full z-30 mt-3 min-w-[220px] overflow-hidden rounded-[1rem] border border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(9,68,76,0.99),rgba(7,52,59,0.99))] p-2 shadow-[0_22px_44px_rgba(3,18,22,0.34)] backdrop-blur">
                             {section.items.map((item) => {
+                              const itemPath = item.href.split("?")[0];
                               const isItemActive =
-                                item.href === "/admin"
+                                itemPath === "/admin"
                                   ? pathname === "/admin"
-                                  : pathname.startsWith(item.href);
+                                  : pathname.startsWith(itemPath);
 
                               return (
                                 <Link
