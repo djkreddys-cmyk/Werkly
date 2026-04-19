@@ -29,11 +29,29 @@ const moduleSections = [
     key: "jobs",
     label: "Jobs",
     href: "/admin/jobs",
-    description: "Jobs, candidates, clients",
+    description: "Job creation and existing jobs",
     items: [
-      { href: "/admin/jobs", label: "Jobs" },
-      { href: "/admin/candidates", label: "Candidates" },
-      { href: "/admin/clients", label: "Clients" },
+      { href: "/admin/jobs#new-job", label: "New Job" },
+      { href: "/admin/jobs#existing-jobs", label: "Existing Jobs" },
+    ],
+  },
+  {
+    key: "candidates",
+    label: "Candidates",
+    href: "/admin/candidates",
+    description: "Candidate pipeline and existing profiles",
+    items: [
+      { href: "/admin/candidates#existing-candidates", label: "Existing Candidates" },
+    ],
+  },
+  {
+    key: "clients",
+    label: "Clients",
+    href: "/admin/clients",
+    description: "Client onboarding and existing clients",
+    items: [
+      { href: "/admin/clients#new-client", label: "New Client" },
+      { href: "/admin/clients#existing-clients", label: "Existing Clients" },
     ],
   },
 ];
@@ -122,8 +140,16 @@ function getActiveModuleKey(pathname: string) {
     return "hr";
   }
 
-  if (pathname.startsWith("/admin/jobs") || pathname.startsWith("/admin/candidates") || pathname.startsWith("/admin/clients")) {
+  if (pathname.startsWith("/admin/jobs")) {
     return "jobs";
+  }
+
+  if (pathname.startsWith("/admin/candidates")) {
+    return "candidates";
+  }
+
+  if (pathname.startsWith("/admin/clients")) {
+    return "clients";
   }
 
   return "hr";
@@ -253,6 +279,16 @@ export function AdminShell({
   }, []);
 
   useEffect(() => {
+    const closeMenus = () => {
+      setExpandedModuleKey(null);
+      setIsProfileMenuOpen(false);
+    };
+
+    window.addEventListener("resize", closeMenus);
+    return () => window.removeEventListener("resize", closeMenus);
+  }, []);
+
+  useEffect(() => {
     if (!showMenu || typeof window === "undefined") {
       return;
     }
@@ -377,11 +413,12 @@ export function AdminShell({
                         <div key={section.key} className="relative">
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
+                              setIsProfileMenuOpen(false);
                               setExpandedModuleKey((current) =>
                                 current === section.key ? null : section.key
-                              )
-                            }
+                              );
+                            }}
                             className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
                               isActive
                                 ? "border-[rgba(241,166,75,0.28)] bg-[linear-gradient(135deg,rgba(241,166,75,0.94),rgba(246,191,113,0.92))] text-[var(--color-ink)] shadow-[0_12px_24px_rgba(241,166,75,0.16)]"
@@ -429,7 +466,10 @@ export function AdminShell({
                   <div className="relative" ref={profileMenuRef}>
                     <button
                       type="button"
-                      onClick={() => setIsProfileMenuOpen((current) => !current)}
+                      onClick={() => {
+                        setExpandedModuleKey(null);
+                        setIsProfileMenuOpen((current) => !current);
+                      }}
                       className="inline-flex items-center gap-3 rounded-[1.3rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-3 py-2 text-left text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(241,166,75,0.16)]"
                     >
                       <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(241,166,75,0.18)] text-sm font-semibold tracking-[0.12em] text-[var(--color-accent)]">

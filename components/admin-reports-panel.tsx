@@ -313,7 +313,6 @@ export function AdminReportsPanel() {
                       "First Login",
                       "Last Logout",
                       "Worked Hours",
-                      "In-Between Sessions",
                       "Status",
                     ].map((heading) => (
                       <th
@@ -367,42 +366,6 @@ export function AdminReportsPanel() {
                         <p className="mt-1 text-xs text-[var(--color-muted)]">
                           Based on completed login/logout pairs
                         </p>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        <div className="min-w-[320px] space-y-2">
-                          {summary.sessions.map((session) => (
-                            <div
-                              key={session.sessionId}
-                              className="rounded-xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-3 py-2"
-                            >
-                              <p className="font-medium text-[var(--color-ink)]">
-                                {formatDateTime(session.loginAt)} to{" "}
-                                {session.logoutAt ? formatDateTime(session.logoutAt) : "Active session"}
-                              </p>
-                              <p className="mt-1 text-xs">
-                                Worked:{" "}
-                                {session.logoutAt
-                                  ? formatDuration(
-                                      new Date(session.logoutAt).getTime() -
-                                        new Date(session.loginAt).getTime()
-                                    )
-                                  : "In progress"}
-                              </p>
-                              {(session.loginClientTime || session.logoutClientTime) ? (
-                                <p className="mt-1 text-xs">
-                                  Laptop:{" "}
-                                  {session.loginClientTime
-                                    ? formatDateTime(session.loginClientTime)
-                                    : "Not captured"}{" "}
-                                  to{" "}
-                                  {session.logoutClientTime
-                                    ? formatDateTime(session.logoutClientTime)
-                                    : "Not captured"}
-                                </p>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
                       </td>
                       <td className="px-4 py-4 text-sm">
                         <span className="font-semibold text-[var(--color-accent-strong)]">

@@ -169,7 +169,7 @@ export function AdminCandidatesPanel() {
         ))}
       </section>
 
-      <section className="accent-card p-7">
+      <section id="existing-candidates" className="accent-card scroll-mt-28 p-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="eyebrow">Candidate Workspace</p>

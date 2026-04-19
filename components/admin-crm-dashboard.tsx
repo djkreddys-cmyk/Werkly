@@ -922,7 +922,10 @@ export function AdminClientsPanel() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-[2rem] border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]">
+      <div
+        id="new-client"
+        className="rounded-[2rem] scroll-mt-28 border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]"
+      >
         <div className="max-w-3xl">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
             Client Onboarding
@@ -1043,7 +1046,9 @@ export function AdminClientsPanel() {
         </form>
       </div>
 
-      <CrmClientsList clients={clients} />
+      <div id="existing-clients" className="scroll-mt-28">
+        <CrmClientsList clients={clients} />
+      </div>
     </section>
   );
 }

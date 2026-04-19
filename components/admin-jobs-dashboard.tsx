@@ -856,7 +856,12 @@ export function AdminJobsDashboard() {
 
   return (
     <div className="space-y-6">
-      <form ref={formRef} className="accent-card p-7" onSubmit={handleSubmit}>
+      <form
+        id="new-job"
+        ref={formRef}
+        className="accent-card scroll-mt-28 p-7"
+        onSubmit={handleSubmit}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow">New Job</p>
@@ -889,7 +894,7 @@ export function AdminJobsDashboard() {
         </div>
       </form>
 
-      <section className="accent-card p-7">
+      <section id="existing-jobs" className="accent-card scroll-mt-28 p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow">Existing Jobs</p>
