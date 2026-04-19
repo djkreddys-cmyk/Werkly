@@ -21,6 +21,16 @@ type PendingRequestAction = {
   adminNote: string;
 };
 
+type LeaveRequestEditState = {
+  id: string;
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: LeaveRequestStatus;
+  adminNote: string;
+};
+
 const inputClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]";
 
@@ -64,6 +74,8 @@ export function AdminLeavesPanel() {
   const [requestActions, setRequestActions] = useState<Record<string, PendingRequestAction>>(
     {}
   );
+  const [editingRequest, setEditingRequest] = useState<LeaveRequestEditState | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const canManageLeaves = authType === "admin" || authRole === "super-admin";
 
@@ -283,6 +295,72 @@ export function AdminLeavesPanel() {
           ? submissionError.message
           : "Unable to update leave request."
       );
+    }
+  }
+
+  function openEditRequest(request: LeaveRequestRecord) {
+    setEditingRequest({
+      id: request.id,
+      leaveTypeId: request.leaveTypeId,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      reason: request.reason,
+      status: request.status,
+      adminNote: request.adminNote ?? "",
+    });
+    setError("");
+    setSuccess("");
+  }
+
+  async function handleSaveEditedRequest() {
+    if (!editingRequest) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setIsSavingEdit(true);
+
+    try {
+      const response = await fetch(`/api/admin/leaves/requests/${editingRequest.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          leaveTypeId: editingRequest.leaveTypeId,
+          startDate: editingRequest.startDate,
+          endDate: editingRequest.endDate,
+          reason: editingRequest.reason,
+          status: editingRequest.status,
+          adminNote: editingRequest.adminNote,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to edit leave request.");
+      }
+
+      setRequestActions((current) => ({
+        ...current,
+        [editingRequest.id]: {
+          status: editingRequest.status,
+          adminNote: editingRequest.adminNote,
+        },
+      }));
+      setEditingRequest(null);
+      setSuccess("Leave request edited successfully.");
+      await loadState();
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to edit leave request."
+      );
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -666,6 +744,13 @@ export function AdminLeavesPanel() {
                               >
                                 Save Status
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => openEditRequest(request)}
+                                className="rounded-2xl border border-[var(--color-line)] px-4 py-3 font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.05)]"
+                              >
+                                Edit Leave
+                              </button>
                             </div>
                           ) : (
                             new Date(request.updatedAt).toLocaleString("en-IN", {
@@ -683,6 +768,127 @@ export function AdminLeavesPanel() {
           </div>
         )}
       </section>
+
+      {canManageLeaves && editingRequest ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-3xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Edit Leave Request</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  Update approved leave from admin side
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Change dates, reason, status, or admin note and save the updated leave request.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingRequest(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <select
+                className={inputClassName}
+                value={editingRequest.leaveTypeId}
+                onChange={(event) =>
+                  setEditingRequest((current) =>
+                    current ? { ...current, leaveTypeId: event.target.value } : current
+                  )
+                }
+              >
+                {state.leaveTypes
+                  .filter((type) => type.isActive)
+                  .map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+              </select>
+              <select
+                className={inputClassName}
+                value={editingRequest.status}
+                onChange={(event) =>
+                  setEditingRequest((current) =>
+                    current
+                      ? {
+                          ...current,
+                          status: event.target.value as LeaveRequestStatus,
+                        }
+                      : current
+                  )
+                }
+              >
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <input
+                className={inputClassName}
+                type="date"
+                value={editingRequest.startDate}
+                onChange={(event) =>
+                  setEditingRequest((current) =>
+                    current ? { ...current, startDate: event.target.value } : current
+                  )
+                }
+              />
+              <input
+                className={inputClassName}
+                type="date"
+                value={editingRequest.endDate}
+                onChange={(event) =>
+                  setEditingRequest((current) =>
+                    current ? { ...current, endDate: event.target.value } : current
+                  )
+                }
+              />
+              <textarea
+                className={`${inputClassName} min-h-28 resize-y md:col-span-2`}
+                value={editingRequest.reason}
+                onChange={(event) =>
+                  setEditingRequest((current) =>
+                    current ? { ...current, reason: event.target.value } : current
+                  )
+                }
+                placeholder="Reason for leave"
+              />
+              <textarea
+                className={`${inputClassName} min-h-28 resize-y md:col-span-2`}
+                value={editingRequest.adminNote}
+                onChange={(event) =>
+                  setEditingRequest((current) =>
+                    current ? { ...current, adminNote: event.target.value } : current
+                  )
+                }
+                placeholder="Optional admin note"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void handleSaveEditedRequest()}
+                disabled={isSavingEdit}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSavingEdit ? "Saving..." : "Save Changes"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingRequest(null)}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

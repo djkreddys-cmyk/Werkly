@@ -187,6 +187,45 @@ function calculateLeaveDays(startDate, endDate) {
   return Math.floor(diffMs / 86400000) + 1;
 }
 
+async function getLeaveBalanceAvailability(employeeId, leaveTypeId, excludeRequestId = null) {
+  const values = [employeeId, leaveTypeId];
+  const excludeClause = excludeRequestId
+    ? (() => {
+        values.push(excludeRequestId);
+        return `and leave_requests.id <> $${values.length}`;
+      })()
+    : "";
+
+  const assignmentResult = await query(
+    `select
+      assignments.allocated_days,
+      coalesce(approved_summary.approved_days, 0) as approved_days
+     from employee_leave_assignments assignments
+     left join lateral (
+       select coalesce(sum(days_requested), 0)::int as approved_days
+       from leave_requests
+       where leave_requests.employee_id = assignments.employee_id
+         and leave_requests.leave_type_id = assignments.leave_type_id
+         and leave_requests.status = 'approved'
+         ${excludeClause}
+     ) approved_summary on true
+     where assignments.employee_id = $1
+       and assignments.leave_type_id = $2
+     limit 1`,
+    values
+  );
+
+  const assignment = assignmentResult.rows[0];
+  if (!assignment) {
+    throw new Error("This leave type is not assigned to the employee.");
+  }
+
+  return {
+    allocatedDays: Number(assignment.allocated_days ?? 0),
+    approvedDays: Number(assignment.approved_days ?? 0),
+  };
+}
+
 export async function listLeaveRequests(employeeId = null) {
   const values = [];
   const scopeClause = employeeId
@@ -230,31 +269,8 @@ export async function createLeaveRequest(employeeId, payload) {
     throw new Error("End date must be on or after start date.");
   }
 
-  const assignmentResult = await query(
-    `select
-      assignments.allocated_days,
-      coalesce(approved_summary.approved_days, 0) as approved_days
-     from employee_leave_assignments assignments
-     left join lateral (
-       select coalesce(sum(days_requested), 0)::int as approved_days
-       from leave_requests
-       where leave_requests.employee_id = assignments.employee_id
-         and leave_requests.leave_type_id = assignments.leave_type_id
-         and leave_requests.status = 'approved'
-     ) approved_summary on true
-     where assignments.employee_id = $1
-       and assignments.leave_type_id = $2
-     limit 1`,
-    [employeeId, payload.leaveTypeId]
-  );
-
-  const assignment = assignmentResult.rows[0];
-  if (!assignment) {
-    throw new Error("This leave type is not assigned to the employee.");
-  }
-
-  const remainingDays =
-    Number(assignment.allocated_days ?? 0) - Number(assignment.approved_days ?? 0);
+  const assignment = await getLeaveBalanceAvailability(employeeId, payload.leaveTypeId);
+  const remainingDays = assignment.allocatedDays - assignment.approvedDays;
 
   if (daysRequested > remainingDays) {
     throw new Error("Requested leave days exceed the assigned balance.");
@@ -287,14 +303,69 @@ export async function createLeaveRequest(employeeId, payload) {
 }
 
 export async function updateLeaveRequestStatus(id, payload) {
+  const existingResult = await query(
+    `select id, employee_id, leave_type_id, start_date, end_date, reason, status
+     from leave_requests
+     where id = $1
+     limit 1`,
+    [id]
+  );
+
+  const existingRequest = existingResult.rows[0];
+  if (!existingRequest) {
+    return null;
+  }
+
+  const nextLeaveTypeId = payload.leaveTypeId || existingRequest.leave_type_id;
+  const nextStartDate = payload.startDate || existingRequest.start_date;
+  const nextEndDate = payload.endDate || existingRequest.end_date;
+  const nextReason = String(payload.reason ?? existingRequest.reason ?? "").trim();
+  const nextStatus = payload.status;
+  const daysRequested = calculateLeaveDays(nextStartDate, nextEndDate);
+
+  if (daysRequested <= 0) {
+    throw new Error("End date must be on or after start date.");
+  }
+
+  if (!nextReason) {
+    throw new Error("Reason is required.");
+  }
+
+  if (nextStatus === "approved") {
+    const assignment = await getLeaveBalanceAvailability(
+      existingRequest.employee_id,
+      nextLeaveTypeId,
+      id
+    );
+    const remainingDays = assignment.allocatedDays - assignment.approvedDays;
+
+    if (daysRequested > remainingDays) {
+      throw new Error("Requested leave days exceed the assigned balance.");
+    }
+  }
+
   const result = await query(
     `update leave_requests
-     set status = $2,
-         admin_note = $3,
+     set leave_type_id = $2,
+         start_date = $3::date,
+         end_date = $4::date,
+         days_requested = $5,
+         reason = $6,
+         status = $7,
+         admin_note = $8,
          updated_at = now()
      where id = $1
      returning id`,
-    [id, payload.status, payload.adminNote || null]
+    [
+      id,
+      nextLeaveTypeId,
+      nextStartDate,
+      nextEndDate,
+      daysRequested,
+      nextReason,
+      nextStatus,
+      payload.adminNote || null,
+    ]
   );
 
   if (!result.rows[0]) {

@@ -395,7 +395,7 @@ export function AdminShell({
                           </button>
 
                           {section.items.length && isExpanded ? (
-                            <div className="absolute left-0 top-full z-30 mt-2 min-w-[240px] overflow-hidden rounded-[1.2rem] border border-white/12 bg-[linear-gradient(180deg,rgba(12,80,90,0.98),rgba(7,54,61,0.98))] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.2)] backdrop-blur">
+                            <div className="absolute left-0 top-full z-30 mt-3 min-w-[220px] overflow-hidden rounded-[1rem] border border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(12,80,90,0.98),rgba(7,54,61,0.98))] p-2 shadow-[0_22px_44px_rgba(3,18,22,0.34)] backdrop-blur">
                               {section.items.map((item) => {
                                 const isItemActive =
                                   item.href === "/admin"
@@ -408,8 +408,8 @@ export function AdminShell({
                                     href={item.href}
                                     className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
                                       isItemActive
-                                        ? "bg-white/90 text-[var(--color-ink)] shadow-[0_10px_20px_rgba(15,23,42,0.08)]"
-                                        : "text-white hover:bg-[rgba(241,166,75,0.16)] hover:text-[var(--color-accent)]"
+                                        ? "bg-[rgba(241,166,75,0.92)] text-[var(--color-ink)] shadow-[0_10px_20px_rgba(15,23,42,0.12)]"
+                                        : "text-white/92 hover:bg-[rgba(255,255,255,0.08)] hover:text-white"
                                     }`}
                                     onClick={() => setExpandedModuleKey(null)}
                                   >

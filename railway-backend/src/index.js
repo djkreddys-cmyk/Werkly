@@ -743,7 +743,7 @@ app.post("/admin/leaves/requests", requireInternalUser, async (request, response
 
 app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) => {
   try {
-    const { status, adminNote } = request.body ?? {};
+    const { status, adminNote, leaveTypeId, startDate, endDate, reason } = request.body ?? {};
     if (!["approved", "rejected", "pending"].includes(status)) {
       return response.status(400).json({ message: "Invalid leave request status." });
     }
@@ -751,6 +751,10 @@ app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) =>
     const leaveRequest = await updateLeaveRequestStatus(request.params.id, {
       status,
       adminNote,
+      leaveTypeId,
+      startDate,
+      endDate,
+      reason,
     });
 
     if (!leaveRequest) {

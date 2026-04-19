@@ -152,7 +152,14 @@ export async function createLeaveRequest(
 
 export async function updateLeaveRequestStatus(
   id: string,
-  payload: { status: LeaveRequestStatus; adminNote?: string },
+  payload: {
+    status: LeaveRequestStatus;
+    adminNote?: string;
+    leaveTypeId?: string;
+    startDate?: string;
+    endDate?: string;
+    reason?: string;
+  },
   token: string
 ) {
   return readJson<LeaveRequestRecord>(`/admin/leaves/requests/${id}`, {

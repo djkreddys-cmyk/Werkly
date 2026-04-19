@@ -17,6 +17,10 @@ export async function PUT(
     const body = (await request.json()) as {
       status: "pending" | "approved" | "rejected";
       adminNote?: string;
+      leaveTypeId?: string;
+      startDate?: string;
+      endDate?: string;
+      reason?: string;
     };
     const leaveRequest = await updateLeaveRequestStatus(id, body, token);
     return NextResponse.json(leaveRequest);
