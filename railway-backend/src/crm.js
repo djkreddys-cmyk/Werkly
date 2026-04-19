@@ -1,6 +1,58 @@
 import bcrypt from "bcryptjs";
 import { pool, query } from "./db.js";
 
+function sanitizeEducationDetails(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries
+    .map((entry) => ({
+      qualification: String(entry?.qualification ?? "").trim(),
+      specialization: String(entry?.specialization ?? "").trim(),
+      institution: String(entry?.institution ?? "").trim(),
+      yearOfPassing: String(entry?.yearOfPassing ?? "").trim(),
+      gradeOrPercentage: String(entry?.gradeOrPercentage ?? "").trim(),
+    }))
+    .filter(
+      (entry) =>
+        entry.qualification ||
+        entry.specialization ||
+        entry.institution ||
+        entry.yearOfPassing ||
+        entry.gradeOrPercentage
+    );
+}
+
+function sanitizeExperienceDetails(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries
+    .map((entry) => ({
+      companyName: String(entry?.companyName ?? "").trim(),
+      designation: String(entry?.designation ?? "").trim(),
+      startDate: String(entry?.startDate ?? "").trim(),
+      endDate: String(entry?.endDate ?? "").trim(),
+      totalDuration: String(entry?.totalDuration ?? "").trim(),
+      industry: String(entry?.industry ?? "").trim(),
+      responsibilities: String(entry?.responsibilities ?? "").trim(),
+      reasonForLeaving: String(entry?.reasonForLeaving ?? "").trim(),
+    }))
+    .filter(
+      (entry) =>
+        entry.companyName ||
+        entry.designation ||
+        entry.startDate ||
+        entry.endDate ||
+        entry.totalDuration ||
+        entry.industry ||
+        entry.responsibilities ||
+        entry.reasonForLeaving
+    );
+}
+
 export async function ensureCrmSchema() {
   await query(`
     create table if not exists employees (
@@ -14,6 +66,8 @@ export async function ensureCrmSchema() {
       date_of_joining date,
       education_qualification text,
       previous_experience text,
+      education_details jsonb not null default '[]'::jsonb,
+      experience_details jsonb not null default '[]'::jsonb,
       status text not null default 'active',
       password_hash text not null,
       must_change_password boolean not null default true,
@@ -75,6 +129,12 @@ export async function ensureCrmSchema() {
   await query(`alter table employees add column if not exists date_of_joining date`);
   await query(`alter table employees add column if not exists education_qualification text`);
   await query(`alter table employees add column if not exists previous_experience text`);
+  await query(
+    `alter table employees add column if not exists education_details jsonb not null default '[]'::jsonb`
+  );
+  await query(
+    `alter table employees add column if not exists experience_details jsonb not null default '[]'::jsonb`
+  );
   await query(`alter table employees add column if not exists inactive_date date`);
   await query(`alter table employees add column if not exists inactive_remarks text`);
   await query(
@@ -96,6 +156,8 @@ function mapEmployeeRow(row) {
     dateOfJoining: row.date_of_joining,
     educationQualification: row.education_qualification,
     previousExperience: row.previous_experience,
+    educationDetails: Array.isArray(row.education_details) ? row.education_details : [],
+    experienceDetails: Array.isArray(row.experience_details) ? row.experience_details : [],
     status: row.status,
     mustChangePassword: Boolean(row.must_change_password),
     inactiveDate: row.inactive_date,
@@ -222,7 +284,7 @@ function mapClientTransferRequestRow(row) {
 
 export async function listEmployees() {
   const result = await query(
-    `select id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, status, must_change_password, inactive_date, inactive_remarks, created_at
+    `select id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at
      from employees
      order by created_at desc`
   );
@@ -238,6 +300,8 @@ export async function createEmployee(payload) {
     await client.query("lock table employees in share row exclusive mode");
 
     const isInactive = payload.status === "inactive";
+    const educationDetails = sanitizeEducationDetails(payload.educationDetails);
+    const experienceDetails = sanitizeExperienceDetails(payload.experienceDetails);
     const passwordHash = await bcrypt.hash(payload.password, 12);
     const employeeCode = await generateEmployeeCode(client);
     const result = await client.query(
@@ -251,13 +315,15 @@ export async function createEmployee(payload) {
         date_of_joining,
         education_qualification,
         previous_experience,
+        education_details,
+        experience_details,
         status,
         password_hash,
         must_change_password,
         inactive_date,
         inactive_remarks
-      ) values ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9, $10, $11, true, $12, $13)
-      returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+      ) values ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9, $10::jsonb, $11::jsonb, $12, $13, true, $14, $15)
+      returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at`,
       [
         payload.fullName,
         payload.email,
@@ -268,6 +334,8 @@ export async function createEmployee(payload) {
         payload.dateOfJoining || null,
         payload.educationQualification || null,
         payload.previousExperience || null,
+        JSON.stringify(educationDetails),
+        JSON.stringify(experienceDetails),
         payload.status || "active",
         passwordHash,
         isInactive ? payload.inactiveDate || null : null,
@@ -287,6 +355,8 @@ export async function createEmployee(payload) {
 
 export async function updateEmployee(id, payload) {
   const isInactive = payload.status === "inactive";
+  const educationDetails = sanitizeEducationDetails(payload.educationDetails);
+  const experienceDetails = sanitizeExperienceDetails(payload.experienceDetails);
   const values = [
     payload.fullName,
     payload.email,
@@ -296,6 +366,8 @@ export async function updateEmployee(id, payload) {
     payload.dateOfJoining || null,
     payload.educationQualification || null,
     payload.previousExperience || null,
+    JSON.stringify(educationDetails),
+    JSON.stringify(experienceDetails),
     payload.status || "active",
     isInactive ? payload.inactiveDate || null : null,
     isInactive ? payload.inactiveRemarks || null : null,
@@ -307,7 +379,7 @@ export async function updateEmployee(id, payload) {
     const passwordHash = await bcrypt.hash(payload.password, 12);
     values.push(passwordHash);
     passwordClause =
-      `, password_hash = $12, must_change_password = true, password_changed_at = null`;
+      `, password_hash = $14, must_change_password = true, password_changed_at = null`;
   }
 
   values.push(id);
@@ -322,13 +394,15 @@ export async function updateEmployee(id, payload) {
          date_of_joining = $6::date,
          education_qualification = $7,
          previous_experience = $8,
-         status = $9,
-         inactive_date = $10,
-         inactive_remarks = $11
+         education_details = $9::jsonb,
+         experience_details = $10::jsonb,
+         status = $11,
+         inactive_date = $12,
+         inactive_remarks = $13
          ${passwordClause},
          updated_at = now()
      where id = $${values.length}
-     returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+     returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at`,
     values
   );
 

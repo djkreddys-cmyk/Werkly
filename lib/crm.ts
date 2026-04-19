@@ -1,5 +1,24 @@
 export type EmployeeStatus = "active" | "inactive";
 
+export type EmployeeEducationEntry = {
+  qualification: string;
+  specialization?: string;
+  institution?: string;
+  yearOfPassing?: string;
+  gradeOrPercentage?: string;
+};
+
+export type EmployeeExperienceEntry = {
+  companyName: string;
+  designation?: string;
+  startDate?: string;
+  endDate?: string;
+  totalDuration?: string;
+  industry?: string;
+  responsibilities?: string;
+  reasonForLeaving?: string;
+};
+
 export type EmployeeRecord = {
   id: string;
   fullName: string;
@@ -11,6 +30,8 @@ export type EmployeeRecord = {
   dateOfJoining?: string;
   educationQualification?: string;
   previousExperience?: string;
+  educationDetails?: EmployeeEducationEntry[];
+  experienceDetails?: EmployeeExperienceEntry[];
   status: EmployeeStatus;
   mustChangePassword?: boolean;
   inactiveDate?: string;
@@ -73,6 +94,8 @@ export type EmployeeFormPayload = {
   dateOfJoining?: string;
   educationQualification?: string;
   previousExperience?: string;
+  educationDetails?: EmployeeEducationEntry[];
+  experienceDetails?: EmployeeExperienceEntry[];
   password?: string;
   status: EmployeeStatus;
   inactiveDate?: string;

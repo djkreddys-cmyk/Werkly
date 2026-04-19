@@ -5,6 +5,8 @@ import type {
   ClientRecord,
   ClientStatus,
   ClientTransferRequestRecord,
+  EmployeeEducationEntry,
+  EmployeeExperienceEntry,
   EmployeeRecord,
   EmployeeStatus,
 } from "@/lib/crm";
@@ -20,8 +22,8 @@ type EmployeeFormState = {
   role: string;
   dateOfBirth: string;
   dateOfJoining: string;
-  educationQualification: string;
-  previousExperience: string;
+  educationDetails: EmployeeEducationEntry[];
+  experienceDetails: EmployeeExperienceEntry[];
   password: string;
   status: EmployeeStatus;
   inactiveDate: string;
@@ -49,6 +51,51 @@ type ClientFormState = {
   agreementFileData: string;
 };
 
+function createEmptyEducationEntry(): EmployeeEducationEntry {
+  return {
+    qualification: "",
+    specialization: "",
+    institution: "",
+    yearOfPassing: "",
+    gradeOrPercentage: "",
+  };
+}
+
+function createEmptyExperienceEntry(): EmployeeExperienceEntry {
+  return {
+    companyName: "",
+    designation: "",
+    startDate: "",
+    endDate: "",
+    totalDuration: "",
+    industry: "",
+    responsibilities: "",
+    reasonForLeaving: "",
+  };
+}
+
+function buildEducationSummary(entries: EmployeeEducationEntry[]) {
+  return entries
+    .filter((entry) => entry.qualification.trim())
+    .map((entry) =>
+      [entry.qualification, entry.specialization, entry.institution]
+        .filter(Boolean)
+        .join(" - ")
+    )
+    .join(", ");
+}
+
+function buildExperienceSummary(entries: EmployeeExperienceEntry[]) {
+  return entries
+    .filter((entry) => entry.companyName.trim())
+    .map((entry) =>
+      [entry.companyName, entry.designation, entry.totalDuration]
+        .filter(Boolean)
+        .join(" - ")
+    )
+    .join(", ");
+}
+
 const emptyEmployeeForm: EmployeeFormState = {
   fullName: "",
   email: "",
@@ -56,8 +103,8 @@ const emptyEmployeeForm: EmployeeFormState = {
   role: "",
   dateOfBirth: "",
   dateOfJoining: "",
-  educationQualification: "",
-  previousExperience: "",
+  educationDetails: [createEmptyEducationEntry()],
+  experienceDetails: [createEmptyExperienceEntry()],
   password: "",
   status: "active",
   inactiveDate: "",
@@ -216,6 +263,133 @@ function useAdminCrmData() {
       applyCrmData(data);
     },
   };
+}
+
+function EmployeeEducationFields({
+  entries,
+  onChange,
+  onAdd,
+  onRemove,
+  inputClassName,
+  secondaryButtonClassName,
+}: {
+  entries: EmployeeEducationEntry[];
+  onChange: (index: number, field: keyof EmployeeEducationEntry, value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  inputClassName: string;
+  secondaryButtonClassName: string;
+}) {
+  return (
+    <div className="sm:col-span-2">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
+            Education Details
+          </p>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">
+            Add each qualification separately.
+          </p>
+        </div>
+        <button type="button" onClick={onAdd} className={secondaryButtonClassName}>
+          Add Education
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-4">
+        {entries.map((entry, index) => (
+          <div
+            key={`education-${index}`}
+            className="rounded-[1.35rem] border border-[var(--color-line)] bg-[rgba(255,255,255,0.04)] p-4"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[var(--color-ink)]">
+                Qualification {index + 1}
+              </p>
+              {entries.length > 1 ? (
+                <button type="button" onClick={() => onRemove(index)} className={secondaryButtonClassName}>
+                  Remove
+                </button>
+              ) : null}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={inputClassName} placeholder="Qualification" value={entry.qualification} onChange={(event) => onChange(index, "qualification", event.target.value)} />
+              <input className={inputClassName} placeholder="Specialization" value={entry.specialization ?? ""} onChange={(event) => onChange(index, "specialization", event.target.value)} />
+              <input className={inputClassName} placeholder="Institute / University" value={entry.institution ?? ""} onChange={(event) => onChange(index, "institution", event.target.value)} />
+              <input className={inputClassName} placeholder="Year of passing" value={entry.yearOfPassing ?? ""} onChange={(event) => onChange(index, "yearOfPassing", event.target.value)} />
+              <input className={inputClassName} placeholder="Grade / Percentage" value={entry.gradeOrPercentage ?? ""} onChange={(event) => onChange(index, "gradeOrPercentage", event.target.value)} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmployeeExperienceFields({
+  entries,
+  onChange,
+  onAdd,
+  onRemove,
+  inputClassName,
+  textareaClassName,
+  secondaryButtonClassName,
+}: {
+  entries: EmployeeExperienceEntry[];
+  onChange: (index: number, field: keyof EmployeeExperienceEntry, value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  inputClassName: string;
+  textareaClassName: string;
+  secondaryButtonClassName: string;
+}) {
+  return (
+    <div className="sm:col-span-2">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
+            Experience Details
+          </p>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">
+            Add one row for each company the employee worked in.
+          </p>
+        </div>
+        <button type="button" onClick={onAdd} className={secondaryButtonClassName}>
+          Add Experience
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-4">
+        {entries.map((entry, index) => (
+          <div
+            key={`experience-${index}`}
+            className="rounded-[1.35rem] border border-[var(--color-line)] bg-[rgba(255,255,255,0.04)] p-4"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[var(--color-ink)]">
+                Company {index + 1}
+              </p>
+              {entries.length > 1 ? (
+                <button type="button" onClick={() => onRemove(index)} className={secondaryButtonClassName}>
+                  Remove
+                </button>
+              ) : null}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input className={inputClassName} placeholder="Company name" value={entry.companyName} onChange={(event) => onChange(index, "companyName", event.target.value)} />
+              <input className={inputClassName} placeholder="Designation" value={entry.designation ?? ""} onChange={(event) => onChange(index, "designation", event.target.value)} />
+              <input className={inputClassName} type="date" value={entry.startDate ?? ""} onChange={(event) => onChange(index, "startDate", event.target.value)} />
+              <input className={inputClassName} type="date" value={entry.endDate ?? ""} onChange={(event) => onChange(index, "endDate", event.target.value)} />
+              <input className={inputClassName} placeholder="Total duration" value={entry.totalDuration ?? ""} onChange={(event) => onChange(index, "totalDuration", event.target.value)} />
+              <input className={inputClassName} placeholder="Industry" value={entry.industry ?? ""} onChange={(event) => onChange(index, "industry", event.target.value)} />
+              <textarea className={`${textareaClassName} sm:col-span-2`} placeholder="Responsibilities" value={entry.responsibilities ?? ""} onChange={(event) => onChange(index, "responsibilities", event.target.value)} />
+              <textarea className={`${textareaClassName} sm:col-span-2`} placeholder="Reason for leaving" value={entry.reasonForLeaving ?? ""} onChange={(event) => onChange(index, "reasonForLeaving", event.target.value)} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function formatWorkedDuration(totalMs: number) {
@@ -899,6 +1073,66 @@ export function AdminEmployeesPanel({
     setEmployeeForm((current) => ({ ...current, [field]: value }));
   }
 
+  function updateEducationEntry(
+    index: number,
+    field: keyof EmployeeEducationEntry,
+    value: string
+  ) {
+    setEmployeeForm((current) => ({
+      ...current,
+      educationDetails: current.educationDetails.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [field]: value } : entry
+      ),
+    }));
+  }
+
+  function addEducationEntry() {
+    setEmployeeForm((current) => ({
+      ...current,
+      educationDetails: [...current.educationDetails, createEmptyEducationEntry()],
+    }));
+  }
+
+  function removeEducationEntry(index: number) {
+    setEmployeeForm((current) => ({
+      ...current,
+      educationDetails:
+        current.educationDetails.length === 1
+          ? [createEmptyEducationEntry()]
+          : current.educationDetails.filter((_, entryIndex) => entryIndex !== index),
+    }));
+  }
+
+  function updateExperienceEntry(
+    index: number,
+    field: keyof EmployeeExperienceEntry,
+    value: string
+  ) {
+    setEmployeeForm((current) => ({
+      ...current,
+      experienceDetails: current.experienceDetails.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [field]: value } : entry
+      ),
+    }));
+  }
+
+  function addExperienceEntry() {
+    setEmployeeForm((current) => ({
+      ...current,
+      experienceDetails: [...current.experienceDetails, createEmptyExperienceEntry()],
+    }));
+  }
+
+  function removeExperienceEntry(index: number) {
+    setEmployeeForm((current) => ({
+      ...current,
+      experienceDetails:
+        current.experienceDetails.length === 1
+          ? [createEmptyExperienceEntry()]
+          : current.experienceDetails.filter((_, entryIndex) => entryIndex !== index),
+    }));
+  }
+
   function loadEmployeeForEdit(employee: EmployeeRecord) {
     setEmployeeForm({
       id: employee.id,
@@ -908,8 +1142,37 @@ export function AdminEmployeesPanel({
       role: employee.role,
       dateOfBirth: employee.dateOfBirth ?? "",
       dateOfJoining: employee.dateOfJoining ?? "",
-      educationQualification: employee.educationQualification ?? "",
-      previousExperience: employee.previousExperience ?? "",
+      educationDetails:
+        employee.educationDetails && employee.educationDetails.length > 0
+          ? employee.educationDetails
+          : employee.educationQualification
+            ? [
+                {
+                  qualification: employee.educationQualification,
+                  specialization: "",
+                  institution: "",
+                  yearOfPassing: "",
+                  gradeOrPercentage: "",
+                },
+              ]
+            : [createEmptyEducationEntry()],
+      experienceDetails:
+        employee.experienceDetails && employee.experienceDetails.length > 0
+          ? employee.experienceDetails
+          : employee.previousExperience
+            ? [
+                {
+                  companyName: employee.previousExperience,
+                  designation: "",
+                  startDate: "",
+                  endDate: "",
+                  totalDuration: "",
+                  industry: "",
+                  responsibilities: "",
+                  reasonForLeaving: "",
+                },
+              ]
+            : [createEmptyExperienceEntry()],
       password: "",
       status: employee.status,
       inactiveDate: employee.inactiveDate ?? "",
@@ -968,7 +1231,11 @@ export function AdminEmployeesPanel({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(employeeForm),
+        body: JSON.stringify({
+          ...employeeForm,
+          educationQualification: buildEducationSummary(employeeForm.educationDetails),
+          previousExperience: buildExperienceSummary(employeeForm.experienceDetails),
+        }),
       };
 
       const actualResponse = await fetch(endpoint, requestConfig);
@@ -1032,8 +1299,14 @@ export function AdminEmployeesPanel({
           role: inactiveEmployee.role,
           dateOfBirth: inactiveEmployee.dateOfBirth ?? "",
           dateOfJoining: inactiveEmployee.dateOfJoining ?? "",
-          educationQualification: inactiveEmployee.educationQualification ?? "",
-          previousExperience: inactiveEmployee.previousExperience ?? "",
+          educationQualification: buildEducationSummary(
+            inactiveEmployee.educationDetails ?? []
+          ),
+          previousExperience: buildExperienceSummary(
+            inactiveEmployee.experienceDetails ?? []
+          ),
+          educationDetails: inactiveEmployee.educationDetails ?? [],
+          experienceDetails: inactiveEmployee.experienceDetails ?? [],
           status: "inactive",
           inactiveDate,
           inactiveRemarks: inactiveRemarks.trim(),
@@ -1207,21 +1480,22 @@ export function AdminEmployeesPanel({
                 value={employeeForm.dateOfJoining}
                 onChange={(event) => updateEmployeeField("dateOfJoining", event.target.value)}
               />
-              <input
-                className={fieldClassName}
-                placeholder="Education qualification"
-                value={employeeForm.educationQualification}
-                onChange={(event) =>
-                  updateEmployeeField("educationQualification", event.target.value)
-                }
+              <EmployeeEducationFields
+                entries={employeeForm.educationDetails}
+                onChange={updateEducationEntry}
+                onAdd={addEducationEntry}
+                onRemove={removeEducationEntry}
+                inputClassName={fieldClassName}
+                secondaryButtonClassName="rounded-2xl border border-[rgba(255,255,255,0.14)] px-4 py-2 text-sm font-semibold text-white"
               />
-              <input
-                className={fieldClassName}
-                placeholder="Previous experience"
-                value={employeeForm.previousExperience}
-                onChange={(event) =>
-                  updateEmployeeField("previousExperience", event.target.value)
-                }
+              <EmployeeExperienceFields
+                entries={employeeForm.experienceDetails}
+                onChange={updateExperienceEntry}
+                onAdd={addExperienceEntry}
+                onRemove={removeExperienceEntry}
+                inputClassName={fieldClassName}
+                textareaClassName={`${fieldClassName} min-h-[110px]`}
+                secondaryButtonClassName="rounded-2xl border border-[rgba(255,255,255,0.14)] px-4 py-2 text-sm font-semibold text-white"
               />
               <input
                 className={fieldClassName}
@@ -1315,8 +1589,23 @@ export function AdminEmployeesPanel({
                 <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Role" value={employeeForm.role} onChange={(event) => updateEmployeeField("role", event.target.value)} required />
                 <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" type="date" value={employeeForm.dateOfBirth} onChange={(event) => updateEmployeeField("dateOfBirth", event.target.value)} />
                 <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" type="date" value={employeeForm.dateOfJoining} onChange={(event) => updateEmployeeField("dateOfJoining", event.target.value)} />
-                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Education qualification" value={employeeForm.educationQualification} onChange={(event) => updateEmployeeField("educationQualification", event.target.value)} />
-                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Previous experience" value={employeeForm.previousExperience} onChange={(event) => updateEmployeeField("previousExperience", event.target.value)} />
+                <EmployeeEducationFields
+                  entries={employeeForm.educationDetails}
+                  onChange={updateEducationEntry}
+                  onAdd={addEducationEntry}
+                  onRemove={removeEducationEntry}
+                  inputClassName="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  secondaryButtonClassName="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]"
+                />
+                <EmployeeExperienceFields
+                  entries={employeeForm.experienceDetails}
+                  onChange={updateExperienceEntry}
+                  onAdd={addExperienceEntry}
+                  onRemove={removeExperienceEntry}
+                  inputClassName="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  textareaClassName="min-h-[110px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  secondaryButtonClassName="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]"
+                />
               </div>
 
               <div className="mt-5 flex flex-wrap gap-3">
