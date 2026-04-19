@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
@@ -71,8 +70,11 @@ const reportSectionConfig = {
   },
 } as const;
 
-export function AdminReportsPanel() {
-  const searchParams = useSearchParams();
+type AdminReportsPanelProps = {
+  reportView?: string;
+};
+
+export function AdminReportsPanel({ reportView }: AdminReportsPanelProps) {
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -103,10 +105,9 @@ export function AdminReportsPanel() {
   });
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
-  const reportViewParam = searchParams.get("view");
   const focusedReport =
-    reportViewParam && reportViewParam in reportSectionConfig
-      ? reportSectionConfig[reportViewParam as keyof typeof reportSectionConfig]
+    reportView && reportView in reportSectionConfig
+      ? reportSectionConfig[reportView as keyof typeof reportSectionConfig]
       : null;
 
   useEffect(() => {
