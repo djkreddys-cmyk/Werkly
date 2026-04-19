@@ -574,7 +574,7 @@ export function AdminDashboardOverview() {
                   </button>
                 </div>
 
-                <div className="mt-3 grid grid-cols-7 gap-1">
+                <div className="mt-3 grid grid-cols-7 gap-0.5">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                     <div
                       key={day}
@@ -594,21 +594,24 @@ export function AdminDashboardOverview() {
                         key={day.key}
                         type="button"
                         onClick={() => openDateDetails(day.dateKey)}
-                        className={`min-h-[50px] rounded-[0.9rem] border p-1.5 text-left transition ${
+                        className={`min-h-[44px] rounded-[0.8rem] border px-1 py-1.5 text-left transition ${
                           isSelected
                             ? "border-[var(--color-dark)] bg-[rgba(8,96,108,0.09)]"
-                            : "border-[var(--color-line)] bg-white hover:border-[var(--color-dark)]"
+                            : isToday
+                              ? "border-[var(--color-accent)] bg-[rgba(241,166,75,0.12)] hover:border-[var(--color-dark)]"
+                              : "border-[var(--color-line)] bg-white hover:border-[var(--color-dark)]"
                         } ${day.inMonth ? "text-[var(--color-ink)]" : "text-[var(--color-muted)]"}`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-[11px] font-semibold">{day.label}</span>
-                          {isToday ? (
-                            <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink)]">
-                              Today
-                            </span>
-                          ) : null}
+                        <div className="flex items-start justify-between gap-1">
+                          <span
+                            className={`text-[10px] font-semibold ${
+                              isToday ? "text-[var(--color-accent-strong)]" : ""
+                            }`}
+                          >
+                            {day.label}
+                          </span>
                         </div>
-                        <div className="mt-1.5">
+                        <div className="mt-1">
                           {count > 0 ? (
                             <span className="inline-flex rounded-full bg-[rgba(190,72,26,0.12)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-accent-strong)]">
                               {count}
