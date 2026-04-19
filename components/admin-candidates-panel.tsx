@@ -19,6 +19,24 @@ function labelizeStage(stage: JobApplicationStage) {
   return stage.charAt(0).toUpperCase() + stage.slice(1);
 }
 
+function formatDateOnly(value: string) {
+  return new Date(value).toLocaleDateString("en-GB");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function safeCell(value?: string) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed ? trimmed : "-";
+}
+
 export function AdminCandidatesPanel() {
   const [token] = useState(
     typeof window !== "undefined"
@@ -165,6 +183,91 @@ export function AdminCandidatesPanel() {
     setError("");
   }
 
+  function handleApplicantDownload() {
+    const downloadedDate = formatDateOnly(new Date().toISOString());
+    const rows = filteredApplications.map((application, index) => ({
+      serialNo: String(index + 1),
+      downloadedDate,
+      positionName: safeCell(application.jobTitle),
+      candidateName: safeCell(application.candidateName),
+      mobileNo: safeCell(application.candidatePhone),
+      emailId: safeCell(application.candidateEmail),
+      currentCompany: safeCell(application.currentCompany),
+      totalExp: safeCell(application.experience),
+      currentCtc: safeCell(application.currentCtc),
+      expectedCtc: safeCell(application.expectedCtc),
+      noticePeriod: "-",
+      currentLocation: safeCell(application.currentLocation || application.preferredLocation),
+    }));
+
+    const tableRows = rows
+      .map(
+        (row) => `
+          <tr>
+            <td>${escapeHtml(row.serialNo)}</td>
+            <td>${escapeHtml(row.downloadedDate)}</td>
+            <td>${escapeHtml(row.positionName)}</td>
+            <td>${escapeHtml(row.candidateName)}</td>
+            <td>${escapeHtml(row.mobileNo)}</td>
+            <td>${escapeHtml(row.emailId)}</td>
+            <td>${escapeHtml(row.currentCompany)}</td>
+            <td>${escapeHtml(row.totalExp)}</td>
+            <td>${escapeHtml(row.currentCtc)}</td>
+            <td>${escapeHtml(row.expectedCtc)}</td>
+            <td>${escapeHtml(row.noticePeriod)}</td>
+            <td>${escapeHtml(row.currentLocation)}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const workbookMarkup = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="utf-8" />
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+            th, td { border: 1px solid #111827; padding: 8px; font-size: 12px; text-align: left; }
+            th { background: #b9e6f2; font-weight: 700; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <thead>
+              <tr>
+                <th>S No</th>
+                <th>Date</th>
+                <th>Position Name</th>
+                <th>Candidate Name</th>
+                <th>Mobile No.</th>
+                <th>Email ID</th>
+                <th>Current Company</th>
+                <th>Total Exp</th>
+                <th>Current CTC</th>
+                <th>Expected CTC</th>
+                <th>Notice Period</th>
+                <th>Current Location</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([workbookMarkup], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `job-applicants-${downloadedDate.replaceAll("/", "-")}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -192,7 +295,7 @@ export function AdminCandidatesPanel() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[520px]">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -211,6 +314,14 @@ export function AdminCandidatesPanel() {
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={handleApplicantDownload}
+              disabled={filteredApplications.length === 0}
+              className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
+            >
+              Download Applicant Details
+            </button>
           </div>
         </div>
 

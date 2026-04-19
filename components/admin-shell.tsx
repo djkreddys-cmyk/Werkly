@@ -212,7 +212,12 @@ export function AdminShell({
 
     return {
       ...section,
-      items: section.items.filter((item) => item.href !== "/admin/employees"),
+      items: section.items.filter(
+        (item) =>
+          item.href !== "/admin/employees" &&
+          item.href !== "/admin/employees/new" &&
+          item.href !== "/admin/employees/existing"
+      ),
       href: "/admin/leaves",
     };
   });

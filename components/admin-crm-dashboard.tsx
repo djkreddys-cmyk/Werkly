@@ -7,6 +7,7 @@ import type {
   EmployeeRecord,
   EmployeeStatus,
 } from "@/lib/crm";
+import type { AttendanceSessionRecord } from "@/lib/attendance";
 
 type EmployeeFormState = {
   id?: string;
@@ -102,6 +103,7 @@ function useAdminCrmData() {
       : "";
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceSessionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -109,17 +111,22 @@ function useAdminCrmData() {
   function applyCrmData(data: {
     employees: EmployeeRecord[];
     clients: ClientRecord[];
+    attendance: AttendanceSessionRecord[];
   }) {
     setEmployees(data.employees);
     setClients(data.clients);
+    setAttendance(data.attendance);
   }
 
   async function loadCrm(activeToken: string) {
-    const [employeesResponse, clientsResponse] = await Promise.all([
+    const [employeesResponse, clientsResponse, attendanceResponse] = await Promise.all([
       fetch("/api/admin/employees", {
         headers: { Authorization: `Bearer ${activeToken}` },
       }),
       fetch("/api/admin/clients", {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      }),
+      fetch("/api/admin/attendance", {
         headers: { Authorization: `Bearer ${activeToken}` },
       }),
     ]);
@@ -132,6 +139,10 @@ function useAdminCrmData() {
       clients?: ClientRecord[];
       message?: string;
     };
+    const attendanceResult = (await attendanceResponse.json()) as {
+      attendance?: AttendanceSessionRecord[];
+      message?: string;
+    };
 
     if (!employeesResponse.ok) {
       throw new Error(employeesResult.message || "Unable to load employees.");
@@ -141,9 +152,14 @@ function useAdminCrmData() {
       throw new Error(clientsResult.message || "Unable to load clients.");
     }
 
+    if (!attendanceResponse.ok) {
+      throw new Error(attendanceResult.message || "Unable to load attendance.");
+    }
+
     return {
       employees: employeesResult.employees ?? [],
       clients: clientsResult.clients ?? [],
+      attendance: attendanceResult.attendance ?? [],
     };
   }
 
@@ -170,6 +186,7 @@ function useAdminCrmData() {
     token,
     employees,
     clients,
+    attendance,
     isLoading,
     message,
     error,
@@ -180,6 +197,24 @@ function useAdminCrmData() {
       applyCrmData(data);
     },
   };
+}
+
+function formatWorkedDuration(totalMs: number) {
+  const totalMinutes = Math.max(0, Math.floor(totalMs / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m`;
+}
+
+function formatAttendanceDateTime(value?: string) {
+  if (!value) {
+    return "Not captured";
+  }
+
+  return new Date(value).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 function CrmFeedback({ message, error }: { message: string; error: string }) {
@@ -193,6 +228,7 @@ function CrmFeedback({ message, error }: { message: string; error: string }) {
 
 function CrmEmployeesList({
   employees,
+  attendance,
   onEdit,
   canEdit,
   onResetPassword,
@@ -200,12 +236,50 @@ function CrmEmployeesList({
   resettingEmployeeId,
 }: {
   employees: EmployeeRecord[];
+  attendance: AttendanceSessionRecord[];
   onEdit: (employee: EmployeeRecord) => void;
   canEdit: boolean;
   onResetPassword: (employee: EmployeeRecord) => void;
   onInactivate: (employee: EmployeeRecord) => void;
   resettingEmployeeId: string;
 }) {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const attendanceByEmployee = useMemo(() => {
+    const summary = new Map<
+      string,
+      { firstLoginAt?: string; lastLogoutAt?: string; totalWorkedMs: number }
+    >();
+
+    attendance
+      .filter((session) => session.loginAt.slice(0, 10) === todayKey)
+      .forEach((session) => {
+        const key = session.userId || session.userIdentifier;
+        const existing = summary.get(key) ?? { totalWorkedMs: 0 };
+        const loginMs = new Date(session.loginAt).getTime();
+        const logoutMs = session.logoutAt ? new Date(session.logoutAt).getTime() : 0;
+
+        if (!existing.firstLoginAt || loginMs < new Date(existing.firstLoginAt).getTime()) {
+          existing.firstLoginAt = session.loginAt;
+        }
+
+        if (
+          session.logoutAt &&
+          (!existing.lastLogoutAt ||
+            logoutMs > new Date(existing.lastLogoutAt).getTime())
+        ) {
+          existing.lastLogoutAt = session.logoutAt;
+        }
+
+        if (session.logoutAt && logoutMs >= loginMs) {
+          existing.totalWorkedMs += logoutMs - loginMs;
+        }
+
+        summary.set(key, existing);
+      });
+
+    return summary;
+  }, [attendance, todayKey]);
+
   return (
     <section className="accent-card p-6">
       <div className="flex items-center justify-between gap-4">
@@ -228,7 +302,17 @@ function CrmEmployeesList({
             <table className="min-w-full border-collapse">
               <thead>
                 <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                  {["Employee", "Code", "Email", "Phone", "Status", "Actions"].map((heading) => (
+                  {[
+                    "Employee",
+                    "Code",
+                    "Email",
+                    "Phone",
+                    "Today Spent Time",
+                    "First Login",
+                    "Last Logout",
+                    "Status",
+                    "Actions",
+                  ].map((heading) => (
                     <th
                       key={heading}
                       className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
@@ -239,78 +323,102 @@ function CrmEmployeesList({
                 </tr>
               </thead>
               <tbody>
-                {employees.map((employee, index) => (
-                  <tr
-                    key={employee.id}
-                    className={
-                      index === employees.length - 1
-                        ? "align-top"
-                        : "align-top border-b border-[var(--color-line)]"
-                    }
-                  >
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-[var(--color-ink)]">{employee.fullName}</p>
-                      <p className="mt-1 text-sm text-[var(--color-muted)]">{employee.role}</p>
-                      {employee.status === "inactive" && employee.inactiveRemarks ? (
-                        <p className="mt-1 text-xs text-[var(--color-muted)]">
-                          {employee.inactiveRemarks}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
-                      {employee.employeeCode || "Pending"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {employee.email}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {employee.phone || "Not added"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
-                        {employee.status}
-                      </span>
-                      {employee.status === "inactive" && employee.inactiveDate ? (
-                        <p className="mt-2 text-xs">Inactive from {employee.inactiveDate}</p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-4">
-                      {canEdit ? (
-                        <div className="flex flex-wrap gap-3">
-                          <button
-                            type="button"
-                            onClick={() => onEdit(employee)}
-                            className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onResetPassword(employee)}
-                            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                              resettingEmployeeId === employee.id
-                                ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
-                                : "border border-[var(--color-line)] text-[var(--color-accent-strong)] hover:border-[var(--color-accent-strong)]"
-                            }`}
-                          >
-                            Reset Password
-                          </button>
-                          {employee.status === "active" ? (
+                {employees.map((employee, index) => {
+                  const attendanceSummary =
+                    attendanceByEmployee.get(employee.id) ??
+                    attendanceByEmployee.get(employee.employeeCode || "") ??
+                    attendanceByEmployee.get(employee.email);
+
+                  return (
+                    <tr
+                      key={employee.id}
+                      className={
+                        index === employees.length - 1
+                          ? "align-top"
+                          : "align-top border-b border-[var(--color-line)]"
+                      }
+                    >
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-[var(--color-ink)]">{employee.fullName}</p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">{employee.role}</p>
+                        {employee.status === "inactive" && employee.inactiveRemarks ? (
+                          <p className="mt-1 text-xs text-[var(--color-muted)]">
+                            {employee.inactiveRemarks}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
+                        {employee.employeeCode || "Pending"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {employee.email}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {employee.phone || "Not added"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <span className="font-semibold text-[var(--color-ink)]">
+                          {attendanceSummary
+                            ? formatWorkedDuration(attendanceSummary.totalWorkedMs)
+                            : "0h 0m"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {attendanceSummary?.firstLoginAt
+                          ? formatAttendanceDateTime(attendanceSummary.firstLoginAt)
+                          : "Not captured"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {attendanceSummary?.lastLogoutAt
+                          ? formatAttendanceDateTime(attendanceSummary.lastLogoutAt)
+                          : "Not captured"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
+                          {employee.status}
+                        </span>
+                        {employee.status === "inactive" && employee.inactiveDate ? (
+                          <p className="mt-2 text-xs">Inactive from {employee.inactiveDate}</p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4">
+                        {canEdit ? (
+                          <div className="flex flex-wrap gap-3">
                             <button
                               type="button"
-                              onClick={() => onInactivate(employee)}
-                              className="rounded-xl border border-[rgba(190,72,26,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
+                              onClick={() => onEdit(employee)}
+                              className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                             >
-                              Inactivate
+                              Edit
                             </button>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-[var(--color-muted)]">View only</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                            <button
+                              type="button"
+                              onClick={() => onResetPassword(employee)}
+                              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                                resettingEmployeeId === employee.id
+                                  ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
+                                  : "border border-[var(--color-line)] text-[var(--color-accent-strong)] hover:border-[var(--color-accent-strong)]"
+                              }`}
+                            >
+                              Reset Password
+                            </button>
+                            {employee.status === "active" ? (
+                              <button
+                                type="button"
+                                onClick={() => onInactivate(employee)}
+                                className="rounded-xl border border-[rgba(190,72,26,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
+                              >
+                                Inactivate
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-[var(--color-muted)]">View only</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -426,6 +534,7 @@ export function AdminEmployeesPanel({
   const {
     token,
     employees,
+    attendance,
     isLoading,
     message,
     error,
@@ -690,6 +799,20 @@ export function AdminEmployeesPanel({
 
   return (
     <section className="space-y-6">
+      {!canManageEmployees && viewMode !== "all" ? (
+        <section className="accent-card p-6">
+          <p className="eyebrow">Restricted Access</p>
+          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            Only Super Admin can open this employee page.
+          </h2>
+          <p className="muted-copy mt-4 max-w-3xl text-sm leading-7">
+            Employee Creation and Existing Users are limited to the Super Admin login.
+            Other employee accounts should use leave, attendance, reports, jobs, candidates,
+            and client screens based on their role access.
+          </p>
+        </section>
+      ) : null}
+
       {canManageEmployees && viewMode !== "existing" ? (
         <div className="rounded-[2rem] border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]">
           <div className="max-w-3xl">
@@ -805,7 +928,7 @@ export function AdminEmployeesPanel({
           </form>
 
         </div>
-      ) : (
+      ) : viewMode === "all" ? (
         <section className="accent-card p-6">
           <p className="eyebrow">Employees</p>
           <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
@@ -816,12 +939,13 @@ export function AdminEmployeesPanel({
             current employee list below.
           </p>
         </section>
-      )}
+      ) : null}
 
-      {viewMode !== "new" ? (
+      {viewMode !== "new" && (canManageEmployees || viewMode === "all") ? (
         <div id="existing-employees" className="scroll-mt-28">
           <CrmEmployeesList
             employees={employees}
+            attendance={attendance}
             onEdit={loadEmployeeForEdit}
             canEdit={canManageEmployees}
             onResetPassword={loadEmployeeForPasswordReset}
