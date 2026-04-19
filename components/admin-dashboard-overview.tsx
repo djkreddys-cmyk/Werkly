@@ -183,11 +183,6 @@ export function AdminDashboardOverview() {
       ? window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
       : "super-admin"
   );
-  const [authName] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAuthName") ?? "Werkly User"
-      : "Werkly User"
-  );
   const [authEmployeeCode] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyEmployeeCode") ?? ""
@@ -453,8 +448,8 @@ export function AdminDashboardOverview() {
         ))}
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-        <article className="accent-card p-5">
+      <section className="grid items-stretch gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+        <article className="accent-card flex h-full flex-col p-5">
           <p className="eyebrow">Upcoming Follow-Ups</p>
           <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)]">
             Prioritized follow-up queue
@@ -496,27 +491,28 @@ export function AdminDashboardOverview() {
           )}
         </article>
 
-        <article className="accent-card p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-[360px]">
-              <p className="eyebrow">{isAdminView ? "Follow-Up Calendar" : "Follow-Up Calendar"}</p>
-              <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)] leading-6">
+        <article className="accent-card flex h-full flex-col p-5">
+          <div className="flex flex-col gap-4">
+            <div className="max-w-[430px]">
+              <p className="eyebrow">Follow-Up Calendar</p>
+              <h2 className="mt-1.5 text-base font-semibold leading-6 text-[var(--color-ink)]">
                 {isAdminView
                   ? "Track client follow-ups by employee and date."
-                  : `${authName}, here is your follow-up dashboard.`}
+                  : "Track your scheduled client follow-ups by date."}
               </h2>
               <p className="muted-copy mt-1.5 text-sm leading-5">
                 {isAdminView
-                  ? "Filter by recruiter and date to see client follow-up commitments that need action."
-                  : "Click any date in the calendar to open that day's follow-up details."}
+                  ? "Filter by employee and date to review client onboarding and follow-up commitments."
+                  : "Select any date in the calendar to open your scheduled follow-up details."}
               </p>
             </div>
+
             <div className="flex flex-wrap items-center gap-2.5">
               {isAdminView ? (
                 <select
                   value={selectedEmployeeId}
                   onChange={(event) => setSelectedEmployeeId(event.target.value)}
-                  className="rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  className="min-w-[220px] rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
                 >
                   <option value="all">All Employees</option>
                   {employeeOptions.map((employee) => (
@@ -526,7 +522,7 @@ export function AdminDashboardOverview() {
                   ))}
                 </select>
               ) : authEmployeeCode ? (
-                <div className="rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm font-semibold text-[var(--color-ink)]">
+                <div className="min-w-[92px] rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm font-semibold text-[var(--color-ink)]">
                   {authEmployeeCode}
                 </div>
               ) : null}
@@ -534,7 +530,7 @@ export function AdminDashboardOverview() {
                 type="date"
                 value={activeDateKey}
                 onChange={(event) => openDateDetails(event.target.value)}
-                className="rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                className="min-w-[146px] rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               />
             </div>
           </div>
@@ -544,8 +540,8 @@ export function AdminDashboardOverview() {
           ) : error ? (
             <p className="mt-6 text-sm font-medium text-red-700">{error}</p>
           ) : (
-            <div className="mt-6 flex justify-end">
-              <div className="w-full max-w-[560px] rounded-[1.45rem] border border-[var(--color-line)] bg-white p-3.5">
+            <div className="mt-5 flex flex-1 items-start justify-center">
+              <div className="w-full max-w-[500px] rounded-[1.45rem] border border-[var(--color-line)] bg-white p-3.5">
                 <div className="flex items-center justify-between gap-3">
                   <button
                     type="button"

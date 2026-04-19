@@ -1994,7 +1994,9 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
               [
                 "Client",
                 "Recruiter",
-                "Linked Jobs",
+                "Onboarding Status",
+                "Onboarding Source",
+                "Related Jobs",
                 "Follow-Up Status",
                 "Next Follow-Up Date",
                 "Last Follow-Up Date",
@@ -2005,6 +2007,8 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
               filteredFollowUpReportRows.map((row) => [
                 row.client.companyName,
                 row.recruiterName,
+                getFollowUpStatusLabel(row.client.onboardingStatus || "new-lead"),
+                row.client.onboardingSource || "Source not added",
                 row.linkedJobLabels.join(", ") || "No linked jobs",
                 getFollowUpStatusLabel(row.client.followUpStatus),
                 formatDate(row.client.nextFollowUpDate),
@@ -2020,6 +2024,14 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Follow-Up Rows" value={filteredFollowUpReportRows.length} />
+          <MetricCard
+            label="Onboarding Follow-Ups"
+            value={
+              filteredFollowUpReportRows.filter(
+                (row) => row.client.onboardingStatus && row.client.onboardingStatus !== "onboarded"
+              ).length
+            }
+          />
           <MetricCard
             label="Follow-Up Due"
             value={
@@ -2049,10 +2061,11 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
         <section className="accent-card p-7">
           <p className="eyebrow">Follow-Up Report</p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-            Review client follow-up status by employee, client, job, and date.
+            Review client onboarding and follow-up status by employee, client, and date.
           </h2>
           <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
-            Admin users can filter follow-ups by employee, client, linked job, and date
+            This report is built for onboarding and client relationship follow-ups first.
+            Admin users can filter by employee, client, optional related job, and date
             range. Employee logins will only see their own follow-up report rows here.
           </p>
 
@@ -2065,7 +2078,8 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
               headings={[
                 "Client",
                 "Recruiter",
-                "Linked Job",
+                "Onboarding",
+                "Related Job",
                 "Follow-Up Status",
                 "Next Follow-Up",
                 "Last Follow-Up",
@@ -2091,12 +2105,20 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
                     {row.recruiterName}
                   </td>
                   <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    <p className="font-semibold text-[var(--color-ink)]">
+                      {getFollowUpStatusLabel(row.client.onboardingStatus || "new-lead")}
+                    </p>
+                    <p className="mt-1 text-xs">
+                      {row.client.onboardingSource || "Source not added"}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                     {row.linkedJobLabels.length > 0 ? (
                       row.linkedJobLabels.map((label) => (
                         <p key={`${row.client.id}-${label}`}>{label}</p>
                       ))
                     ) : (
-                      <p>No linked jobs</p>
+                      <p>No related jobs yet</p>
                     )}
                   </td>
                   <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
