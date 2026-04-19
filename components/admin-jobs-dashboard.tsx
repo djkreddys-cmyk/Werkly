@@ -117,8 +117,19 @@ const emptyManualCandidateForm: ManualCandidateState = {
   resumeFileData: "",
 };
 
+function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <circle cx="10" cy="4.5" r="1.5" />
+      <circle cx="10" cy="10" r="1.5" />
+      <circle cx="10" cy="15.5" r="1.5" />
+    </svg>
+  );
+}
+
 export function AdminJobsDashboard() {
   const formRef = useRef<HTMLFormElement | null>(null);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const [token, setToken] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
@@ -145,6 +156,7 @@ export function AdminJobsDashboard() {
     emptyManualCandidateForm
   );
   const [isSavingCandidate, setIsSavingCandidate] = useState(false);
+  const [actionMenuJobId, setActionMenuJobId] = useState("");
 
   const isEditing = Boolean(form.id);
 
@@ -153,6 +165,24 @@ export function AdminJobsDashboard() {
     const savedEmail = window.localStorage.getItem("werklyAdminEmail") ?? "";
     setToken(savedToken);
     setAdminEmail(savedEmail);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        actionsMenuRef.current &&
+        !actionsMenuRef.current.contains(event.target as Node)
+      ) {
+        setActionMenuJobId("");
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
   useEffect(() => {
@@ -375,6 +405,7 @@ export function AdminJobsDashboard() {
   }
 
   function populateForEdit(job: JobSummary) {
+    setActionMenuJobId("");
     setForm({
       id: job.id,
       jobCode: job.jobCode,
@@ -570,6 +601,7 @@ export function AdminJobsDashboard() {
   }
 
   function openManualCandidateModal(job: JobSummary) {
+    setActionMenuJobId("");
     setManualCandidateJob(job);
     setManualCandidateForm({
       ...emptyManualCandidateForm,
@@ -926,9 +958,13 @@ export function AdminJobsDashboard() {
                           : "align-top border-b border-[var(--color-line)]"
                       }
                     >
-                      <td className="px-4 py-4">
-                        <p className="font-semibold text-[var(--color-ink)]">{job.title}</p>
-                        <p className="mt-1 text-sm text-[var(--color-muted)]">{job.sector}</p>
+                      <td className="w-[260px] px-4 py-4 align-top">
+                        <p className="whitespace-normal break-words font-semibold leading-6 text-[var(--color-ink)]">
+                          {job.title}
+                        </p>
+                        <p className="mt-1 whitespace-normal break-words text-sm text-[var(--color-muted)]">
+                          {job.sector}
+                        </p>
                         <p className="mt-1 text-sm font-semibold text-[var(--color-accent-strong)]">
                           {job.jobCode || "Pending ID"}
                         </p>
@@ -939,9 +975,9 @@ export function AdminJobsDashboard() {
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {job.recruiterName || "Unassigned"}
                       </td>
-                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        <p>{job.location}</p>
-                        <p className="mt-1">{job.experience}</p>
+                      <td className="w-[220px] px-4 py-4 align-top text-sm text-[var(--color-muted)]">
+                        <p className="whitespace-normal break-words leading-6">{job.location}</p>
+                        <p className="mt-1 whitespace-normal break-words">{job.experience}</p>
                         {job.lastDateToApply ? (
                           <p className="mt-1 text-xs">
                             Close by {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
@@ -971,38 +1007,57 @@ export function AdminJobsDashboard() {
                           {isLiveOnWebsite(job) ? "Live on website" : "Not live"}
                         </p>
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-3">
+                      <td className="px-4 py-4 align-top">
+                        <div className="relative inline-flex" ref={actionMenuJobId === job.id ? actionsMenuRef : null}>
                           <button
                             type="button"
-                            onClick={() => populateForEdit(job)}
-                            className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                            aria-label={`Open actions for ${job.title}`}
+                            aria-expanded={actionMenuJobId === job.id}
+                            onClick={() =>
+                              setActionMenuJobId((current) => (current === job.id ? "" : job.id))
+                            }
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
                           >
-                            Edit
+                            <MoreVerticalIcon />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => openManualCandidateModal(job)}
-                            className="rounded-xl border border-[rgba(8,96,108,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                          >
-                            Add Candidate
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleVisibilityToggle(job)}
-                            className="rounded-xl border border-[rgba(190,72,26,0.2)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
-                          >
-                            {job.isHidden ? "Unhide" : "Hide"}
-                          </button>
-                          {job.slug ? (
-                            <a
-                              href={`/jobs/${job.slug}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:border-[var(--color-dark)]"
-                            >
-                              View
-                            </a>
+
+                          {actionMenuJobId === job.id ? (
+                            <div className="absolute right-0 top-12 z-20 min-w-[200px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                              <button
+                                type="button"
+                                onClick={() => populateForEdit(job)}
+                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openManualCandidateModal(job)}
+                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                              >
+                                Add Candidate
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActionMenuJobId("");
+                                  void handleVisibilityToggle(job);
+                                }}
+                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
+                              >
+                                {job.isHidden ? "Unhide" : "Hide"}
+                              </button>
+                              {job.slug ? (
+                                <a
+                                  href={`/jobs/${job.slug}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  View
+                                </a>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
                       </td>

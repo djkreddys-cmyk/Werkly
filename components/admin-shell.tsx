@@ -23,7 +23,7 @@ const moduleSections = [
   },
   {
     key: "hr",
-    label: "HR Module",
+    label: "HR",
     href: "/admin/employees",
     description: "Employees, leaves, attendance",
     items: [
@@ -34,7 +34,7 @@ const moduleSections = [
   },
   {
     key: "jobs",
-    label: "Jobs Module",
+    label: "Jobs",
     href: "/admin/jobs",
     description: "Jobs, candidates, clients",
     items: [
@@ -46,6 +46,55 @@ const moduleSections = [
 ];
 
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
+
+function ChevronDownIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M5 7.5L10 12.5L15 7.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function GlobeIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M3.5 10H16.5M10 3C11.9 5.1 12.98 7.53 13.04 10C12.98 12.47 11.9 14.9 10 17M10 3C8.1 5.1 7.02 7.53 6.96 10C7.02 12.47 8.1 14.9 10 17"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function LogoutIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M7.5 4.5H6.5C5.39543 4.5 4.5 5.39543 4.5 6.5V13.5C4.5 14.6046 5.39543 15.5 6.5 15.5H7.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M11 6L14.5 9.5L11 13M14.5 9.5H8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 function formatRoleLabel(role: string) {
   if (!role) {
@@ -96,6 +145,7 @@ export function AdminShell({
 }: AdminShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const [authType] = useState(() =>
     typeof window === "undefined"
       ? "admin"
@@ -123,6 +173,8 @@ export function AdminShell({
   );
   const logoutTimerRef = useRef<number | null>(null);
   const logoutHandlerRef = useRef<() => Promise<void>>(async () => {});
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
   const displayIdentifier = authEmployeeCode || authIdentifier;
   const displayRole =
     authType === "employee" ? formatRoleLabel(authRole || "employee") : "Super Admin";
@@ -144,6 +196,10 @@ export function AdminShell({
   });
   const activeSection =
     visibleSections.find((section) => section.key === activeModuleKey) ?? visibleSections[0];
+
+  useEffect(() => {
+    setExpandedModuleKey(activeModuleKey);
+  }, [activeModuleKey]);
 
   async function handleLogout() {
     const token =
@@ -184,6 +240,24 @@ export function AdminShell({
   useEffect(() => {
     logoutHandlerRef.current = handleLogout;
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   useEffect(() => {
     if (!showMenu || typeof window === "undefined") {
@@ -300,46 +374,70 @@ export function AdminShell({
                       Werkly CRM Modules
                     </p>
                   </div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(241,166,75,0.18)] text-sm font-semibold tracking-[0.12em] text-[var(--color-accent)]">
-                    {getInitials(authName)}
-                  </div>
                 </div>
 
-                <div className="flex flex-col gap-3 xl:min-w-[420px] xl:items-end">
-                  <div className="flex w-full flex-col gap-3 rounded-[1.5rem] border border-white/10 bg-white/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/58">
-                        Logged In Account
-                      </p>
-                      <p className="mt-1 truncate text-base font-semibold text-white">
-                        {authName}
-                      </p>
-                      <p className="mt-1 truncate text-sm text-white/74">{displayIdentifier}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full border border-[rgba(241,166,75,0.42)] bg-[rgba(241,166,75,0.16)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
-                        {displayRole}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/74">
-                        Auto logout 10 min
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      href="https://www.werkly.in"
-                      className="inline-flex rounded-xl border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-white transition hover:border-[var(--color-accent)] hover:bg-white/12"
-                    >
-                      Open Website
-                    </Link>
+                <div className="flex justify-start xl:min-w-[420px] xl:justify-end">
+                  <div className="relative" ref={profileMenuRef}>
                     <button
                       type="button"
-                      onClick={handleLogout}
-                      className="inline-flex rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white"
+                      onClick={() => setIsProfileMenuOpen((current) => !current)}
+                      className="inline-flex items-center gap-3 rounded-[1.3rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-3 py-2 text-left text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(241,166,75,0.16)]"
                     >
-                      Sign Out
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(241,166,75,0.18)] text-sm font-semibold tracking-[0.12em] text-[var(--color-accent)]">
+                        {getInitials(authName)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{authName}</span>
+                        <span className="block truncate text-xs text-white/68">
+                          {displayRole}
+                        </span>
+                      </span>
+                      <ChevronDownIcon
+                        className={`h-4 w-4 text-white/76 transition ${
+                          isProfileMenuOpen ? "rotate-180" : ""
+                        }`}
+                      />
                     </button>
+
+                    {isProfileMenuOpen ? (
+                      <div className="absolute right-0 z-30 mt-3 w-[320px] overflow-hidden rounded-[1.5rem] border border-white/12 bg-[linear-gradient(180deg,rgba(12,80,90,0.98),rgba(7,54,61,0.98))] p-4 text-white shadow-[0_24px_60px_rgba(5,24,28,0.34)] backdrop-blur">
+                        <div className="rounded-[1.2rem] border border-white/10 bg-white/7 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/58">
+                            Login Details
+                          </p>
+                          <p className="mt-2 text-base font-semibold text-white">{authName}</p>
+                          <p className="mt-1 text-sm text-white/72">{displayIdentifier}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="rounded-full border border-[rgba(241,166,75,0.42)] bg-[rgba(241,166,75,0.16)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
+                              {displayRole}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/7 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/74">
+                              Auto logout 10 min
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-2">
+                          <Link
+                            href="https://www.werkly.in"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(241,166,75,0.16)] hover:text-[var(--color-accent)]"
+                          >
+                            <span>Visit Website</span>
+                            <GlobeIcon className="h-4 w-4" />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="inline-flex items-center justify-between rounded-xl border border-[rgba(241,166,75,0.24)] bg-[rgba(241,166,75,0.16)] px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(241,166,75,0.24)] hover:text-[var(--color-accent)]"
+                          >
+                            <span>Logout</span>
+                            <LogoutIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -347,67 +445,84 @@ export function AdminShell({
               <div className="grid gap-3 lg:grid-cols-3">
                 {visibleSections.map((section) => {
                   const isActive = section.key === activeModuleKey;
+                  const isExpanded = expandedModuleKey === section.key;
+                  const hasItems = section.items.length > 0;
 
                   return (
-                    <Link
+                    <div
                       key={section.key}
-                      href={section.href}
                       className={`rounded-[1.45rem] border p-4 transition ${
                         isActive
                           ? "border-[rgba(241,166,75,0.28)] bg-[linear-gradient(135deg,rgba(241,166,75,0.94),rgba(246,191,113,0.92))] text-[var(--color-ink)] shadow-[0_18px_36px_rgba(241,166,75,0.18)]"
-                          : "border-white/10 bg-white/6 text-white hover:border-white/18 hover:bg-white/10"
+                          : "border-white/10 bg-white/6 text-white hover:border-[rgba(241,166,75,0.36)] hover:bg-[rgba(241,166,75,0.14)]"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!hasItems) {
+                            router.push(section.href);
+                            return;
+                          }
+
+                          setExpandedModuleKey((current) =>
+                            current === section.key ? null : section.key
+                          );
+                        }}
+                        className="flex w-full items-start justify-between gap-4 text-left"
+                      >
                         <div>
                           <p className="text-sm font-semibold">{section.label}</p>
                           <p
                             className={`mt-2 text-sm leading-6 ${
-                              isActive ? "text-[rgba(23,53,61,0.78)]" : "text-white/68"
+                              isActive ? "text-[rgba(23,53,61,0.78)]" : "text-white/70"
                             }`}
                           >
                             {section.description}
                           </p>
                         </div>
                         <span
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
                             isActive
                               ? "bg-white/42 text-[var(--color-ink)]"
-                              : "bg-white/10 text-white/76"
+                              : "bg-[rgba(241,166,75,0.14)] text-[var(--color-accent)]"
                           }`}
                         >
-                          {isActive ? "Open" : "Module"}
+                          {hasItems ? (isExpanded ? "Hide" : "Menu") : "Open"}
+                          {hasItems ? <ChevronDownIcon className={`h-3 w-3 ${isExpanded ? "rotate-180" : ""}`} /> : null}
                         </span>
-                      </div>
-                    </Link>
+                      </button>
+
+                      {hasItems && isExpanded ? (
+                        <div className="mt-4 grid gap-2 border-t border-white/10 pt-4">
+                          {section.items.map((item) => {
+                            const isItemActive =
+                              item.href === "/admin"
+                                ? pathname === "/admin"
+                                : pathname.startsWith(item.href);
+
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                                  isItemActive
+                                    ? "bg-white/88 text-[var(--color-ink)] shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
+                                    : isActive
+                                      ? "bg-[rgba(23,53,61,0.12)] text-[var(--color-ink)] hover:bg-[rgba(23,53,61,0.18)]"
+                                      : "border border-white/10 bg-[rgba(241,166,75,0.08)] text-white hover:border-[rgba(241,166,75,0.32)] hover:bg-[rgba(241,166,75,0.16)] hover:text-[var(--color-accent)]"
+                                }`}
+                              >
+                                {item.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>
-
-              {activeSection.items.length ? (
-                <nav className="flex flex-wrap gap-3">
-                  {activeSection.items.map((item) => {
-                    const isActive =
-                      item.href === "/admin"
-                        ? pathname === "/admin"
-                        : pathname.startsWith(item.href);
-
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                          isActive
-                            ? "bg-white text-[var(--color-ink)] shadow-[0_12px_24px_rgba(15,23,42,0.12)]"
-                            : "border border-white/10 bg-white/6 text-white/84 hover:border-white/18 hover:bg-white/10"
-                        }`}
-                      >
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </nav>
-              ) : null}
             </div>
           </div>
         </header>
