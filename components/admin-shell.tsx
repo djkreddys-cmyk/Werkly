@@ -395,13 +395,7 @@ export function AdminShell({
                           </button>
 
                           {section.items.length && isExpanded ? (
-                            <div
-                              className={`absolute left-0 top-full z-30 mt-2 min-w-[240px] overflow-hidden rounded-[1.2rem] border p-2 shadow-[0_18px_40px_rgba(15,23,42,0.2)] ${
-                                isActive
-                                  ? "border-[rgba(241,166,75,0.24)] bg-[linear-gradient(180deg,rgba(255,247,232,0.98),rgba(251,240,218,0.98))]"
-                                  : "border-white/12 bg-[linear-gradient(180deg,rgba(12,80,90,0.98),rgba(7,54,61,0.98))] backdrop-blur"
-                              }`}
-                            >
+                            <div className="absolute left-0 top-full z-30 mt-2 min-w-[240px] overflow-hidden rounded-[1.2rem] border border-white/12 bg-[linear-gradient(180deg,rgba(12,80,90,0.98),rgba(7,54,61,0.98))] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.2)] backdrop-blur">
                               {section.items.map((item) => {
                                 const isItemActive =
                                   item.href === "/admin"
@@ -415,9 +409,7 @@ export function AdminShell({
                                     className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
                                       isItemActive
                                         ? "bg-white/90 text-[var(--color-ink)] shadow-[0_10px_20px_rgba(15,23,42,0.08)]"
-                                        : isActive
-                                          ? "text-[var(--color-ink)] hover:bg-[rgba(23,53,61,0.08)]"
-                                          : "text-white hover:bg-[rgba(241,166,75,0.16)] hover:text-[var(--color-accent)]"
+                                        : "text-white hover:bg-[rgba(241,166,75,0.16)] hover:text-[var(--color-accent)]"
                                     }`}
                                     onClick={() => setExpandedModuleKey(null)}
                                   >
