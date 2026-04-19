@@ -764,10 +764,12 @@ function CrmClientsList({
   clients,
   canManageActions,
   onTransfer,
+  onFollowUp,
 }: {
   clients: ClientRecord[];
   canManageActions: boolean;
   onTransfer: (client: ClientRecord) => void;
+  onFollowUp: (client: ClientRecord) => void;
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
   const [actionMenuClientId, setActionMenuClientId] = useState("");
@@ -914,7 +916,17 @@ function CrmClientsList({
                             </button>
 
                             {actionMenuClientId === client.id ? (
-                              <div className="absolute right-0 top-12 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                              <div className="absolute bottom-12 right-0 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionMenuClientId("");
+                                    onFollowUp(client);
+                                  }}
+                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  Follow-Up
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1878,13 +1890,19 @@ export function AdminClientsPanel({
   );
   const [transferRequests, setTransferRequests] = useState<ClientTransferRequestRecord[]>([]);
   const [selectedTransferClient, setSelectedTransferClient] = useState<ClientRecord | null>(null);
+  const [selectedFollowUpClient, setSelectedFollowUpClient] = useState<ClientRecord | null>(null);
   const [transferToEmployeeId, setTransferToEmployeeId] = useState("");
   const [transferEffectiveFromDate, setTransferEffectiveFromDate] = useState("");
   const [transferReason, setTransferReason] = useState("");
+  const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("pending");
+  const [followUpNextDate, setFollowUpNextDate] = useState("");
+  const [followUpLastDate, setFollowUpLastDate] = useState("");
+  const [followUpNotes, setFollowUpNotes] = useState("");
   const [adminTransferNote, setAdminTransferNote] = useState("");
   const [clientForm, setClientForm] = useState<ClientFormState>(emptyClientForm);
   const [isSavingClient, setIsSavingClient] = useState(false);
   const [isSavingTransferRequest, setIsSavingTransferRequest] = useState(false);
+  const [isSavingClientFollowUp, setIsSavingClientFollowUp] = useState(false);
   const [isReviewingTransferRequest, setIsReviewingTransferRequest] = useState(false);
   const isSuperAdmin = authType === "admin" || authRole === "super-admin";
 
@@ -2123,6 +2141,58 @@ export function AdminClientsPanel({
     }
   }
 
+  async function submitClientFollowUp() {
+    if (!token || !selectedFollowUpClient) {
+      return;
+    }
+
+    if (!followUpStatus) {
+      setError("Please select the follow-up status.");
+      return;
+    }
+
+    setIsSavingClientFollowUp(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/clients/${selectedFollowUpClient.id}/follow-up`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          followUpStatus,
+          nextFollowUpDate: followUpNextDate,
+          lastFollowUpDate: followUpLastDate,
+          followUpNotes,
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to update client follow-up.");
+      }
+
+      await refreshCrm(token);
+      setSelectedFollowUpClient(null);
+      setFollowUpStatus("pending");
+      setFollowUpNextDate("");
+      setFollowUpLastDate("");
+      setFollowUpNotes("");
+      setMessage("Client follow-up details updated successfully.");
+    } catch (saveError) {
+      setError(
+        formatErrorMessage(
+          saveError instanceof Error ? saveError.message : "Unable to update client follow-up."
+        )
+      );
+    } finally {
+      setIsSavingClientFollowUp(false);
+    }
+  }
+
   async function reviewTransferRequest(id: string, status: "approved" | "rejected", note: string) {
     if (!token) {
       return;
@@ -2353,7 +2423,130 @@ export function AdminClientsPanel({
               setError("");
               setMessage("");
             }}
+            onFollowUp={(client) => {
+              setSelectedFollowUpClient(client);
+              setFollowUpStatus(client.followUpStatus || "pending");
+              setFollowUpNextDate(client.nextFollowUpDate || "");
+              setFollowUpLastDate(
+                client.lastFollowUpDate || new Date().toISOString().slice(0, 10)
+              );
+              setFollowUpNotes(client.followUpNotes || "");
+              setError("");
+              setMessage("");
+            }}
           />
+        </div>
+      ) : null}
+
+      {selectedFollowUpClient ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Client Follow-Up</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {selectedFollowUpClient.companyName}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Recruiters can save the latest follow-up stage, dates, and remarks here.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFollowUpClient(null);
+                  setFollowUpStatus("pending");
+                  setFollowUpNextDate("");
+                  setFollowUpLastDate("");
+                  setFollowUpNotes("");
+                }}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Follow-Up Status
+                </span>
+                <select
+                  className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  value={followUpStatus}
+                  onChange={(event) =>
+                    setFollowUpStatus(event.target.value as ClientFollowUpStatus)
+                  }
+                >
+                  <option value="pending">Pending</option>
+                  <option value="follow-up-due">Follow-Up Due</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="awaiting-client">Awaiting Client</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Last Follow-Up Date
+                </span>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  type="date"
+                  value={followUpLastDate}
+                  onChange={(event) => setFollowUpLastDate(event.target.value)}
+                />
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Next Follow-Up Date
+                </span>
+                <input
+                  className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  type="date"
+                  value={followUpNextDate}
+                  onChange={(event) => setFollowUpNextDate(event.target.value)}
+                />
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Follow-Up Notes
+                </span>
+                <textarea
+                  className="mt-2 min-h-[160px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  placeholder="Enter call notes, meeting updates, commitments, or next steps"
+                  value={followUpNotes}
+                  onChange={(event) => setFollowUpNotes(event.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void submitClientFollowUp()}
+                disabled={isSavingClientFollowUp}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSavingClientFollowUp ? "Saving..." : "Save Follow-Up"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFollowUpClient(null);
+                  setFollowUpStatus("pending");
+                  setFollowUpNextDate("");
+                  setFollowUpLastDate("");
+                  setFollowUpNotes("");
+                }}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 

@@ -31,6 +31,7 @@ import {
   listEmployees,
   reassignClient,
   reviewClientTransferRequest,
+  updateClientFollowUp,
   updateEmployee,
 } from "./crm.js";
 import {
@@ -1021,6 +1022,35 @@ app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) =
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to reassign client.",
+    });
+  }
+});
+
+app.put("/admin/clients/:id/follow-up", requireInternalUser, async (request, response) => {
+  try {
+    const { followUpStatus, nextFollowUpDate, lastFollowUpDate, followUpNotes } = request.body ?? {};
+
+    if (!followUpStatus) {
+      return response.status(400).json({
+        message: "Follow-up status is required.",
+      });
+    }
+
+    const client = await updateClientFollowUp(request.params.id, {
+      followUpStatus,
+      nextFollowUpDate,
+      lastFollowUpDate,
+      followUpNotes,
+    });
+
+    if (!client) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    response.json(client);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update client follow-up.",
     });
   }
 });
