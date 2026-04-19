@@ -13,6 +13,39 @@ type ReportState = {
   attendance: AttendanceSessionRecord[];
 };
 
+type AttendanceDaySummary = {
+  key: string;
+  userId?: string;
+  userIdentifier: string;
+  userName: string;
+  reportDate: string;
+  firstLoginAt: string;
+  lastLogoutAt?: string;
+  totalWorkedMs: number;
+  activeSessionCount: number;
+  sessions: AttendanceSessionRecord[];
+};
+
+function formatDateTime(value?: string) {
+  if (!value) {
+    return "Not captured";
+  }
+
+  return new Date(value).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function formatDuration(totalMs: number) {
+  const safeMs = Math.max(totalMs, 0);
+  const totalMinutes = Math.floor(safeMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${hours}h ${minutes}m`;
+}
+
 export function AdminReportsPanel() {
   const [token] = useState(
     typeof window !== "undefined"
@@ -154,6 +187,69 @@ export function AdminReportsPanel() {
     );
   }, [authEmail, authEmployeeCode, authType, state.attendance, state.employees]);
 
+  const attendanceSummary = useMemo(() => {
+    const summaries = new Map<string, AttendanceDaySummary>();
+
+    visibleAttendance.forEach((session) => {
+      const reportDate = session.loginAt.slice(0, 10);
+      const userKey = session.userId || session.userIdentifier;
+      const summaryKey = `${userKey}-${reportDate}`;
+      const existing = summaries.get(summaryKey);
+      const loginTime = new Date(session.loginAt).getTime();
+      const logoutTime = session.logoutAt ? new Date(session.logoutAt).getTime() : null;
+      const workedMs =
+        logoutTime && logoutTime >= loginTime ? logoutTime - loginTime : 0;
+
+      if (!existing) {
+        summaries.set(summaryKey, {
+          key: summaryKey,
+          userId: session.userId,
+          userIdentifier: session.userIdentifier,
+          userName: session.userName || session.userIdentifier,
+          reportDate,
+          firstLoginAt: session.loginAt,
+          lastLogoutAt: session.logoutAt,
+          totalWorkedMs: workedMs,
+          activeSessionCount: session.logoutAt ? 0 : 1,
+          sessions: [session],
+        });
+        return;
+      }
+
+      existing.sessions.push(session);
+      existing.totalWorkedMs += workedMs;
+      existing.activeSessionCount += session.logoutAt ? 0 : 1;
+
+      if (new Date(session.loginAt).getTime() < new Date(existing.firstLoginAt).getTime()) {
+        existing.firstLoginAt = session.loginAt;
+      }
+
+      if (
+        session.logoutAt &&
+        (!existing.lastLogoutAt ||
+          new Date(session.logoutAt).getTime() > new Date(existing.lastLogoutAt).getTime())
+      ) {
+        existing.lastLogoutAt = session.logoutAt;
+      }
+    });
+
+    return Array.from(summaries.values())
+      .map((summary) => ({
+        ...summary,
+        sessions: [...summary.sessions].sort(
+          (a, b) => new Date(a.loginAt).getTime() - new Date(b.loginAt).getTime()
+        ),
+      }))
+      .sort((a, b) => {
+        const dateSort = new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime();
+        if (dateSort !== 0) {
+          return dateSort;
+        }
+
+        return a.userName.localeCompare(b.userName);
+      });
+  }, [visibleAttendance]);
+
   const totals = useMemo(() => {
     const countByStage = (stage: string) =>
       state.applications.filter((application) => (application.stage ?? "applied") === stage)
@@ -195,15 +291,15 @@ export function AdminReportsPanel() {
       <section className="accent-card p-7">
         <p className="eyebrow">Attendance Log</p>
         <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-          Track login and logout time for daily attendance.
+          Track login, logout, and end-of-day worked hours.
         </h2>
         <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
-          Login and logout entries combine server audit timestamps with laptop local time so you can review attendance alongside recruiter activity.
+          This end-of-day report shows first login, last logout, total worked hours, and every in-between login/logout session for each employee.
         </p>
 
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading attendance log...</p>
-        ) : visibleAttendance.length === 0 ? (
+        ) : attendanceSummary.length === 0 ? (
           <p className="muted-copy mt-6 text-sm">No attendance records are available yet.</p>
         ) : (
           <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
@@ -213,10 +309,11 @@ export function AdminReportsPanel() {
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
                     {[
                       "Employee",
-                      "Login Time",
-                      "Laptop Login",
-                      "Logout Time",
-                      "Laptop Logout",
+                      "Date",
+                      "First Login",
+                      "Last Logout",
+                      "Worked Hours",
+                      "In-Between Sessions",
                       "Status",
                     ].map((heading) => (
                       <th
@@ -229,75 +326,91 @@ export function AdminReportsPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleAttendance.map((session, index) => (
+                  {attendanceSummary.map((summary, index) => (
                     <tr
-                      key={session.sessionId}
+                      key={summary.key}
                       className={
-                        index === visibleAttendance.length - 1
+                        index === attendanceSummary.length - 1
                           ? "align-top"
                           : "align-top border-b border-[var(--color-line)]"
                       }
                     >
                       <td className="px-4 py-4">
                         <p className="font-semibold text-[var(--color-ink)]">
-                          {session.userName || session.userIdentifier}
+                          {summary.userName}
                         </p>
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
-                          {session.userIdentifier}
+                          {summary.userIdentifier}
                         </p>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {new Date(session.loginAt).toLocaleString("en-IN", {
+                        {new Date(summary.reportDate).toLocaleDateString("en-IN", {
                           dateStyle: "medium",
-                          timeStyle: "short",
                         })}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {session.loginClientTime ? (
-                          <>
-                            <p>
-                              {new Date(session.loginClientTime).toLocaleString("en-IN", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })}
-                            </p>
-                            <p className="mt-1 text-xs">
-                              {session.loginClientTimezone || "Local timezone not shared"}
-                            </p>
-                          </>
-                        ) : (
-                          "Not captured"
-                        )}
+                        <p>{formatDateTime(summary.firstLoginAt)}</p>
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          Session start of the day
+                        </p>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {session.logoutAt
-                          ? new Date(session.logoutAt).toLocaleString("en-IN", {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })
-                          : "Active session"}
+                        <p>{formatDateTime(summary.lastLogoutAt)}</p>
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          {summary.lastLogoutAt ? "Last captured logout" : "Still logged in"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {formatDuration(summary.totalWorkedMs)}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          Based on completed login/logout pairs
+                        </p>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {session.logoutClientTime ? (
-                          <>
-                            <p>
-                              {new Date(session.logoutClientTime).toLocaleString("en-IN", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })}
-                            </p>
-                            <p className="mt-1 text-xs">
-                              {session.logoutClientTimezone || "Local timezone not shared"}
-                            </p>
-                          </>
-                        ) : (
-                          "Not captured"
-                        )}
+                        <div className="min-w-[320px] space-y-2">
+                          {summary.sessions.map((session) => (
+                            <div
+                              key={session.sessionId}
+                              className="rounded-xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-3 py-2"
+                            >
+                              <p className="font-medium text-[var(--color-ink)]">
+                                {formatDateTime(session.loginAt)} to{" "}
+                                {session.logoutAt ? formatDateTime(session.logoutAt) : "Active session"}
+                              </p>
+                              <p className="mt-1 text-xs">
+                                Worked:{" "}
+                                {session.logoutAt
+                                  ? formatDuration(
+                                      new Date(session.logoutAt).getTime() -
+                                        new Date(session.loginAt).getTime()
+                                    )
+                                  : "In progress"}
+                              </p>
+                              {(session.loginClientTime || session.logoutClientTime) ? (
+                                <p className="mt-1 text-xs">
+                                  Laptop:{" "}
+                                  {session.loginClientTime
+                                    ? formatDateTime(session.loginClientTime)
+                                    : "Not captured"}{" "}
+                                  to{" "}
+                                  {session.logoutClientTime
+                                    ? formatDateTime(session.logoutClientTime)
+                                    : "Not captured"}
+                                </p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
                       </td>
                       <td className="px-4 py-4 text-sm">
                         <span className="font-semibold text-[var(--color-accent-strong)]">
-                          {session.logoutAt ? "Logged out" : "Logged in"}
+                          {summary.activeSessionCount > 0 ? "Active session" : "Day closed"}
                         </span>
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          {summary.sessions.length} session{summary.sessions.length === 1 ? "" : "s"}
+                        </p>
                       </td>
                     </tr>
                   ))}
