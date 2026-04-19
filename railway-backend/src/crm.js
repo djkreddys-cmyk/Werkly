@@ -45,6 +45,22 @@ export async function ensureCrmSchema() {
     )
   `);
 
+  await query(`
+    create table if not exists client_transfer_requests (
+      id uuid primary key default gen_random_uuid(),
+      client_id uuid not null references clients(id) on delete cascade,
+      requested_by_employee_id uuid not null references employees(id) on delete cascade,
+      requested_to_employee_id uuid not null references employees(id) on delete cascade,
+      reason text,
+      status text not null default 'pending',
+      admin_note text,
+      reviewed_by_employee_id uuid references employees(id) on delete set null,
+      reviewed_at timestamptz,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+
   await query(`alter table clients add column if not exists agreement_file_name text`);
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
@@ -181,6 +197,25 @@ function mapClientRow(row) {
     agreementFileData: row.agreement_file_data,
     linkedJobsCount: Number(row.linked_jobs_count ?? 0),
     linkedJobs: Array.isArray(row.linked_jobs) ? row.linked_jobs : [],
+    createdAt: row.created_at,
+  };
+}
+
+function mapClientTransferRequestRow(row) {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    clientName: row.client_name,
+    requestedByEmployeeId: row.requested_by_employee_id,
+    requestedByEmployeeName: row.requested_by_employee_name,
+    requestedToEmployeeId: row.requested_to_employee_id,
+    requestedToEmployeeName: row.requested_to_employee_name,
+    reason: row.reason,
+    status: row.status,
+    adminNote: row.admin_note,
+    reviewedByEmployeeId: row.reviewed_by_employee_id,
+    reviewedByEmployeeName: row.reviewed_by_employee_name,
+    reviewedAt: row.reviewed_at,
     createdAt: row.created_at,
   };
 }
@@ -481,4 +516,154 @@ export async function createClient(payload) {
   client.linkedJobsCount = 0;
   client.linkedJobs = [];
   return client;
+}
+
+export async function createClientTransferRequest(payload) {
+  const result = await query(
+    `insert into client_transfer_requests (
+      client_id,
+      requested_by_employee_id,
+      requested_to_employee_id,
+      reason,
+      status
+    ) values ($1, $2, $3, $4, 'pending')
+    returning id, client_id, requested_by_employee_id, requested_to_employee_id, reason, status, admin_note, reviewed_by_employee_id, reviewed_at, created_at`,
+    [
+      payload.clientId,
+      payload.requestedByEmployeeId,
+      payload.requestedToEmployeeId,
+      payload.reason || null,
+    ]
+  );
+
+  const created = result.rows[0];
+  const hydrated = await query(
+    `select
+      requests.id,
+      requests.client_id,
+      clients.company_name as client_name,
+      requests.requested_by_employee_id,
+      requested_by.full_name as requested_by_employee_name,
+      requests.requested_to_employee_id,
+      requested_to.full_name as requested_to_employee_name,
+      requests.reason,
+      requests.status,
+      requests.admin_note,
+      requests.reviewed_by_employee_id,
+      reviewer.full_name as reviewed_by_employee_name,
+      requests.reviewed_at,
+      requests.created_at
+     from client_transfer_requests requests
+     join clients on clients.id = requests.client_id
+     join employees requested_by on requested_by.id = requests.requested_by_employee_id
+     join employees requested_to on requested_to.id = requests.requested_to_employee_id
+     left join employees reviewer on reviewer.id = requests.reviewed_by_employee_id
+     where requests.id = $1`,
+    [created.id]
+  );
+
+  return mapClientTransferRequestRow(hydrated.rows[0]);
+}
+
+export async function listClientTransferRequests(employeeId = null, isAdmin = false) {
+  const values = [];
+  let whereClause = "";
+
+  if (!isAdmin && employeeId) {
+    values.push(employeeId);
+    whereClause = `where requests.requested_by_employee_id = $${values.length}`;
+  }
+
+  const result = await query(
+    `select
+      requests.id,
+      requests.client_id,
+      clients.company_name as client_name,
+      requests.requested_by_employee_id,
+      requested_by.full_name as requested_by_employee_name,
+      requests.requested_to_employee_id,
+      requested_to.full_name as requested_to_employee_name,
+      requests.reason,
+      requests.status,
+      requests.admin_note,
+      requests.reviewed_by_employee_id,
+      reviewer.full_name as reviewed_by_employee_name,
+      requests.reviewed_at,
+      requests.created_at
+     from client_transfer_requests requests
+     join clients on clients.id = requests.client_id
+     join employees requested_by on requested_by.id = requests.requested_by_employee_id
+     join employees requested_to on requested_to.id = requests.requested_to_employee_id
+     left join employees reviewer on reviewer.id = requests.reviewed_by_employee_id
+     ${whereClause}
+     order by requests.created_at desc`,
+    values
+  );
+
+  return result.rows.map(mapClientTransferRequestRow);
+}
+
+export async function reviewClientTransferRequest(id, payload) {
+  const existingResult = await query(
+    `select client_id, requested_to_employee_id, status
+     from client_transfer_requests
+     where id = $1`,
+    [id]
+  );
+  const existing = existingResult.rows[0];
+  if (!existing) {
+    return null;
+  }
+
+  if (existing.status !== "pending") {
+    throw new Error("This transfer request has already been reviewed.");
+  }
+
+  if (payload.status === "approved") {
+    await query(
+      `update clients
+       set assigned_employee_id = $1,
+           updated_at = now()
+       where id = $2`,
+      [existing.requested_to_employee_id, existing.client_id]
+    );
+  }
+
+  await query(
+    `update client_transfer_requests
+     set status = $1,
+         admin_note = $2,
+         reviewed_by_employee_id = $3,
+         reviewed_at = now(),
+         updated_at = now()
+     where id = $4`,
+    [payload.status, payload.adminNote || null, payload.reviewedByEmployeeId || null, id]
+  );
+
+  const hydrated = await query(
+    `select
+      requests.id,
+      requests.client_id,
+      clients.company_name as client_name,
+      requests.requested_by_employee_id,
+      requested_by.full_name as requested_by_employee_name,
+      requests.requested_to_employee_id,
+      requested_to.full_name as requested_to_employee_name,
+      requests.reason,
+      requests.status,
+      requests.admin_note,
+      requests.reviewed_by_employee_id,
+      reviewer.full_name as reviewed_by_employee_name,
+      requests.reviewed_at,
+      requests.created_at
+     from client_transfer_requests requests
+     join clients on clients.id = requests.client_id
+     join employees requested_by on requested_by.id = requests.requested_by_employee_id
+     join employees requested_to on requested_to.id = requests.requested_to_employee_id
+     left join employees reviewer on reviewer.id = requests.reviewed_by_employee_id
+     where requests.id = $1`,
+    [id]
+  );
+
+  return mapClientTransferRequestRow(hydrated.rows[0]);
 }

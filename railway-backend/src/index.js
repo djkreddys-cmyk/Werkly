@@ -23,10 +23,13 @@ import {
   authenticateEmployee,
   changeEmployeePassword,
   createClient,
+  createClientTransferRequest,
   createEmployee,
   ensureCrmSchema,
   listClients,
+  listClientTransferRequests,
   listEmployees,
+  reviewClientTransferRequest,
   updateEmployee,
 } from "./crm.js";
 import {
@@ -968,6 +971,77 @@ app.post("/admin/clients", requireInternalUser, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to create client.",
+    });
+  }
+});
+
+app.get("/admin/client-transfer-requests", requireInternalUser, async (request, response) => {
+  try {
+    const requests = await listClientTransferRequests(
+      request.user?.type === "employee" ? request.user.id : null,
+      request.user?.type === "admin"
+    );
+    response.json({ requests });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load client transfer requests.",
+    });
+  }
+});
+
+app.post("/admin/client-transfer-requests", requireInternalUser, async (request, response) => {
+  try {
+    if (request.user?.type !== "employee" || !request.user?.id) {
+      return response.status(403).json({
+        message: "Only employee logins can request client reassignment.",
+      });
+    }
+
+    const { clientId, requestedToEmployeeId, reason } = request.body ?? {};
+    if (!clientId || !requestedToEmployeeId) {
+      return response.status(400).json({
+        message: "Client and target employee are required.",
+      });
+    }
+
+    const transferRequest = await createClientTransferRequest({
+      clientId,
+      requestedByEmployeeId: request.user.id,
+      requestedToEmployeeId,
+      reason,
+    });
+    response.status(201).json(transferRequest);
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to create client transfer request.",
+    });
+  }
+});
+
+app.put("/admin/client-transfer-requests/:id", requireAdmin, async (request, response) => {
+  try {
+    const { status, adminNote } = request.body ?? {};
+    if (!["approved", "rejected"].includes(status)) {
+      return response.status(400).json({ message: "Invalid transfer request status." });
+    }
+
+    const reviewed = await reviewClientTransferRequest(request.params.id, {
+      status,
+      adminNote,
+      reviewedByEmployeeId: null,
+    });
+
+    if (!reviewed) {
+      return response.status(404).json({ message: "Transfer request not found." });
+    }
+
+    response.json(reviewed);
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to review client transfer request.",
     });
   }
 });

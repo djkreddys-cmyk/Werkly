@@ -45,6 +45,25 @@ export type ClientRecord = {
   createdAt: string;
 };
 
+export type ClientTransferRequestStatus = "pending" | "approved" | "rejected";
+
+export type ClientTransferRequestRecord = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  requestedByEmployeeId: string;
+  requestedByEmployeeName: string;
+  requestedToEmployeeId: string;
+  requestedToEmployeeName: string;
+  reason?: string;
+  status: ClientTransferRequestStatus;
+  adminNote?: string;
+  reviewedByEmployeeId?: string;
+  reviewedByEmployeeName?: string;
+  reviewedAt?: string;
+  createdAt: string;
+};
+
 export type EmployeeFormPayload = {
   fullName: string;
   email: string;
@@ -79,6 +98,17 @@ export type ClientFormPayload = {
   agreementFileName?: string;
   agreementFileType?: string;
   agreementFileData?: string;
+};
+
+export type ClientTransferRequestPayload = {
+  clientId: string;
+  requestedToEmployeeId: string;
+  reason?: string;
+};
+
+export type ClientTransferReviewPayload = {
+  status: Exclude<ClientTransferRequestStatus, "pending">;
+  adminNote?: string;
 };
 
 function getBaseUrl() {
@@ -175,6 +205,45 @@ export async function getClients(token: string) {
 export async function createClient(payload: ClientFormPayload, token: string) {
   return readJson<ClientRecord>("/admin/clients", {
     method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getClientTransferRequests(token: string) {
+  const data = await readJson<
+    { requests: ClientTransferRequestRecord[] } | ClientTransferRequestRecord[]
+  >("/admin/client-transfer-requests", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return Array.isArray(data) ? data : data.requests;
+}
+
+export async function createClientTransferRequest(
+  payload: ClientTransferRequestPayload,
+  token: string
+) {
+  return readJson<ClientTransferRequestRecord>("/admin/client-transfer-requests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function reviewClientTransferRequest(
+  id: string,
+  payload: ClientTransferReviewPayload,
+  token: string
+) {
+  return readJson<ClientTransferRequestRecord>(`/admin/client-transfer-requests/${id}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
     headers: {
       Authorization: `Bearer ${token}`,

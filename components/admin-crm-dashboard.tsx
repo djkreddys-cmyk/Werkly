@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   ClientRecord,
   ClientStatus,
+  ClientTransferRequestRecord,
   EmployeeRecord,
   EmployeeStatus,
 } from "@/lib/crm";
@@ -584,6 +585,128 @@ function CrmClientsList({ clients }: { clients: ClientRecord[] }) {
                         </a>
                       ) : (
                         "Not uploaded"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CrmClientTransferRequests({
+  requests,
+  isAdmin,
+  adminNote,
+  setAdminNote,
+  onApprove,
+  onReject,
+}: {
+  requests: ClientTransferRequestRecord[];
+  isAdmin: boolean;
+  adminNote: string;
+  setAdminNote: (value: string) => void;
+  onApprove: (id: string, note: string) => void;
+  onReject: (id: string, note: string) => void;
+}) {
+  return (
+    <section className="accent-card p-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="eyebrow">Client Transfer Requests</p>
+          <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            Reassignment requests with approval control
+          </h3>
+        </div>
+        <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+          {requests.length} requests
+        </span>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
+        {requests.length === 0 ? (
+          <p className="muted-copy p-5 text-sm">No client transfer requests yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                  {["Client", "Requested By", "Transfer To", "Reason", "Status", "Actions"].map((heading) => (
+                    <th
+                      key={heading}
+                      className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((request, index) => (
+                  <tr
+                    key={request.id}
+                    className={
+                      index === requests.length - 1
+                        ? "align-top"
+                        : "align-top border-b border-[var(--color-line)]"
+                    }
+                  >
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {request.clientName}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {request.requestedByEmployeeName}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {request.requestedToEmployeeName}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {request.reason || "No reason added"}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      <span className="rounded-full bg-[rgba(241,166,75,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
+                        {request.status}
+                      </span>
+                      {request.adminNote ? (
+                        <p className="mt-2 max-w-[260px] text-xs">{request.adminNote}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-4">
+                      {isAdmin && request.status === "pending" ? (
+                        <div className="flex min-w-[260px] flex-col gap-3">
+                          <textarea
+                            value={adminNote}
+                            onChange={(event) => setAdminNote(event.target.value)}
+                            placeholder="Add approval note"
+                            className="min-h-[88px] rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                          />
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => onApprove(request.id, adminNote)}
+                              className="rounded-xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onReject(request.id, adminNote)}
+                              className="rounded-xl border border-[rgba(190,72,26,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-[var(--color-muted)]">
+                          {request.reviewedAt
+                            ? `Reviewed ${new Date(request.reviewedAt).toLocaleDateString("en-IN")}`
+                            : "Waiting for Super Admin"}
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -1208,13 +1331,62 @@ export function AdminClientsPanel({
     setError,
     refreshCrm,
   } = useAdminCrmData();
+  const [authType] = useState(() =>
+    typeof window === "undefined"
+      ? "admin"
+      : window.localStorage.getItem("werklyAuthType") ?? "admin"
+  );
+  const [authRole] = useState(() =>
+    typeof window === "undefined"
+      ? "super-admin"
+      : window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
+  );
+  const [transferRequests, setTransferRequests] = useState<ClientTransferRequestRecord[]>([]);
+  const [selectedTransferClient, setSelectedTransferClient] = useState<ClientRecord | null>(null);
+  const [transferToEmployeeId, setTransferToEmployeeId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [adminTransferNote, setAdminTransferNote] = useState("");
   const [clientForm, setClientForm] = useState<ClientFormState>(emptyClientForm);
   const [isSavingClient, setIsSavingClient] = useState(false);
+  const [isSavingTransferRequest, setIsSavingTransferRequest] = useState(false);
+  const [isReviewingTransferRequest, setIsReviewingTransferRequest] = useState(false);
+  const isSuperAdmin = authType === "admin" || authRole === "super-admin";
 
   const employeeOptions = useMemo(
     () => employees.filter((employee) => employee.status === "active"),
     [employees]
   );
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    fetch("/api/admin/client-transfer-requests", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          requests?: ClientTransferRequestRecord[];
+          message?: string;
+        };
+        if (!response.ok) {
+          throw new Error(result.message || "Unable to load client transfer requests.");
+        }
+        setTransferRequests(result.requests ?? []);
+      })
+      .catch((loadError) => {
+        setError(
+          formatErrorMessage(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load client transfer requests."
+          )
+        );
+      });
+  }, [setError, token]);
 
   function updateClientField(field: keyof ClientFormState, value: string) {
     setClientForm((current) => ({ ...current, [field]: value }));
@@ -1307,6 +1479,122 @@ export function AdminClientsPanel({
       );
     } finally {
       setIsSavingClient(false);
+    }
+  }
+
+  async function refreshTransferRequests() {
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch("/api/admin/client-transfer-requests", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const result = (await response.json()) as {
+      requests?: ClientTransferRequestRecord[];
+      message?: string;
+    };
+    if (!response.ok) {
+      throw new Error(result.message || "Unable to refresh client transfer requests.");
+    }
+    setTransferRequests(result.requests ?? []);
+  }
+
+  async function submitTransferRequest() {
+    if (!token || !selectedTransferClient) {
+      return;
+    }
+
+    if (!transferToEmployeeId) {
+      setError("Please select the employee to transfer this client to.");
+      return;
+    }
+
+    setIsSavingTransferRequest(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/client-transfer-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          clientId: selectedTransferClient.id,
+          requestedToEmployeeId: transferToEmployeeId,
+          reason: transferReason,
+        }),
+      });
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to submit client transfer request.");
+      }
+
+      await refreshTransferRequests();
+      setSelectedTransferClient(null);
+      setTransferToEmployeeId("");
+      setTransferReason("");
+      setMessage("Client transfer request submitted for Super Admin approval.");
+    } catch (requestError) {
+      setError(
+        formatErrorMessage(
+          requestError instanceof Error
+            ? requestError.message
+            : "Unable to submit client transfer request."
+        )
+      );
+    } finally {
+      setIsSavingTransferRequest(false);
+    }
+  }
+
+  async function reviewTransferRequest(id: string, status: "approved" | "rejected", note: string) {
+    if (!token) {
+      return;
+    }
+
+    setIsReviewingTransferRequest(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/client-transfer-requests/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status,
+          adminNote: note,
+        }),
+      });
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to review client transfer request.");
+      }
+
+      await Promise.all([refreshCrm(token), refreshTransferRequests()]);
+      setAdminTransferNote("");
+      setMessage(
+        status === "approved"
+          ? "Client transfer approved and ownership updated."
+          : "Client transfer request rejected."
+      );
+    } catch (reviewError) {
+      setError(
+        formatErrorMessage(
+          reviewError instanceof Error
+            ? reviewError.message
+            : "Unable to review client transfer request."
+        )
+      );
+    } finally {
+      setIsReviewingTransferRequest(false);
     }
   }
 
@@ -1442,6 +1730,80 @@ export function AdminClientsPanel({
         <div id="existing-clients" className="scroll-mt-28">
           <CrmClientsList clients={clients} />
         </div>
+      ) : null}
+
+      {viewMode !== "new" && !isSuperAdmin ? (
+        <section className="accent-card p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="eyebrow">Transfer Client</p>
+              <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+                Request client reassignment with Super Admin approval
+              </h3>
+            </div>
+          </div>
+
+          <CrmFeedback message={message} error={error} />
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <select
+              value={selectedTransferClient?.id ?? ""}
+              onChange={(event) =>
+                setSelectedTransferClient(
+                  clients.find((client) => client.id === event.target.value) ?? null
+                )
+              }
+              className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="">Select your client</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.companyName}
+                </option>
+              ))}
+            </select>
+            <select
+              value={transferToEmployeeId}
+              onChange={(event) => setTransferToEmployeeId(event.target.value)}
+              className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="">Transfer to employee</option>
+              {employeeOptions.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.fullName} - {employee.role}
+                </option>
+              ))}
+            </select>
+            <textarea
+              value={transferReason}
+              onChange={(event) => setTransferReason(event.target.value)}
+              placeholder="Reason for client reassignment"
+              className="min-h-[120px] rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)] sm:col-span-2"
+            />
+          </div>
+
+          <div className="mt-5">
+            <button
+              type="button"
+              disabled={isSavingTransferRequest}
+              onClick={() => void submitTransferRequest()}
+              className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSavingTransferRequest ? "Submitting..." : "Request Transfer Approval"}
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {viewMode !== "new" ? (
+        <CrmClientTransferRequests
+          requests={transferRequests}
+          isAdmin={isSuperAdmin && !isReviewingTransferRequest ? true : isSuperAdmin}
+          adminNote={adminTransferNote}
+          setAdminNote={setAdminTransferNote}
+          onApprove={(id, note) => void reviewTransferRequest(id, "approved", note)}
+          onReject={(id, note) => void reviewTransferRequest(id, "rejected", note)}
+        />
       ) : null}
     </section>
   );

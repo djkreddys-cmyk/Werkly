@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type JobApplication,
   type JobApplicationStage,
@@ -37,7 +37,18 @@ function safeCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
+function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <circle cx="10" cy="4.5" r="1.5" />
+      <circle cx="10" cy="10" r="1.5" />
+      <circle cx="10" cy="15.5" r="1.5" />
+    </svg>
+  );
+}
+
 export function AdminCandidatesPanel() {
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -49,6 +60,7 @@ export function AdminCandidatesPanel() {
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [isUpdatingId, setIsUpdatingId] = useState("");
+  const [actionMenuApplicationId, setActionMenuApplicationId] = useState("");
   const [stageDraft, setStageDraft] = useState<{
     application: JobApplication;
     stage: JobApplicationStage;
@@ -83,6 +95,24 @@ export function AdminCandidatesPanel() {
       })
       .finally(() => setIsLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        actionsMenuRef.current &&
+        !actionsMenuRef.current.contains(event.target as Node)
+      ) {
+        setActionMenuApplicationId("");
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   const filteredApplications = useMemo(() => {
     return applications.filter((application) => {
@@ -174,6 +204,7 @@ export function AdminCandidatesPanel() {
     application: JobApplication,
     nextStage: JobApplicationStage = (application.stage ?? "applied") as JobApplicationStage
   ) {
+    setActionMenuApplicationId("");
     setStageDraft({
       application,
       stage: nextStage,
@@ -346,6 +377,7 @@ export function AdminCandidatesPanel() {
                       "Resume",
                       "Stage",
                       "Applied Date",
+                      "Actions",
                     ].map((heading) => (
                       <th
                         key={heading}
@@ -449,19 +481,65 @@ export function AdminCandidatesPanel() {
                             {new Date(application.stageDate).toLocaleDateString("en-IN")}
                           </p>
                         ) : null}
-                        <button
-                          type="button"
-                          onClick={() => openStageEditor(application)}
-                          className="mt-3 rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.05)]"
-                        >
-                          Edit Stage
-                        </button>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {new Date(application.appliedAt).toLocaleString("en-IN", {
                           dateStyle: "medium",
                           timeStyle: "short",
                         })}
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <div
+                          className="relative inline-flex"
+                          ref={
+                            actionMenuApplicationId === application.id ? actionsMenuRef : null
+                          }
+                        >
+                          <button
+                            type="button"
+                            aria-label={`Open actions for ${application.candidateName}`}
+                            aria-expanded={actionMenuApplicationId === application.id}
+                            onClick={() =>
+                              setActionMenuApplicationId((current) =>
+                                current === application.id ? "" : application.id
+                              )
+                            }
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
+                          >
+                            <MoreVerticalIcon />
+                          </button>
+
+                          {actionMenuApplicationId === application.id ? (
+                            <div className="absolute right-0 top-12 z-20 min-w-[210px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                              <button
+                                type="button"
+                                onClick={() => openStageEditor(application)}
+                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                              >
+                                Edit Stage
+                              </button>
+                              {application.resumeFileData && application.resumeFileName ? (
+                                <a
+                                  href={application.resumeFileData}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  View Resume
+                                </a>
+                              ) : null}
+                              {application.resumeFileData && application.resumeFileName ? (
+                                <a
+                                  href={application.resumeFileData}
+                                  download={application.resumeFileName}
+                                  className="flex rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
+                                >
+                                  Download Resume
+                                </a>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
