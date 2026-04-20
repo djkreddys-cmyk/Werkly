@@ -99,6 +99,20 @@ export type ClientFollowUpHistoryRecord = {
   createdAt: string;
 };
 
+export type ClientActivityRecord = {
+  id: string;
+  clientId: string;
+  type: "onboarding" | "follow-up" | "transfer-request" | "transfer-reviewed" | "job-linked";
+  title: string;
+  summary?: string;
+  actorName?: string;
+  actorRole?: string;
+  fromStatus?: string;
+  toStatus?: string;
+  effectiveDate?: string;
+  createdAt: string;
+};
+
 export type ClientTransferRequestStatus = "pending" | "approved" | "rejected";
 
 export type ClientTransferRequestRecord = {
@@ -302,9 +316,22 @@ export async function updateClientFollowUp(
 }
 
 export async function getClientFollowUpHistory(id: string, token: string) {
+  const data = await readJson<{ history: ClientActivityRecord[] } | ClientActivityRecord[]>(
+    `/admin/clients/${id}/history`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Array.isArray(data) ? data : data.history;
+}
+
+export async function getClientFollowUpEntries(id: string, token: string) {
   const data = await readJson<
     { history: ClientFollowUpHistoryRecord[] } | ClientFollowUpHistoryRecord[]
-  >(`/admin/clients/${id}/history`, {
+  >(`/admin/clients/${id}/history/follow-ups`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

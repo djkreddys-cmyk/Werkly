@@ -221,6 +221,22 @@ function mapClientFollowUpHistoryRow(row) {
   };
 }
 
+function mapClientActivityRow(row) {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    type: row.activity_type,
+    title: row.activity_title,
+    summary: row.activity_summary,
+    actorName: row.actor_name,
+    actorRole: row.actor_role,
+    fromStatus: row.from_status,
+    toStatus: row.to_status,
+    effectiveDate: row.effective_date,
+    createdAt: row.created_at,
+  };
+}
+
 function formatEmployeeCode(date, sequenceNumber) {
   const year = String(date.getUTCFullYear()).slice(-2);
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -926,6 +942,107 @@ export async function listClientFollowUpHistory(clientId) {
   );
 
   return result.rows.map(mapClientFollowUpHistoryRow);
+}
+
+export async function listClientActivity(clientId) {
+  const result = await query(
+    `select *
+     from (
+       select
+         'onboarding-' || clients.id::text as id,
+         clients.id as client_id,
+         'onboarding' as activity_type,
+         'Client onboarded' as activity_title,
+         coalesce(clients.notes, 'Client account was created in CRM.') as activity_summary,
+         employees.full_name as actor_name,
+         employees.role as actor_role,
+         null::text as from_status,
+         clients.onboarding_status as to_status,
+         clients.created_at::date as effective_date,
+         clients.created_at
+       from clients
+       left join employees on employees.id = clients.assigned_employee_id
+       where clients.id = $1
+
+       union all
+
+       select
+         history.id::text as id,
+         history.client_id,
+         'follow-up' as activity_type,
+         'Follow-up updated' as activity_title,
+         history.notes as activity_summary,
+         history.actor_name,
+         history.actor_role,
+         history.from_status,
+         history.to_status,
+         coalesce(history.next_follow_up_date, history.last_follow_up_date) as effective_date,
+         history.created_at
+       from client_follow_up_history history
+       where history.client_id = $1
+
+       union all
+
+       select
+         'transfer-request-' || requests.id::text as id,
+         requests.client_id,
+         'transfer-request' as activity_type,
+         'Transfer requested' as activity_title,
+         coalesce(requests.reason, 'Client transfer request raised.') as activity_summary,
+         requested_by.full_name as actor_name,
+         requested_by.role as actor_role,
+         requested_by.full_name as from_status,
+         requested_to.full_name as to_status,
+         requests.effective_from_date as effective_date,
+         requests.created_at
+       from client_transfer_requests requests
+       join employees requested_by on requested_by.id = requests.requested_by_employee_id
+       join employees requested_to on requested_to.id = requests.requested_to_employee_id
+       where requests.client_id = $1
+
+       union all
+
+       select
+         'transfer-reviewed-' || requests.id::text as id,
+         requests.client_id,
+         'transfer-reviewed' as activity_type,
+         case when requests.status = 'approved' then 'Transfer approved' else 'Transfer reviewed' end as activity_title,
+         coalesce(requests.admin_note, requests.reason, 'Transfer request was reviewed.') as activity_summary,
+         reviewer.full_name as actor_name,
+         reviewer.role as actor_role,
+         requests.status as from_status,
+         requested_to.full_name as to_status,
+         requests.effective_from_date as effective_date,
+         coalesce(requests.reviewed_at, requests.created_at) as created_at
+       from client_transfer_requests requests
+       left join employees reviewer on reviewer.id = requests.reviewed_by_employee_id
+       join employees requested_to on requested_to.id = requests.requested_to_employee_id
+       where requests.client_id = $1
+         and requests.status <> 'pending'
+
+       union all
+
+       select
+         'job-linked-' || jobs.id::text as id,
+         jobs.client_id,
+         'job-linked' as activity_type,
+         'Job linked to client' as activity_title,
+         jobs.title as activity_summary,
+         employees.full_name as actor_name,
+         employees.role as actor_role,
+         null::text as from_status,
+         jobs.job_code as to_status,
+         jobs.posted_at as effective_date,
+         jobs.created_at
+       from jobs
+       left join employees on employees.id = jobs.assigned_employee_id
+       where jobs.client_id = $1
+     ) activity
+     order by created_at desc`,
+    [clientId]
+  );
+
+  return result.rows.map(mapClientActivityRow);
 }
 
 export async function createClientTransferRequest(payload) {

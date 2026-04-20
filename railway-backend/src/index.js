@@ -26,6 +26,7 @@ import {
   createClientTransferRequest,
   createEmployee,
   ensureCrmSchema,
+  listClientActivity,
   getClientById,
   listClientFollowUpHistory,
   listClients,
@@ -1049,6 +1050,31 @@ app.get("/admin/clients/:id/history", requireInternalUser, async (request, respo
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load client history.",
+    });
+  }
+});
+
+app.get("/admin/clients/:id/activity", requireInternalUser, async (request, response) => {
+  try {
+    const client = await getClientById(request.params.id);
+
+    if (!client) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    if (
+      request.user?.type === "employee" &&
+      request.user?.id &&
+      client.assignedEmployeeId !== request.user.id
+    ) {
+      return response.status(403).json({ message: "You do not have access to this client." });
+    }
+
+    const activity = await listClientActivity(request.params.id);
+    response.json({ activity });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load client activity.",
     });
   }
 });

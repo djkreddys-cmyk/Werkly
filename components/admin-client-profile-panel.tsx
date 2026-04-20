@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import type {
+  ClientActivityRecord,
   ClientFollowUpHistoryRecord,
   ClientFollowUpStatus,
   ClientRecord,
@@ -67,6 +68,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   );
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [history, setHistory] = useState<ClientFollowUpHistoryRecord[]>([]);
+  const [activity, setActivity] = useState<ClientActivityRecord[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -88,11 +90,18 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
       fetch(`/api/admin/clients/${clientId}/history`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch(`/api/admin/clients/${clientId}/activity`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([clientResponse, historyResponse]) => {
+      .then(async ([clientResponse, historyResponse, activityResponse]) => {
         const clientResult = (await clientResponse.json()) as ClientRecord & { message?: string };
         const historyResult = (await historyResponse.json()) as {
           history?: ClientFollowUpHistoryRecord[];
+          message?: string;
+        };
+        const activityResult = (await activityResponse.json()) as {
+          activity?: ClientActivityRecord[];
           message?: string;
         };
 
@@ -103,9 +112,13 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
         if (!historyResponse.ok) {
           throw new Error(historyResult.message || "Unable to load client history.");
         }
+        if (!activityResponse.ok) {
+          throw new Error(activityResult.message || "Unable to load client activity.");
+        }
 
         setClient(clientResult);
         setHistory(historyResult.history ?? []);
+        setActivity(activityResult.activity ?? []);
         setFollowUpStatus(clientResult.followUpStatus || "pending");
         setLastFollowUpDate(clientResult.lastFollowUpDate || "");
         setNextFollowUpDate(clientResult.nextFollowUpDate || "");
@@ -162,13 +175,23 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
       const historyResponse = await fetch(`/api/admin/clients/${client.id}/history`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      const activityResponse = await fetch(`/api/admin/clients/${client.id}/activity`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const historyResult = (await historyResponse.json()) as {
         history?: ClientFollowUpHistoryRecord[];
+        message?: string;
+      };
+      const activityResult = (await activityResponse.json()) as {
+        activity?: ClientActivityRecord[];
         message?: string;
       };
 
       if (historyResponse.ok) {
         setHistory(historyResult.history ?? []);
+      }
+      if (activityResponse.ok) {
+        setActivity(activityResult.activity ?? []);
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save follow-up.");
@@ -482,13 +505,13 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
             ))}
           </div>
 
-          {history.length === 0 ? (
+          {activity.length === 0 ? (
             <div className="mt-6 rounded-[1.25rem] border border-[var(--color-line)] bg-white p-5">
-              <p className="muted-copy text-sm">No follow-up history is available yet.</p>
+              <p className="muted-copy text-sm">No client activity is available yet.</p>
             </div>
           ) : (
             <div className="mt-6 space-y-4">
-              {history.map((entry) => (
+              {activity.map((entry) => (
                 <article
                   key={entry.id}
                   className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4"
@@ -504,44 +527,44 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
                     </div>
                     <FollowUpStatusPill status={entry.toStatus} />
                   </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                        Changed
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--color-ink)]">
-                        {entry.fromStatus
-                          ? `${formatFollowUpStage(entry.fromStatus)} -> ${formatFollowUpStage(entry.toStatus)}`
-                          : formatFollowUpStage(entry.toStatus)}
-                      </p>
-                    </div>
-                    <div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                        Activity
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                        {entry.title}
+                        </p>
+                      </div>
+                      <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                         Updated On
                       </p>
-                      <p className="mt-1 text-sm text-[var(--color-ink)]">
-                        {formatDateTimeLabel(entry.createdAt)}
-                      </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                          {formatDateTimeLabel(entry.createdAt)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                        Stage / Change
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                        {entry.fromStatus
+                          ? `${formatFollowUpStage(entry.fromStatus)} -> ${formatFollowUpStage(entry.toStatus)}`
+                          : formatFollowUpStage(entry.toStatus)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                        Effective Date
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                        {formatDateLabel(entry.effectiveDate)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                        Last Follow-Up
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--color-ink)]">
-                        {formatDateLabel(entry.lastFollowUpDate)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                        Next Follow-Up
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--color-ink)]">
-                        {formatDateLabel(entry.nextFollowUpDate)}
-                      </p>
-                    </div>
-                  </div>
                   <div className="mt-4 rounded-2xl bg-[rgba(8,96,108,0.03)] px-4 py-3 text-sm leading-6 text-[var(--color-muted)]">
-                    {entry.notes || "No remarks added for this follow-up update."}
+                    {entry.summary || "No remarks added for this activity."}
                   </div>
                 </article>
               ))}

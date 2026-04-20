@@ -28,6 +28,59 @@ type FollowUpItem = {
   sector?: string;
 };
 
+function escapeExcelCell(value: string | number | undefined | null) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function downloadExcelReport(
+  filename: string,
+  sheetTitle: string,
+  headings: string[],
+  rows: Array<Array<string | number | undefined | null>>
+) {
+  const tableHead = headings.map((heading) => `<th>${escapeExcelCell(heading)}</th>`).join("");
+  const tableRows = rows
+    .map(
+      (row) =>
+        `<tr>${row.map((cell) => `<td>${escapeExcelCell(cell)}</td>`).join("")}</tr>`
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+      th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+      th { background: #eaf2f4; font-weight: 700; }
+      h1 { font-family: Arial, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeExcelCell(sheetTitle)}</h1>
+    <table>
+      <thead><tr>${tableHead}</tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  </body>
+</html>`;
+
+  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename.endsWith(".xls") ? filename : `${filename}.xls`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
 function formatDateLabel(value?: string) {
   if (!value) {
     return "No deadline";
@@ -539,6 +592,62 @@ export function AdminDashboardOverview() {
   ]);
 
   const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
+  const reminderItems = useMemo(
+    () => [
+      {
+        label: "Overdue Follow-Ups",
+        value: metrics.overdueFollowUps,
+        detail:
+          metrics.overdueFollowUps > 0
+            ? "These client commitments need immediate action."
+            : "No overdue client follow-ups right now.",
+      },
+      {
+        label: "Due Today",
+        value: metrics.dueTodayFollowUps,
+        detail:
+          metrics.dueTodayFollowUps > 0
+            ? "Follow-ups scheduled for today are ready for review."
+            : "No client follow-ups are due today.",
+      },
+      {
+        label: "Closed This View",
+        value: filteredFollowUps.filter((item) => item.followUpStatus === "closed").length,
+        detail: "Completed follow-ups in the current dashboard view.",
+      },
+    ],
+    [filteredFollowUps, metrics.dueTodayFollowUps, metrics.overdueFollowUps]
+  );
+  const employeeProductivity = useMemo(
+    () =>
+      visibleEmployees
+        .filter((employee) => employee.status === "active")
+        .map((employee) => {
+          const employeeClients = visibleClients.filter(
+            (client) => client.assignedEmployeeId === employee.id
+          );
+          const employeeJobs = visibleJobs.filter((job) => job.recruiterId === employee.id);
+          const employeeApplications = visibleApplications.filter((application) =>
+            employee.email
+              ? application.recruiterEmail === employee.email ||
+                employeeJobs.some((job) => job.id === application.jobId)
+              : employeeJobs.some((job) => job.id === application.jobId)
+          );
+          const employeeFollowUps = followUpItems.filter((item) => item.ownerId === employee.id);
+
+          return {
+            id: employee.id,
+            fullName: employee.fullName,
+            clients: employeeClients.length,
+            jobs: employeeJobs.length,
+            applications: employeeApplications.length,
+            followUps: employeeFollowUps.length,
+          };
+        })
+        .sort((a, b) => b.followUps - a.followUps)
+        .slice(0, isAdminView ? 6 : 1),
+    [followUpItems, isAdminView, visibleApplications, visibleClients, visibleEmployees, visibleJobs]
+  );
 
   if (!token) {
     return (
@@ -562,6 +671,16 @@ export function AdminDashboardOverview() {
 
   return (
     <div className="space-y-6">
+      <section className="grid gap-4 md:grid-cols-3">
+        {reminderItems.map((item) => (
+          <article key={item.label} className="accent-card p-5">
+            <p className="eyebrow">{item.label}</p>
+            <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">{item.value}</p>
+            <p className="muted-copy mt-3 text-sm leading-6">{item.detail}</p>
+          </article>
+        ))}
+      </section>
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {[
           {
@@ -618,15 +737,38 @@ export function AdminDashboardOverview() {
 
       <section className="grid items-stretch gap-5 xl:grid-cols-[1.08fr_0.92fr]">
         <article ref={queueSectionRef} className="accent-card flex h-full flex-col p-5">
-          <div className="min-h-[112px]">
-            <p className="eyebrow">Upcoming Follow-Ups</p>
-            <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)]">
-              Prioritized follow-up queue
-            </h2>
-            <p className="muted-copy mt-1.5 text-sm leading-5">
-              Review the next scheduled client follow-ups and open the selected date directly from
-              the queue.
-            </p>
+          <div className="flex min-h-[112px] items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow">Upcoming Follow-Ups</p>
+              <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)]">
+                Prioritized follow-up queue
+              </h2>
+              <p className="muted-copy mt-1.5 text-sm leading-5">
+                Review the next scheduled client follow-ups and open the selected date directly from
+                the queue.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                downloadExcelReport(
+                  "dashboard-followups.xls",
+                  "Dashboard Follow-Up Queue",
+                  ["Client", "Owner", "Status", "Next Follow-Up", "Contact", "Notes"],
+                  upcomingFollowUps.map((item) => [
+                    item.clientName,
+                    item.ownerName,
+                    formatFollowUpStage(item.followUpStatus),
+                    formatDateLabel(item.nextFollowUpDate),
+                    item.contactPhone || item.contactEmail || item.contactPerson,
+                    item.notes || "No notes added",
+                  ])
+                )
+              }
+              className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+            >
+              Export Queue
+            </button>
           </div>
 
           {isLoading ? (
@@ -991,6 +1133,90 @@ export function AdminDashboardOverview() {
                   </p>
                 </div>
               ))}
+            </div>
+          )}
+        </article>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
+        <article className="accent-card p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="eyebrow">
+                {isAdminView ? "Recruiter Productivity" : "My Productivity"}
+              </p>
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+                {isAdminView
+                  ? "Client ownership, jobs, and applications by recruiter"
+                  : "Your current workload inside the CRM"}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                downloadExcelReport(
+                  "recruiter-productivity.xls",
+                  "Recruiter Productivity",
+                  ["Employee", "Clients", "Jobs", "Applications", "Follow-Ups"],
+                  employeeProductivity.map((row) => [
+                    row.fullName,
+                    row.clients,
+                    row.jobs,
+                    row.applications,
+                    row.followUps,
+                  ])
+                )
+              }
+              className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+            >
+              Export Productivity
+            </button>
+          </div>
+
+          {employeeProductivity.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No productivity data is available yet.</p>
+          ) : (
+            <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[var(--color-line)]">
+              <table className="w-full border-collapse bg-white">
+                <thead>
+                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                    {["Employee", "Clients", "Jobs", "Applications", "Follow-Ups"].map(
+                      (heading) => (
+                        <th
+                          key={heading}
+                          className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        >
+                          {heading}
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {employeeProductivity.map((row, index) => (
+                    <tr
+                      key={row.id}
+                      className={
+                        index === employeeProductivity.length - 1
+                          ? "align-top"
+                          : "align-top border-b border-[var(--color-line)]"
+                      }
+                    >
+                      <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
+                        {row.fullName}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.clients}</td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.jobs}</td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {row.applications}
+                      </td>
+                      <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                        {row.followUps}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </article>
