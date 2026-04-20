@@ -686,9 +686,9 @@ export function AdminCandidatesPanel() {
                           timeStyle: "short",
                         })}
                       </td>
-                      <td className="px-4 py-4 align-top">
+                      <td className="relative px-4 py-4 align-middle text-right">
                         <div
-                          className="relative flex justify-end"
+                          className="relative inline-flex items-center justify-end"
                           ref={
                             actionMenuApplicationId === application.id ? actionsMenuRef : null
                           }
@@ -708,7 +708,7 @@ export function AdminCandidatesPanel() {
                           </button>
 
                           {actionMenuApplicationId === application.id ? (
-                            <div className="absolute right-14 top-1/2 z-20 min-w-[210px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                            <div className="absolute right-[calc(100%+0.75rem)] top-1/2 z-30 min-w-[210px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
                               <button
                                 type="button"
                                 onClick={() => openStageEditor(application)}
