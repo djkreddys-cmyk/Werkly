@@ -44,6 +44,30 @@ export async function ensureAuthAuditSchema() {
       unique(session_id, route_path)
     )
   `);
+
+  await query(`
+    create table if not exists crm_audit_logs (
+      id bigserial primary key,
+      action_type text not null,
+      entity_type text not null,
+      entity_id text not null,
+      actor_type text not null,
+      actor_id uuid,
+      actor_identifier text,
+      actor_name text,
+      actor_role text,
+      before_data jsonb not null default '{}'::jsonb,
+      after_data jsonb not null default '{}'::jsonb,
+      metadata jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now()
+    )
+  `);
+  await query(
+    `create index if not exists idx_crm_audit_logs_entity on crm_audit_logs(entity_type, entity_id, created_at desc)`
+  );
+  await query(
+    `create index if not exists idx_crm_audit_logs_actor on crm_audit_logs(actor_id, created_at desc)`
+  );
 }
 
 export async function recordLoginSession(payload) {
@@ -248,4 +272,88 @@ export async function listScreenActivity(userId = null) {
   );
 
   return result.rows.map(mapScreenActivityRow);
+}
+
+function mapCrmAuditRow(row) {
+  return {
+    id: Number(row.id),
+    actionType: row.action_type,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    actorType: row.actor_type,
+    actorId: row.actor_id,
+    actorIdentifier: row.actor_identifier,
+    actorName: row.actor_name,
+    actorRole: row.actor_role,
+    beforeData: row.before_data || {},
+    afterData: row.after_data || {},
+    metadata: row.metadata || {},
+    createdAt: row.created_at,
+  };
+}
+
+export async function createAuditLog(payload) {
+  const result = await query(
+    `insert into crm_audit_logs (
+      action_type,
+      entity_type,
+      entity_id,
+      actor_type,
+      actor_id,
+      actor_identifier,
+      actor_name,
+      actor_role,
+      before_data,
+      after_data,
+      metadata
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb)
+    returning *`,
+    [
+      payload.actionType,
+      payload.entityType,
+      String(payload.entityId),
+      payload.actorType || "internal-user",
+      payload.actorId || null,
+      payload.actorIdentifier || null,
+      payload.actorName || null,
+      payload.actorRole || null,
+      JSON.stringify(payload.beforeData || {}),
+      JSON.stringify(payload.afterData || {}),
+      JSON.stringify(payload.metadata || {}),
+    ]
+  );
+
+  return mapCrmAuditRow(result.rows[0]);
+}
+
+export async function listAuditLogs({ entityType = null, entityId = null, actorId = null, limit = 100 } = {}) {
+  const values = [];
+  const filters = [];
+
+  if (entityType) {
+    values.push(entityType);
+    filters.push(`entity_type = $${values.length}`);
+  }
+  if (entityId) {
+    values.push(String(entityId));
+    filters.push(`entity_id = $${values.length}`);
+  }
+  if (actorId) {
+    values.push(actorId);
+    filters.push(`actor_id = $${values.length}`);
+  }
+
+  values.push(Math.max(1, Math.min(500, Number(limit || 100))));
+
+  const whereClause = filters.length > 0 ? `where ${filters.join(" and ")}` : "";
+  const result = await query(
+    `select *
+     from crm_audit_logs
+     ${whereClause}
+     order by created_at desc
+     limit $${values.length}`,
+    values
+  );
+
+  return result.rows.map(mapCrmAuditRow);
 }

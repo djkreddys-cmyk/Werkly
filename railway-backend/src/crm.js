@@ -503,6 +503,18 @@ export async function listEmployees() {
   return result.rows.map(mapEmployeeRow);
 }
 
+export async function getEmployeeById(id) {
+  const result = await query(
+    `select id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at
+     from employees
+     where id = $1
+     limit 1`,
+    [id]
+  );
+
+  return result.rows[0] ? mapEmployeeRow(result.rows[0]) : null;
+}
+
 export async function createEmployee(payload) {
   const client = await pool.connect();
 
@@ -710,7 +722,10 @@ export async function listClients(employeeId = null) {
   const employeeScopeClause = employeeId
     ? (() => {
         values.push(employeeId);
-        return `where clients.assigned_employee_id = $${values.length}`;
+        return `where (
+          clients.assigned_employee_id = $${values.length}
+          or clients.follow_up_employee_id = $${values.length}
+        )`;
       })()
     : "";
 

@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { buildEmployeeScope, hasPermission } from "./permissions.js";
 
 function getAdminEmail() {
   const email = process.env.ADMIN_EMAIL;
@@ -101,10 +102,23 @@ export function requirePasswordChangeEligibleUser(request, response, next) {
 
 export function requireAdmin(request, response, next) {
   return authenticateInternalUser(request, response, () => {
-    if (request.user?.type !== "admin") {
+    if (!buildEmployeeScope(request.user).isAdmin) {
       return response.status(403).json({ message: "Admin access is required." });
     }
 
     next();
   });
+}
+
+export function requirePermission(permission) {
+  return (request, response, next) =>
+    authenticateInternalUser(request, response, () => {
+      if (!hasPermission(request.user, permission)) {
+        return response.status(403).json({
+          message: `Permission denied for ${permission}.`,
+        });
+      }
+
+      next();
+    });
 }

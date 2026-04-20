@@ -12,6 +12,8 @@ export function mapRow(row) {
     clientId: row.client_id,
     clientName: row.client_name,
     recruiterId: row.assigned_employee_id,
+    clientAssignedEmployeeId: row.client_assigned_employee_id,
+    clientFollowUpEmployeeId: row.client_follow_up_employee_id,
     recruiterName: row.recruiter_name,
     recruiterEmail: row.recruiter_email,
     slug: row.slug,
@@ -172,7 +174,10 @@ export async function listAdminJobs(employeeId = null) {
   const employeeScopeClause = employeeId
     ? (() => {
         values.push(employeeId);
-        return `where coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
+        return `where (
+          coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}
+          or clients.follow_up_employee_id = $${values.length}
+        )`;
       })()
     : "";
 
@@ -183,6 +188,8 @@ export async function listAdminJobs(employeeId = null) {
       jobs.client_id,
       clients.company_name as client_name,
       jobs.assigned_employee_id,
+      clients.assigned_employee_id as client_assigned_employee_id,
+      clients.follow_up_employee_id as client_follow_up_employee_id,
       employees.full_name as recruiter_name,
       employees.email as recruiter_email,
       jobs.slug,
@@ -223,6 +230,8 @@ export async function getJobBySlug(slug) {
       jobs.client_id,
       clients.company_name as client_name,
       jobs.assigned_employee_id,
+      clients.assigned_employee_id as client_assigned_employee_id,
+      clients.follow_up_employee_id as client_follow_up_employee_id,
       employees.full_name as recruiter_name,
       employees.email as recruiter_email,
       jobs.slug,
@@ -522,6 +531,8 @@ export async function getAdminJobById(id) {
       jobs.client_id,
       clients.company_name as client_name,
       jobs.assigned_employee_id,
+      clients.assigned_employee_id as client_assigned_employee_id,
+      clients.follow_up_employee_id as client_follow_up_employee_id,
       employees.full_name as recruiter_name,
       employees.email as recruiter_email,
       jobs.slug,

@@ -3,7 +3,9 @@ import cors from "cors";
 import express from "express";
 import { randomUUID } from "crypto";
 import {
+  createAuditLog,
   ensureAuthAuditSchema,
+  listAuditLogs,
   listAttendanceSessions,
   listScreenActivity,
   recordLoginSession,
@@ -15,6 +17,7 @@ import {
   createEmployeeToken,
   requireAdmin,
   requireInternalUser,
+  requirePermission,
   requirePasswordChangeEligibleUser,
   validateAdmin,
 } from "./auth.js";
@@ -29,6 +32,7 @@ import {
   ensureCrmSchema,
   getClientById,
   getCrmSettings,
+  getEmployeeById,
   listClientActivity,
   listClientFollowUpHistory,
   listClients,
@@ -71,6 +75,7 @@ import {
   updateJobApplicationStage,
   updateJob,
 } from "./jobs.js";
+import { buildEmployeeScope, canAccessEntity } from "./permissions.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -84,6 +89,18 @@ function canEmployeeAccessClient(client, employeeId) {
   return (
     client.assignedEmployeeId === employeeId || client.followUpEmployeeId === employeeId
   );
+}
+
+function getActorDetails(request) {
+  const scope = buildEmployeeScope(request.user);
+  return {
+    actorType: request.user?.type || "internal-user",
+    actorId: scope.employeeId,
+    actorIdentifier:
+      request.user?.employeeCode || request.user?.email || request.user?.name || "internal-user",
+    actorName: request.user?.name || "Werkly User",
+    actorRole: scope.roleKey,
+  };
 }
 
 app.use(
@@ -357,6 +374,19 @@ app.get("/admin/jobs/:id", requireInternalUser, async (request, response) => {
       return response.status(404).json({ message: "Job not found." });
     }
 
+    if (
+      request.user?.type === "employee" &&
+      !canAccessEntity(request.user, {
+        type: "job",
+        assignedEmployeeId: job.recruiterId,
+        clientAssignedEmployeeId: job.clientAssignedEmployeeId,
+        clientFollowUpEmployeeId: job.clientFollowUpEmployeeId,
+        recruiterEmail: job.recruiterEmail,
+      })
+    ) {
+      return response.status(403).json({ message: "You do not have access to this job." });
+    }
+
     response.json(job);
   } catch (error) {
     response.status(500).json({
@@ -611,6 +641,20 @@ app.post("/admin/jobs/:id/applications", requireInternalUser, async (request, re
       return response.status(404).json({ message: "Job not found." });
     }
 
+    await createAuditLog({
+      actionType: "candidate.manual-added",
+      entityType: "application",
+      entityId: application.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: application,
+      metadata: {
+        jobId: request.params.id,
+        jobCode: application.jobCode,
+        candidateName: application.candidateName,
+      },
+    });
+
     response.status(201).json(application);
   } catch (error) {
     response.status(500).json({
@@ -622,7 +666,7 @@ app.post("/admin/jobs/:id/applications", requireInternalUser, async (request, re
 
 app.put(
   "/admin/jobs/applications/:id/stage",
-  requireInternalUser,
+  requirePermission("candidates.manage"),
   async (request, response) => {
     try {
       const { stage, stageNote, stageDate } = request.body ?? {};
@@ -651,6 +695,23 @@ app.put(
         return response.status(404).json({ message: "Application not found." });
       }
 
+      await createAuditLog({
+        actionType: "candidate.stage-updated",
+        entityType: "application",
+        entityId: application.id,
+        ...getActorDetails(request),
+        beforeData: {},
+        afterData: {
+          stage: application.stage,
+          stageNote: application.stageNote,
+          stageDate: application.stageDate,
+        },
+        metadata: {
+          jobId: application.jobId,
+          candidateName: application.candidateName,
+        },
+      });
+
       response.json(application);
     } catch (error) {
       response.status(500).json({
@@ -665,7 +726,7 @@ app.put(
 
 app.put(
   "/admin/jobs/applications/:id/assignment",
-  requireInternalUser,
+  requirePermission("candidates.manage"),
   async (request, response) => {
     try {
       const {
@@ -696,6 +757,28 @@ app.put(
         return response.status(404).json({ message: "Application not found." });
       }
 
+      await createAuditLog({
+        actionType:
+          assignmentType === "follow-up-support"
+            ? "candidate.followup-assigned"
+            : "candidate.reassigned",
+        entityType: "application",
+        entityId: application.id,
+        ...getActorDetails(request),
+        beforeData: {},
+        afterData: {
+          assignedEmployeeId: application.assignedEmployeeId,
+          followUpEmployeeId: application.followUpEmployeeId,
+          followUpFromDate: application.followUpFromDate,
+          followUpToDate: application.followUpToDate,
+          followUpAssignmentNote: application.followUpAssignmentNote,
+        },
+        metadata: {
+          candidateName: application.candidateName,
+          assignmentType: assignmentType || "ownership-transfer",
+        },
+      });
+
       response.json(application);
     } catch (error) {
       response.status(500).json({
@@ -719,7 +802,7 @@ app.get("/admin/employees", requireInternalUser, async (_request, response) => {
   }
 });
 
-app.post("/admin/employees", requireAdmin, async (request, response) => {
+app.post("/admin/employees", requirePermission("employees.manage"), async (request, response) => {
   try {
     const {
       fullName,
@@ -768,6 +851,15 @@ app.post("/admin/employees", requireAdmin, async (request, response) => {
       inactiveRemarks,
     });
 
+    await createAuditLog({
+      actionType: "employee.created",
+      entityType: "employee",
+      entityId: employee.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: employee,
+    });
+
     response.status(201).json(employee);
   } catch (error) {
     response.status(500).json({
@@ -776,7 +868,7 @@ app.post("/admin/employees", requireAdmin, async (request, response) => {
   }
 });
 
-app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
+app.put("/admin/employees/:id", requirePermission("employees.manage"), async (request, response) => {
   try {
     const {
       fullName,
@@ -808,6 +900,7 @@ app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
       });
     }
 
+    const previousEmployee = await getEmployeeById(request.params.id);
     const employee = await updateEmployee(request.params.id, {
       fullName,
       email,
@@ -829,6 +922,15 @@ app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
       return response.status(404).json({ message: "Employee not found." });
     }
 
+    await createAuditLog({
+      actionType: "employee.updated",
+      entityType: "employee",
+      entityId: employee.id,
+      ...getActorDetails(request),
+      beforeData: previousEmployee || {},
+      afterData: employee,
+    });
+
     response.json(employee);
   } catch (error) {
     response.status(500).json({
@@ -837,7 +939,7 @@ app.put("/admin/employees/:id", requireAdmin, async (request, response) => {
   }
 });
 
-app.post("/admin/employees/:id/reset-password", requireAdmin, async (request, response) => {
+app.post("/admin/employees/:id/reset-password", requirePermission("employees.manage"), async (request, response) => {
   try {
     const { password, mustChangePassword } = request.body ?? {};
 
@@ -847,6 +949,7 @@ app.post("/admin/employees/:id/reset-password", requireAdmin, async (request, re
       });
     }
 
+    const previousEmployee = await getEmployeeById(request.params.id);
     const employee = await adminResetEmployeePassword(
       request.params.id,
       String(password).trim(),
@@ -856,6 +959,19 @@ app.post("/admin/employees/:id/reset-password", requireAdmin, async (request, re
     if (!employee) {
       return response.status(404).json({ message: "Employee not found." });
     }
+
+    await createAuditLog({
+      actionType: "employee.password-reset",
+      entityType: "employee",
+      entityId: employee.id,
+      ...getActorDetails(request),
+      beforeData: {
+        mustChangePassword: previousEmployee?.mustChangePassword,
+      },
+      afterData: {
+        mustChangePassword: employee.mustChangePassword,
+      },
+    });
 
     response.json(employee);
   } catch (error) {
@@ -1019,7 +1135,7 @@ app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) =>
   }
 });
 
-app.post("/admin/clients", requireInternalUser, async (request, response) => {
+app.post("/admin/clients", requirePermission("clients.manage"), async (request, response) => {
   try {
     const {
       companyName,
@@ -1061,6 +1177,15 @@ app.post("/admin/clients", requireInternalUser, async (request, response) => {
       agreementFileData,
     });
 
+    await createAuditLog({
+      actionType: "client.created",
+      entityType: "client",
+      entityId: client.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: client,
+    });
+
     response.status(201).json(client);
   } catch (error) {
     response.status(500).json({
@@ -1079,8 +1204,7 @@ app.get("/admin/clients/:id", requireInternalUser, async (request, response) => 
 
     if (
       request.user?.type === "employee" &&
-      request.user?.id &&
-      !canEmployeeAccessClient(client, request.user.id)
+      !canAccessEntity(request.user, { type: "client", ...client })
     ) {
       return response.status(403).json({ message: "You do not have access to this client." });
     }
@@ -1103,8 +1227,7 @@ app.get("/admin/clients/:id/history", requireInternalUser, async (request, respo
 
     if (
       request.user?.type === "employee" &&
-      request.user?.id &&
-      !canEmployeeAccessClient(client, request.user.id)
+      !canAccessEntity(request.user, { type: "client", ...client })
     ) {
       return response.status(403).json({ message: "You do not have access to this client." });
     }
@@ -1128,8 +1251,7 @@ app.get("/admin/clients/:id/activity", requireInternalUser, async (request, resp
 
     if (
       request.user?.type === "employee" &&
-      request.user?.id &&
-      !canEmployeeAccessClient(client, request.user.id)
+      !canAccessEntity(request.user, { type: "client", ...client })
     ) {
       return response.status(403).json({ message: "You do not have access to this client." });
     }
@@ -1143,7 +1265,7 @@ app.get("/admin/clients/:id/activity", requireInternalUser, async (request, resp
   }
 });
 
-app.put("/admin/clients/:id/onboarding", requireInternalUser, async (request, response) => {
+app.put("/admin/clients/:id/onboarding", requirePermission("clients.manage"), async (request, response) => {
   try {
     const { onboardingStatus, notes } = request.body ?? {};
 
@@ -1153,6 +1275,7 @@ app.put("/admin/clients/:id/onboarding", requireInternalUser, async (request, re
       });
     }
 
+    const previousClient = await getClientById(request.params.id);
     const client = await updateClientOnboarding(request.params.id, {
       onboardingStatus,
       notes,
@@ -1164,6 +1287,15 @@ app.put("/admin/clients/:id/onboarding", requireInternalUser, async (request, re
     if (!client) {
       return response.status(404).json({ message: "Client not found." });
     }
+
+    await createAuditLog({
+      actionType: "client.onboarding-updated",
+      entityType: "client",
+      entityId: client.id,
+      ...getActorDetails(request),
+      beforeData: previousClient || {},
+      afterData: client,
+    });
 
     response.json(client);
   } catch (error) {
@@ -1204,7 +1336,7 @@ app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) =
   }
 });
 
-app.put("/admin/clients/:id/follow-up", requireInternalUser, async (request, response) => {
+app.put("/admin/clients/:id/follow-up", requirePermission("clients.followup"), async (request, response) => {
   try {
     const { followUpStatus, nextFollowUpDate, lastFollowUpDate, followUpNotes } = request.body ?? {};
 
@@ -1214,6 +1346,7 @@ app.put("/admin/clients/:id/follow-up", requireInternalUser, async (request, res
       });
     }
 
+    const previousClient = await getClientById(request.params.id);
     const client = await updateClientFollowUp(request.params.id, {
       followUpStatus,
       nextFollowUpDate,
@@ -1227,6 +1360,15 @@ app.put("/admin/clients/:id/follow-up", requireInternalUser, async (request, res
     if (!client) {
       return response.status(404).json({ message: "Client not found." });
     }
+
+    await createAuditLog({
+      actionType: "client.followup-updated",
+      entityType: "client",
+      entityId: client.id,
+      ...getActorDetails(request),
+      beforeData: previousClient || {},
+      afterData: client,
+    });
 
     response.json(client);
   } catch (error) {
