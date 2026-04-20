@@ -18,6 +18,18 @@ import type {
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 type ReportModule = "overview" | "hr" | "jobs" | "candidates" | "clients";
+type ReportView =
+  | "index"
+  | "hr-attendance"
+  | "hr-activity"
+  | "jobs-performance"
+  | "jobs-stage-movement"
+  | "candidates-pipeline"
+  | "candidates-sources"
+  | "candidates-enquiries"
+  | "clients-coverage"
+  | "clients-followups"
+  | "clients-transfers";
 
 type ReportState = {
   applications: JobApplication[];
@@ -50,6 +62,7 @@ type AttendanceDaySummary = {
 
 type AdminReportsPanelProps = {
   module?: ReportModule;
+  report?: ReportView;
 };
 
 const reportModules: Array<{
@@ -92,6 +105,106 @@ const reportModules: Array<{
       "Track assigned clients, linked mandates, hiring volume, and reassignment requests that need follow-up.",
   },
 ];
+
+const moduleReportScreens: Record<
+  Exclude<ReportModule, "overview">,
+  Array<{
+    key: ReportView;
+    href: string;
+    eyebrow: string;
+    title: string;
+    description: string;
+  }>
+> = {
+  hr: [
+    {
+      key: "hr-attendance",
+      href: "/admin/reports/hr/attendance",
+      eyebrow: "HR Attendance",
+      title: "Login, logout, worked hours, and screen time.",
+      description:
+        "Review first login, last logout, worked hours, screen-active time, idle time, and auto-logout status on a dedicated HR report screen.",
+    },
+    {
+      key: "hr-activity",
+      href: "/admin/reports/hr/activity",
+      eyebrow: "Employee Activity",
+      title: "Current employee visibility and activity capture.",
+      description:
+        "Track last seen activity, first login, last logout, status, and daily CRM time visibility for each employee separately.",
+    },
+  ],
+  jobs: [
+    {
+      key: "jobs-performance",
+      href: "/admin/reports/jobs/performance",
+      eyebrow: "Job Performance",
+      title: "Mandate coverage, ownership, and application movement.",
+      description:
+        "See each open, draft, and closed mandate with client, recruiter, applications, and latest candidate activity in one report.",
+    },
+    {
+      key: "jobs-stage-movement",
+      href: "/admin/reports/jobs/stage-movement",
+      eyebrow: "Stage Movement",
+      title: "Audit every stage change with remarks and dates.",
+      description:
+        "Review shortlist, interview, offer, joined, and rejection updates on a separate stage movement report screen.",
+    },
+  ],
+  candidates: [
+    {
+      key: "candidates-pipeline",
+      href: "/admin/reports/candidates/pipeline",
+      eyebrow: "Candidate Pipeline",
+      title: "Current stage, source, and recruiter ownership.",
+      description:
+        "Track applicants by source and current stage with filters and export on a focused candidate pipeline screen.",
+    },
+    {
+      key: "candidates-sources",
+      href: "/admin/reports/candidates/sources",
+      eyebrow: "Source Mix",
+      title: "Compare sourcing channels separately.",
+      description:
+        "Review source-wise candidate volume so the team can understand where quality applications are coming from.",
+    },
+    {
+      key: "candidates-enquiries",
+      href: "/admin/reports/candidates/enquiries",
+      eyebrow: "Candidate Enquiries",
+      title: "Website enquiries without a direct job application.",
+      description:
+        "Keep general candidate enquiries on their own screen instead of mixing them with job applicant pipeline data.",
+    },
+  ],
+  clients: [
+    {
+      key: "clients-coverage",
+      href: "/admin/reports/clients/coverage",
+      eyebrow: "Client Coverage",
+      title: "Ownership, linked jobs, and hiring volume.",
+      description:
+        "Review onboarded clients, ownership, linked mandates, applications, joined count, and status on a dedicated report page.",
+    },
+    {
+      key: "clients-followups",
+      href: "/admin/reports/clients/followups",
+      eyebrow: "Client Follow-Ups",
+      title: "Onboarding and relationship follow-up tracking.",
+      description:
+        "Filter client onboarding follow-ups by employee, client, related job, and date range on a separate follow-up report screen.",
+    },
+    {
+      key: "clients-transfers",
+      href: "/admin/reports/clients/transfers",
+      eyebrow: "Client Transfers",
+      title: "Ownership transfer approvals and movement audit.",
+      description:
+        "Review pending, approved, and rejected client transfer requests on their own report screen for admin control.",
+    },
+  ],
+};
 
 const AUTO_LOGOUT_THRESHOLD_MS = 10 * 60 * 1000;
 
@@ -245,6 +358,36 @@ function MetricCard({
       <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">{value}</p>
       {detail ? <p className="muted-copy mt-2 text-sm">{detail}</p> : null}
     </article>
+  );
+}
+
+function ReportLinkCard({
+  href,
+  eyebrow,
+  title,
+  description,
+}: {
+  href: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="accent-card group flex h-full flex-col justify-between p-6 transition hover:-translate-y-0.5 hover:border-[rgba(241,166,75,0.26)]"
+    >
+      <div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h2 className="mt-4 text-2xl font-semibold leading-tight text-[var(--color-ink)]">
+          {title}
+        </h2>
+        <p className="muted-copy mt-3 text-base leading-7">{description}</p>
+      </div>
+      <span className="mt-6 inline-flex text-sm font-semibold text-[var(--color-accent-strong)]">
+        Open report
+      </span>
+    </Link>
   );
 }
 
@@ -484,7 +627,10 @@ function ReportFilterBar({
   );
 }
 
-export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProps) {
+export function AdminReportsPanel({
+  module = "overview",
+  report = "index",
+}: AdminReportsPanelProps) {
   const [reportGeneratedAt] = useState(() => Date.now());
   const [token] = useState(
     typeof window !== "undefined"
@@ -1217,28 +1363,37 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
   }, [filteredApplications]);
 
   const overviewCards = reportModules.map((item) => (
-    <Link
+    <ReportLinkCard
       key={item.key}
       href={item.href}
-      className="accent-card group flex h-full flex-col justify-between p-6 transition hover:-translate-y-0.5 hover:border-[rgba(241,166,75,0.26)]"
-    >
-      <div>
-        <p className="eyebrow">{item.eyebrow}</p>
-        <h2 className="mt-4 text-2xl font-semibold leading-tight text-[var(--color-ink)]">
-          {item.title}
-        </h2>
-        <p className="muted-copy mt-3 text-base leading-7">{item.description}</p>
-      </div>
-      <span className="mt-6 inline-flex text-sm font-semibold text-[var(--color-accent-strong)]">
-        Open report
-      </span>
-    </Link>
+      eyebrow={item.eyebrow}
+      title={item.title}
+      description={item.description}
+    />
   ));
 
   if (module === "overview") {
     return (
       <div className="space-y-6">
         <section className="grid gap-5 lg:grid-cols-2">{overviewCards}</section>
+      </div>
+    );
+  }
+
+  if (report === "index" && module !== "overview") {
+    return (
+      <div className="space-y-6">
+        <section className="grid gap-5 xl:grid-cols-2">
+          {moduleReportScreens[module].map((item) => (
+            <ReportLinkCard
+              key={item.key}
+              href={item.href}
+              eyebrow={item.eyebrow}
+              title={item.title}
+              description={item.description}
+            />
+          ))}
+        </section>
       </div>
     );
   }
