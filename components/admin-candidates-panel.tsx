@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  assignJobApplication,
   type JobApplication,
   type JobApplicationAssignmentPayload,
   type JobApplicationStage,
@@ -275,20 +274,34 @@ export function AdminCandidatesPanel() {
     }
 
     try {
-      const updated = await assignJobApplication(
-        assignmentDraft.application.id,
+      const payload = {
+        assignedEmployeeId: assignmentDraft.assignedEmployeeId,
+        assignmentType: assignmentDraft.assignmentType,
+        effectiveFromDate: assignmentDraft.effectiveFromDate,
+        effectiveToDate:
+          assignmentDraft.assignmentType === "follow-up-support"
+            ? assignmentDraft.effectiveToDate
+            : undefined,
+        note: assignmentDraft.note,
+      } satisfies JobApplicationAssignmentPayload;
+
+      const response = await fetch(
+        `/api/admin/jobs/applications/${assignmentDraft.application.id}/assignment`,
         {
-          assignedEmployeeId: assignmentDraft.assignedEmployeeId,
-          assignmentType: assignmentDraft.assignmentType,
-          effectiveFromDate: assignmentDraft.effectiveFromDate,
-          effectiveToDate:
-            assignmentDraft.assignmentType === "follow-up-support"
-              ? assignmentDraft.effectiveToDate
-              : undefined,
-          note: assignmentDraft.note,
-        } satisfies JobApplicationAssignmentPayload,
-        token
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }
       );
+
+      const updated = (await response.json()) as JobApplication & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(updated.message || "Unable to update candidate transfer.");
+      }
 
       setApplications((current) =>
         current.map((application) =>
