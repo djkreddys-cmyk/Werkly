@@ -219,15 +219,22 @@ export function AdminJobsDashboard({
         client.followUpEmployeeId === currentEmployeeId
     );
   }, [clients, currentEmployeeId, isEmployeeSession]);
+  const visibleClientIds = useMemo(
+    () => new Set(visibleClients.map((client) => client.id)),
+    [visibleClients]
+  );
   const visibleJobs = useMemo(() => {
     if (!isEmployeeSession) {
       return jobs;
     }
 
     return jobs.filter(
-      (job) => job.recruiterId === currentEmployeeId || job.recruiterEmail === adminEmail
+      (job) =>
+        job.recruiterId === currentEmployeeId ||
+        job.recruiterEmail === adminEmail ||
+        (job.clientId ? visibleClientIds.has(job.clientId) : false)
     );
-  }, [adminEmail, currentEmployeeId, isEmployeeSession, jobs]);
+  }, [adminEmail, currentEmployeeId, isEmployeeSession, jobs, visibleClientIds]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -927,7 +934,7 @@ export function AdminJobsDashboard({
 
   return (
     <div className="space-y-6">
-      {viewMode !== "existing" ? (
+      {canManageJobs && viewMode !== "existing" ? (
       <form
         id="new-job"
         ref={formRef}

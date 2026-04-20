@@ -6,7 +6,8 @@ import {
   type JobApplicationAssignmentPayload,
   type JobApplicationStage,
 } from "@/lib/jobs";
-import type { EmployeeRecord } from "@/lib/crm";
+import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
+import type { JobSummary } from "@/lib/jobs";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 const stageOptions: JobApplicationStage[] = [
@@ -74,6 +75,8 @@ export function AdminCandidatesPanel() {
   );
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [jobs, setJobs] = useState<JobSummary[]>([]);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -106,14 +109,28 @@ export function AdminCandidatesPanel() {
       fetch("/api/admin/employees", {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch("/api/admin/jobs", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetch("/api/admin/clients", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([applicationsResponse, employeesResponse]) => {
+      .then(async ([applicationsResponse, employeesResponse, jobsResponse, clientsResponse]) => {
         const applicationsResult = (await applicationsResponse.json()) as {
           applications?: JobApplication[];
           message?: string;
         };
         const employeesResult = (await employeesResponse.json()) as {
           employees?: EmployeeRecord[];
+          message?: string;
+        };
+        const jobsResult = (await jobsResponse.json()) as {
+          jobs?: JobSummary[];
+          message?: string;
+        };
+        const clientsResult = (await clientsResponse.json()) as {
+          clients?: ClientRecord[];
           message?: string;
         };
 
@@ -123,9 +140,17 @@ export function AdminCandidatesPanel() {
         if (!employeesResponse.ok) {
           throw new Error(employeesResult.message || "Unable to load employees.");
         }
+        if (!jobsResponse.ok) {
+          throw new Error(jobsResult.message || "Unable to load jobs.");
+        }
+        if (!clientsResponse.ok) {
+          throw new Error(clientsResult.message || "Unable to load clients.");
+        }
 
         setApplications(applicationsResult.applications ?? []);
         setEmployees(employeesResult.employees ?? []);
+        setJobs(jobsResult.jobs ?? []);
+        setClients(clientsResult.clients ?? []);
       })
       .catch((loadError) => {
         setError(
@@ -161,6 +186,37 @@ export function AdminCandidatesPanel() {
       )?.id ?? "",
     [authEmail, authEmployeeCode, employees]
   );
+  const visibleClients = useMemo(() => {
+    if (!isEmployeeSession) {
+      return clients;
+    }
+
+    return clients.filter(
+      (client) =>
+        client.assignedEmployeeId === currentEmployeeId ||
+        client.followUpEmployeeId === currentEmployeeId
+    );
+  }, [clients, currentEmployeeId, isEmployeeSession]);
+  const visibleClientIds = useMemo(
+    () => new Set(visibleClients.map((client) => client.id)),
+    [visibleClients]
+  );
+  const visibleJobs = useMemo(() => {
+    if (!isEmployeeSession) {
+      return jobs;
+    }
+
+    return jobs.filter(
+      (job) =>
+        job.recruiterId === currentEmployeeId ||
+        job.recruiterEmail === authEmail ||
+        (job.clientId ? visibleClientIds.has(job.clientId) : false)
+    );
+  }, [authEmail, currentEmployeeId, isEmployeeSession, jobs, visibleClientIds]);
+  const visibleJobIds = useMemo(
+    () => new Set(visibleJobs.map((job) => job.id)),
+    [visibleJobs]
+  );
   const visibleApplications = useMemo(() => {
     if (!isEmployeeSession) {
       return applications;
@@ -170,9 +226,18 @@ export function AdminCandidatesPanel() {
       (application) =>
         application.assignedEmployeeId === currentEmployeeId ||
         application.followUpEmployeeId === currentEmployeeId ||
-        application.recruiterEmail === authEmail
+        application.recruiterEmail === authEmail ||
+        visibleJobIds.has(application.jobId) ||
+        visibleClients.some((client) => client.companyName === application.clientName)
     );
-  }, [applications, authEmail, currentEmployeeId, isEmployeeSession]);
+  }, [
+    applications,
+    authEmail,
+    currentEmployeeId,
+    isEmployeeSession,
+    visibleClients,
+    visibleJobIds,
+  ]);
 
   const filteredApplications = useMemo(() => {
     return visibleApplications.filter((application) => {
