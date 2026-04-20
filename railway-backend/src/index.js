@@ -67,6 +67,7 @@ import {
   listAdminJobs,
   listJobs,
   recordJobApplication,
+  assignJobApplication,
   updateJobApplicationStage,
   updateJob,
 } from "./jobs.js";
@@ -647,6 +648,51 @@ app.put(
           error instanceof Error
             ? error.message
             : "Unable to update application stage.",
+      });
+    }
+  }
+);
+
+app.put(
+  "/admin/jobs/applications/:id/assignment",
+  requireInternalUser,
+  async (request, response) => {
+    try {
+      const {
+        assignedEmployeeId,
+        assignmentType,
+        effectiveFromDate,
+        effectiveToDate,
+        note,
+      } = request.body ?? {};
+
+      if (!assignedEmployeeId) {
+        return response.status(400).json({ message: "Target employee is required." });
+      }
+
+      const application = await assignJobApplication(
+        request.params.id,
+        {
+          assignedEmployeeId,
+          assignmentType,
+          effectiveFromDate,
+          effectiveToDate,
+          note,
+        },
+        request.user?.type === "employee" ? request.user.id : null
+      );
+
+      if (!application) {
+        return response.status(404).json({ message: "Application not found." });
+      }
+
+      response.json(application);
+    } catch (error) {
+      response.status(500).json({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to update candidate assignment.",
       });
     }
   }

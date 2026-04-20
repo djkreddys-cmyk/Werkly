@@ -40,6 +40,7 @@ export function mapApplicationRow(row) {
   return {
     id: row.id,
     jobId: row.job_id,
+    assignedEmployeeId: row.assigned_employee_id,
     stage: row.stage,
     stageNote: row.stage_note,
     stageDate: row.stage_date,
@@ -70,6 +71,11 @@ export function mapApplicationRow(row) {
     resumeFileData: row.resume_file_data,
     uploadedByEmployeeId: row.uploaded_by_employee_id,
     uploadedByEmployeeName: row.uploaded_by_employee_name,
+    followUpEmployeeId: row.follow_up_employee_id,
+    followUpEmployeeName: row.follow_up_employee_name,
+    followUpFromDate: row.follow_up_from_date,
+    followUpToDate: row.follow_up_to_date,
+    followUpAssignmentNote: row.follow_up_assignment_note,
     candidateMessage: row.candidate_message,
     jobTitle: row.job_title,
     appliedAt: row.applied_at,
@@ -166,7 +172,7 @@ export async function listAdminJobs(employeeId = null) {
   const employeeScopeClause = employeeId
     ? (() => {
         values.push(employeeId);
-        return `where coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
+        return `where coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
       })()
     : "";
 
@@ -317,6 +323,15 @@ export async function ensureJobsSchema() {
   await query(
     `alter table job_applications add column if not exists uploaded_by_employee_id uuid references employees(id) on delete set null`
   );
+  await query(
+    `alter table job_applications add column if not exists assigned_employee_id uuid references employees(id) on delete set null`
+  );
+  await query(
+    `alter table job_applications add column if not exists follow_up_employee_id uuid references employees(id) on delete set null`
+  );
+  await query(`alter table job_applications add column if not exists follow_up_from_date date`);
+  await query(`alter table job_applications add column if not exists follow_up_to_date date`);
+  await query(`alter table job_applications add column if not exists follow_up_assignment_note text`);
   await query(`alter table job_applications alter column candidate_email drop not null`);
   await query(`
     create table if not exists job_application_stage_history (
@@ -815,6 +830,7 @@ export async function listJobApplications(jobId, employeeId = null) {
     `select
       job_applications.id,
       job_applications.job_id,
+      job_applications.assigned_employee_id,
       job_applications.stage,
       job_applications.stage_note,
       job_applications.stage_date,
@@ -844,6 +860,11 @@ export async function listJobApplications(jobId, employeeId = null) {
       job_applications.resume_file_type,
       job_applications.resume_file_data,
       job_applications.uploaded_by_employee_id,
+      job_applications.follow_up_employee_id,
+      follow_up_employee.full_name as follow_up_employee_name,
+      job_applications.follow_up_from_date,
+      job_applications.follow_up_to_date,
+      job_applications.follow_up_assignment_note,
       uploader.full_name as uploaded_by_employee_name,
       job_applications.candidate_message,
       job_applications.job_title,
@@ -852,6 +873,7 @@ export async function listJobApplications(jobId, employeeId = null) {
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
      left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
+     left join employees follow_up_employee on follow_up_employee.id = job_applications.follow_up_employee_id
      where job_id = $1
        ${employeeScopeClause}
      order by applied_at desc`,
@@ -874,6 +896,7 @@ export async function listAdminApplications(employeeId = null) {
     `select
       job_applications.id,
       job_applications.job_id,
+      job_applications.assigned_employee_id,
       job_applications.stage,
       job_applications.stage_note,
       job_applications.stage_date,
@@ -903,6 +926,11 @@ export async function listAdminApplications(employeeId = null) {
       job_applications.resume_file_type,
       job_applications.resume_file_data,
       job_applications.uploaded_by_employee_id,
+      job_applications.follow_up_employee_id,
+      follow_up_employee.full_name as follow_up_employee_name,
+      job_applications.follow_up_from_date,
+      job_applications.follow_up_to_date,
+      job_applications.follow_up_assignment_note,
       uploader.full_name as uploaded_by_employee_name,
       job_applications.candidate_message,
       coalesce(job_applications.job_title, jobs.title) as job_title,
@@ -910,8 +938,9 @@ export async function listAdminApplications(employeeId = null) {
      from job_applications
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
-     left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
+     left join employees on employees.id = coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id)
      left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
+     left join employees follow_up_employee on follow_up_employee.id = job_applications.follow_up_employee_id
      ${employeeScopeClause}
      order by job_applications.applied_at desc`,
     values
@@ -1051,7 +1080,7 @@ export async function updateJobApplicationStage(
 
     const values = [applicationId];
     const employeeScopeClause = employeeId
-      ? `and coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+      ? `and coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
       : "";
 
     if (employeeId) {
@@ -1086,6 +1115,7 @@ export async function updateJobApplicationStage(
        returning
          id,
          job_id,
+         assigned_employee_id,
          stage,
          stage_note,
          stage_date,
@@ -1115,6 +1145,11 @@ export async function updateJobApplicationStage(
          resume_file_type,
          resume_file_data,
          uploaded_by_employee_id,
+         follow_up_employee_id,
+         null::text as follow_up_employee_name,
+         follow_up_from_date,
+         follow_up_to_date,
+         follow_up_assignment_note,
          null::text as uploaded_by_employee_name,
          candidate_message,
          job_title,
@@ -1141,4 +1176,64 @@ export async function updateJobApplicationStage(
   } finally {
     client.release();
   }
+}
+
+export async function assignJobApplication(applicationId, payload, employeeId = null) {
+  const values = [applicationId];
+  const employeeScopeClause = employeeId
+    ? `and coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+    : "";
+
+  if (employeeId) {
+    values.push(employeeId);
+  }
+
+  const existingResult = await query(
+    `select job_applications.id
+     from job_applications
+     left join jobs on jobs.id = job_applications.job_id
+     left join clients on clients.id = jobs.client_id
+     where job_applications.id = $1
+       ${employeeScopeClause}
+     limit 1`,
+    values
+  );
+
+  if (!existingResult.rows[0]) {
+    return null;
+  }
+
+  if ((payload.assignmentType || "ownership-transfer") === "follow-up-support") {
+    await query(
+      `update job_applications
+       set follow_up_employee_id = $2,
+           follow_up_from_date = $3::date,
+           follow_up_to_date = $4::date,
+           follow_up_assignment_note = $5,
+           stage_updated_at = now()
+       where id = $1`,
+      [
+        applicationId,
+        payload.assignedEmployeeId || null,
+        payload.effectiveFromDate || null,
+        payload.effectiveToDate || null,
+        payload.note || null,
+      ]
+    );
+  } else {
+    await query(
+      `update job_applications
+       set assigned_employee_id = $2,
+           follow_up_employee_id = null,
+           follow_up_from_date = null,
+           follow_up_to_date = null,
+           follow_up_assignment_note = null,
+           stage_updated_at = now()
+       where id = $1`,
+      [applicationId, payload.assignedEmployeeId || null]
+    );
+  }
+
+  const refreshed = await listAdminApplications(employeeId);
+  return refreshed.find((application) => application.id === applicationId) ?? null;
 }

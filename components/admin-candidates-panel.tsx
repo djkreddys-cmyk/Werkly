@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  assignJobApplication,
   type JobApplication,
+  type JobApplicationAssignmentPayload,
   type JobApplicationStage,
 } from "@/lib/jobs";
+import type { EmployeeRecord } from "@/lib/crm";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 const stageOptions: JobApplicationStage[] = [
@@ -56,6 +59,7 @@ export function AdminCandidatesPanel() {
       : ""
   );
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -67,26 +71,47 @@ export function AdminCandidatesPanel() {
     note: string;
     date: string;
   } | null>(null);
+  const [assignmentDraft, setAssignmentDraft] = useState<{
+    application: JobApplication;
+    assignmentType: "ownership-transfer" | "follow-up-support";
+    assignedEmployeeId: string;
+    effectiveFromDate: string;
+    effectiveToDate: string;
+    note: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!token) {
       return;
     }
 
-    fetch("/api/admin/applications", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (response) => {
-        const result = (await response.json()) as {
+    Promise.all([
+      fetch("/api/admin/applications", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetch("/api/admin/employees", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ])
+      .then(async ([applicationsResponse, employeesResponse]) => {
+        const applicationsResult = (await applicationsResponse.json()) as {
           applications?: JobApplication[];
           message?: string;
         };
+        const employeesResult = (await employeesResponse.json()) as {
+          employees?: EmployeeRecord[];
+          message?: string;
+        };
 
-        if (!response.ok) {
-          throw new Error(result.message || "Unable to load candidates.");
+        if (!applicationsResponse.ok) {
+          throw new Error(applicationsResult.message || "Unable to load candidates.");
+        }
+        if (!employeesResponse.ok) {
+          throw new Error(employeesResult.message || "Unable to load employees.");
         }
 
-        setApplications(result.applications ?? []);
+        setApplications(applicationsResult.applications ?? []);
+        setEmployees(employeesResult.employees ?? []);
       })
       .catch((loadError) => {
         setError(
@@ -211,6 +236,85 @@ export function AdminCandidatesPanel() {
       date: application.stageDate ?? new Date().toISOString().slice(0, 10),
     });
     setError("");
+  }
+
+  function openAssignmentEditor(application: JobApplication) {
+    setActionMenuApplicationId("");
+    setAssignmentDraft({
+      application,
+      assignmentType: "ownership-transfer",
+      assignedEmployeeId: application.assignedEmployeeId || "",
+      effectiveFromDate: application.followUpFromDate || new Date().toISOString().slice(0, 10),
+      effectiveToDate: application.followUpToDate || "",
+      note: application.followUpAssignmentNote || "",
+    });
+    setError("");
+  }
+
+  async function handleAssignmentSave() {
+    if (!token || !assignmentDraft) {
+      return;
+    }
+
+    if (!assignmentDraft.assignedEmployeeId) {
+      setError("Please select the employee for candidate transfer.");
+      return;
+    }
+
+    if (!assignmentDraft.effectiveFromDate) {
+      setError("Please select the effective from date.");
+      return;
+    }
+
+    if (
+      assignmentDraft.assignmentType === "follow-up-support" &&
+      !assignmentDraft.effectiveToDate
+    ) {
+      setError("Please select the follow-up end date.");
+      return;
+    }
+
+    try {
+      const updated = await assignJobApplication(
+        assignmentDraft.application.id,
+        {
+          assignedEmployeeId: assignmentDraft.assignedEmployeeId,
+          assignmentType: assignmentDraft.assignmentType,
+          effectiveFromDate: assignmentDraft.effectiveFromDate,
+          effectiveToDate:
+            assignmentDraft.assignmentType === "follow-up-support"
+              ? assignmentDraft.effectiveToDate
+              : undefined,
+          note: assignmentDraft.note,
+        } satisfies JobApplicationAssignmentPayload,
+        token
+      );
+
+      setApplications((current) =>
+        current.map((application) =>
+          application.id === updated.id
+            ? {
+                ...application,
+                assignedEmployeeId: updated.assignedEmployeeId,
+                recruiterName: updated.recruiterName,
+                recruiterEmail: updated.recruiterEmail,
+                followUpEmployeeId: updated.followUpEmployeeId,
+                followUpEmployeeName: updated.followUpEmployeeName,
+                followUpFromDate: updated.followUpFromDate,
+                followUpToDate: updated.followUpToDate,
+                followUpAssignmentNote: updated.followUpAssignmentNote,
+              }
+            : application
+        )
+      );
+      setAssignmentDraft(null);
+    } catch (assignmentError) {
+      setError(
+        assignmentError instanceof Error
+          ? assignmentError.message
+          : "Unable to update candidate transfer."
+      );
+    }
   }
 
   function handleApplicantDownload() {
@@ -498,6 +602,13 @@ export function AdminCandidatesPanel() {
                               >
                                 Update Stage
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => openAssignmentEditor(application)}
+                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                              >
+                                Transfer Candidate
+                              </button>
                               {application.resumeFileData && application.resumeFileName ? (
                                 <a
                                   href={application.resumeFileData}
@@ -635,6 +746,164 @@ export function AdminCandidatesPanel() {
               <button
                 type="button"
                 onClick={() => setStageDraft(null)}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {assignmentDraft ? (
+        <div className="fixed inset-0 z-[145] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Transfer Candidate</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {assignmentDraft.application.candidateName}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Choose full ownership transfer or date-based follow-up assignment for this candidate.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssignmentDraft(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Assignment Type
+                </span>
+                <select
+                  value={assignmentDraft.assignmentType}
+                  onChange={(event) =>
+                    setAssignmentDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            assignmentType: event.target.value as
+                              | "ownership-transfer"
+                              | "follow-up-support",
+                          }
+                        : current
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value="ownership-transfer">Full Ownership Transfer</option>
+                  <option value="follow-up-support">Follow-Up Only</option>
+                </select>
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Transfer To
+                </span>
+                <select
+                  value={assignmentDraft.assignedEmployeeId}
+                  onChange={(event) =>
+                    setAssignmentDraft((current) =>
+                      current
+                        ? { ...current, assignedEmployeeId: event.target.value }
+                        : current
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value="">Select employee</option>
+                  {employees
+                    .filter((employee) => employee.status === "active")
+                    .map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.fullName} - {employee.role}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  From When
+                </span>
+                <input
+                  type="date"
+                  value={assignmentDraft.effectiveFromDate}
+                  onChange={(event) =>
+                    setAssignmentDraft((current) =>
+                      current
+                        ? { ...current, effectiveFromDate: event.target.value }
+                        : current
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                />
+              </label>
+
+              {assignmentDraft.assignmentType === "follow-up-support" ? (
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Till When
+                  </span>
+                  <input
+                    type="date"
+                    value={assignmentDraft.effectiveToDate}
+                    onChange={(event) =>
+                      setAssignmentDraft((current) =>
+                        current
+                          ? { ...current, effectiveToDate: event.target.value }
+                          : current
+                      )
+                    }
+                    className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  />
+                </label>
+              ) : (
+                <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Current Owner
+                  </p>
+                  <p className="mt-3 text-sm font-semibold text-[var(--color-ink)]">
+                    {assignmentDraft.application.recruiterName || "Unassigned"}
+                  </p>
+                </div>
+              )}
+
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Remarks
+                </span>
+                <textarea
+                  value={assignmentDraft.note}
+                  onChange={(event) =>
+                    setAssignmentDraft((current) =>
+                      current ? { ...current, note: event.target.value } : current
+                    )
+                  }
+                  className="min-h-[140px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  placeholder="Reason for transfer or follow-up support"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void handleAssignmentSave()}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+              >
+                Save Candidate Transfer
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssignmentDraft(null)}
                 className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
               >
                 Cancel
