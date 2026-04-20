@@ -611,6 +611,7 @@ function CrmEmployeesList({
               </thead>
               <tbody>
                 {employees.map((employee, index) => {
+                  const shouldOpenUp = index >= employees.length - 2;
                   const attendanceSummary =
                     attendanceByEmployee.get(employee.id) ??
                     attendanceByEmployee.get(employee.employeeCode || "") ??
@@ -707,7 +708,11 @@ function CrmEmployeesList({
                             </button>
 
                             {actionMenuEmployeeId === employee.id ? (
-                              <div className="absolute right-14 top-1/2 z-20 min-w-[220px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                              <div
+                                className={`absolute right-14 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
+                                  shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
+                                }`}
+                              >
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -827,7 +832,10 @@ function CrmClientsList({
                   </tr>
                 </thead>
                 <tbody>
-                  {clients.map((client, index) => (
+                {clients.map((client, index) => {
+                    const shouldOpenUp = index >= clients.length - 2;
+
+                    return (
                     <tr
                       key={client.id}
                       className={
@@ -924,7 +932,11 @@ function CrmClientsList({
                             </button>
 
                             {actionMenuClientId === client.id ? (
-                              <div className="absolute right-14 top-1/2 z-20 min-w-[220px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                              <div
+                                className={`absolute right-14 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
+                                  shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
+                                }`}
+                              >
                                 <Link
                                   href={`/admin/clients/${client.id}`}
                                   onClick={() => setActionMenuClientId("")}
@@ -960,7 +972,7 @@ function CrmClientsList({
                         )}
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

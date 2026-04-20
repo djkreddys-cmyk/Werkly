@@ -1045,7 +1045,10 @@ export function AdminJobsDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredJobs.map((job, index) => (
+                  {filteredJobs.map((job, index) => {
+                    const shouldOpenUp = index >= filteredJobs.length - 2;
+
+                    return (
                     <tr
                       key={job.id}
                       className={
@@ -1118,7 +1121,11 @@ export function AdminJobsDashboard({
                           </button>
 
                           {actionMenuJobId === job.id ? (
-                            <div className="absolute right-14 top-1/2 z-20 min-w-[200px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                            <div
+                              className={`absolute right-14 z-20 min-w-[200px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
+                                shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
+                              }`}
+                            >
                               {canManageJobs ? (
                                 <button
                                   type="button"
@@ -1164,7 +1171,7 @@ export function AdminJobsDashboard({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

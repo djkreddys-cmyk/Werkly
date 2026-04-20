@@ -606,7 +606,10 @@ export function AdminCandidatesPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredApplications.map((application, index) => (
+                  {filteredApplications.map((application, index) => {
+                    const shouldOpenUp = index >= filteredApplications.length - 2;
+
+                    return (
                     <tr
                       key={application.id}
                       className={
@@ -708,7 +711,11 @@ export function AdminCandidatesPanel() {
                           </button>
 
                           {actionMenuApplicationId === application.id ? (
-                            <div className="absolute right-[calc(100%+0.75rem)] top-1/2 z-30 min-w-[210px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                            <div
+                              className={`absolute right-[calc(100%+0.75rem)] z-30 min-w-[210px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
+                                shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
+                              }`}
+                            >
                               <button
                                 type="button"
                                 onClick={() => openStageEditor(application)}
@@ -747,7 +754,7 @@ export function AdminCandidatesPanel() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
