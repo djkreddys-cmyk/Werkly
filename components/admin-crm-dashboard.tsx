@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   ClientFollowUpStatus,
   ClientOnboardingStatus,
@@ -17,6 +17,7 @@ import type {
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+import { TableActionMenu } from "@/components/table-action-menu";
 
 type EmployeeFormState = {
   id?: string;
@@ -445,16 +446,6 @@ function CrmFeedback({ message, error }: { message: string; error: string }) {
   );
 }
 
-function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
-      <circle cx="10" cy="4.5" r="1.5" />
-      <circle cx="10" cy="10" r="1.5" />
-      <circle cx="10" cy="15.5" r="1.5" />
-    </svg>
-  );
-}
-
 function CrmEmployeesList({
   employees,
   attendance,
@@ -474,7 +465,6 @@ function CrmEmployeesList({
   onInactivate: (employee: EmployeeRecord) => void;
   resettingEmployeeId: string;
 }) {
-  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const [actionMenuEmployeeId, setActionMenuEmployeeId] = useState("");
   const todayKey = new Date().toISOString().slice(0, 10);
   const attendanceByEmployee = useMemo(() => {
@@ -546,24 +536,6 @@ function CrmEmployeesList({
 
     return summary;
   }, [activity, todayKey]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (
-        actionsMenuRef.current &&
-        !actionsMenuRef.current.contains(event.target as Node)
-      ) {
-        setActionMenuEmployeeId("");
-      }
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    return () => window.removeEventListener("mousedown", handlePointerDown);
-  }, []);
 
   return (
     <section className="accent-card p-6">
@@ -687,71 +659,37 @@ function CrmEmployeesList({
                       </td>
                       <td className="px-4 py-4">
                         {canEdit ? (
-                          <div
-                            className="relative flex justify-end"
-                            ref={
-                              actionMenuEmployeeId === employee.id ? actionsMenuRef : null
+                          <TableActionMenu
+                            label={`Open actions for ${employee.fullName}`}
+                            isOpen={actionMenuEmployeeId === employee.id}
+                            onToggle={() =>
+                              setActionMenuEmployeeId((current) =>
+                                current === employee.id ? "" : employee.id
+                              )
                             }
-                          >
-                            <button
-                              type="button"
-                              aria-label={`Open actions for ${employee.fullName}`}
-                              aria-expanded={actionMenuEmployeeId === employee.id}
-                              onClick={() =>
-                                setActionMenuEmployeeId((current) =>
-                                  current === employee.id ? "" : employee.id
-                                )
-                              }
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
-                            >
-                              <MoreVerticalIcon />
-                            </button>
-
-                            {actionMenuEmployeeId === employee.id ? (
-                              <div
-                                className={`absolute right-14 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
-                                  shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActionMenuEmployeeId("");
-                                    onEdit(employee);
-                                  }}
-                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActionMenuEmployeeId("");
-                                    onResetPassword(employee);
-                                  }}
-                                  className={`flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
-                                    resettingEmployeeId === employee.id
-                                      ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
-                                      : "text-[var(--color-accent-strong)] hover:bg-[rgba(190,72,26,0.06)]"
-                                  }`}
-                                >
-                                  Reset Password
-                                </button>
-                                {employee.status === "active" ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActionMenuEmployeeId("");
-                                      onInactivate(employee);
-                                    }}
-                                    className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
-                                  >
-                                    Inactivate
-                                  </button>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
+                            onClose={() => setActionMenuEmployeeId("")}
+                            openUp={shouldOpenUp}
+                            items={[
+                              {
+                                label: "Edit",
+                                onClick: () => onEdit(employee),
+                              },
+                              {
+                                label: "Reset Password",
+                                onClick: () => onResetPassword(employee),
+                                tone: resettingEmployeeId === employee.id ? "accent" : "danger",
+                              },
+                              ...(employee.status === "active"
+                                ? [
+                                    {
+                                      label: "Inactivate",
+                                      onClick: () => onInactivate(employee),
+                                      tone: "danger" as const,
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
                         ) : (
                           <span className="text-sm text-[var(--color-muted)]">View only</span>
                         )}
@@ -781,22 +719,110 @@ function CrmClientsList({
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
   const [actionMenuClientId, setActionMenuClientId] = useState("");
-  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const [query, setQuery] = useState(() =>
+    typeof window !== "undefined" ? window.localStorage.getItem("werklyClientsQuery") ?? "" : ""
+  );
+  const [statusFilter, setStatusFilter] = useState(() =>
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyClientsStatus") ?? "all"
+      : "all"
+  );
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    const handlePointerDown = (event: MouseEvent) => {
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
-        setActionMenuClientId("");
-      }
-    };
+    window.localStorage.setItem("werklyClientsQuery", query);
+    window.localStorage.setItem("werklyClientsStatus", statusFilter);
+  }, [query, statusFilter]);
 
-    window.addEventListener("mousedown", handlePointerDown);
-    return () => window.removeEventListener("mousedown", handlePointerDown);
-  }, []);
+  const filteredClients = useMemo(() => {
+    return clients.filter((client) => {
+      const matchesQuery =
+        !query ||
+        [
+          client.companyName,
+          client.contactPerson,
+          client.contactEmail,
+          client.assignedEmployeeName,
+          client.followUpEmployeeName,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query.trim().toLowerCase()));
+
+      const matchesStatus =
+        statusFilter === "all" || (client.status || "active") === statusFilter;
+
+      return matchesQuery && matchesStatus;
+    });
+  }, [clients, query, statusFilter]);
+
+  const pageSize = 8;
+  const pageCount = Math.max(1, Math.ceil(filteredClients.length / pageSize));
+  const activePage = Math.min(page, pageCount);
+  const paginatedClients = useMemo(
+    () => filteredClients.slice((activePage - 1) * pageSize, activePage * pageSize),
+    [activePage, filteredClients]
+  );
+
+  function exportCurrentView() {
+    const workbookMarkup = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+      th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+      th { background: #eaf2f4; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>Clients Current View</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Contact</th>
+          <th>Owner</th>
+          <th>Onboarding</th>
+          <th>Follow-Up</th>
+          <th>Jobs</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filteredClients
+          .map(
+            (client) => `<tr>
+              <td>${client.companyName}</td>
+              <td>${client.contactPerson}</td>
+              <td>${client.assignedEmployeeName || "Not assigned"}</td>
+              <td>${client.onboardingStatus || "new-lead"}</td>
+              <td>${client.followUpStatus || "pending"}</td>
+              <td>${client.linkedJobsCount}</td>
+              <td>${client.status}</td>
+            </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>
+  </body>
+</html>`;
+
+    const blob = new Blob([workbookMarkup], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "clients-current-view.xls";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <>
@@ -809,12 +835,44 @@ function CrmClientsList({
             </h3>
           </div>
           <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-            {clients.length} clients
+            {filteredClients.length} clients
           </span>
         </div>
 
+        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
+          <input
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+            placeholder="Search client, contact, owner"
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
+              setPage(1);
+            }}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <button
+            type="button"
+            onClick={exportCurrentView}
+            disabled={filteredClients.length === 0}
+            className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Export Current View
+          </button>
+        </div>
+
         <div className="mt-5 rounded-[1.35rem] border border-[var(--color-line)] bg-white">
-          {clients.length === 0 ? (
+          {filteredClients.length === 0 ? (
             <p className="muted-copy p-5 text-sm">No clients have been onboarded yet.</p>
           ) : (
             <div className="overflow-x-auto pb-4">
@@ -832,14 +890,14 @@ function CrmClientsList({
                   </tr>
                 </thead>
                 <tbody>
-                {clients.map((client, index) => {
-                    const shouldOpenUp = index >= clients.length - 2;
+                {paginatedClients.map((client, index) => {
+                    const shouldOpenUp = index >= paginatedClients.length - 2;
 
                     return (
                     <tr
                       key={client.id}
                       className={
-                        index === clients.length - 1
+                        index === paginatedClients.length - 1
                           ? "align-top"
                           : "align-top border-b border-[var(--color-line)]"
                       }
@@ -913,60 +971,31 @@ function CrmClientsList({
                       </td>
                       <td className="px-4 py-4">
                         {canManageActions ? (
-                          <div
-                            className="relative flex justify-end"
-                            ref={actionMenuClientId === client.id ? actionsMenuRef : null}
-                          >
-                            <button
-                              type="button"
-                              aria-label={`Open actions for ${client.companyName}`}
-                              aria-expanded={actionMenuClientId === client.id}
-                              onClick={() =>
-                                setActionMenuClientId((current) =>
-                                  current === client.id ? "" : client.id
-                                )
-                              }
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
-                            >
-                              <MoreVerticalIcon />
-                            </button>
-
-                            {actionMenuClientId === client.id ? (
-                              <div
-                                className={`absolute right-14 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
-                                  shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
-                                }`}
-                              >
-                                <Link
-                                  href={`/admin/clients/${client.id}`}
-                                  onClick={() => setActionMenuClientId("")}
-                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                                >
-                                  View Client
-                                </Link>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActionMenuClientId("");
-                                    onFollowUp(client);
-                                  }}
-                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                                >
-                                  Follow-Up
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActionMenuClientId("");
-                                    onTransfer(client);
-                                  }}
-                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                                >
-                                  Transfer Client
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
+                          <TableActionMenu
+                            label={`Open actions for ${client.companyName}`}
+                            isOpen={actionMenuClientId === client.id}
+                            onToggle={() =>
+                              setActionMenuClientId((current) =>
+                                current === client.id ? "" : client.id
+                              )
+                            }
+                            onClose={() => setActionMenuClientId("")}
+                            openUp={shouldOpenUp}
+                            items={[
+                              {
+                                label: "View Client",
+                                href: `/admin/clients/${client.id}`,
+                              },
+                              {
+                                label: "Follow-Up",
+                                onClick: () => onFollowUp(client),
+                              },
+                              {
+                                label: "Transfer Client",
+                                onClick: () => onTransfer(client),
+                              },
+                            ]}
+                          />
                         ) : (
                           <span className="text-sm text-[var(--color-muted)]">View only</span>
                         )}
@@ -978,6 +1007,32 @@ function CrmClientsList({
             </div>
           )}
         </div>
+        {filteredClients.length > pageSize ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="muted-copy text-sm">
+              Showing {(activePage - 1) * pageSize + 1}-{Math.min(activePage * pageSize, filteredClients.length)} of{" "}
+              {filteredClients.length} clients
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={activePage === 1}
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                disabled={activePage === pageCount}
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {selectedClientJobs ? (

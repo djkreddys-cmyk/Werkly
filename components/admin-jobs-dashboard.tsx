@@ -10,6 +10,7 @@ import type {
   JobStatus,
 } from "@/lib/jobs";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+import { TableActionMenu } from "@/components/table-action-menu";
 
 type JobEditorState = {
   id?: string;
@@ -118,16 +119,6 @@ const emptyManualCandidateForm: ManualCandidateState = {
   resumeFileData: "",
 };
 
-function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
-      <circle cx="10" cy="4.5" r="1.5" />
-      <circle cx="10" cy="10" r="1.5" />
-      <circle cx="10" cy="15.5" r="1.5" />
-    </svg>
-  );
-}
-
 function formatExportDate(value: string) {
   return new Date(value).toLocaleDateString("en-GB");
 }
@@ -152,7 +143,6 @@ export function AdminJobsDashboard({
   viewMode?: "all" | "new" | "existing";
 }) {
   const formRef = useRef<HTMLFormElement | null>(null);
-  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const [token, setToken] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [authType, setAuthType] = useState("admin");
@@ -171,6 +161,7 @@ export function AdminJobsDashboard({
   const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
   const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
   const [recruiterFilter, setRecruiterFilter] = useState("all");
+  const [jobsPage, setJobsPage] = useState(1);
   const [stageDraft, setStageDraft] = useState<{
     application: JobApplication;
     stage: JobApplicationStage;
@@ -237,22 +228,23 @@ export function AdminJobsDashboard({
   }, [adminEmail, currentEmployeeId, isEmployeeSession, jobs, visibleClientIds]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !canManageJobs) {
       return;
     }
 
-    const handlePointerDown = (event: MouseEvent) => {
-      if (
-        actionsMenuRef.current &&
-        !actionsMenuRef.current.contains(event.target as Node)
-      ) {
-        setActionMenuJobId("");
-      }
-    };
+    const savedRecruiterFilter = window.localStorage.getItem("werklyJobsRecruiterFilter");
+    if (savedRecruiterFilter) {
+      setRecruiterFilter(savedRecruiterFilter);
+    }
+  }, [canManageJobs]);
 
-    window.addEventListener("mousedown", handlePointerDown);
-    return () => window.removeEventListener("mousedown", handlePointerDown);
-  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined" || !canManageJobs) {
+      return;
+    }
+
+    window.localStorage.setItem("werklyJobsRecruiterFilter", recruiterFilter);
+  }, [canManageJobs, recruiterFilter]);
 
   useEffect(() => {
     if (!token) {
@@ -331,6 +323,18 @@ export function AdminJobsDashboard({
     return sortedJobs.filter((job) => job.recruiterId === recruiterFilter);
   }, [recruiterFilter, sortedJobs]);
 
+  useEffect(() => {
+    setJobsPage(1);
+  }, [recruiterFilter, sortedJobs.length]);
+
+  const jobsPageSize = 8;
+  const jobsPageCount = Math.max(1, Math.ceil(filteredJobs.length / jobsPageSize));
+  const paginatedJobs = useMemo(
+    () =>
+      filteredJobs.slice((jobsPage - 1) * jobsPageSize, jobsPage * jobsPageSize),
+    [filteredJobs, jobsPage]
+  );
+
   function isLiveOnWebsite(job: JobSummary) {
     if (job.isHidden) {
       return false;
@@ -347,6 +351,67 @@ export function AdminJobsDashboard({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return new Date(job.lastDateToApply) >= today;
+  }
+
+  function downloadJobsCurrentView() {
+    const workbookMarkup = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+      th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+      th { background: #eaf2f4; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>Jobs Current View</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Job Code</th>
+          <th>Title</th>
+          <th>Client</th>
+          <th>Recruiter</th>
+          <th>Location</th>
+          <th>Experience</th>
+          <th>Status</th>
+          <th>Live Status</th>
+          <th>Applications</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filteredJobs
+          .map(
+            (job) => `<tr>
+              <td>${escapeHtml(job.jobCode || "-")}</td>
+              <td>${escapeHtml(job.title)}</td>
+              <td>${escapeHtml(job.clientName || "Not assigned")}</td>
+              <td>${escapeHtml(job.recruiterName || "Unassigned")}</td>
+              <td>${escapeHtml(job.location)}</td>
+              <td>${escapeHtml(job.experience)}</td>
+              <td>${escapeHtml(job.isHidden ? "hidden" : job.status)}</td>
+              <td>${escapeHtml(isLiveOnWebsite(job) ? "Live on website" : "Not live")}</td>
+              <td>${job.applicationsCount}</td>
+            </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>
+  </body>
+</html>`;
+
+    const blob = new Blob([workbookMarkup], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "jobs-current-view.xls";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   function updateForm(field: keyof JobEditorState, value: string) {
@@ -988,31 +1053,51 @@ export function AdminJobsDashboard({
                 : "Showing only the jobs assigned to your login."}
             </p>
           </div>
-          <div className="w-full max-w-xs">
+          <div className="w-full max-w-sm lg:sticky lg:top-24">
             {canManageJobs ? (
               <>
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-              Filter by recruiter
-            </label>
-            <select
-              value={recruiterFilter}
-              onChange={(event) => setRecruiterFilter(event.target.value)}
-              className={fieldClassName}
-            >
-              <option value="all">All recruiters</option>
-              <option value="unassigned">Unassigned jobs</option>
-              {employees
-                .filter((employee) => employee.status === "active")
-                .map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.fullName}
-                  </option>
-                ))}
-            </select>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Filter by recruiter
+                </label>
+                <div className="grid gap-3">
+                  <select
+                    value={recruiterFilter}
+                    onChange={(event) => setRecruiterFilter(event.target.value)}
+                    className={fieldClassName}
+                  >
+                    <option value="all">All recruiters</option>
+                    <option value="unassigned">Unassigned jobs</option>
+                    {employees
+                      .filter((employee) => employee.status === "active")
+                      .map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.fullName}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={downloadJobsCurrentView}
+                    disabled={filteredJobs.length === 0}
+                    className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Export Current View
+                  </button>
+                </div>
               </>
             ) : (
-              <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
-                Assigned jobs only
+              <div className="grid gap-3">
+                <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
+                  Assigned jobs only
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadJobsCurrentView}
+                  disabled={filteredJobs.length === 0}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Export Current View
+                </button>
               </div>
             )}
           </div>
@@ -1045,8 +1130,8 @@ export function AdminJobsDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredJobs.map((job, index) => {
-                    const shouldOpenUp = index >= filteredJobs.length - 2;
+                  {paginatedJobs.map((job, index) => {
+                    const shouldOpenUp = index >= paginatedJobs.length - 2;
 
                     return (
                     <tr
@@ -1107,62 +1192,43 @@ export function AdminJobsDashboard({
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <div className="relative flex justify-end" ref={actionMenuJobId === job.id ? actionsMenuRef : null}>
-                          <button
-                            type="button"
-                            aria-label={`Open actions for ${job.title}`}
-                            aria-expanded={actionMenuJobId === job.id}
-                            onClick={() =>
-                              setActionMenuJobId((current) => (current === job.id ? "" : job.id))
-                            }
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
-                          >
-                            <MoreVerticalIcon />
-                          </button>
-
-                          {actionMenuJobId === job.id ? (
-                            <div
-                              className={`absolute right-14 z-20 min-w-[200px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
-                                shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
-                              }`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => populateForEdit(job)}
-                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openManualCandidateModal(job)}
-                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                              >
-                                Add Candidate
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActionMenuJobId("");
-                                  void handleVisibilityToggle(job);
-                                }}
-                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
-                              >
-                                {job.isHidden ? "Unhide" : "Hide"}
-                              </button>
-                              {job.slug ? (
-                                <a
-                                  href={`/jobs/${job.slug}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="flex rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                                >
-                                  View
-                                </a>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
+                        <TableActionMenu
+                          label={`Open actions for ${job.title}`}
+                          isOpen={actionMenuJobId === job.id}
+                          onToggle={() =>
+                            setActionMenuJobId((current) => (current === job.id ? "" : job.id))
+                          }
+                          onClose={() => setActionMenuJobId("")}
+                          openUp={shouldOpenUp}
+                          items={[
+                            {
+                              label: "Edit",
+                              onClick: () => populateForEdit(job),
+                            },
+                            {
+                              label: "Add Candidate",
+                              onClick: () => openManualCandidateModal(job),
+                              tone: "accent",
+                            },
+                            {
+                              label: job.isHidden ? "Unhide" : "Hide",
+                              onClick: () => {
+                                void handleVisibilityToggle(job);
+                              },
+                              tone: "danger",
+                            },
+                            ...(job.slug
+                              ? [
+                                  {
+                                    label: "View",
+                                    href: `/jobs/${job.slug}`,
+                                    external: true,
+                                    tone: "accent" as const,
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
                       </td>
                     </tr>
                   )})}
@@ -1177,6 +1243,32 @@ export function AdminJobsDashboard({
               ? "No jobs matched the selected recruiter filter."
               : "No assigned jobs are available for this login yet."}
           </p>
+        ) : null}
+        {!isLoading && filteredJobs.length > jobsPageSize ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="muted-copy text-sm">
+              Showing {(jobsPage - 1) * jobsPageSize + 1}-
+              {Math.min(jobsPage * jobsPageSize, filteredJobs.length)} of {filteredJobs.length} jobs
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setJobsPage((current) => Math.max(1, current - 1))}
+                disabled={jobsPage === 1}
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setJobsPage((current) => Math.min(jobsPageCount, current + 1))}
+                disabled={jobsPage === jobsPageCount}
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         ) : null}
       </section>
       ) : null}

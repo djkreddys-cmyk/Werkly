@@ -431,8 +431,17 @@ export function AdminDashboardOverview() {
       return state.clients;
     }
 
-    return state.clients.filter((client) => client.assignedEmployeeId === currentEmployeeId);
+    return state.clients.filter(
+      (client) =>
+        client.assignedEmployeeId === currentEmployeeId ||
+        client.followUpEmployeeId === currentEmployeeId
+    );
   }, [currentEmployeeId, isEmployeeSession, state.clients]);
+
+  const visibleClientIds = useMemo(
+    () => new Set(visibleClients.map((client) => client.id)),
+    [visibleClients]
+  );
 
   const visibleJobs = useMemo(() => {
     if (!isEmployeeSession) {
@@ -440,9 +449,12 @@ export function AdminDashboardOverview() {
     }
 
     return state.jobs.filter(
-      (job) => job.recruiterId === currentEmployeeId || job.recruiterEmail === authEmail
+      (job) =>
+        job.recruiterId === currentEmployeeId ||
+        job.recruiterEmail === authEmail ||
+        (job.clientId ? visibleClientIds.has(job.clientId) : false)
     );
-  }, [authEmail, currentEmployeeId, isEmployeeSession, state.jobs]);
+  }, [authEmail, currentEmployeeId, isEmployeeSession, state.jobs, visibleClientIds]);
 
   const visibleApplications = useMemo(() => {
     if (!isEmployeeSession) {
@@ -453,9 +465,12 @@ export function AdminDashboardOverview() {
 
     return state.applications.filter(
       (application) =>
-        application.recruiterEmail === authEmail || visibleJobIds.has(application.jobId)
+        application.assignedEmployeeId === currentEmployeeId ||
+        application.followUpEmployeeId === currentEmployeeId ||
+        application.recruiterEmail === authEmail ||
+        visibleJobIds.has(application.jobId)
     );
-  }, [authEmail, isEmployeeSession, state.applications, visibleJobs]);
+  }, [authEmail, currentEmployeeId, isEmployeeSession, state.applications, visibleJobs]);
 
   const followUpItems = useMemo<FollowUpItem[]>(() => {
     return visibleClients
@@ -509,6 +524,61 @@ export function AdminDashboardOverview() {
     () => filteredFollowUps.filter((item) => item.nextFollowUpDate >= todayKey).slice(0, 8),
     [filteredFollowUps, todayKey]
   );
+
+  const assignedWorkCards = useMemo(
+    () => [
+      {
+        label: "My Clients",
+        value: visibleClients.length,
+        href: "/admin/clients/existing",
+      },
+      {
+        label: "My Jobs",
+        value: visibleJobs.length,
+        href: "/admin/jobs/existing",
+      },
+      {
+        label: "My Candidates",
+        value: visibleApplications.length,
+        href: "/admin/candidates",
+      },
+      {
+        label: "My Follow-Ups",
+        value: filteredFollowUps.length,
+        href: "/admin/clients/existing",
+      },
+    ],
+    [filteredFollowUps.length, visibleApplications.length, visibleClients.length, visibleJobs.length]
+  );
+
+  const recruiterAlerts = useMemo(() => {
+    const jobsWithoutApplications = visibleJobs.filter((job) => job.applicationsCount === 0).length;
+    const stuckCandidates = visibleApplications.filter((application) => {
+      const stage = application.stage ?? "applied";
+      return stage === "applied" || stage === "shortlisted";
+    }).length;
+    const staleClients = visibleClients.filter(
+      (client) => !normalizeDateKey(client.lastFollowUpDate) && normalizeDateKey(client.nextFollowUpDate)
+    ).length;
+
+    return [
+      {
+        label: "Jobs with no applications",
+        value: jobsWithoutApplications,
+        detail: "Open mandates that still need candidate movement.",
+      },
+      {
+        label: "Candidates needing movement",
+        value: stuckCandidates,
+        detail: "Profiles still sitting in applied or shortlisted stages.",
+      },
+      {
+        label: "Clients needing first touch",
+        value: staleClients,
+        detail: "Accounts with follow-up dates but no last follow-up recorded yet.",
+      },
+    ];
+  }, [visibleApplications, visibleClients, visibleJobs]);
 
   const followUpCountsByDate = useMemo(() => {
     return filteredFollowUps.reduce<Record<string, number>>((accumulator, item) => {
@@ -912,6 +982,63 @@ export function AdminDashboardOverview() {
           </button>
         ))}
       </section>
+
+      {isEmployeeSession ? (
+        <section className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+          <article className="accent-card p-5">
+            <div>
+              <p className="eyebrow">My Assigned Work</p>
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+                Open the exact work queues assigned to your login
+              </h2>
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {assignedWorkCards.map((card) => (
+                <button
+                  key={card.label}
+                  type="button"
+                  onClick={() => router.push(card.href)}
+                  className="rounded-[1.35rem] border border-[var(--color-line)] bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[rgba(241,166,75,0.3)]"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
+                    {card.label}
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
+                    {card.value}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </article>
+
+          <article className="accent-card p-5">
+            <div>
+              <p className="eyebrow">Recruiter Alerts</p>
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+                Review the items that need your next action
+              </h2>
+            </div>
+            <div className="mt-5 space-y-4">
+              {recruiterAlerts.map((alert) => (
+                <div
+                  key={alert.label}
+                  className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-[var(--color-ink)]">{alert.label}</p>
+                      <p className="muted-copy mt-1 text-sm">{alert.detail}</p>
+                    </div>
+                    <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-sm font-semibold text-[var(--color-dark)]">
+                      {alert.value}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </section>
+      ) : null}
 
       <section className="grid items-stretch gap-5 xl:grid-cols-[1.08fr_0.92fr]">
         <article ref={queueSectionRef} className="accent-card flex h-full flex-col p-5">

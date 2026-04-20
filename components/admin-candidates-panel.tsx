@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type JobApplication,
   type JobApplicationAssignmentPayload,
@@ -9,6 +9,7 @@ import {
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobSummary } from "@/lib/jobs";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+import { TableActionMenu } from "@/components/table-action-menu";
 
 const stageOptions: JobApplicationStage[] = [
   "applied",
@@ -41,18 +42,7 @@ function safeCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
-function MoreVerticalIcon({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
-      <circle cx="10" cy="4.5" r="1.5" />
-      <circle cx="10" cy="10" r="1.5" />
-      <circle cx="10" cy="15.5" r="1.5" />
-    </svg>
-  );
-}
-
 export function AdminCandidatesPanel() {
-  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -81,6 +71,7 @@ export function AdminCandidatesPanel() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [actionMenuApplicationId, setActionMenuApplicationId] = useState("");
   const [stageDraft, setStageDraft] = useState<{
     application: JobApplication;
@@ -95,6 +86,19 @@ export function AdminCandidatesPanel() {
     effectiveFromDate: string;
     effectiveToDate: string;
     note: string;
+  } | null>(null);
+  const [timelineDraft, setTimelineDraft] = useState<{
+    application: JobApplication;
+    logs: Array<{
+      id: number;
+      actionType: string;
+      actorName?: string;
+      actorRole?: string;
+      createdAt: string;
+      afterData?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+    }>;
+    isLoading: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -165,18 +169,24 @@ export function AdminCandidatesPanel() {
       return;
     }
 
-    const handlePointerDown = (event: MouseEvent) => {
-      if (
-        actionsMenuRef.current &&
-        !actionsMenuRef.current.contains(event.target as Node)
-      ) {
-        setActionMenuApplicationId("");
-      }
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    return () => window.removeEventListener("mousedown", handlePointerDown);
+    const savedQuery = window.localStorage.getItem("werklyCandidatesQuery");
+    const savedStage = window.localStorage.getItem("werklyCandidatesStage");
+    if (savedQuery) {
+      setQuery(savedQuery);
+    }
+    if (savedStage) {
+      setStageFilter(savedStage);
+    }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem("werklyCandidatesQuery", query);
+    window.localStorage.setItem("werklyCandidatesStage", stageFilter);
+  }, [query, stageFilter]);
 
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const currentEmployeeId = useMemo(
@@ -272,6 +282,17 @@ export function AdminCandidatesPanel() {
     }, {} as Record<JobApplicationStage, number>);
   }, [visibleApplications]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [query, stageFilter, visibleApplications.length]);
+
+  const pageSize = 8;
+  const pageCount = Math.max(1, Math.ceil(filteredApplications.length / pageSize));
+  const paginatedApplications = useMemo(
+    () => filteredApplications.slice((page - 1) * pageSize, page * pageSize),
+    [filteredApplications, page]
+  );
+
   async function handleStageChange(
     id: string,
     stage: JobApplicationStage,
@@ -349,6 +370,57 @@ export function AdminCandidatesPanel() {
       note: application.followUpAssignmentNote || "",
     });
     setError("");
+  }
+
+  async function openTimeline(application: JobApplication) {
+    setActionMenuApplicationId("");
+    setTimelineDraft({
+      application,
+      logs: [],
+      isLoading: true,
+    });
+
+    try {
+      const response = await fetch(
+        `/api/admin/audit-logs?entityType=application&entityId=${application.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const result = (await response.json()) as {
+        logs?: Array<{
+          id: number;
+          actionType: string;
+          actorName?: string;
+          actorRole?: string;
+          createdAt: string;
+          afterData?: Record<string, unknown>;
+          metadata?: Record<string, unknown>;
+        }>;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to load candidate timeline.");
+      }
+
+      setTimelineDraft({
+        application,
+        logs: result.logs ?? [],
+        isLoading: false,
+      });
+    } catch (timelineError) {
+      setError(
+        timelineError instanceof Error
+          ? timelineError.message
+          : "Unable to load candidate timeline."
+      );
+      setTimelineDraft({
+        application,
+        logs: [],
+        isLoading: false,
+      });
+    }
   }
 
   async function handleAssignmentSave() {
@@ -606,8 +678,8 @@ export function AdminCandidatesPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredApplications.map((application, index) => {
-                    const shouldOpenUp = index >= filteredApplications.length - 2;
+                  {paginatedApplications.map((application, index) => {
+                    const shouldOpenUp = index >= paginatedApplications.length - 2;
 
                     return (
                     <tr
@@ -690,68 +762,54 @@ export function AdminCandidatesPanel() {
                         })}
                       </td>
                       <td className="relative px-4 py-4 align-middle text-right">
-                        <div
-                          className="relative inline-flex items-center justify-end"
-                          ref={
-                            actionMenuApplicationId === application.id ? actionsMenuRef : null
+                        <TableActionMenu
+                          label={`Open actions for ${application.candidateName}`}
+                          isOpen={actionMenuApplicationId === application.id}
+                          onToggle={() =>
+                            setActionMenuApplicationId((current) =>
+                              current === application.id ? "" : application.id
+                            )
                           }
-                        >
-                          <button
-                            type="button"
-                            aria-label={`Open actions for ${application.candidateName}`}
-                            aria-expanded={actionMenuApplicationId === application.id}
-                            onClick={() =>
-                              setActionMenuApplicationId((current) =>
-                                current === application.id ? "" : application.id
-                              )
-                            }
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] bg-white text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
-                          >
-                            <MoreVerticalIcon />
-                          </button>
-
-                          {actionMenuApplicationId === application.id ? (
-                            <div
-                              className={`absolute right-[calc(100%+0.75rem)] z-30 min-w-[210px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
-                                shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
-                              }`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => openStageEditor(application)}
-                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                              >
-                                Update Stage
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openAssignmentEditor(application)}
-                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                              >
-                                Transfer Candidate
-                              </button>
-                              {application.resumeFileData && application.resumeFileName ? (
-                                <a
-                                  href={application.resumeFileData}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="flex rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                                >
-                                  View Resume
-                                </a>
-                              ) : null}
-                              {application.resumeFileData && application.resumeFileName ? (
-                                <a
-                                  href={application.resumeFileData}
-                                  download={application.resumeFileName}
-                                  className="flex rounded-xl px-4 py-3 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
-                                >
-                                  Download Resume
-                                </a>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
+                          onClose={() => setActionMenuApplicationId("")}
+                          openUp={shouldOpenUp}
+                          items={[
+                            {
+                              label: "Update Stage",
+                              onClick: () => openStageEditor(application),
+                            },
+                            {
+                              label: "Transfer Candidate",
+                              onClick: () => openAssignmentEditor(application),
+                            },
+                            {
+                              label: "View Timeline",
+                              onClick: () => void openTimeline(application),
+                              tone: "accent",
+                            },
+                            ...(application.resumeFileData && application.resumeFileName
+                              ? [
+                                  {
+                                    label: "View Resume",
+                                    href: application.resumeFileData,
+                                    external: true,
+                                    tone: "accent" as const,
+                                  },
+                                  {
+                                    label: "Download Resume",
+                                    onClick: () => {
+                                      const link = document.createElement("a");
+                                      link.href = application.resumeFileData || "";
+                                      link.download = application.resumeFileName || "resume";
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    },
+                                    tone: "danger" as const,
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
                       </td>
                     </tr>
                   )})}
@@ -760,6 +818,32 @@ export function AdminCandidatesPanel() {
             </div>
           </div>
         )}
+        {!isLoading && filteredApplications.length > pageSize ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="muted-copy text-sm">
+              Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filteredApplications.length)} of{" "}
+              {filteredApplications.length} candidates
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page === 1}
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                disabled={page === pageCount}
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {stageDraft ? (
@@ -1030,6 +1114,86 @@ export function AdminCandidatesPanel() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {timelineDraft ? (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-3xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Candidate Timeline</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {timelineDraft.application.candidateName}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  View stage movement, transfers, and manual CRM actions for this profile.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTimelineDraft(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            {timelineDraft.isLoading ? (
+              <p className="muted-copy mt-6 text-sm">Loading candidate timeline...</p>
+            ) : timelineDraft.logs.length === 0 ? (
+              <p className="muted-copy mt-6 text-sm">No candidate activity is recorded yet.</p>
+            ) : (
+              <div className="mt-6 max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+                {timelineDraft.logs.map((log) => (
+                  <article
+                    key={log.id}
+                    className="rounded-[1.25rem] border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {(log.actorName || "Werkly User").toString()}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">
+                          {(log.actorRole || "internal-user").toString()}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-dark)]">
+                        {log.actionType}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Updated On
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                          {new Date(log.createdAt).toLocaleString("en-IN", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                          Current Snapshot
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-ink)]">
+                          {String(
+                            log.afterData?.stage ||
+                              log.metadata?.assignmentType ||
+                              log.metadata?.candidateName ||
+                              "Updated"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ) : null}

@@ -81,16 +81,6 @@ const app = express();
 const port = Number(process.env.PORT || 4000);
 const allowedOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
 
-function canEmployeeAccessClient(client, employeeId) {
-  if (!employeeId) {
-    return false;
-  }
-
-  return (
-    client.assignedEmployeeId === employeeId || client.followUpEmployeeId === employeeId
-  );
-}
-
 function getActorDetails(request) {
   const scope = buildEmployeeScope(request.user);
   return {
@@ -252,6 +242,23 @@ app.get("/admin/activity", requireInternalUser, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load screen activity.",
+    });
+  }
+});
+
+app.get("/admin/audit-logs", requirePermission("audit.view"), async (request, response) => {
+  try {
+    const { entityType, entityId, actorId, limit } = request.query ?? {};
+    const logs = await listAuditLogs({
+      entityType: entityType ? String(entityType) : null,
+      entityId: entityId ? String(entityId) : null,
+      actorId: actorId ? String(actorId) : null,
+      limit: limit ? Number(limit) : 100,
+    });
+    response.json({ logs });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load audit logs.",
     });
   }
 });
@@ -575,7 +582,7 @@ app.get("/admin/jobs/:id/applications", requireInternalUser, async (request, res
   }
 });
 
-app.post("/admin/jobs/:id/applications", requireInternalUser, async (request, response) => {
+app.post("/admin/jobs/:id/applications", requirePermission("candidates.manage"), async (request, response) => {
   try {
     const {
       candidateName,
@@ -1316,6 +1323,7 @@ app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) =
       });
     }
 
+    const previousClient = await getClientById(request.params.id);
     const client = await reassignClient(request.params.id, {
       assignedEmployeeId,
       assignmentType,
@@ -1327,6 +1335,24 @@ app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) =
     if (!client) {
       return response.status(404).json({ message: "Client not found." });
     }
+
+    await createAuditLog({
+      actionType:
+        assignmentType === "follow-up-support"
+          ? "client.followup-assigned"
+          : "client.reassigned",
+      entityType: "client",
+      entityId: client.id,
+      ...getActorDetails(request),
+      beforeData: previousClient || {},
+      afterData: client,
+      metadata: {
+        assignmentType: assignmentType || "ownership-transfer",
+        effectiveFromDate,
+        effectiveToDate,
+        reason,
+      },
+    });
 
     response.json(client);
   } catch (error) {
@@ -1543,6 +1569,18 @@ app.put("/admin/client-transfer-requests/:id", requireAdmin, async (request, res
       return response.status(404).json({ message: "Transfer request not found." });
     }
 
+    await createAuditLog({
+      actionType: "client.transfer-request-reviewed",
+      entityType: "client-transfer-request",
+      entityId: reviewed.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: reviewed,
+      metadata: {
+        status,
+      },
+    });
+
     response.json(reviewed);
   } catch (error) {
     response.status(500).json({
@@ -1552,9 +1590,19 @@ app.put("/admin/client-transfer-requests/:id", requireAdmin, async (request, res
   }
 });
 
-app.post("/admin/jobs", requireAdmin, async (request, response) => {
+app.post("/admin/jobs", requirePermission("jobs.manage"), async (request, response) => {
   try {
     const job = await createJob(request.body);
+
+    await createAuditLog({
+      actionType: "job.created",
+      entityType: "job",
+      entityId: job.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: job,
+    });
+
     response.status(201).json(job);
   } catch (error) {
     response.status(500).json({
@@ -1563,13 +1611,23 @@ app.post("/admin/jobs", requireAdmin, async (request, response) => {
   }
 });
 
-app.put("/admin/jobs/:id", requireAdmin, async (request, response) => {
+app.put("/admin/jobs/:id", requirePermission("jobs.manage"), async (request, response) => {
   try {
+    const previousJob = await getAdminJobById(request.params.id);
     const job = await updateJob(request.params.id, request.body);
 
     if (!job) {
       return response.status(404).json({ message: "Job not found." });
     }
+
+    await createAuditLog({
+      actionType: "job.updated",
+      entityType: "job",
+      entityId: job.id,
+      ...getActorDetails(request),
+      beforeData: previousJob || {},
+      afterData: job,
+    });
 
     response.json(job);
   } catch (error) {

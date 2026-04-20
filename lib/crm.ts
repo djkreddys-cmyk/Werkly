@@ -144,6 +144,22 @@ export type NotificationLogRecord = {
   createdAt: string;
 };
 
+export type AuditLogRecord = {
+  id: number;
+  actionType: string;
+  entityType: string;
+  entityId: string;
+  actorType: string;
+  actorId?: string;
+  actorIdentifier?: string;
+  actorName?: string;
+  actorRole?: string;
+  beforeData?: Record<string, unknown>;
+  afterData?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type CrmKpiSettings = {
   recruiterDailyFollowUps: number;
   recruiterDailyApplications: number;
@@ -452,6 +468,39 @@ export async function markNotificationRead(id: string, token: string) {
       Authorization: `Bearer ${token}`,
     },
   });
+}
+
+export async function getAuditLogs(
+  token: string,
+  params?: {
+    entityType?: string;
+    entityId?: string;
+    actorId?: string;
+    limit?: number;
+  }
+) {
+  const searchParams = new URLSearchParams();
+  if (params?.entityType) {
+    searchParams.set("entityType", params.entityType);
+  }
+  if (params?.entityId) {
+    searchParams.set("entityId", params.entityId);
+  }
+  if (params?.actorId) {
+    searchParams.set("actorId", params.actorId);
+  }
+  if (params?.limit) {
+    searchParams.set("limit", String(params.limit));
+  }
+
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  const data = await readJson<{ logs: AuditLogRecord[] }>(`/admin/audit-logs${suffix}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return data.logs;
 }
 
 export async function getClientTransferRequests(token: string) {
