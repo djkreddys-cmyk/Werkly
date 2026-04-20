@@ -85,6 +85,20 @@ export type ClientRecord = {
   createdAt: string;
 };
 
+export type ClientFollowUpHistoryRecord = {
+  id: string;
+  clientId: string;
+  actorEmployeeId?: string;
+  actorName?: string;
+  actorRole?: string;
+  fromStatus?: ClientFollowUpStatus;
+  toStatus: ClientFollowUpStatus;
+  lastFollowUpDate?: string;
+  nextFollowUpDate?: string;
+  notes?: string;
+  createdAt: string;
+};
+
 export type ClientTransferRequestStatus = "pending" | "approved" | "rejected";
 
 export type ClientTransferRequestRecord = {
@@ -262,6 +276,43 @@ export async function createClient(payload: ClientFormPayload, token: string) {
   });
 }
 
+export async function getClientById(id: string, token: string) {
+  return readJson<ClientRecord>(`/admin/clients/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function updateClientFollowUp(
+  id: string,
+  payload: Pick<
+    ClientFormPayload,
+    "followUpStatus" | "nextFollowUpDate" | "lastFollowUpDate" | "followUpNotes"
+  >,
+  token: string
+) {
+  return readJson<ClientRecord>(`/admin/clients/${id}/follow-up`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getClientFollowUpHistory(id: string, token: string) {
+  const data = await readJson<
+    { history: ClientFollowUpHistoryRecord[] } | ClientFollowUpHistoryRecord[]
+  >(`/admin/clients/${id}/history`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return Array.isArray(data) ? data : data.history;
+}
+
 export async function getClientTransferRequests(token: string) {
   const data = await readJson<
     { requests: ClientTransferRequestRecord[] } | ClientTransferRequestRecord[]
@@ -280,6 +331,20 @@ export async function createClientTransferRequest(
 ) {
   return readJson<ClientTransferRequestRecord>("/admin/client-transfer-requests", {
     method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function reassignClient(
+  id: string,
+  payload: { assignedEmployeeId: string },
+  token: string
+) {
+  return readJson<ClientRecord>(`/admin/clients/${id}/reassign`, {
+    method: "PUT",
     body: JSON.stringify(payload),
     headers: {
       Authorization: `Bearer ${token}`,

@@ -122,6 +122,22 @@ export async function ensureCrmSchema() {
     )
   `);
 
+  await query(`
+    create table if not exists client_follow_up_history (
+      id uuid primary key default gen_random_uuid(),
+      client_id uuid not null references clients(id) on delete cascade,
+      actor_employee_id uuid references employees(id) on delete set null,
+      actor_name text,
+      actor_role text,
+      from_status text,
+      to_status text not null,
+      last_follow_up_date date,
+      next_follow_up_date date,
+      notes text,
+      created_at timestamptz not null default now()
+    )
+  `);
+
   await query(`alter table clients add column if not exists agreement_file_name text`);
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
@@ -132,6 +148,15 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists onboarding_source text`);
   await query(`alter table clients add column if not exists follow_up_notes text`);
   await query(`alter table client_transfer_requests add column if not exists effective_from_date date`);
+  await query(`alter table client_follow_up_history add column if not exists actor_employee_id uuid references employees(id) on delete set null`);
+  await query(`alter table client_follow_up_history add column if not exists actor_name text`);
+  await query(`alter table client_follow_up_history add column if not exists actor_role text`);
+  await query(`alter table client_follow_up_history add column if not exists from_status text`);
+  await query(`alter table client_follow_up_history add column if not exists to_status text`);
+  await query(`alter table client_follow_up_history add column if not exists last_follow_up_date date`);
+  await query(`alter table client_follow_up_history add column if not exists next_follow_up_date date`);
+  await query(`alter table client_follow_up_history add column if not exists notes text`);
+  await query(`alter table client_follow_up_history add column if not exists created_at timestamptz not null default now()`);
   await query(`alter table employees add column if not exists employee_code text`);
   await query(
     `alter table employees add column if not exists must_change_password boolean not null default true`
@@ -176,6 +201,22 @@ function mapEmployeeRow(row) {
     mustChangePassword: Boolean(row.must_change_password),
     inactiveDate: row.inactive_date,
     inactiveRemarks: row.inactive_remarks,
+    createdAt: row.created_at,
+  };
+}
+
+function mapClientFollowUpHistoryRow(row) {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    actorEmployeeId: row.actor_employee_id,
+    actorName: row.actor_name,
+    actorRole: row.actor_role,
+    fromStatus: row.from_status,
+    toStatus: row.to_status,
+    lastFollowUpDate: row.last_follow_up_date,
+    nextFollowUpDate: row.next_follow_up_date,
+    notes: row.notes,
     createdAt: row.created_at,
   };
 }
@@ -577,6 +618,59 @@ export async function listClients(employeeId = null) {
   return result.rows.map(mapClientRow);
 }
 
+export async function getClientById(clientId) {
+  const result = await query(
+    `select
+      clients.id,
+      clients.company_name,
+      clients.contact_person,
+      clients.contact_email,
+      clients.contact_phone,
+      clients.sector,
+      clients.branch,
+      clients.assigned_employee_id,
+      clients.status,
+      clients.onboarding_status,
+      clients.follow_up_status,
+      clients.next_follow_up_date,
+      clients.last_follow_up_date,
+      clients.onboarding_source,
+      clients.notes,
+      clients.follow_up_notes,
+      clients.agreement_file_name,
+      clients.agreement_file_type,
+      clients.agreement_file_data,
+      clients.created_at,
+      employees.full_name as assigned_employee_name,
+      coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
+      coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
+     from clients
+     left join employees on employees.id = clients.assigned_employee_id
+     left join lateral (
+       select
+         count(*)::int as linked_jobs_count,
+         coalesce(
+           json_agg(
+             json_build_object(
+               'id', jobs.id,
+               'jobCode', jobs.job_code,
+               'title', jobs.title,
+               'status', jobs.status
+             )
+             order by jobs.created_at desc
+           ),
+           '[]'::json
+         ) as linked_jobs
+       from jobs
+       where jobs.client_id = clients.id
+     ) job_summary on true
+     where clients.id = $1`,
+    [clientId]
+  );
+
+  return result.rows[0] ? mapClientRow(result.rows[0]) : null;
+}
+
 export async function createClient(payload) {
   const result = await query(
     `insert into clients (
@@ -699,6 +793,18 @@ export async function reassignClient(clientId, assignedEmployeeId) {
 }
 
 export async function updateClientFollowUp(clientId, payload) {
+  const existingResult = await query(
+    `select follow_up_status
+     from clients
+     where id = $1`,
+    [clientId]
+  );
+
+  const existing = existingResult.rows[0];
+  if (!existing) {
+    return null;
+  }
+
   const updatedResult = await query(
     `update clients
         set follow_up_status = $2,
@@ -721,6 +827,31 @@ export async function updateClientFollowUp(clientId, payload) {
   if (!updated) {
     return null;
   }
+
+  await query(
+    `insert into client_follow_up_history (
+      client_id,
+      actor_employee_id,
+      actor_name,
+      actor_role,
+      from_status,
+      to_status,
+      last_follow_up_date,
+      next_follow_up_date,
+      notes
+    ) values ($1, $2, $3, $4, $5, $6, $7::date, $8::date, $9)`,
+    [
+      clientId,
+      payload.actorEmployeeId || null,
+      payload.actorName || null,
+      payload.actorRole || null,
+      existing.follow_up_status || null,
+      payload.followUpStatus || "pending",
+      payload.lastFollowUpDate || null,
+      payload.nextFollowUpDate || null,
+      payload.followUpNotes || null,
+    ]
+  );
 
   const hydratedResult = await query(
     `select
@@ -772,6 +903,29 @@ export async function updateClientFollowUp(clientId, payload) {
   );
 
   return hydratedResult.rows[0] ? mapClientRow(hydratedResult.rows[0]) : null;
+}
+
+export async function listClientFollowUpHistory(clientId) {
+  const result = await query(
+    `select
+      id,
+      client_id,
+      actor_employee_id,
+      actor_name,
+      actor_role,
+      from_status,
+      to_status,
+      last_follow_up_date,
+      next_follow_up_date,
+      notes,
+      created_at
+     from client_follow_up_history
+     where client_id = $1
+     order by created_at desc`,
+    [clientId]
+  );
+
+  return result.rows.map(mapClientFollowUpHistoryRow);
 }
 
 export async function createClientTransferRequest(payload) {

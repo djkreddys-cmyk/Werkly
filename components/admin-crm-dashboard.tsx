@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -834,7 +835,12 @@ function CrmClientsList({
                       }
                     >
                       <td className="px-4 py-4">
-                        <p className="font-semibold text-[var(--color-ink)]">{client.companyName}</p>
+                        <Link
+                          href={`/admin/clients/${client.id}`}
+                          className="font-semibold text-[var(--color-ink)] transition hover:text-[var(--color-dark)]"
+                        >
+                          {client.companyName}
+                        </Link>
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
                           {client.sector || "Sector not added"}
                         </p>
@@ -917,6 +923,13 @@ function CrmClientsList({
 
                             {actionMenuClientId === client.id ? (
                               <div className="absolute right-14 top-1/2 z-20 min-w-[220px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                                <Link
+                                  href={`/admin/clients/${client.id}`}
+                                  onClick={() => setActionMenuClientId("")}
+                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  View Client
+                                </Link>
                                 <button
                                   type="button"
                                   onClick={() => {

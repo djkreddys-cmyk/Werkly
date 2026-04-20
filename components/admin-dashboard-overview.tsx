@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClientFollowUpStatus, ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 
@@ -168,6 +169,7 @@ function FollowUpStatusPill({ status }: { status: ClientFollowUpStatus }) {
 }
 
 export function AdminDashboardOverview() {
+  const router = useRouter();
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -209,6 +211,13 @@ export function AdminDashboardOverview() {
     "all" | ClientFollowUpStatus
   >("all");
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
+  const [editingFollowUpId, setEditingFollowUpId] = useState("");
+  const [quickFollowUpStatus, setQuickFollowUpStatus] =
+    useState<ClientFollowUpStatus>("pending");
+  const [quickLastFollowUpDate, setQuickLastFollowUpDate] = useState("");
+  const [quickNextFollowUpDate, setQuickNextFollowUpDate] = useState("");
+  const [quickFollowUpNotes, setQuickFollowUpNotes] = useState("");
+  const [isQuickSaving, setIsQuickSaving] = useState(false);
   const isAdminView = authType === "admin" || authRole === "super-admin";
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const activeDateKey = normalizeDateKey(selectedDateKey) || todayKey;
@@ -216,6 +225,8 @@ export function AdminDashboardOverview() {
     (employee) => employee.employeeCode === authEmployeeCode || employee.email === authEmail
   )?.id;
   const activeEmployeeFilter = isEmployeeSession ? currentEmployeeId || "" : selectedEmployeeId;
+  const queueSectionRef = useRef<HTMLElement | null>(null);
+  const calendarSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -396,6 +407,73 @@ export function AdminDashboardOverview() {
     setIsDateModalOpen(true);
   }
 
+  function scrollToSection(ref: { current: HTMLElement | null }) {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function applyClientUpdate(updatedClient: ClientRecord) {
+    setState((current) => ({
+      ...current,
+      clients: current.clients.map((client) =>
+        client.id === updatedClient.id ? updatedClient : client
+      ),
+    }));
+  }
+
+  function openQuickEdit(item: FollowUpItem) {
+    setEditingFollowUpId(item.id);
+    setQuickFollowUpStatus(item.followUpStatus);
+    setQuickLastFollowUpDate(item.lastFollowUpDate || activeDateKey);
+    setQuickNextFollowUpDate(item.nextFollowUpDate || "");
+    setQuickFollowUpNotes(item.notes || "");
+  }
+
+  async function handleQuickFollowUpSave(
+    clientId: string,
+    override?: {
+      status?: ClientFollowUpStatus;
+      lastFollowUpDate?: string;
+      nextFollowUpDate?: string;
+      notes?: string;
+    }
+  ) {
+    if (!token) {
+      return;
+    }
+
+    setIsQuickSaving(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/clients/${clientId}/follow-up`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          followUpStatus: override?.status || quickFollowUpStatus,
+          lastFollowUpDate: override?.lastFollowUpDate || quickLastFollowUpDate || activeDateKey,
+          nextFollowUpDate: override?.nextFollowUpDate ?? quickNextFollowUpDate,
+          followUpNotes: override?.notes ?? quickFollowUpNotes,
+        }),
+      });
+
+      const result = (await response.json()) as ClientRecord & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to update follow-up.");
+      }
+
+      applyClientUpdate(result);
+      setEditingFollowUpId("");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to update follow-up.");
+    } finally {
+      setIsQuickSaving(false);
+    }
+  }
+
   const metrics = useMemo(() => {
     const liveJobs = visibleJobs.filter((job) => {
       if (job.isHidden || job.status !== "open") {
@@ -489,35 +567,57 @@ export function AdminDashboardOverview() {
           {
             label: isAdminView ? "Live Jobs" : "My Live Jobs",
             value: metrics.liveJobs,
+            onClick: () => router.push("/admin/jobs/existing"),
           },
           {
             label: isAdminView ? "Active Clients" : "My Clients",
             value: metrics.activeClients,
+            onClick: () => router.push("/admin/clients/existing"),
           },
           {
             label: "Due Today",
             value: metrics.dueTodayFollowUps,
+            onClick: () => {
+              setSelectedFollowUpStatus("all");
+              openDateDetails(todayKey);
+              scrollToSection(calendarSectionRef);
+            },
           },
           {
             label: "Overdue",
             value: metrics.overdueFollowUps,
+            onClick: () => {
+              setSelectedFollowUpStatus("follow-up-due");
+              setIsDateModalOpen(false);
+              scrollToSection(queueSectionRef);
+            },
           },
           {
             label: "Next 7 Days",
             value: metrics.upcomingSevenDays,
+            onClick: () => {
+              setSelectedFollowUpStatus("all");
+              setIsDateModalOpen(false);
+              scrollToSection(queueSectionRef);
+            },
           },
         ].map((card) => (
-          <article key={card.label} className="accent-card p-4">
+          <button
+            key={card.label}
+            type="button"
+            onClick={card.onClick}
+            className="accent-card p-4 text-left transition hover:-translate-y-0.5 hover:border-[rgba(241,166,75,0.3)]"
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
               {card.label}
             </p>
             <p className="mt-2 text-[1.7rem] font-semibold text-[var(--color-ink)]">{card.value}</p>
-          </article>
+          </button>
         ))}
       </section>
 
       <section className="grid items-stretch gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-        <article className="accent-card flex h-full flex-col p-5">
+        <article ref={queueSectionRef} className="accent-card flex h-full flex-col p-5">
           <div className="min-h-[112px]">
             <p className="eyebrow">Upcoming Follow-Ups</p>
             <h2 className="mt-1.5 text-base font-semibold text-[var(--color-ink)]">
@@ -569,7 +669,7 @@ export function AdminDashboardOverview() {
           )}
         </article>
 
-        <article className="accent-card flex h-full flex-col p-5">
+        <article ref={calendarSectionRef} className="accent-card flex h-full flex-col p-5">
           <div className="flex flex-col gap-4">
             <div className="min-h-[112px] max-w-[430px]">
               <p className="eyebrow">Follow-Up Calendar</p>
@@ -980,6 +1080,110 @@ export function AdminDashboardOverview() {
                     <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-[var(--color-muted)]">
                       {item.notes || "No follow-up remarks added yet."}
                     </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/admin/clients/${item.id}`)}
+                        className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                      >
+                        Open Client
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openQuickEdit(item)}
+                        className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                      >
+                        Update Follow-Up
+                      </button>
+                      <button
+                          type="button"
+                          onClick={() => {
+                          void handleQuickFollowUpSave(item.id, {
+                            status: "closed",
+                            lastFollowUpDate: activeDateKey,
+                            nextFollowUpDate: "",
+                            notes: item.notes || "",
+                          });
+                        }}
+                        className="rounded-2xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                      >
+                        Mark Closed
+                      </button>
+                    </div>
+
+                    {editingFollowUpId === item.id ? (
+                      <div className="mt-4 grid gap-4 rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Status
+                          </span>
+                          <select
+                            value={quickFollowUpStatus}
+                            onChange={(event) =>
+                              setQuickFollowUpStatus(
+                                event.target.value as ClientFollowUpStatus
+                              )
+                            }
+                            className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="follow-up-due">Follow-Up Due</option>
+                            <option value="in-progress">In Discussion</option>
+                            <option value="awaiting-client">Awaiting Response</option>
+                            <option value="closed">Closed</option>
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Last Follow-Up
+                          </span>
+                          <input
+                            type="date"
+                            value={quickLastFollowUpDate}
+                            onChange={(event) => setQuickLastFollowUpDate(event.target.value)}
+                            className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                          />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Next Follow-Up
+                          </span>
+                          <input
+                            type="date"
+                            value={quickNextFollowUpDate}
+                            onChange={(event) => setQuickNextFollowUpDate(event.target.value)}
+                            className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                          />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Notes
+                          </span>
+                          <textarea
+                            value={quickFollowUpNotes}
+                            onChange={(event) => setQuickFollowUpNotes(event.target.value)}
+                            className="mt-2 min-h-[120px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                          />
+                        </label>
+                        <div className="sm:col-span-2 flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => void handleQuickFollowUpSave(item.id)}
+                            disabled={isQuickSaving}
+                            className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            {isQuickSaving ? "Saving..." : "Save Update"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingFollowUpId("")}
+                            className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>

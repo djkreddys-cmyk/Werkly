@@ -26,6 +26,8 @@ import {
   createClientTransferRequest,
   createEmployee,
   ensureCrmSchema,
+  getClientById,
+  listClientFollowUpHistory,
   listClients,
   listClientTransferRequests,
   listEmployees,
@@ -1002,6 +1004,55 @@ app.post("/admin/clients", requireInternalUser, async (request, response) => {
   }
 });
 
+app.get("/admin/clients/:id", requireInternalUser, async (request, response) => {
+  try {
+    const client = await getClientById(request.params.id);
+
+    if (!client) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    if (
+      request.user?.type === "employee" &&
+      request.user?.id &&
+      client.assignedEmployeeId !== request.user.id
+    ) {
+      return response.status(403).json({ message: "You do not have access to this client." });
+    }
+
+    response.json(client);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load client details.",
+    });
+  }
+});
+
+app.get("/admin/clients/:id/history", requireInternalUser, async (request, response) => {
+  try {
+    const client = await getClientById(request.params.id);
+
+    if (!client) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    if (
+      request.user?.type === "employee" &&
+      request.user?.id &&
+      client.assignedEmployeeId !== request.user.id
+    ) {
+      return response.status(403).json({ message: "You do not have access to this client." });
+    }
+
+    const history = await listClientFollowUpHistory(request.params.id);
+    response.json({ history });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load client history.",
+    });
+  }
+});
+
 app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) => {
   try {
     const { assignedEmployeeId } = request.body ?? {};
@@ -1041,6 +1092,9 @@ app.put("/admin/clients/:id/follow-up", requireInternalUser, async (request, res
       nextFollowUpDate,
       lastFollowUpDate,
       followUpNotes,
+      actorEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+      actorName: request.user?.name || "Werkly User",
+      actorRole: request.user?.role || request.user?.type || "internal-user",
     });
 
     if (!client) {
