@@ -6,6 +6,81 @@ import { useRouter } from "next/navigation";
 const fieldClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
 
+const passwordFieldClassName = `${fieldClassName} pr-12`;
+
+function EyeIcon({ visible }: { visible: boolean }) {
+  if (visible) {
+    return (
+      <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
+        <path
+          d="M2.5 10C3.88 7.14 6.67 5.25 10 5.25C13.33 5.25 16.12 7.14 17.5 10C16.12 12.86 13.33 14.75 10 14.75C6.67 14.75 3.88 12.86 2.5 10Z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="10" cy="10" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
+      <path
+        d="M3 3L17 17"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.67 5.52C9.1 5.34 9.54 5.25 10 5.25C13.33 5.25 16.12 7.14 17.5 10C16.96 11.13 16.2 12.11 15.27 12.91M12.12 12.12C11.54 12.54 10.8 12.75 10 12.75C8.07 12.75 6.5 11.18 6.5 9.25C6.5 8.45 6.71 7.71 7.13 7.13M4.73 7.09C3.8 7.89 3.04 8.87 2.5 10C3.88 12.86 6.67 14.75 10 14.75C10.46 14.75 10.9 14.66 11.33 14.48"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <label className="block space-y-2">
+      <span className="text-sm font-medium text-[var(--color-ink)]">{label}</span>
+      <div className="relative">
+        <input
+          className={passwordFieldClassName}
+          type={isVisible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          required
+        />
+        <button
+          type="button"
+          onClick={() => setIsVisible((current) => !current)}
+          className="absolute inset-y-0 right-3 inline-flex items-center text-[var(--color-muted)] transition hover:text-[var(--color-ink)]"
+          aria-label={isVisible ? `Hide ${label}` : `Show ${label}`}
+        >
+          <EyeIcon visible={isVisible} />
+        </button>
+      </div>
+    </label>
+  );
+}
+
 type LoginUser = {
   type: "admin" | "employee";
   name: string;
@@ -162,33 +237,19 @@ export function AdminLoginForm() {
         </p>
 
         <div className="mt-8 space-y-4">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-[var(--color-ink)]">
-              New password
-            </span>
-            <input
-              className={fieldClassName}
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              placeholder="Create a new password"
-              required
-            />
-          </label>
+          <PasswordField
+            label="New password"
+            value={newPassword}
+            onChange={setNewPassword}
+            placeholder="Create a new password"
+          />
 
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-[var(--color-ink)]">
-              Confirm password
-            </span>
-            <input
-              className={fieldClassName}
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="Re-enter the new password"
-              required
-            />
-          </label>
+          <PasswordField
+            label="Confirm password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            placeholder="Re-enter the new password"
+          />
         </div>
 
         {error ? <p className="mt-4 text-sm font-medium text-red-600">{error}</p> : null}
@@ -230,17 +291,12 @@ export function AdminLoginForm() {
           />
         </label>
 
-        <label className="block space-y-2">
-          <span className="text-sm font-medium text-[var(--color-ink)]">Password</span>
-          <input
-            className={fieldClassName}
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter your password"
-            required
-          />
-        </label>
+        <PasswordField
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          placeholder="Enter your password"
+        />
       </div>
 
       {error ? <p className="mt-4 text-sm font-medium text-red-600">{error}</p> : null}

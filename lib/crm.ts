@@ -60,6 +60,7 @@ export type ClientRecord = {
   contactPerson: string;
   contactEmail?: string;
   contactPhone?: string;
+  communicationAddress?: string;
   sector?: string;
   branch?: string;
   assignedEmployeeId?: string;
@@ -197,6 +198,7 @@ export type ClientFormPayload = {
   contactPerson: string;
   contactEmail?: string;
   contactPhone?: string;
+  communicationAddress?: string;
   sector?: string;
   branch?: string;
   assignedEmployeeId?: string;

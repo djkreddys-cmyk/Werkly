@@ -86,6 +86,7 @@ export async function ensureCrmSchema() {
       contact_person text not null,
       contact_email text,
       contact_phone text,
+      communication_address text,
       sector text,
       branch text,
       assigned_employee_id uuid references employees(id) on delete set null,
@@ -187,6 +188,7 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists agreement_file_name text`);
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
+  await query(`alter table clients add column if not exists communication_address text`);
   await query(`alter table clients add column if not exists onboarding_status text not null default 'new-lead'`);
   await query(`alter table clients add column if not exists follow_up_status text not null default 'pending'`);
   await query(`alter table clients add column if not exists next_follow_up_date date`);
@@ -436,6 +438,7 @@ function mapClientRow(row) {
     contactPerson: row.contact_person,
     contactEmail: row.contact_email,
     contactPhone: row.contact_phone,
+    communicationAddress: row.communication_address,
     sector: row.sector,
     branch: row.branch,
     assignedEmployeeId: row.assigned_employee_id,
@@ -705,6 +708,7 @@ export async function listClients(employeeId = null) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.communication_address,
       clients.sector,
       clients.branch,
       clients.assigned_employee_id,
@@ -759,6 +763,7 @@ export async function getClientById(clientId) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.communication_address,
       clients.sector,
       clients.branch,
       clients.assigned_employee_id,
@@ -811,6 +816,7 @@ export async function createClient(payload) {
       contact_person,
       contact_email,
       contact_phone,
+      communication_address,
       sector,
       branch,
       assigned_employee_id,
@@ -825,13 +831,14 @@ export async function createClient(payload) {
       agreement_file_name,
       agreement_file_type,
       agreement_file_data
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::date, $12::date, $13, $14, $15, $16, $17, $18)
-    returning id, company_name, contact_person, contact_email, contact_phone, sector, branch, assigned_employee_id, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14, $15, $16, $17, $18, $19)
+    returning id, company_name, contact_person, contact_email, contact_phone, communication_address, sector, branch, assigned_employee_id, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
     [
       payload.companyName,
       payload.contactPerson,
       payload.contactEmail || null,
       payload.contactPhone || null,
+      payload.communicationAddress || null,
       payload.sector || null,
       payload.branch || null,
       payload.assignedEmployeeId || null,
@@ -880,6 +887,7 @@ export async function reassignClient(clientId, assignedEmployeeId) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.communication_address,
       clients.sector,
       clients.branch,
       clients.assigned_employee_id,
@@ -993,6 +1001,7 @@ export async function updateClientFollowUp(clientId, payload) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.communication_address,
       clients.sector,
       clients.branch,
       clients.assigned_employee_id,

@@ -331,6 +331,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
               ["Contact Person", client.contactPerson],
               ["Contact Email", client.contactEmail || "Not added"],
               ["Contact Phone", client.contactPhone || "Not added"],
+              ["Communication Address", client.communicationAddress || "Not added"],
               ["Sector", client.sector || "Not added"],
               ["Branch", client.branch || "Not added"],
               ["Client Status", formatFollowUpStage(client.status)],

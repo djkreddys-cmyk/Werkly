@@ -45,6 +45,7 @@ type ClientFormState = {
   contactPerson: string;
   contactEmail: string;
   contactPhone: string;
+  communicationAddress: string;
   sector: string;
   branch: string;
   assignedEmployeeId: string;
@@ -126,6 +127,7 @@ const emptyClientForm: ClientFormState = {
   contactPerson: "",
   contactEmail: "",
   contactPhone: "",
+  communicationAddress: "",
   sector: "",
   branch: "",
   assignedEmployeeId: "",
@@ -2316,6 +2318,17 @@ export function AdminClientsPanel({
                 placeholder="Contact phone"
                 value={clientForm.contactPhone}
                 onChange={(event) => updateClientField("contactPhone", event.target.value)}
+              />
+            </label>
+            <label className="block sm:col-span-2">
+              <span className={clientFormLabelClassName}>Communication Address</span>
+              <textarea
+                className={`${fieldClassName} min-h-[110px] resize-y`}
+                placeholder="Communication address"
+                value={clientForm.communicationAddress}
+                onChange={(event) =>
+                  updateClientField("communicationAddress", event.target.value)
+                }
               />
             </label>
             <label className="block">
