@@ -5,10 +5,10 @@ export default function AdminHrReportsPage() {
   return (
     <AdminShell
       eyebrow="HR Reports"
-      title="Review attendance, employee activity, and screen time."
-      description="Track first login, last logout, worked hours, current employee status, and CRM screen activity for HR operations."
+      title="Choose the HR report you want to review."
+      description="Open attendance or employee activity on separate HR report screens so filters, exports, and day-wise review stay focused."
     >
-      <AdminReportsPanel module="hr" />
+      <AdminReportsPanel module="hr" report="index" />
     </AdminShell>
   );
 }

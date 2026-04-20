@@ -5,10 +5,10 @@ export default function AdminJobsReportsPage() {
   return (
     <AdminShell
       eyebrow="Jobs Reports"
-      title="Review mandate performance and stage movement."
-      description="Track job-wise applications, open and closed mandates, recruiter ownership, and stage movement across active roles."
+      title="Choose the jobs report you want to review."
+      description="Open job performance or stage movement on individual report screens based on the current CRM process."
     >
-      <AdminReportsPanel module="jobs" />
+      <AdminReportsPanel module="jobs" report="index" />
     </AdminShell>
   );
 }

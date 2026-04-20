@@ -1380,7 +1380,7 @@ export function AdminReportsPanel({
     );
   }
 
-  if (report === "index" && module !== "overview") {
+  if (report === "index") {
     return (
       <div className="space-y-6">
         <section className="grid gap-5 xl:grid-cols-2">
@@ -1494,155 +1494,159 @@ export function AdminReportsPanel({
           />
         </section>
 
-        <section className="accent-card p-7">
-          <p className="eyebrow">Attendance Report</p>
-          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-            Track login, logout, screen time, and worked hours.
-          </h2>
-          <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
-            This HR report shows first login, last logout, worked hours, screen time,
-            idle time, and latest CRM activity for each employee by date.
-          </p>
+        {report === "hr-attendance" && (
+          <section className="accent-card p-7">
+            <p className="eyebrow">Attendance Report</p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+              Track login, logout, screen time, and worked hours.
+            </h2>
+            <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+              This HR report shows first login, last logout, worked hours, screen time,
+              idle time, and latest CRM activity for each employee by date.
+            </p>
 
-          {isLoading ? (
-            <p className="muted-copy mt-6 text-sm">Loading attendance report...</p>
-          ) : filteredAttendanceSummary.length === 0 ? (
-            <p className="muted-copy mt-6 text-sm">No attendance records are available yet.</p>
-          ) : (
-            <ReportTable
-              headings={[
-                "Employee",
-                "Date",
-                "First Login",
-                "Last Logout",
-                "Worked Hours",
-                "Screen Time",
-                "Idle Time",
-                "Last Seen",
-                "Status",
-              ]}
-            >
-              {filteredAttendanceSummary.map((summary, index) => (
-                <tr
-                  key={summary.key}
-                  className={
-                    index === filteredAttendanceSummary.length - 1
-                      ? "align-top"
-                      : "align-top border-b border-[var(--color-line)]"
-                  }
-                >
-                  <td className="px-4 py-4">
-                    <p className="font-semibold text-[var(--color-ink)]">{summary.userName}</p>
-                    <p className="mt-1 text-sm text-[var(--color-muted)]">
-                      {summary.userIdentifier}
-                    </p>
-                  </td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                    {formatDate(summary.reportDate)}
-                  </td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                    {formatDateTime(summary.firstLoginAt)}
-                  </td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                    {formatDateTime(summary.lastLogoutAt)}
-                  </td>
-                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                    {formatDuration(summary.totalWorkedMs)}
-                  </td>
-                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                    {formatDuration(summary.screenActiveSeconds * 1000)}
-                  </td>
-                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                    {formatDuration(summary.screenIdleSeconds * 1000)}
-                  </td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                    {formatDateTime(summary.lastSeenAt)}
-                  </td>
-                  <td className="px-4 py-4 text-sm">
-                    <span className="font-semibold text-[var(--color-accent-strong)]">
-                      {summary.isAutoLoggedOut
-                        ? "Auto logged out"
-                        : summary.activeSessionCount > 0
-                          ? "Active session"
-                          : "Day closed"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </ReportTable>
-          )}
-        </section>
+            {isLoading ? (
+              <p className="muted-copy mt-6 text-sm">Loading attendance report...</p>
+            ) : filteredAttendanceSummary.length === 0 ? (
+              <p className="muted-copy mt-6 text-sm">No attendance records are available yet.</p>
+            ) : (
+              <ReportTable
+                headings={[
+                  "Employee",
+                  "Date",
+                  "First Login",
+                  "Last Logout",
+                  "Worked Hours",
+                  "Screen Time",
+                  "Idle Time",
+                  "Last Seen",
+                  "Status",
+                ]}
+              >
+                {filteredAttendanceSummary.map((summary, index) => (
+                  <tr
+                    key={summary.key}
+                    className={
+                      index === filteredAttendanceSummary.length - 1
+                        ? "align-top"
+                        : "align-top border-b border-[var(--color-line)]"
+                    }
+                  >
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-[var(--color-ink)]">{summary.userName}</p>
+                      <p className="mt-1 text-sm text-[var(--color-muted)]">
+                        {summary.userIdentifier}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDate(summary.reportDate)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDateTime(summary.firstLoginAt)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDateTime(summary.lastLogoutAt)}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {formatDuration(summary.totalWorkedMs)}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {formatDuration(summary.screenActiveSeconds * 1000)}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {formatDuration(summary.screenIdleSeconds * 1000)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDateTime(summary.lastSeenAt)}
+                    </td>
+                    <td className="px-4 py-4 text-sm">
+                      <span className="font-semibold text-[var(--color-accent-strong)]">
+                        {summary.isAutoLoggedOut
+                          ? "Auto logged out"
+                          : summary.activeSessionCount > 0
+                            ? "Active session"
+                            : "Day closed"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </ReportTable>
+            )}
+          </section>
+        )}
 
-        <section className="accent-card p-7">
-          <p className="eyebrow">Employee Activity</p>
-          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-            Review current employee visibility.
-          </h2>
-          <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
-            This snapshot shows today&apos;s login capture, last seen activity, screen time,
-            and current employee status for internal follow-up.
-          </p>
+        {report === "hr-activity" && (
+          <section className="accent-card p-7">
+            <p className="eyebrow">Employee Activity</p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+              Review current employee visibility.
+            </h2>
+            <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+              This snapshot shows today&apos;s login capture, last seen activity, screen time,
+              and current employee status for internal follow-up.
+            </p>
 
-          {isLoading ? (
-            <p className="muted-copy mt-6 text-sm">Loading employee activity...</p>
-          ) : filteredEmployeeActivityRows.length === 0 ? (
-            <p className="muted-copy mt-6 text-sm">No employee activity is available yet.</p>
-          ) : (
-            <ReportTable
-              headings={[
-                "Employee",
-                "Role",
-                "Date Of Joining",
-                "Today Screen Time",
-                "Idle Time",
-                "Last Seen",
-                "First Login",
-                "Last Logout",
-                "Status",
-              ]}
-            >
-              {filteredEmployeeActivityRows.map((row, index) => (
-                <tr
-                  key={row.employee.id}
-                  className={
-                    index === filteredEmployeeActivityRows.length - 1
-                      ? "align-top"
-                      : "align-top border-b border-[var(--color-line)]"
-                  }
-                >
-                  <td className="px-4 py-4">
-                    <p className="font-semibold text-[var(--color-ink)]">{row.employee.fullName}</p>
-                    <p className="mt-1 text-sm text-[var(--color-muted)]">{row.employee.email}</p>
-                  </td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.employee.role}</td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                    {formatDate(row.employee.dateOfJoining)}
-                  </td>
-                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                    {formatDuration((row.activitySummary?.activeSeconds ?? 0) * 1000)}
-                  </td>
-                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                    {formatDuration((row.activitySummary?.idleSeconds ?? 0) * 1000)}
-                  </td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                    {formatDateTime(row.activitySummary?.lastSeenAt)}
-                  </td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                    {formatDateTime(row.attendanceSummary?.firstLoginAt)}
-                  </td>
-                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                    {formatDateTime(row.attendanceSummary?.lastLogoutAt)}
-                  </td>
-                  <td className="px-4 py-4 text-sm">
-                    <span className="font-semibold text-[var(--color-accent-strong)]">
-                      {row.employee.status === "active" ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </ReportTable>
-          )}
-        </section>
+            {isLoading ? (
+              <p className="muted-copy mt-6 text-sm">Loading employee activity...</p>
+            ) : filteredEmployeeActivityRows.length === 0 ? (
+              <p className="muted-copy mt-6 text-sm">No employee activity is available yet.</p>
+            ) : (
+              <ReportTable
+                headings={[
+                  "Employee",
+                  "Role",
+                  "Date Of Joining",
+                  "Today Screen Time",
+                  "Idle Time",
+                  "Last Seen",
+                  "First Login",
+                  "Last Logout",
+                  "Status",
+                ]}
+              >
+                {filteredEmployeeActivityRows.map((row, index) => (
+                  <tr
+                    key={row.employee.id}
+                    className={
+                      index === filteredEmployeeActivityRows.length - 1
+                        ? "align-top"
+                        : "align-top border-b border-[var(--color-line)]"
+                    }
+                  >
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-[var(--color-ink)]">{row.employee.fullName}</p>
+                      <p className="mt-1 text-sm text-[var(--color-muted)]">{row.employee.email}</p>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.employee.role}</td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDate(row.employee.dateOfJoining)}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {formatDuration((row.activitySummary?.activeSeconds ?? 0) * 1000)}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {formatDuration((row.activitySummary?.idleSeconds ?? 0) * 1000)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDateTime(row.activitySummary?.lastSeenAt)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDateTime(row.attendanceSummary?.firstLoginAt)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDateTime(row.attendanceSummary?.lastLogoutAt)}
+                    </td>
+                    <td className="px-4 py-4 text-sm">
+                      <span className="font-semibold text-[var(--color-accent-strong)]">
+                        {row.employee.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </ReportTable>
+            )}
+          </section>
+        )}
       </div>
     );
   }
@@ -1717,6 +1721,7 @@ export function AdminReportsPanel({
           <MetricCard label="Joined" value={filteredApplicationTotals.joined} />
         </section>
 
+        {report === "jobs-performance" && (
         <section className="accent-card p-7">
           <p className="eyebrow">Job Performance</p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
@@ -1786,7 +1791,9 @@ export function AdminReportsPanel({
             </ReportTable>
           )}
         </section>
+        )}
 
+        {report === "jobs-stage-movement" && (
         <section className="accent-card p-7">
           <p className="eyebrow">Stage Movement</p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
@@ -1844,6 +1851,7 @@ export function AdminReportsPanel({
             </ReportTable>
           )}
         </section>
+        )}
       </div>
     );
   }
@@ -1929,6 +1937,7 @@ export function AdminReportsPanel({
           />
         </section>
 
+        {report === "candidates-pipeline" && (
         <section className="accent-card p-7">
           <p className="eyebrow">Candidate Pipeline</p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
@@ -2004,8 +2013,11 @@ export function AdminReportsPanel({
             </ReportTable>
           )}
         </section>
+        )}
 
+        {(report === "candidates-sources" || report === "candidates-enquiries") && (
         <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+          {report === "candidates-sources" && (
           <section className="accent-card p-7">
             <p className="eyebrow">Source Mix</p>
             <h2 className="mt-4 text-2xl font-semibold leading-tight text-[var(--color-ink)]">
@@ -2029,7 +2041,9 @@ export function AdminReportsPanel({
               </div>
             )}
           </section>
+          )}
 
+          {report === "candidates-enquiries" && (
           <section className="accent-card p-7">
             <p className="eyebrow">General Enquiries</p>
             <h2 className="mt-4 text-2xl font-semibold leading-tight text-[var(--color-ink)]">
@@ -2068,7 +2082,9 @@ export function AdminReportsPanel({
               </div>
             )}
           </section>
+          )}
         </section>
+        )}
       </div>
     );
   }
@@ -2155,6 +2171,7 @@ export function AdminReportsPanel({
         />
       </section>
 
+      {report === "clients-coverage" && (
       <section className="accent-card p-7">
         <p className="eyebrow">Client Coverage</p>
         <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
@@ -2239,7 +2256,9 @@ export function AdminReportsPanel({
           </ReportTable>
         )}
       </section>
+      )}
 
+      {report === "clients-followups" && (
       <section className="space-y-4">
         <ReportFilterBar
           startDate={startDate}
@@ -2409,8 +2428,10 @@ export function AdminReportsPanel({
           )}
         </section>
       </section>
+      )}
 
-      {(authType === "admin" || authRole === "super-admin") && (
+      {report === "clients-transfers" &&
+        (authType === "admin" || authRole === "super-admin") && (
         <section className="accent-card p-7">
           <p className="eyebrow">Transfer Requests</p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">

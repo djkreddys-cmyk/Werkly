@@ -5,10 +5,10 @@ export default function AdminCandidatesReportsPage() {
   return (
     <AdminShell
       eyebrow="Candidates Reports"
-      title="Review candidate pipeline and enquiry conversion."
-      description="Track stage-wise candidate movement, application sources, website enquiries, and recruiter ownership in a separate candidate reports view."
+      title="Choose the candidate report you want to review."
+      description="Open job applicant pipeline, source mix, and website enquiries on separate candidate report screens."
     >
-      <AdminReportsPanel module="candidates" />
+      <AdminReportsPanel module="candidates" report="index" />
     </AdminShell>
   );
 }

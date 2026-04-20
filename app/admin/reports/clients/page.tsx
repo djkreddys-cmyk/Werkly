@@ -5,10 +5,10 @@ export default function AdminClientsReportsPage() {
   return (
     <AdminShell
       eyebrow="Clients Reports"
-      title="Review client ownership, linked jobs, and transfer approvals."
-      description="Track client allocation, linked mandates, candidate volume, and transfer approval status in one dedicated client reports page."
+      title="Choose the client report you want to review."
+      description="Open client coverage, follow-up reports, and transfer approvals on their own report screens for cleaner CRM reporting."
     >
-      <AdminReportsPanel module="clients" />
+      <AdminReportsPanel module="clients" report="index" />
     </AdminShell>
   );
 }
