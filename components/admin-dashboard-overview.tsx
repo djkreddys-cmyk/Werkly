@@ -183,6 +183,11 @@ export function AdminDashboardOverview() {
       ? window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
       : "super-admin"
   );
+  const [authEmail] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAdminEmail") ?? ""
+      : ""
+  );
   const [authEmployeeCode] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyEmployeeCode") ?? ""
@@ -200,9 +205,17 @@ export function AdminDashboardOverview() {
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
   const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("all");
+  const [selectedFollowUpStatus, setSelectedFollowUpStatus] = useState<
+    "all" | ClientFollowUpStatus
+  >("all");
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
   const isAdminView = authType === "admin" || authRole === "super-admin";
+  const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const activeDateKey = normalizeDateKey(selectedDateKey) || todayKey;
+  const currentEmployeeId = state.employees.find(
+    (employee) => employee.employeeCode === authEmployeeCode || employee.email === authEmail
+  )?.id;
+  const activeEmployeeFilter = isEmployeeSession ? currentEmployeeId || "" : selectedEmployeeId;
 
   useEffect(() => {
     if (!token) {
@@ -267,8 +280,52 @@ export function AdminDashboardOverview() {
       .finally(() => setIsLoading(false));
   }, [token]);
 
+  const visibleEmployees = useMemo(() => {
+    if (!isEmployeeSession) {
+      return state.employees;
+    }
+
+    return state.employees.filter(
+      (employee) =>
+        employee.employeeCode === authEmployeeCode ||
+        employee.email === authEmail ||
+        employee.id === currentEmployeeId
+    );
+  }, [authEmail, authEmployeeCode, currentEmployeeId, isEmployeeSession, state.employees]);
+
+  const visibleClients = useMemo(() => {
+    if (!isEmployeeSession) {
+      return state.clients;
+    }
+
+    return state.clients.filter((client) => client.assignedEmployeeId === currentEmployeeId);
+  }, [currentEmployeeId, isEmployeeSession, state.clients]);
+
+  const visibleJobs = useMemo(() => {
+    if (!isEmployeeSession) {
+      return state.jobs;
+    }
+
+    return state.jobs.filter(
+      (job) => job.recruiterId === currentEmployeeId || job.recruiterEmail === authEmail
+    );
+  }, [authEmail, currentEmployeeId, isEmployeeSession, state.jobs]);
+
+  const visibleApplications = useMemo(() => {
+    if (!isEmployeeSession) {
+      return state.applications;
+    }
+
+    const visibleJobIds = new Set(visibleJobs.map((job) => job.id));
+
+    return state.applications.filter(
+      (application) =>
+        application.recruiterEmail === authEmail || visibleJobIds.has(application.jobId)
+    );
+  }, [authEmail, isEmployeeSession, state.applications, visibleJobs]);
+
   const followUpItems = useMemo<FollowUpItem[]>(() => {
-    return state.clients
+    return visibleClients
       .filter((client) => normalizeDateKey(client.nextFollowUpDate))
       .map((client) => ({
         id: client.id,
@@ -285,27 +342,30 @@ export function AdminDashboardOverview() {
         sector: client.sector,
       }))
       .sort((a, b) => a.nextFollowUpDate.localeCompare(b.nextFollowUpDate));
-  }, [state.clients]);
+  }, [visibleClients]);
 
   const employeeOptions = useMemo(
     () =>
-      state.employees
+      visibleEmployees
         .filter((employee) => employee.status === "active")
         .map((employee) => ({
           id: employee.id,
           label: `${employee.fullName}${employee.employeeCode ? ` - ${employee.employeeCode}` : ""}`,
         })),
-    [state.employees]
+    [visibleEmployees]
   );
 
   const filteredFollowUps = useMemo(() => {
     return followUpItems.filter((item) => {
-      if (selectedEmployeeId !== "all" && item.ownerId !== selectedEmployeeId) {
+      if (activeEmployeeFilter && activeEmployeeFilter !== "all" && item.ownerId !== activeEmployeeFilter) {
+        return false;
+      }
+      if (selectedFollowUpStatus !== "all" && item.followUpStatus !== selectedFollowUpStatus) {
         return false;
       }
       return true;
     });
-  }, [followUpItems, selectedEmployeeId]);
+  }, [activeEmployeeFilter, followUpItems, selectedFollowUpStatus]);
 
   const selectedDateFollowUps = useMemo(
     () => filteredFollowUps.filter((item) => item.nextFollowUpDate === activeDateKey),
@@ -337,7 +397,7 @@ export function AdminDashboardOverview() {
   }
 
   const metrics = useMemo(() => {
-    const liveJobs = state.jobs.filter((job) => {
+    const liveJobs = visibleJobs.filter((job) => {
       if (job.isHidden || job.status !== "open") {
         return false;
       }
@@ -362,16 +422,16 @@ export function AdminDashboardOverview() {
 
     return {
       liveJobs: liveJobs.length,
-      totalApplications: state.applications.length,
-      activeClients: state.clients.filter((client) => client.status === "active").length,
-      activeEmployees: state.employees.filter((employee) => employee.status === "active").length,
+      totalApplications: visibleApplications.length,
+      activeClients: visibleClients.filter((client) => client.status === "active").length,
+      activeEmployees: visibleEmployees.filter((employee) => employee.status === "active").length,
       dueTodayFollowUps,
       overdueFollowUps,
       upcomingSevenDays,
-      recruiterSummary: state.employees
+      recruiterSummary: visibleEmployees
         .filter((employee) => employee.status === "active")
         .map((employee) => {
-          const assignedClients = state.clients.filter(
+          const assignedClients = visibleClients.filter(
             (client) => client.assignedEmployeeId === employee.id
           ).length;
           const followUps = followUpItems.filter((item) => item.ownerId === employee.id);
@@ -390,7 +450,15 @@ export function AdminDashboardOverview() {
         .sort((a, b) => b.followUps - a.followUps)
         .slice(0, 6),
     };
-  }, [filteredFollowUps, followUpItems, state, todayKey]);
+  }, [
+    filteredFollowUps,
+    followUpItems,
+    todayKey,
+    visibleApplications,
+    visibleClients,
+    visibleEmployees,
+    visibleJobs,
+  ]);
 
   const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
 
@@ -542,6 +610,22 @@ export function AdminDashboardOverview() {
                 onChange={(event) => openDateDetails(event.target.value)}
                 className="min-w-[146px] rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               />
+              <select
+                value={selectedFollowUpStatus}
+                onChange={(event) =>
+                  setSelectedFollowUpStatus(
+                    event.target.value as "all" | ClientFollowUpStatus
+                  )
+                }
+                className="min-w-[170px] rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="follow-up-due">Follow-Up Due</option>
+                <option value="in-progress">In Discussion</option>
+                <option value="awaiting-client">Awaiting Response</option>
+                <option value="closed">Closed</option>
+              </select>
             </div>
           </div>
 
@@ -655,7 +739,7 @@ export function AdminDashboardOverview() {
             <p className="muted-copy mt-6 text-sm">Loading jobs...</p>
           ) : error ? (
             <p className="mt-6 text-sm font-medium text-red-700">{error}</p>
-          ) : state.jobs.length === 0 ? (
+          ) : visibleJobs.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No jobs have been posted yet.</p>
           ) : (
             <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[var(--color-line)]">
@@ -673,7 +757,7 @@ export function AdminDashboardOverview() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...state.jobs]
+                  {[...visibleJobs]
                     .sort(
                       (a, b) =>
                         new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()
@@ -789,7 +873,7 @@ export function AdminDashboardOverview() {
             )
           ) : (
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {[
+              {[ 
                 { label: "My Follow-Ups", value: filteredFollowUps.length },
                 { label: "Applications", value: metrics.totalApplications },
                 { label: "Due Today", value: metrics.dueTodayFollowUps },

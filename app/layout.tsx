@@ -1,19 +1,6 @@
 import type { Metadata } from "next";
-import { Manrope, Montserrat } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
-
-const manrope = Manrope({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const montserrat = Montserrat({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://werkly.in"),
@@ -28,10 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${manrope.variable} ${montserrat.variable} scroll-smooth`}
-    >
+    <html lang="en" className="scroll-smooth">
       <body className="min-h-screen bg-[var(--color-paper)] text-slate-950 antialiased">
         {children}
         <Analytics />
