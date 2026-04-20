@@ -76,6 +76,16 @@ const app = express();
 const port = Number(process.env.PORT || 4000);
 const allowedOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
 
+function canEmployeeAccessClient(client, employeeId) {
+  if (!employeeId) {
+    return false;
+  }
+
+  return (
+    client.assignedEmployeeId === employeeId || client.followUpEmployeeId === employeeId
+  );
+}
+
 app.use(
   cors({
     origin: allowedOrigin,
@@ -1070,7 +1080,7 @@ app.get("/admin/clients/:id", requireInternalUser, async (request, response) => 
     if (
       request.user?.type === "employee" &&
       request.user?.id &&
-      client.assignedEmployeeId !== request.user.id
+      !canEmployeeAccessClient(client, request.user.id)
     ) {
       return response.status(403).json({ message: "You do not have access to this client." });
     }
@@ -1094,7 +1104,7 @@ app.get("/admin/clients/:id/history", requireInternalUser, async (request, respo
     if (
       request.user?.type === "employee" &&
       request.user?.id &&
-      client.assignedEmployeeId !== request.user.id
+      !canEmployeeAccessClient(client, request.user.id)
     ) {
       return response.status(403).json({ message: "You do not have access to this client." });
     }
@@ -1119,7 +1129,7 @@ app.get("/admin/clients/:id/activity", requireInternalUser, async (request, resp
     if (
       request.user?.type === "employee" &&
       request.user?.id &&
-      client.assignedEmployeeId !== request.user.id
+      !canEmployeeAccessClient(client, request.user.id)
     ) {
       return response.status(403).json({ message: "You do not have access to this client." });
     }
@@ -1400,7 +1410,7 @@ app.put("/admin/client-transfer-requests/:id", requireAdmin, async (request, res
   }
 });
 
-app.post("/admin/jobs", requireInternalUser, async (request, response) => {
+app.post("/admin/jobs", requireAdmin, async (request, response) => {
   try {
     const job = await createJob(request.body);
     response.status(201).json(job);
@@ -1411,7 +1421,7 @@ app.post("/admin/jobs", requireInternalUser, async (request, response) => {
   }
 });
 
-app.put("/admin/jobs/:id", requireInternalUser, async (request, response) => {
+app.put("/admin/jobs/:id", requireAdmin, async (request, response) => {
   try {
     const job = await updateJob(request.params.id, request.body);
 

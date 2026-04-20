@@ -1126,36 +1126,30 @@ export function AdminJobsDashboard({
                                 shouldOpenUp ? "bottom-0" : "top-1/2 -translate-y-1/2"
                               }`}
                             >
-                              {canManageJobs ? (
-                                <button
-                                  type="button"
-                                  onClick={() => populateForEdit(job)}
-                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                                >
-                                  Edit
-                                </button>
-                              ) : null}
-                              {canManageJobs ? (
-                                <button
-                                  type="button"
-                                  onClick={() => openManualCandidateModal(job)}
-                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                                >
-                                  Add Candidate
-                                </button>
-                              ) : null}
-                              {canManageJobs ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActionMenuJobId("");
-                                    void handleVisibilityToggle(job);
-                                  }}
-                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
-                                >
-                                  {job.isHidden ? "Unhide" : "Hide"}
-                                </button>
-                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => populateForEdit(job)}
+                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openManualCandidateModal(job)}
+                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                              >
+                                Add Candidate
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActionMenuJobId("");
+                                  void handleVisibilityToggle(job);
+                                }}
+                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
+                              >
+                                {job.isHidden ? "Unhide" : "Hide"}
+                              </button>
                               {job.slug ? (
                                 <a
                                   href={`/jobs/${job.slug}`}
@@ -1179,7 +1173,9 @@ export function AdminJobsDashboard({
         )}
         {!isLoading && filteredJobs.length === 0 ? (
           <p className="muted-copy mt-6 text-sm">
-            No jobs matched the selected recruiter filter.
+            {canManageJobs
+              ? "No jobs matched the selected recruiter filter."
+              : "No assigned jobs are available for this login yet."}
           </p>
         ) : null}
       </section>

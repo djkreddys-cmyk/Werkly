@@ -655,7 +655,10 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
 
     const values = [jobId];
     const employeeScopeClause = employeeId
-      ? `and coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+      ? `and (
+           coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2
+           or clients.follow_up_employee_id = $2
+         )`
       : "";
 
     if (employeeId) {
@@ -819,7 +822,12 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
 export async function listJobApplications(jobId, employeeId = null) {
   const values = [jobId];
   const employeeScopeClause = employeeId
-    ? `and coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+    ? `and (
+         coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2
+         or clients.follow_up_employee_id = $2
+         or job_applications.assigned_employee_id = $2
+         or job_applications.follow_up_employee_id = $2
+       )`
     : "";
 
   if (employeeId) {
@@ -888,7 +896,12 @@ export async function listAdminApplications(employeeId = null) {
   const employeeScopeClause = employeeId
     ? (() => {
         values.push(employeeId);
-        return `where coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
+        return `where (
+          coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}
+          or clients.follow_up_employee_id = $${values.length}
+          or job_applications.assigned_employee_id = $${values.length}
+          or job_applications.follow_up_employee_id = $${values.length}
+        )`;
       })()
     : "";
 
@@ -954,7 +967,12 @@ export async function listApplicationStageHistory(employeeId = null) {
   const employeeScopeClause = employeeId
     ? (() => {
         values.push(employeeId);
-        return `where coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
+        return `where (
+          coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}
+          or clients.follow_up_employee_id = $${values.length}
+          or applications.assigned_employee_id = $${values.length}
+          or applications.follow_up_employee_id = $${values.length}
+        )`;
       })()
     : "";
 
@@ -1080,7 +1098,11 @@ export async function updateJobApplicationStage(
 
     const values = [applicationId];
     const employeeScopeClause = employeeId
-      ? `and coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+      ? `and (
+           coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2
+           or clients.follow_up_employee_id = $2
+           or job_applications.follow_up_employee_id = $2
+         )`
       : "";
 
     if (employeeId) {
@@ -1181,7 +1203,11 @@ export async function updateJobApplicationStage(
 export async function assignJobApplication(applicationId, payload, employeeId = null) {
   const values = [applicationId];
   const employeeScopeClause = employeeId
-    ? `and coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2`
+    ? `and (
+         coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2
+         or clients.follow_up_employee_id = $2
+         or job_applications.follow_up_employee_id = $2
+       )`
     : "";
 
   if (employeeId) {
