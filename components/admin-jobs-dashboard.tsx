@@ -1048,7 +1048,7 @@ export function AdminJobsDashboard({
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <div className="relative inline-flex" ref={actionMenuJobId === job.id ? actionsMenuRef : null}>
+                        <div className="relative flex justify-end" ref={actionMenuJobId === job.id ? actionsMenuRef : null}>
                           <button
                             type="button"
                             aria-label={`Open actions for ${job.title}`}
@@ -1062,7 +1062,7 @@ export function AdminJobsDashboard({
                           </button>
 
                           {actionMenuJobId === job.id ? (
-                            <div className="absolute right-0 top-12 z-20 min-w-[200px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                            <div className="absolute right-14 top-1/2 z-20 min-w-[200px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
                               <button
                                 type="button"
                                 onClick={() => populateForEdit(job)}
