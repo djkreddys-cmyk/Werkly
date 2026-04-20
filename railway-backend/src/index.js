@@ -1119,7 +1119,8 @@ app.put("/admin/clients/:id/onboarding", requireInternalUser, async (request, re
 
 app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) => {
   try {
-    const { assignedEmployeeId } = request.body ?? {};
+    const { assignedEmployeeId, assignmentType, effectiveFromDate, effectiveToDate, reason } =
+      request.body ?? {};
 
     if (!assignedEmployeeId) {
       return response.status(400).json({
@@ -1127,7 +1128,13 @@ app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) =
       });
     }
 
-    const client = await reassignClient(request.params.id, assignedEmployeeId);
+    const client = await reassignClient(request.params.id, {
+      assignedEmployeeId,
+      assignmentType,
+      effectiveFromDate,
+      effectiveToDate,
+      reason,
+    });
 
     if (!client) {
       return response.status(404).json({ message: "Client not found." });

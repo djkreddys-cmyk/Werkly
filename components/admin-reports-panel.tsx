@@ -281,40 +281,58 @@ function ReportTable({
 function ReportFilterBar({
   startDate,
   endDate,
+  exactDate,
   onStartDateChange,
   onEndDateChange,
+  onExactDateChange,
   recruiterOptions,
   selectedRecruiter,
   onRecruiterChange,
+  recruiterLabel,
   clientOptions,
   selectedClient,
   onClientChange,
   jobOptions,
   selectedJob,
   onJobChange,
+  stageOptions,
+  selectedStage,
+  onStageChange,
+  sourceOptions,
+  selectedSource,
+  onSourceChange,
   onExport,
   exportLabel,
 }: {
   startDate: string;
   endDate: string;
+  exactDate?: string;
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
+  onExactDateChange?: (value: string) => void;
   recruiterOptions?: string[];
   selectedRecruiter?: string;
   onRecruiterChange?: (value: string) => void;
+  recruiterLabel?: string;
   clientOptions?: string[];
   selectedClient?: string;
   onClientChange?: (value: string) => void;
   jobOptions?: string[];
   selectedJob?: string;
   onJobChange?: (value: string) => void;
+  stageOptions?: string[];
+  selectedStage?: string;
+  onStageChange?: (value: string) => void;
+  sourceOptions?: string[];
+  selectedSource?: string;
+  onSourceChange?: (value: string) => void;
   onExport: () => void;
   exportLabel: string;
 }) {
   return (
     <section className="accent-card p-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
               Start Date
@@ -339,10 +357,24 @@ function ReportFilterBar({
             />
           </label>
 
+          {onExactDateChange ? (
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Day Filter
+              </span>
+              <input
+                type="date"
+                value={exactDate ?? ""}
+                onChange={(event) => onExactDateChange(event.target.value)}
+                className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </label>
+          ) : null}
+
           {recruiterOptions && onRecruiterChange ? (
             <label className="block">
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                Recruiter
+                {recruiterLabel || "Recruiter"}
               </span>
               <select
                 value={selectedRecruiter ?? ""}
@@ -391,6 +423,46 @@ function ReportFilterBar({
               >
                 <option value="">All Jobs</option>
                 {jobOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {sourceOptions && onSourceChange ? (
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Source
+              </span>
+              <select
+                value={selectedSource ?? ""}
+                onChange={(event) => onSourceChange(event.target.value)}
+                className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="">All Sources</option>
+                {sourceOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {stageOptions && onStageChange ? (
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Current Stage
+              </span>
+              <select
+                value={selectedStage ?? ""}
+                onChange={(event) => onStageChange(event.target.value)}
+                className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="">All Stages</option>
+                {stageOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -454,9 +526,12 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
   const [error, setError] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [exactDate, setExactDate] = useState("");
   const [selectedRecruiter, setSelectedRecruiter] = useState("");
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedJob, setSelectedJob] = useState("");
+  const [selectedSource, setSelectedSource] = useState("");
+  const [selectedStage, setSelectedStage] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -974,9 +1049,10 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
       attendanceSummary.filter(
         (summary) =>
           (!selectedRecruiter || summary.userName === selectedRecruiter) &&
+          (!exactDate || getDateKey(summary.reportDate) === exactDate) &&
           isWithinDateRange(summary.reportDate, startDate, endDate)
       ),
-    [attendanceSummary, endDate, selectedRecruiter, startDate]
+    [attendanceSummary, endDate, exactDate, selectedRecruiter, startDate]
   );
 
   const filteredEmployeeActivityRows = useMemo(
@@ -1022,9 +1098,37 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
         (application) =>
           (!selectedRecruiter || application.recruiterName === selectedRecruiter) &&
           (!selectedClient || application.clientName === selectedClient) &&
+          (!selectedSource || getCandidateSourceLabel(application) === selectedSource) &&
+          (!selectedStage || getStageLabel(application.stage) === selectedStage) &&
           isWithinDateRange(application.appliedAt, startDate, endDate)
       ),
-    [endDate, selectedClient, selectedRecruiter, startDate, visibleApplications]
+    [
+      endDate,
+      selectedClient,
+      selectedRecruiter,
+      selectedSource,
+      selectedStage,
+      startDate,
+      visibleApplications,
+    ]
+  );
+
+  const candidateSourceOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(visibleApplications.map((application) => getCandidateSourceLabel(application)))
+      ).sort((a, b) => a.localeCompare(b)),
+    [visibleApplications]
+  );
+
+  const candidateStageOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          visibleApplications.map((application) => getStageLabel(application.stage))
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [visibleApplications]
   );
 
   const filteredSourceMetrics = useMemo(() => {
@@ -1164,11 +1268,14 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
         <ReportFilterBar
           startDate={startDate}
           endDate={endDate}
+          exactDate={exactDate}
           onStartDateChange={setStartDate}
           onEndDateChange={setEndDate}
+          onExactDateChange={setExactDate}
           recruiterOptions={recruiterOptions}
           selectedRecruiter={selectedRecruiter}
           onRecruiterChange={setSelectedRecruiter}
+          recruiterLabel="Employee"
           onExport={() =>
             downloadExcelReport(
               "hr-report.xls",
@@ -1600,6 +1707,12 @@ export function AdminReportsPanel({ module = "overview" }: AdminReportsPanelProp
           clientOptions={clientOptions}
           selectedClient={selectedClient}
           onClientChange={setSelectedClient}
+          sourceOptions={candidateSourceOptions}
+          selectedSource={selectedSource}
+          onSourceChange={setSelectedSource}
+          stageOptions={candidateStageOptions}
+          selectedStage={selectedStage}
+          onStageChange={setSelectedStage}
           onExport={() =>
             downloadExcelReport(
               "candidates-report.xls",

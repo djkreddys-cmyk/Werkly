@@ -34,6 +34,25 @@ type LeaveRequestEditState = {
 const inputClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]";
 
+function formatLeaveYearLabel(startDate?: string, endDate?: string) {
+  if (!startDate || !endDate) {
+    return "Current leave year";
+  }
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  return `${start.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })} to ${end.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })}`;
+}
+
 export function AdminLeavesPanel() {
   const [token] = useState(
     typeof window !== "undefined"
@@ -486,6 +505,11 @@ export function AdminLeavesPanel() {
             ? "Review allocated leave balances across the team."
             : "Check which leave types are available for you to apply."}
         </h2>
+        {state.assignments[0]?.leaveYearStart && state.assignments[0]?.leaveYearEnd ? (
+          <p className="muted-copy mt-3 text-sm">
+            Leave year: {formatLeaveYearLabel(state.assignments[0].leaveYearStart, state.assignments[0].leaveYearEnd)}
+          </p>
+        ) : null}
 
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading leave balances...</p>

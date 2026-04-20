@@ -39,6 +39,7 @@ export type JobDetail = JobSummary & {
 export type JobApplication = {
   id: string;
   jobId: string;
+  assignedEmployeeId?: string;
   stage?: JobApplicationStage;
   stageNote?: string;
   stageDate?: string;
@@ -69,6 +70,11 @@ export type JobApplication = {
   resumeFileData?: string;
   uploadedByEmployeeId?: string;
   uploadedByEmployeeName?: string;
+  followUpEmployeeId?: string;
+  followUpEmployeeName?: string;
+  followUpFromDate?: string;
+  followUpToDate?: string;
+  followUpAssignmentNote?: string;
   candidateMessage?: string;
   jobTitle?: string;
   appliedAt: string;
@@ -205,6 +211,14 @@ export type ManualJobApplicationPayload = {
   resumeFileType?: string;
   resumeFileData?: string;
   jobTitle?: string;
+};
+
+export type JobApplicationAssignmentPayload = {
+  assignedEmployeeId: string;
+  assignmentType: "ownership-transfer" | "follow-up-support";
+  effectiveFromDate?: string;
+  effectiveToDate?: string;
+  note?: string;
 };
 
 const demoJobs: JobDetail[] = [
@@ -582,6 +596,20 @@ export async function updateJobApplicationStage(
   return readJson<JobApplication>(`/admin/jobs/applications/${id}/stage`, {
     method: "PUT",
     body: JSON.stringify({ stage, stageNote, stageDate }),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function assignJobApplication(
+  id: string,
+  payload: JobApplicationAssignmentPayload,
+  token: string
+) {
+  return readJson<JobApplication>(`/admin/jobs/applications/${id}/assignment`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
     headers: {
       Authorization: `Bearer ${token}`,
     },

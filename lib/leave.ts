@@ -18,6 +18,8 @@ export type LeaveAssignmentRecord = {
   approvedDays: number;
   pendingDays: number;
   remainingDays: number;
+  leaveYearStart?: string;
+  leaveYearEnd?: string;
   createdAt: string;
   updatedAt: string;
 };

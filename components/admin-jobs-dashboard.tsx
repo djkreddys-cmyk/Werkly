@@ -1503,22 +1503,6 @@ export function AdminJobsDashboard({
                 />
                 <textarea
                   className={`${fieldClassName} min-h-[120px] resize-y md:col-span-3`}
-                  placeholder="Source note: vendor name, referral context, shortlist source, or resume background"
-                  value={manualCandidateForm.sourceNote}
-                  onChange={(event) =>
-                    updateManualCandidateField("sourceNote", event.target.value)
-                  }
-                />
-                <textarea
-                  className={`${fieldClassName} min-h-[120px] resize-y md:col-span-2`}
-                  placeholder="Candidate note / profile summary"
-                  value={manualCandidateForm.candidateMessage}
-                  onChange={(event) =>
-                    updateManualCandidateField("candidateMessage", event.target.value)
-                  }
-                />
-                <textarea
-                  className={`${fieldClassName} min-h-[120px] resize-y`}
                   placeholder="Initial stage remarks"
                   value={manualCandidateForm.stageNote}
                   onChange={(event) =>

@@ -23,8 +23,21 @@ function mapLeaveAssignmentRow(row) {
     approvedDays: Number(row.approved_days ?? 0),
     pendingDays: Number(row.pending_days ?? 0),
     remainingDays: Number(row.remaining_days ?? 0),
+    leaveYearStart: row.leave_year_start,
+    leaveYearEnd: row.leave_year_end,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function getLeaveYearBounds(referenceDate = new Date()) {
+  const year = referenceDate.getMonth() >= 3 ? referenceDate.getFullYear() : referenceDate.getFullYear() - 1;
+  const start = new Date(Date.UTC(year, 3, 1));
+  const end = new Date(Date.UTC(year + 1, 2, 31));
+
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
   };
 }
 
@@ -111,7 +124,9 @@ export async function createLeaveType(payload) {
 }
 
 export async function listLeaveAssignments(employeeId = null) {
+  const { startDate, endDate } = getLeaveYearBounds();
   const values = [];
+  values.push(startDate, endDate);
   const scopeClause = employeeId
     ? (() => {
         values.push(employeeId);
@@ -129,6 +144,8 @@ export async function listLeaveAssignments(employeeId = null) {
       assignments.leave_type_id,
       leave_types.name as leave_type_name,
       assignments.allocated_days,
+      $1::date as leave_year_start,
+      $2::date as leave_year_end,
       coalesce(approved_summary.approved_days, 0) as approved_days,
       coalesce(pending_summary.pending_days, 0) as pending_days,
       greatest(assignments.allocated_days - coalesce(approved_summary.approved_days, 0), 0) as remaining_days,
@@ -143,6 +160,7 @@ export async function listLeaveAssignments(employeeId = null) {
        where leave_requests.employee_id = assignments.employee_id
          and leave_requests.leave_type_id = assignments.leave_type_id
          and leave_requests.status = 'approved'
+         and leave_requests.start_date between $1::date and $2::date
      ) approved_summary on true
      left join lateral (
        select coalesce(sum(days_requested), 0)::int as pending_days
@@ -150,6 +168,7 @@ export async function listLeaveAssignments(employeeId = null) {
        where leave_requests.employee_id = assignments.employee_id
          and leave_requests.leave_type_id = assignments.leave_type_id
          and leave_requests.status = 'pending'
+         and leave_requests.start_date between $1::date and $2::date
      ) pending_summary on true
      ${scopeClause}
      order by employees.full_name asc, leave_types.name asc`,
@@ -188,7 +207,8 @@ function calculateLeaveDays(startDate, endDate) {
 }
 
 async function getLeaveBalanceAvailability(employeeId, leaveTypeId, excludeRequestId = null) {
-  const values = [employeeId, leaveTypeId];
+  const { startDate, endDate } = getLeaveYearBounds();
+  const values = [employeeId, leaveTypeId, startDate, endDate];
   const excludeClause = excludeRequestId
     ? (() => {
         values.push(excludeRequestId);
@@ -207,6 +227,7 @@ async function getLeaveBalanceAvailability(employeeId, leaveTypeId, excludeReque
        where leave_requests.employee_id = assignments.employee_id
          and leave_requests.leave_type_id = assignments.leave_type_id
          and leave_requests.status = 'approved'
+         and leave_requests.start_date between $3::date and $4::date
          ${excludeClause}
      ) approved_summary on true
      where assignments.employee_id = $1

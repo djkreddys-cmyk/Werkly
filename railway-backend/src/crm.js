@@ -90,6 +90,10 @@ export async function ensureCrmSchema() {
       sector text,
       branch text,
       assigned_employee_id uuid references employees(id) on delete set null,
+      follow_up_employee_id uuid references employees(id) on delete set null,
+      follow_up_from_date date,
+      follow_up_to_date date,
+      follow_up_assignment_note text,
       status text not null default 'active',
       onboarding_status text not null default 'new-lead',
       follow_up_status text not null default 'pending',
@@ -195,6 +199,10 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists last_follow_up_date date`);
   await query(`alter table clients add column if not exists onboarding_source text`);
   await query(`alter table clients add column if not exists follow_up_notes text`);
+  await query(`alter table clients add column if not exists follow_up_employee_id uuid references employees(id) on delete set null`);
+  await query(`alter table clients add column if not exists follow_up_from_date date`);
+  await query(`alter table clients add column if not exists follow_up_to_date date`);
+  await query(`alter table clients add column if not exists follow_up_assignment_note text`);
   await query(`alter table client_transfer_requests add column if not exists effective_from_date date`);
   await query(`alter table client_follow_up_history add column if not exists actor_employee_id uuid references employees(id) on delete set null`);
   await query(`alter table client_follow_up_history add column if not exists actor_name text`);
@@ -443,6 +451,11 @@ function mapClientRow(row) {
     branch: row.branch,
     assignedEmployeeId: row.assigned_employee_id,
     assignedEmployeeName: row.assigned_employee_name,
+    followUpEmployeeId: row.follow_up_employee_id,
+    followUpEmployeeName: row.follow_up_employee_name,
+    followUpFromDate: row.follow_up_from_date,
+    followUpToDate: row.follow_up_to_date,
+    followUpAssignmentNote: row.follow_up_assignment_note,
     status: row.status,
     onboardingStatus: row.onboarding_status,
     followUpStatus: row.follow_up_status,
@@ -712,6 +725,10 @@ export async function listClients(employeeId = null) {
       clients.sector,
       clients.branch,
       clients.assigned_employee_id,
+      clients.follow_up_employee_id,
+      clients.follow_up_from_date,
+      clients.follow_up_to_date,
+      clients.follow_up_assignment_note,
       clients.status,
       clients.onboarding_status,
       clients.follow_up_status,
@@ -725,10 +742,12 @@ export async function listClients(employeeId = null) {
       clients.agreement_file_data,
       clients.created_at,
       employees.full_name as assigned_employee_name,
+      follow_up_employee.full_name as follow_up_employee_name,
       coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
       coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
+     left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
      left join lateral (
        select
          count(*)::int as linked_jobs_count,
@@ -767,6 +786,10 @@ export async function getClientById(clientId) {
       clients.sector,
       clients.branch,
       clients.assigned_employee_id,
+      clients.follow_up_employee_id,
+      clients.follow_up_from_date,
+      clients.follow_up_to_date,
+      clients.follow_up_assignment_note,
       clients.status,
       clients.onboarding_status,
       clients.follow_up_status,
@@ -780,10 +803,12 @@ export async function getClientById(clientId) {
       clients.agreement_file_data,
       clients.created_at,
       employees.full_name as assigned_employee_name,
+      follow_up_employee.full_name as follow_up_employee_name,
       coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
       coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
+     left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
      left join lateral (
        select
          count(*)::int as linked_jobs_count,
@@ -820,6 +845,10 @@ export async function createClient(payload) {
       sector,
       branch,
       assigned_employee_id,
+      follow_up_employee_id,
+      follow_up_from_date,
+      follow_up_to_date,
+      follow_up_assignment_note,
       status,
       onboarding_status,
       follow_up_status,
@@ -831,8 +860,8 @@ export async function createClient(payload) {
       agreement_file_name,
       agreement_file_type,
       agreement_file_data
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13::date, $14, $15, $16, $17, $18, $19)
-    returning id, company_name, contact_person, contact_email, contact_phone, communication_address, sector, branch, assigned_employee_id, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, null, null, null, null, $9, $10, $11, $12::date, $13::date, $14, $15, $16, $17, $18, $19)
+    returning id, company_name, contact_person, contact_email, contact_phone, communication_address, sector, branch, assigned_employee_id, follow_up_employee_id, follow_up_from_date, follow_up_to_date, follow_up_assignment_note, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
     [
       payload.companyName,
       payload.contactPerson,
@@ -865,15 +894,39 @@ export async function createClient(payload) {
   return client;
 }
 
-export async function reassignClient(clientId, assignedEmployeeId) {
-  const updatedResult = await query(
-    `update clients
-        set assigned_employee_id = $2,
-            updated_at = now()
-      where id = $1
-      returning id`,
-    [clientId, assignedEmployeeId || null]
-  );
+export async function reassignClient(clientId, payload) {
+  const assignmentType = payload.assignmentType || "ownership-transfer";
+  const updatedResult =
+    assignmentType === "follow-up-support"
+      ? await query(
+          `update clients
+              set follow_up_employee_id = $2,
+                  follow_up_from_date = $3::date,
+                  follow_up_to_date = $4::date,
+                  follow_up_assignment_note = $5,
+                  updated_at = now()
+            where id = $1
+            returning id`,
+          [
+            clientId,
+            payload.assignedEmployeeId || null,
+            payload.effectiveFromDate || null,
+            payload.effectiveToDate || null,
+            payload.reason || null,
+          ]
+        )
+      : await query(
+          `update clients
+              set assigned_employee_id = $2,
+                  follow_up_employee_id = null,
+                  follow_up_from_date = null,
+                  follow_up_to_date = null,
+                  follow_up_assignment_note = null,
+                  updated_at = now()
+            where id = $1
+            returning id`,
+          [clientId, payload.assignedEmployeeId || null]
+        );
 
   const updated = updatedResult.rows[0];
   if (!updated) {
@@ -891,6 +944,10 @@ export async function reassignClient(clientId, assignedEmployeeId) {
       clients.sector,
       clients.branch,
       clients.assigned_employee_id,
+      clients.follow_up_employee_id,
+      clients.follow_up_from_date,
+      clients.follow_up_to_date,
+      clients.follow_up_assignment_note,
       clients.status,
       clients.onboarding_status,
       clients.follow_up_status,
@@ -904,10 +961,12 @@ export async function reassignClient(clientId, assignedEmployeeId) {
       clients.agreement_file_data,
       clients.created_at,
       employees.full_name as assigned_employee_name,
+      follow_up_employee.full_name as follow_up_employee_name,
       coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
       coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
+     left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
      left join lateral (
        select
          count(*)::int as linked_jobs_count,
@@ -1005,6 +1064,10 @@ export async function updateClientFollowUp(clientId, payload) {
       clients.sector,
       clients.branch,
       clients.assigned_employee_id,
+      clients.follow_up_employee_id,
+      clients.follow_up_from_date,
+      clients.follow_up_to_date,
+      clients.follow_up_assignment_note,
       clients.status,
       clients.onboarding_status,
       clients.follow_up_status,
@@ -1018,10 +1081,12 @@ export async function updateClientFollowUp(clientId, payload) {
       clients.agreement_file_data,
       clients.created_at,
       employees.full_name as assigned_employee_name,
+      follow_up_employee.full_name as follow_up_employee_name,
       coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
       coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
+     left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
      left join lateral (
        select
          count(*)::int as linked_jobs_count,

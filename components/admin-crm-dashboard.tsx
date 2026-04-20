@@ -1603,18 +1603,24 @@ export function AdminEmployeesPanel({
                 onChange={(event) => updateEmployeeField("role", event.target.value)}
                 required
               />
-              <input
-                className={fieldClassName}
-                type="date"
-                value={employeeForm.dateOfBirth}
-                onChange={(event) => updateEmployeeField("dateOfBirth", event.target.value)}
-              />
-              <input
-                className={fieldClassName}
-                type="date"
-                value={employeeForm.dateOfJoining}
-                onChange={(event) => updateEmployeeField("dateOfJoining", event.target.value)}
-              />
+              <label className="block">
+                <span className={clientFormLabelClassName}>Date of Birth (DOB)</span>
+                <input
+                  className={fieldClassName}
+                  type="date"
+                  value={employeeForm.dateOfBirth}
+                  onChange={(event) => updateEmployeeField("dateOfBirth", event.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className={clientFormLabelClassName}>Date of Joining (DOJ)</span>
+                <input
+                  className={fieldClassName}
+                  type="date"
+                  value={employeeForm.dateOfJoining}
+                  onChange={(event) => updateEmployeeField("dateOfJoining", event.target.value)}
+                />
+              </label>
               <EmployeeEducationFields
                 entries={employeeForm.educationDetails}
                 onChange={updateEducationEntry}
@@ -1907,7 +1913,11 @@ export function AdminClientsPanel({
   const [selectedTransferClient, setSelectedTransferClient] = useState<ClientRecord | null>(null);
   const [selectedFollowUpClient, setSelectedFollowUpClient] = useState<ClientRecord | null>(null);
   const [transferToEmployeeId, setTransferToEmployeeId] = useState("");
+  const [transferType, setTransferType] = useState<"ownership-transfer" | "follow-up-support">(
+    "ownership-transfer"
+  );
   const [transferEffectiveFromDate, setTransferEffectiveFromDate] = useState("");
+  const [transferEffectiveToDate, setTransferEffectiveToDate] = useState("");
   const [transferReason, setTransferReason] = useState("");
   const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("pending");
   const [followUpNextDate, setFollowUpNextDate] = useState("");
@@ -2086,6 +2096,10 @@ export function AdminClientsPanel({
       setError("Please select the effective from date.");
       return;
     }
+    if (isSuperAdmin && transferType === "follow-up-support" && !transferEffectiveToDate) {
+      setError("Please select the follow-up end date.");
+      return;
+    }
 
     setIsSavingTransferRequest(true);
     setError("");
@@ -2106,7 +2120,10 @@ export function AdminClientsPanel({
             ...(isSuperAdmin
               ? {
                   assignedEmployeeId: transferToEmployeeId,
+                  assignmentType: transferType,
                   effectiveFromDate: transferEffectiveFromDate,
+                  effectiveToDate:
+                    transferType === "follow-up-support" ? transferEffectiveToDate : undefined,
                   reason: transferReason,
                 }
               : {
@@ -2134,11 +2151,15 @@ export function AdminClientsPanel({
       }
       setSelectedTransferClient(null);
       setTransferToEmployeeId("");
+      setTransferType("ownership-transfer");
       setTransferEffectiveFromDate("");
+      setTransferEffectiveToDate("");
       setTransferReason("");
       setMessage(
         isSuperAdmin
-          ? "Client owner updated successfully."
+          ? transferType === "follow-up-support"
+            ? "Client follow-up assignment saved successfully."
+            : "Client owner updated successfully."
           : "Client transfer request submitted for Super Admin approval."
       );
     } catch (requestError) {
@@ -2587,7 +2608,7 @@ export function AdminClientsPanel({
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
                   {isSuperAdmin
-                    ? "Transfer this client directly to another employee."
+                    ? "Choose full ownership transfer or date-based follow-up assignment."
                     : "Raise a transfer request for Super Admin approval."}
                 </p>
               </div>
@@ -2596,7 +2617,9 @@ export function AdminClientsPanel({
                 onClick={() => {
                   setSelectedTransferClient(null);
                   setTransferToEmployeeId("");
+                  setTransferType("ownership-transfer");
                   setTransferEffectiveFromDate("");
+                  setTransferEffectiveToDate("");
                   setTransferReason("");
                 }}
                 className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
@@ -2606,6 +2629,26 @@ export function AdminClientsPanel({
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {isSuperAdmin ? (
+                <label className="block sm:col-span-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Assignment Type
+                  </span>
+                  <select
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={transferType}
+                    onChange={(event) =>
+                      setTransferType(
+                        event.target.value as "ownership-transfer" | "follow-up-support"
+                      )
+                    }
+                  >
+                    <option value="ownership-transfer">Full Ownership Transfer</option>
+                    <option value="follow-up-support">Follow-Up Only</option>
+                  </select>
+                </label>
+              ) : null}
+
               <label className="block sm:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                   Transfer To
@@ -2639,14 +2682,29 @@ export function AdminClientsPanel({
                 />
               </label>
 
-              <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                  Current Owner
-                </p>
-                <p className="mt-3 text-sm font-semibold text-[var(--color-ink)]">
-                  {selectedTransferClient.assignedEmployeeName || "Not assigned"}
-                </p>
-              </div>
+              {isSuperAdmin && transferType === "follow-up-support" ? (
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Till When
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    type="date"
+                    value={transferEffectiveToDate}
+                    onChange={(event) => setTransferEffectiveToDate(event.target.value)}
+                    required
+                  />
+                </label>
+              ) : (
+                <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Current Owner
+                  </p>
+                  <p className="mt-3 text-sm font-semibold text-[var(--color-ink)]">
+                    {selectedTransferClient.assignedEmployeeName || "Not assigned"}
+                  </p>
+                </div>
+              )}
 
               <label className="block sm:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
@@ -2675,7 +2733,9 @@ export function AdminClientsPanel({
                 onClick={() => {
                   setSelectedTransferClient(null);
                   setTransferToEmployeeId("");
+                  setTransferType("ownership-transfer");
                   setTransferEffectiveFromDate("");
+                  setTransferEffectiveToDate("");
                   setTransferReason("");
                 }}
                 className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"

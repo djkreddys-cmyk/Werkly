@@ -65,6 +65,11 @@ export type ClientRecord = {
   branch?: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
+  followUpEmployeeId?: string;
+  followUpEmployeeName?: string;
+  followUpFromDate?: string;
+  followUpToDate?: string;
+  followUpAssignmentNote?: string;
   status: ClientStatus;
   onboardingStatus?: ClientOnboardingStatus;
   followUpStatus?: ClientFollowUpStatus;
@@ -219,7 +224,9 @@ export type ClientFormPayload = {
 export type ClientTransferRequestPayload = {
   clientId: string;
   requestedToEmployeeId: string;
+  assignmentType?: "ownership-transfer" | "follow-up-support";
   effectiveFromDate?: string;
+  effectiveToDate?: string;
   reason?: string;
 };
 
@@ -474,7 +481,13 @@ export async function createClientTransferRequest(
 
 export async function reassignClient(
   id: string,
-  payload: { assignedEmployeeId: string },
+  payload: {
+    assignedEmployeeId: string;
+    assignmentType?: "ownership-transfer" | "follow-up-support";
+    effectiveFromDate?: string;
+    effectiveToDate?: string;
+    reason?: string;
+  },
   token: string
 ) {
   return readJson<ClientRecord>(`/admin/clients/${id}/reassign`, {
