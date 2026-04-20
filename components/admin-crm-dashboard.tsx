@@ -687,7 +687,7 @@ function CrmEmployeesList({
                       <td className="px-4 py-4">
                         {canEdit ? (
                           <div
-                            className="relative inline-flex"
+                            className="relative flex justify-end"
                             ref={
                               actionMenuEmployeeId === employee.id ? actionsMenuRef : null
                             }
@@ -707,7 +707,7 @@ function CrmEmployeesList({
                             </button>
 
                             {actionMenuEmployeeId === employee.id ? (
-                              <div className="absolute right-0 top-12 z-20 min-w-[220px] overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+                              <div className="absolute right-14 top-1/2 z-20 min-w-[220px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
                                 <button
                                   type="button"
                                   onClick={() => {
