@@ -66,7 +66,7 @@ type AdminReportsPanelProps = {
 };
 
 const reportModules: Array<{
-  key: Exclude<ReportModule, "overview">;
+  key: Exclude<ReportModule, "overview"> | "aging" | "trends";
   href: string;
   eyebrow: string;
   title: string;
@@ -103,6 +103,22 @@ const reportModules: Array<{
     title: "Client ownership, jobs, and transfer approvals.",
     description:
       "Track assigned clients, linked mandates, hiring volume, and reassignment requests that need follow-up.",
+  },
+  {
+    key: "aging",
+    href: "/admin/reports/aging",
+    eyebrow: "Aging Report",
+    title: "Stale clients, jobs, and candidates that need action.",
+    description:
+      "Track work items that are aging without enough movement so teams can focus before the pipeline cools down.",
+  },
+  {
+    key: "trends",
+    href: "/admin/reports/trends",
+    eyebrow: "Trend Report",
+    title: "Monthly jobs, candidates, clients, and team movement.",
+    description:
+      "Review operational trends on a separate screen instead of mixing monthly movement into module-specific reports.",
   },
 ];
 

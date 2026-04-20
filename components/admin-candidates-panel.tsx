@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   type JobApplication,
@@ -691,9 +692,12 @@ export function AdminCandidatesPanel() {
                       }
                     >
                       <td className="px-4 py-4">
-                        <p className="font-semibold text-[var(--color-ink)]">
+                        <Link
+                          href={`/admin/candidates/${application.id}`}
+                          className="font-semibold text-[var(--color-ink)] transition hover:text-[var(--color-dark)]"
+                        >
                           {application.candidateName}
-                        </p>
+                        </Link>
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
                           {application.experience || "Experience not added"}
                         </p>

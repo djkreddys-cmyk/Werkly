@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useRef, useState } from "react";
-import type { NotificationLogRecord } from "@/lib/crm";
+import type { ClientRecord, EmployeeRecord, NotificationLogRecord } from "@/lib/crm";
+import type { JobApplication, JobSummary } from "@/lib/jobs";
 
 type AdminShellProps = {
   eyebrow: string;
@@ -135,6 +136,20 @@ function BellIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+function SearchIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M13.2 13.2L16.5 16.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function formatRoleLabel(role: string) {
   if (!role) {
     return "Internal User";
@@ -202,6 +217,7 @@ export function AdminShell({
   const router = useRouter();
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationMenuRef = useRef<HTMLDivElement | null>(null);
+  const searchMenuRef = useRef<HTMLDivElement | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [authType] = useState(() =>
     typeof window === "undefined"
@@ -242,6 +258,12 @@ export function AdminShell({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationLogRecord[]>([]);
+  const [jobsIndex, setJobsIndex] = useState<JobSummary[]>([]);
+  const [clientsIndex, setClientsIndex] = useState<ClientRecord[]>([]);
+  const [employeesIndex, setEmployeesIndex] = useState<EmployeeRecord[]>([]);
+  const [applicationsIndex, setApplicationsIndex] = useState<JobApplication[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState("");
   const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
@@ -454,6 +476,9 @@ export function AdminShell({
       ) {
         setIsNotificationsOpen(false);
       }
+      if (searchMenuRef.current && !searchMenuRef.current.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
     };
 
     window.addEventListener("mousedown", handlePointerDown);
@@ -506,6 +531,43 @@ export function AdminShell({
       isMounted = false;
     };
   }, [isHydrated, pathname, showMenu, token]);
+
+  useEffect(() => {
+    if (!showMenu || !isHydrated || !token) {
+      return;
+    }
+
+    let isMounted = true;
+
+    Promise.all([
+      fetch("/api/admin/jobs", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
+      fetch("/api/admin/clients", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
+      fetch("/api/admin/employees", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
+      fetch("/api/admin/applications", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
+    ])
+      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse]) => {
+        const jobsResult = (await jobsResponse.json()) as { jobs?: JobSummary[] };
+        const clientsResult = (await clientsResponse.json()) as { clients?: ClientRecord[] };
+        const employeesResult = (await employeesResponse.json()) as { employees?: EmployeeRecord[] };
+        const applicationsResult = (await applicationsResponse.json()) as { applications?: JobApplication[] };
+
+        if (!isMounted) {
+          return;
+        }
+
+        setJobsIndex(jobsResult.jobs ?? []);
+        setClientsIndex(clientsResult.clients ?? []);
+        setEmployeesIndex(employeesResult.employees ?? []);
+        setApplicationsIndex(applicationsResult.applications ?? []);
+      })
+      .catch(() => {
+        // Global search stays silent if preload fails.
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isHydrated, showMenu, token]);
 
   useEffect(() => {
     const closeMenus = () => {
@@ -662,6 +724,68 @@ export function AdminShell({
   }
 
   const unreadNotifications = notifications.filter((item) => !item.isRead).length;
+  const searchResults = searchQuery.trim()
+    ? [
+        ...jobsIndex
+          .filter(
+            (job) =>
+              job.title.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+              String(job.jobCode || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
+          )
+          .slice(0, 4)
+          .map((job) => ({
+            id: `job-${job.id}`,
+            label: job.title,
+            sublabel: `${job.jobCode || "Pending ID"} • ${job.clientName || "No client"}`,
+            href: "/admin/jobs/existing",
+            type: "Job",
+          })),
+        ...clientsIndex
+          .filter(
+            (client) =>
+              client.companyName.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+              String(client.contactPerson || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
+          )
+          .slice(0, 4)
+          .map((client) => ({
+            id: `client-${client.id}`,
+            label: client.companyName,
+            sublabel: `${client.contactPerson} • ${client.assignedEmployeeName || "Not assigned"}`,
+            href: `/admin/clients/${client.id}`,
+            type: "Client",
+          })),
+        ...applicationsIndex
+          .filter(
+            (application) =>
+              application.candidateName.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+              String(application.candidateEmail || "").toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+              String(application.candidatePhone || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
+          )
+          .slice(0, 4)
+          .map((application) => ({
+            id: `application-${application.id}`,
+            label: application.candidateName,
+            sublabel: `${application.jobTitle || "No job"} • ${application.recruiterName || "Unassigned"}`,
+            href: `/admin/candidates/${application.id}`,
+            type: "Candidate",
+          })),
+        ...employeesIndex
+          .filter(
+            (employee) =>
+              employee.fullName.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+              String(employee.employeeCode || "").toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+              employee.email.toLowerCase().includes(searchQuery.trim().toLowerCase())
+          )
+          .slice(0, 4)
+          .map((employee) => ({
+            id: `employee-${employee.id}`,
+            label: employee.fullName,
+            sublabel: `${employee.employeeCode || "Pending"} • ${employee.role}`,
+            href: "/admin/employees/existing",
+            type: "Employee",
+          })),
+      ].slice(0, 10)
+    : [];
 
   async function handleNotificationRead(id: string) {
     if (!token) {
@@ -769,8 +893,63 @@ export function AdminShell({
                   })}
                 </div>
               </div>
-              <div className="flex justify-start xl:ml-auto xl:min-w-[420px] xl:justify-end">
+              <div className="flex justify-start xl:ml-auto xl:min-w-[720px] xl:justify-end">
                 <div className="flex items-center gap-3">
+                  <div className="relative hidden lg:block" ref={searchMenuRef}>
+                    <div className="flex min-w-[320px] items-center gap-3 rounded-[1rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-4 py-3 text-white">
+                      <SearchIcon className="h-4 w-4 text-white/70" />
+                      <input
+                        value={searchQuery}
+                        onFocus={() => setIsSearchOpen(true)}
+                        onChange={(event) => {
+                          setSearchQuery(event.target.value);
+                          setIsSearchOpen(true);
+                        }}
+                        placeholder="Search jobs, clients, candidates, employees"
+                        className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/58"
+                      />
+                    </div>
+
+                    {isSearchOpen && searchQuery.trim() ? (
+                      <div className="absolute right-0 z-30 mt-3 w-[420px] overflow-hidden rounded-[1.15rem] border border-white/12 bg-[linear-gradient(180deg,rgba(9,68,76,0.99),rgba(7,52,59,0.99))] p-3 text-white shadow-[0_24px_60px_rgba(5,24,28,0.34)] backdrop-blur">
+                        {searchResults.length === 0 ? (
+                          <div className="rounded-xl border border-white/8 bg-white/6 px-4 py-3 text-sm text-white/76">
+                            No matching records yet. Try job ID, client name, candidate email, or employee code.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {searchResults.map((item) => (
+                              <Link
+                                key={item.id}
+                                href={item.href}
+                                onClick={() => {
+                                  setIsSearchOpen(false);
+                                  setSearchQuery("");
+                                }}
+                                className="block rounded-xl border border-white/8 bg-white/6 px-4 py-3 transition hover:bg-white/10"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-white">{item.label}</p>
+                                    <p className="mt-1 text-sm text-white/70">{item.sublabel}</p>
+                                  </div>
+                                  <span className="rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/74">
+                                    {item.type}
+                                  </span>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                  <Link
+                    href="/admin/activity-center"
+                    className="inline-flex h-12 items-center rounded-[1rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-4 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)]"
+                  >
+                    Activity Center
+                  </Link>
                   <div className="relative" ref={notificationMenuRef}>
                     <button
                       type="button"
