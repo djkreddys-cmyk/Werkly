@@ -1904,6 +1904,16 @@ export function AdminClientsPanel({
       ? "admin"
       : window.localStorage.getItem("werklyAuthType") ?? "admin"
   );
+  const [authEmail] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : window.localStorage.getItem("werklyAdminEmail") ?? ""
+  );
+  const [authEmployeeCode] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : window.localStorage.getItem("werklyEmployeeCode") ?? ""
+  );
   const [authRole] = useState(() =>
     typeof window === "undefined"
       ? "super-admin"
@@ -1930,6 +1940,24 @@ export function AdminClientsPanel({
   const [isSavingClientFollowUp, setIsSavingClientFollowUp] = useState(false);
   const [isReviewingTransferRequest, setIsReviewingTransferRequest] = useState(false);
   const isSuperAdmin = authType === "admin" || authRole === "super-admin";
+  const currentEmployeeId = useMemo(
+    () =>
+      employees.find(
+        (employee) => employee.employeeCode === authEmployeeCode || employee.email === authEmail
+      )?.id ?? "",
+    [authEmail, authEmployeeCode, employees]
+  );
+  const visibleClients = useMemo(() => {
+    if (isSuperAdmin) {
+      return clients;
+    }
+
+    return clients.filter(
+      (client) =>
+        client.assignedEmployeeId === currentEmployeeId ||
+        client.followUpEmployeeId === currentEmployeeId
+    );
+  }, [clients, currentEmployeeId, isSuperAdmin]);
 
   const employeeOptions = useMemo(
     () => employees.filter((employee) => employee.status === "active"),
@@ -2460,7 +2488,7 @@ export function AdminClientsPanel({
       {viewMode !== "new" ? (
         <div id="existing-clients" className="scroll-mt-28">
           <CrmClientsList
-            clients={clients}
+            clients={visibleClients}
             canManageActions
             onTransfer={(client) => {
               setSelectedTransferClient(client);

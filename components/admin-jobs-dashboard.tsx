@@ -155,6 +155,9 @@ export function AdminJobsDashboard({
   const actionsMenuRef = useRef<HTMLDivElement | null>(null);
   const [token, setToken] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
+  const [authType, setAuthType] = useState("admin");
+  const [authRole, setAuthRole] = useState("super-admin");
+  const [authEmployeeCode, setAuthEmployeeCode] = useState("");
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
@@ -186,9 +189,45 @@ export function AdminJobsDashboard({
   useEffect(() => {
     const savedToken = window.localStorage.getItem("werklyAdminToken") ?? "";
     const savedEmail = window.localStorage.getItem("werklyAdminEmail") ?? "";
+    const savedAuthType = window.localStorage.getItem("werklyAuthType") ?? "admin";
+    const savedAuthRole = window.localStorage.getItem("werklyAuthRole") ?? "super-admin";
+    const savedEmployeeCode = window.localStorage.getItem("werklyEmployeeCode") ?? "";
     setToken(savedToken);
     setAdminEmail(savedEmail);
+    setAuthType(savedAuthType);
+    setAuthRole(savedAuthRole);
+    setAuthEmployeeCode(savedEmployeeCode);
   }, []);
+
+  const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
+  const canManageJobs = authType === "admin" || authRole === "super-admin";
+  const currentEmployeeId = useMemo(
+    () =>
+      employees.find(
+        (employee) => employee.employeeCode === authEmployeeCode || employee.email === adminEmail
+      )?.id ?? "",
+    [adminEmail, authEmployeeCode, employees]
+  );
+  const visibleClients = useMemo(() => {
+    if (!isEmployeeSession) {
+      return clients;
+    }
+
+    return clients.filter(
+      (client) =>
+        client.assignedEmployeeId === currentEmployeeId ||
+        client.followUpEmployeeId === currentEmployeeId
+    );
+  }, [clients, currentEmployeeId, isEmployeeSession]);
+  const visibleJobs = useMemo(() => {
+    if (!isEmployeeSession) {
+      return jobs;
+    }
+
+    return jobs.filter(
+      (job) => job.recruiterId === currentEmployeeId || job.recruiterEmail === adminEmail
+    );
+  }, [adminEmail, currentEmployeeId, isEmployeeSession, jobs]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -267,10 +306,10 @@ export function AdminJobsDashboard({
 
   const sortedJobs = useMemo(
     () =>
-      [...jobs].sort((a, b) =>
+      [...visibleJobs].sort((a, b) =>
         new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()
       ),
-    [jobs]
+    [visibleJobs]
   );
 
   const filteredJobs = useMemo(() => {
@@ -325,7 +364,7 @@ export function AdminJobsDashboard({
             required
           >
             <option value="">Select client</option>
-            {clients.map((client) => (
+            {visibleClients.map((client) => (
               <option key={client.id} value={client.id}>
                 {client.companyName}
               </option>
@@ -934,13 +973,17 @@ export function AdminJobsDashboard({
           <div>
             <p className="eyebrow">Existing Jobs</p>
             <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-              Review published roles and drafts.
+              {canManageJobs ? "Review published roles and drafts." : "Review assigned jobs."}
             </h2>
             <p className="muted-copy mt-4 text-base leading-7">
-              Signed in as {adminEmail || "Railway admin"}. Use edit to load a role into the form above.
+              {canManageJobs
+                ? `Signed in as ${adminEmail || "Railway admin"}. Use edit to load a role into the form above.`
+                : "Showing only the jobs assigned to your login."}
             </p>
           </div>
           <div className="w-full max-w-xs">
+            {canManageJobs ? (
+              <>
             <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
               Filter by recruiter
             </label>
@@ -959,6 +1002,12 @@ export function AdminJobsDashboard({
                   </option>
                 ))}
             </select>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
+                Assigned jobs only
+              </div>
+            )}
           </div>
         </div>
 
@@ -1063,30 +1112,36 @@ export function AdminJobsDashboard({
 
                           {actionMenuJobId === job.id ? (
                             <div className="absolute right-14 top-1/2 z-20 min-w-[200px] -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
-                              <button
-                                type="button"
-                                onClick={() => populateForEdit(job)}
-                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openManualCandidateModal(job)}
-                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
-                              >
-                                Add Candidate
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActionMenuJobId("");
-                                  void handleVisibilityToggle(job);
-                                }}
-                                className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
-                              >
-                                {job.isHidden ? "Unhide" : "Hide"}
-                              </button>
+                              {canManageJobs ? (
+                                <button
+                                  type="button"
+                                  onClick={() => populateForEdit(job)}
+                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  Edit
+                                </button>
+                              ) : null}
+                              {canManageJobs ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openManualCandidateModal(job)}
+                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  Add Candidate
+                                </button>
+                              ) : null}
+                              {canManageJobs ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionMenuJobId("");
+                                    void handleVisibilityToggle(job);
+                                  }}
+                                  className="flex w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-[var(--color-accent-strong)] transition hover:bg-[rgba(190,72,26,0.06)]"
+                                >
+                                  {job.isHidden ? "Unhide" : "Hide"}
+                                </button>
+                              ) : null}
                               {job.slug ? (
                                 <a
                                   href={`/jobs/${job.slug}`}

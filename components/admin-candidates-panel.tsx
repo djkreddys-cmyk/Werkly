@@ -57,6 +57,21 @@ export function AdminCandidatesPanel() {
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
       : ""
   );
+  const [authType] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthType") ?? "admin"
+      : "admin"
+  );
+  const [authEmail] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAdminEmail") ?? ""
+      : ""
+  );
+  const [authEmployeeCode] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyEmployeeCode") ?? ""
+      : ""
+  );
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
@@ -138,8 +153,29 @@ export function AdminCandidatesPanel() {
     return () => window.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
+  const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
+  const currentEmployeeId = useMemo(
+    () =>
+      employees.find(
+        (employee) => employee.employeeCode === authEmployeeCode || employee.email === authEmail
+      )?.id ?? "",
+    [authEmail, authEmployeeCode, employees]
+  );
+  const visibleApplications = useMemo(() => {
+    if (!isEmployeeSession) {
+      return applications;
+    }
+
+    return applications.filter(
+      (application) =>
+        application.assignedEmployeeId === currentEmployeeId ||
+        application.followUpEmployeeId === currentEmployeeId ||
+        application.recruiterEmail === authEmail
+    );
+  }, [applications, authEmail, currentEmployeeId, isEmployeeSession]);
+
   const filteredApplications = useMemo(() => {
-    return applications.filter((application) => {
+    return visibleApplications.filter((application) => {
       const matchesQuery =
         !query ||
         [
@@ -160,16 +196,16 @@ export function AdminCandidatesPanel() {
 
       return matchesQuery && matchesStage;
     });
-  }, [applications, query, stageFilter]);
+  }, [query, stageFilter, visibleApplications]);
 
   const stageCounts = useMemo(() => {
     return stageOptions.reduce<Record<JobApplicationStage, number>>((acc, stage) => {
-      acc[stage] = applications.filter(
+      acc[stage] = visibleApplications.filter(
         (application) => (application.stage ?? "applied") === stage
       ).length;
       return acc;
     }, {} as Record<JobApplicationStage, number>);
-  }, [applications]);
+  }, [visibleApplications]);
 
   async function handleStageChange(
     id: string,
