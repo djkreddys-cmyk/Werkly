@@ -152,6 +152,38 @@ export async function ensureCrmSchema() {
     )
   `);
 
+  await query(`
+    create table if not exists crm_settings (
+      id uuid primary key default gen_random_uuid(),
+      recruiter_daily_follow_ups integer not null default 20,
+      recruiter_daily_applications integer not null default 12,
+      delivery_daily_follow_ups integer not null default 18,
+      delivery_daily_applications integer not null default 8,
+      leadership_daily_follow_ups integer not null default 6,
+      leadership_daily_applications integer not null default 3,
+      enable_browser_notifications boolean not null default true,
+      enable_email_notifications boolean not null default false,
+      enable_whatsapp_notifications boolean not null default false,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+
+  await query(`
+    create table if not exists notification_logs (
+      id uuid primary key default gen_random_uuid(),
+      title text not null,
+      message text not null,
+      category text not null default 'general',
+      severity text not null default 'info',
+      target_type text not null default 'all',
+      target_employee_id uuid references employees(id) on delete cascade,
+      delivery_channels jsonb not null default '[]'::jsonb,
+      is_read boolean not null default false,
+      created_at timestamptz not null default now()
+    )
+  `);
+
   await query(`alter table clients add column if not exists agreement_file_name text`);
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
@@ -178,6 +210,22 @@ export async function ensureCrmSchema() {
   await query(`alter table client_onboarding_history add column if not exists to_status text`);
   await query(`alter table client_onboarding_history add column if not exists notes text`);
   await query(`alter table client_onboarding_history add column if not exists created_at timestamptz not null default now()`);
+  await query(`alter table crm_settings add column if not exists recruiter_daily_follow_ups integer not null default 20`);
+  await query(`alter table crm_settings add column if not exists recruiter_daily_applications integer not null default 12`);
+  await query(`alter table crm_settings add column if not exists delivery_daily_follow_ups integer not null default 18`);
+  await query(`alter table crm_settings add column if not exists delivery_daily_applications integer not null default 8`);
+  await query(`alter table crm_settings add column if not exists leadership_daily_follow_ups integer not null default 6`);
+  await query(`alter table crm_settings add column if not exists leadership_daily_applications integer not null default 3`);
+  await query(`alter table crm_settings add column if not exists enable_browser_notifications boolean not null default true`);
+  await query(`alter table crm_settings add column if not exists enable_email_notifications boolean not null default false`);
+  await query(`alter table crm_settings add column if not exists enable_whatsapp_notifications boolean not null default false`);
+  await query(`alter table notification_logs add column if not exists category text not null default 'general'`);
+  await query(`alter table notification_logs add column if not exists severity text not null default 'info'`);
+  await query(`alter table notification_logs add column if not exists target_type text not null default 'all'`);
+  await query(`alter table notification_logs add column if not exists target_employee_id uuid references employees(id) on delete cascade`);
+  await query(`alter table notification_logs add column if not exists delivery_channels jsonb not null default '[]'::jsonb`);
+  await query(`alter table notification_logs add column if not exists is_read boolean not null default false`);
+  await query(`alter table notification_logs add column if not exists created_at timestamptz not null default now()`);
   await query(`alter table employees add column if not exists employee_code text`);
   await query(
     `alter table employees add column if not exists must_change_password boolean not null default true`
@@ -202,6 +250,7 @@ export async function ensureCrmSchema() {
   );
 
   await backfillMissingEmployeeCodes();
+  await ensureCrmSettingsSeed();
 }
 
 function mapEmployeeRow(row) {
@@ -256,6 +305,53 @@ function mapClientActivityRow(row) {
     effectiveDate: row.effective_date,
     createdAt: row.created_at,
   };
+}
+
+function mapCrmSettingsRow(row) {
+  return {
+    recruiterDailyFollowUps: Number(row.recruiter_daily_follow_ups ?? 20),
+    recruiterDailyApplications: Number(row.recruiter_daily_applications ?? 12),
+    deliveryDailyFollowUps: Number(row.delivery_daily_follow_ups ?? 18),
+    deliveryDailyApplications: Number(row.delivery_daily_applications ?? 8),
+    leadershipDailyFollowUps: Number(row.leadership_daily_follow_ups ?? 6),
+    leadershipDailyApplications: Number(row.leadership_daily_applications ?? 3),
+    enableBrowserNotifications: Boolean(row.enable_browser_notifications),
+    enableEmailNotifications: Boolean(row.enable_email_notifications),
+    enableWhatsappNotifications: Boolean(row.enable_whatsapp_notifications),
+  };
+}
+
+function mapNotificationLogRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    message: row.message,
+    category: row.category,
+    severity: row.severity,
+    targetType: row.target_type,
+    targetEmployeeId: row.target_employee_id,
+    deliveryChannels: Array.isArray(row.delivery_channels) ? row.delivery_channels : [],
+    isRead: Boolean(row.is_read),
+    createdAt: row.created_at,
+  };
+}
+
+async function ensureCrmSettingsSeed() {
+  await query(`
+    insert into crm_settings (
+      recruiter_daily_follow_ups,
+      recruiter_daily_applications,
+      delivery_daily_follow_ups,
+      delivery_daily_applications,
+      leadership_daily_follow_ups,
+      leadership_daily_applications,
+      enable_browser_notifications,
+      enable_email_notifications,
+      enable_whatsapp_notifications
+    )
+    select 20, 12, 18, 8, 6, 3, true, false, false
+    where not exists (select 1 from crm_settings)
+  `);
 }
 
 function formatEmployeeCode(date, sequenceNumber) {
@@ -1133,6 +1229,129 @@ export async function listClientActivity(clientId) {
   );
 
   return result.rows.map(mapClientActivityRow);
+}
+
+export async function getCrmSettings() {
+  const result = await query(
+    `select *
+     from crm_settings
+     order by created_at asc
+     limit 1`
+  );
+
+  return result.rows[0] ? mapCrmSettingsRow(result.rows[0]) : mapCrmSettingsRow({});
+}
+
+export async function updateCrmSettings(payload) {
+  await ensureCrmSettingsSeed();
+
+  const result = await query(
+    `update crm_settings
+        set recruiter_daily_follow_ups = $1,
+            recruiter_daily_applications = $2,
+            delivery_daily_follow_ups = $3,
+            delivery_daily_applications = $4,
+            leadership_daily_follow_ups = $5,
+            leadership_daily_applications = $6,
+            enable_browser_notifications = $7,
+            enable_email_notifications = $8,
+            enable_whatsapp_notifications = $9,
+            updated_at = now()
+      where id = (select id from crm_settings order by created_at asc limit 1)
+      returning *`,
+    [
+      payload.recruiterDailyFollowUps ?? 20,
+      payload.recruiterDailyApplications ?? 12,
+      payload.deliveryDailyFollowUps ?? 18,
+      payload.deliveryDailyApplications ?? 8,
+      payload.leadershipDailyFollowUps ?? 6,
+      payload.leadershipDailyApplications ?? 3,
+      payload.enableBrowserNotifications ?? true,
+      payload.enableEmailNotifications ?? false,
+      payload.enableWhatsappNotifications ?? false,
+    ]
+  );
+
+  return mapCrmSettingsRow(result.rows[0]);
+}
+
+export async function listNotificationLogs(employeeId = null, includeAllForAdmin = false) {
+  const values = [];
+  let whereClause = "";
+
+  if (employeeId && !includeAllForAdmin) {
+    values.push(employeeId);
+    whereClause = `where target_type = 'all' or (target_type = 'employee' and target_employee_id = $${values.length})`;
+  }
+
+  const result = await query(
+    `select
+      id,
+      title,
+      message,
+      category,
+      severity,
+      target_type,
+      target_employee_id,
+      delivery_channels,
+      is_read,
+      created_at
+     from notification_logs
+     ${whereClause}
+     order by created_at desc
+     limit 50`,
+    values
+  );
+
+  return result.rows.map(mapNotificationLogRow);
+}
+
+export async function createNotificationLog(payload) {
+  const result = await query(
+    `insert into notification_logs (
+      title,
+      message,
+      category,
+      severity,
+      target_type,
+      target_employee_id,
+      delivery_channels,
+      is_read
+    ) values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+    returning *`,
+    [
+      payload.title,
+      payload.message,
+      payload.category || "general",
+      payload.severity || "info",
+      payload.targetType || "all",
+      payload.targetEmployeeId || null,
+      JSON.stringify(payload.deliveryChannels || []),
+      payload.isRead ?? false,
+    ]
+  );
+
+  return mapNotificationLogRow(result.rows[0]);
+}
+
+export async function markNotificationRead(id, employeeId = null, includeAllForAdmin = false) {
+  const values = [id];
+  let whereClause = `where id = $1`;
+
+  if (employeeId && !includeAllForAdmin) {
+    values.push(employeeId);
+    whereClause += ` and (target_type = 'all' or (target_type = 'employee' and target_employee_id = $2))`;
+  }
+
+  const result = await query(
+    `update notification_logs
+        set is_read = true
+      ${whereClause}
+      returning *`,
+    values
+  );
+
+  return result.rows[0] ? mapNotificationLogRow(result.rows[0]) : null;
 }
 
 export async function createClientTransferRequest(payload) {

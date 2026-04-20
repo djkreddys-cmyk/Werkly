@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useRef, useState } from "react";
+import type { NotificationLogRecord } from "@/lib/crm";
 
 type AdminShellProps = {
   eyebrow: string;
@@ -114,6 +115,26 @@ function LogoutIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+function BellIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M10 3.5C7.79086 3.5 6 5.29086 6 7.5V9.6C6 10.14 5.81 10.66 5.46 11.06L4.3 12.4C3.67 13.12 4.18 14.25 5.14 14.25H14.86C15.82 14.25 16.33 13.12 15.7 12.4L14.54 11.06C14.19 10.66 14 10.14 14 9.6V7.5C14 5.29086 12.2091 3.5 10 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8.25 15.5C8.52 16.24 9.2 16.75 10 16.75C10.8 16.75 11.48 16.24 11.75 15.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function formatRoleLabel(role: string) {
   if (!role) {
     return "Internal User";
@@ -180,6 +201,7 @@ export function AdminShell({
   const pathname = usePathname();
   const router = useRouter();
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationMenuRef = useRef<HTMLDivElement | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [authType] = useState(() =>
     typeof window === "undefined"
@@ -206,6 +228,11 @@ export function AdminShell({
       ? ""
       : window.localStorage.getItem("werklyEmployeeCode") ?? ""
   );
+  const [token] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : window.localStorage.getItem("werklyAdminToken") ?? ""
+  );
   const logoutTimerRef = useRef<number | null>(null);
   const logoutHandlerRef = useRef<() => Promise<void>>(async () => {});
   const lastScreenActivityRef = useRef<number>(Date.now());
@@ -213,10 +240,15 @@ export function AdminShell({
   const pendingActiveMsRef = useRef(0);
   const pendingIdleMsRef = useRef(0);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationLogRecord[]>([]);
+  const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState("");
   const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
   const displayIdentifier = authEmployeeCode || authIdentifier;
   const displayRole =
     authType === "employee" ? formatRoleLabel(authRole || "employee") : "Super Admin";
+  const isAdminView = authType === "admin" || authRole === "super-admin";
   const activeModuleKey = getActiveModuleKey(pathname);
   const visibleSections = moduleSections.map((section) => {
     if (section.key !== "hr") {
@@ -416,6 +448,12 @@ export function AdminShell({
       ) {
         setIsProfileMenuOpen(false);
       }
+      if (
+        notificationMenuRef.current &&
+        !notificationMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsNotificationsOpen(false);
+      }
     };
 
     window.addEventListener("mousedown", handlePointerDown);
@@ -423,9 +461,57 @@ export function AdminShell({
   }, []);
 
   useEffect(() => {
+    if (!showMenu || !isHydrated || !token) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsNotificationsLoading(true);
+    setNotificationError("");
+
+    fetch("/api/admin/notifications", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          notifications?: NotificationLogRecord[];
+          message?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(result.message || "Unable to load notifications.");
+        }
+
+        if (isMounted) {
+          setNotifications(result.notifications ?? []);
+        }
+      })
+      .catch((loadError) => {
+        if (isMounted) {
+          setNotificationError(
+            loadError instanceof Error ? loadError.message : "Unable to load notifications."
+          );
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsNotificationsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isHydrated, pathname, showMenu, token]);
+
+  useEffect(() => {
     const closeMenus = () => {
       setExpandedModuleKey(null);
       setIsProfileMenuOpen(false);
+      setIsNotificationsOpen(false);
     };
 
     window.addEventListener("resize", closeMenus);
@@ -575,6 +661,36 @@ export function AdminShell({
     );
   }
 
+  const unreadNotifications = notifications.filter((item) => !item.isRead).length;
+
+  async function handleNotificationRead(id: string) {
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/notifications/${id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const result = (await response.json()) as NotificationLogRecord & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to update notification.");
+      }
+
+      setNotifications((current) =>
+        current.map((item) => (item.id === id ? { ...item, isRead: true } : item))
+      );
+    } catch (error) {
+      setNotificationError(
+        error instanceof Error ? error.message : "Unable to update notification."
+      );
+    }
+  }
+
   return (
     <div className="crm-shell-bg min-h-screen">
       <div className="min-h-screen">
@@ -654,10 +770,111 @@ export function AdminShell({
                 </div>
               </div>
               <div className="flex justify-start xl:ml-auto xl:min-w-[420px] xl:justify-end">
-                <div className="relative" ref={profileMenuRef}>
+                <div className="flex items-center gap-3">
+                  <div className="relative" ref={notificationMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExpandedModuleKey(null);
+                        setIsProfileMenuOpen(false);
+                        setIsNotificationsOpen((current) => !current);
+                      }}
+                      className="relative inline-flex h-12 w-12 items-center justify-center rounded-[1rem] border border-white/14 bg-[rgba(255,255,255,0.08)] text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)]"
+                    >
+                      <BellIcon className="h-5 w-5" />
+                      {unreadNotifications > 0 ? (
+                        <span className="absolute -right-1 -top-1 inline-flex min-w-[22px] items-center justify-center rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-ink)]">
+                          {unreadNotifications}
+                        </span>
+                      ) : null}
+                    </button>
+
+                    {isNotificationsOpen ? (
+                      <div className="absolute right-0 z-30 mt-3 w-[360px] overflow-hidden rounded-[1.15rem] border border-white/12 bg-[linear-gradient(180deg,rgba(9,68,76,0.99),rgba(7,52,59,0.99))] p-4 text-white shadow-[0_24px_60px_rgba(5,24,28,0.34)] backdrop-blur">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/58">
+                              Notification Center
+                            </p>
+                            <p className="mt-2 text-base font-semibold text-white">
+                              Saved reminders and activity alerts
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
+                            {unreadNotifications} unread
+                          </span>
+                        </div>
+
+                        {notificationError ? (
+                          <p className="mt-4 rounded-xl border border-[rgba(241,166,75,0.18)] bg-[rgba(241,166,75,0.12)] px-3 py-2 text-sm text-white/90">
+                            {notificationError}
+                          </p>
+                        ) : null}
+
+                        {isNotificationsLoading ? (
+                          <p className="mt-4 text-sm text-white/70">Loading notifications...</p>
+                        ) : notifications.length === 0 ? (
+                          <p className="mt-4 text-sm text-white/70">
+                            No saved reminders are available yet.
+                          </p>
+                        ) : (
+                          <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1">
+                            {notifications.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => void handleNotificationRead(item.id)}
+                                className={`w-full rounded-[1rem] border px-4 py-3 text-left transition ${
+                                  item.isRead
+                                    ? "border-white/8 bg-white/6 text-white/72"
+                                    : "border-[rgba(241,166,75,0.22)] bg-[rgba(255,255,255,0.1)] text-white hover:border-[rgba(241,166,75,0.4)]"
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold">{item.title}</p>
+                                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-white/55">
+                                      {item.category}
+                                    </p>
+                                  </div>
+                                  {!item.isRead ? (
+                                    <span className="rounded-full bg-[var(--color-accent)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink)]">
+                                      New
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-2 text-sm leading-6">{item.message}</p>
+                                <p className="mt-2 text-xs text-white/55">
+                                  {new Date(item.createdAt).toLocaleString("en-IN", {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  })}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {isAdminView ? (
+                          <div className="mt-4 border-t border-white/10 pt-4">
+                            <Link
+                              href="/admin/settings"
+                              onClick={() => setIsNotificationsOpen(false)}
+                              className="inline-flex items-center rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)] hover:text-[var(--color-accent)]"
+                            >
+                              Open Settings
+                            </Link>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="relative" ref={profileMenuRef}>
                   <button
                     type="button"
                     onClick={() => {
+                      setIsNotificationsOpen(false);
                       setExpandedModuleKey(null);
                       setIsProfileMenuOpen((current) => !current);
                     }}
@@ -695,6 +912,16 @@ export function AdminShell({
                       </div>
 
                         <div className="mt-4 grid gap-2">
+                          {isAdminView ? (
+                            <Link
+                              href="/admin/settings"
+                              onClick={() => setIsProfileMenuOpen(false)}
+                              className="inline-flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)] hover:text-[var(--color-accent)]"
+                            >
+                              <span>Settings</span>
+                              <ChevronDownIcon className="h-4 w-4 -rotate-90" />
+                            </Link>
+                          ) : null}
                           <Link
                             href="https://www.werkly.in"
                             target="_blank"
@@ -717,6 +944,7 @@ export function AdminShell({
                     ) : null}
                   </div>
                 </div>
+              </div>
             </div>
           </div>
         </header>

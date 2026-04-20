@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ClientFollowUpStatus, ClientRecord, EmployeeRecord } from "@/lib/crm";
+import type {
+  ClientFollowUpStatus,
+  ClientRecord,
+  CrmKpiSettings,
+  EmployeeRecord,
+} from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 
 type DashboardState = {
@@ -81,20 +86,44 @@ function downloadExcelReport(
   URL.revokeObjectURL(url);
 }
 
-function getRoleTargets(role?: string) {
+const defaultKpiSettings: CrmKpiSettings = {
+  recruiterDailyFollowUps: 20,
+  recruiterDailyApplications: 12,
+  deliveryDailyFollowUps: 18,
+  deliveryDailyApplications: 8,
+  leadershipDailyFollowUps: 6,
+  leadershipDailyApplications: 3,
+  enableBrowserNotifications: true,
+  enableEmailNotifications: false,
+  enableWhatsappNotifications: false,
+};
+
+function getRoleTargets(settings: CrmKpiSettings, role?: string) {
   const normalizedRole = String(role || "").toLowerCase();
 
   if (normalizedRole.includes("cto") || normalizedRole.includes("founder")) {
-    return { followUps: 6, applications: 3 };
+    return {
+      followUps: settings.leadershipDailyFollowUps,
+      applications: settings.leadershipDailyApplications,
+    };
   }
   if (normalizedRole.includes("delivery")) {
-    return { followUps: 18, applications: 8 };
+    return {
+      followUps: settings.deliveryDailyFollowUps,
+      applications: settings.deliveryDailyApplications,
+    };
   }
   if (normalizedRole.includes("recruit")) {
-    return { followUps: 20, applications: 12 };
+    return {
+      followUps: settings.recruiterDailyFollowUps,
+      applications: settings.recruiterDailyApplications,
+    };
   }
 
-  return { followUps: 10, applications: 5 };
+  return {
+    followUps: settings.recruiterDailyFollowUps,
+    applications: settings.recruiterDailyApplications,
+  };
 }
 
 function formatDateLabel(value?: string) {
@@ -270,6 +299,7 @@ export function AdminDashboardOverview() {
     employees: [],
     applications: [],
   });
+  const [settings, setSettings] = useState<CrmKpiSettings>(defaultKpiSettings);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
   const todayKey = getTodayKey();
@@ -320,8 +350,18 @@ export function AdminDashboardOverview() {
       fetch("/api/admin/applications", {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch("/api/admin/settings", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse]) => {
+      .then(
+        async ([
+          jobsResponse,
+          clientsResponse,
+          employeesResponse,
+          applicationsResponse,
+          settingsResponse,
+        ]) => {
         const jobsResult = (await jobsResponse.json()) as {
           jobs?: JobSummary[];
           message?: string;
@@ -338,6 +378,9 @@ export function AdminDashboardOverview() {
           applications?: JobApplication[];
           message?: string;
         };
+        const settingsResult = (await settingsResponse.json()) as Partial<CrmKpiSettings> & {
+          message?: string;
+        };
 
         if (!jobsResponse.ok) {
           throw new Error(jobsResult.message || "Unable to load jobs.");
@@ -351,6 +394,9 @@ export function AdminDashboardOverview() {
         if (!applicationsResponse.ok) {
           throw new Error(applicationsResult.message || "Unable to load applications.");
         }
+        if (!settingsResponse.ok) {
+          throw new Error(settingsResult.message || "Unable to load CRM settings.");
+        }
 
         setState({
           jobs: jobsResult.jobs ?? [],
@@ -358,7 +404,9 @@ export function AdminDashboardOverview() {
           employees: employeesResult.employees ?? [],
           applications: applicationsResult.applications ?? [],
         });
-      })
+        setSettings({ ...defaultKpiSettings, ...settingsResult });
+      }
+      )
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load dashboard.");
       })
@@ -654,7 +702,7 @@ export function AdminDashboardOverview() {
       visibleEmployees
         .filter((employee) => employee.status === "active")
         .map((employee) => {
-          const targets = getRoleTargets(employee.role);
+          const targets = getRoleTargets(settings, employee.role);
           const employeeClients = visibleClients.filter(
             (client) => client.assignedEmployeeId === employee.id
           );
@@ -681,12 +729,21 @@ export function AdminDashboardOverview() {
         })
         .sort((a, b) => b.followUps - a.followUps)
         .slice(0, isAdminView ? 6 : 1),
-    [followUpItems, isAdminView, visibleApplications, visibleClients, visibleEmployees, visibleJobs]
+    [
+      followUpItems,
+      isAdminView,
+      settings,
+      visibleApplications,
+      visibleClients,
+      visibleEmployees,
+      visibleJobs,
+    ]
   );
 
   useEffect(() => {
     if (
       typeof window === "undefined" ||
+      !settings.enableBrowserNotifications ||
       notificationPermission !== "granted" ||
       metrics.overdueFollowUps + metrics.dueTodayFollowUps === 0
     ) {
@@ -708,8 +765,45 @@ export function AdminDashboardOverview() {
         : `${metrics.dueTodayFollowUps} follow-ups are due today in your current dashboard view.`;
 
     new window.Notification(title, { body });
+
+    const deliveryChannels = [
+      "browser",
+      ...(settings.enableEmailNotifications ? ["email"] : []),
+      ...(settings.enableWhatsappNotifications ? ["whatsapp"] : []),
+    ];
+
+    fetch("/api/admin/notifications", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        title,
+        message: body,
+        category: "follow-up",
+        severity: metrics.overdueFollowUps > 0 ? "critical" : "warning",
+        targetType: isAdminView ? "all" : "employee",
+        targetEmployeeId: isAdminView ? null : currentEmployeeId,
+        deliveryChannels,
+      }),
+    }).catch(() => {
+      // Keep browser reminders working even if notification log persistence fails.
+    });
+
     window.localStorage.setItem(reminderKey, "sent");
-  }, [metrics.dueTodayFollowUps, metrics.overdueFollowUps, notificationPermission, todayKey]);
+  }, [
+    currentEmployeeId,
+    isAdminView,
+    metrics.dueTodayFollowUps,
+    metrics.overdueFollowUps,
+    notificationPermission,
+    settings.enableBrowserNotifications,
+    settings.enableEmailNotifications,
+    settings.enableWhatsappNotifications,
+    todayKey,
+    token,
+  ]);
 
   if (!token) {
     return (
@@ -743,7 +837,7 @@ export function AdminDashboardOverview() {
         ))}
       </section>
 
-      {notificationPermission !== "granted" ? (
+      {settings.enableBrowserNotifications && notificationPermission !== "granted" ? (
         <section className="accent-card flex flex-wrap items-center justify-between gap-4 p-5">
           <div>
             <p className="eyebrow">Reminder Alerts</p>

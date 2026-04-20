@@ -125,6 +125,31 @@ export type ClientOnboardingHistoryRecord = {
   createdAt: string;
 };
 
+export type NotificationLogRecord = {
+  id: string;
+  title: string;
+  message: string;
+  category: string;
+  severity: "info" | "warning" | "critical";
+  targetType: "all" | "admin" | "employee";
+  targetEmployeeId?: string;
+  deliveryChannels: string[];
+  isRead?: boolean;
+  createdAt: string;
+};
+
+export type CrmKpiSettings = {
+  recruiterDailyFollowUps: number;
+  recruiterDailyApplications: number;
+  deliveryDailyFollowUps: number;
+  deliveryDailyApplications: number;
+  leadershipDailyFollowUps: number;
+  leadershipDailyApplications: number;
+  enableBrowserNotifications: boolean;
+  enableEmailNotifications: boolean;
+  enableWhatsappNotifications: boolean;
+};
+
 export type ClientTransferRequestStatus = "pending" | "approved" | "rejected";
 
 export type ClientTransferRequestRecord = {
@@ -360,6 +385,60 @@ export async function updateClientOnboarding(
   return readJson<ClientRecord>(`/admin/clients/${id}/onboarding`, {
     method: "PUT",
     body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getCrmSettings(token: string) {
+  return readJson<CrmKpiSettings>("/admin/settings", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function updateCrmSettings(payload: Partial<CrmKpiSettings>, token: string) {
+  return readJson<CrmKpiSettings>("/admin/settings", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getNotificationLogs(token: string) {
+  const data = await readJson<{ notifications: NotificationLogRecord[] } | NotificationLogRecord[]>(
+    "/admin/notifications",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Array.isArray(data) ? data : data.notifications;
+}
+
+export async function createNotificationLog(
+  payload: Omit<NotificationLogRecord, "id" | "createdAt" | "isRead"> & { isRead?: boolean },
+  token: string
+) {
+  return readJson<NotificationLogRecord>("/admin/notifications", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function markNotificationRead(id: string, token: string) {
+  return readJson<NotificationLogRecord>(`/admin/notifications/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ isRead: true }),
     headers: {
       Authorization: `Bearer ${token}`,
     },

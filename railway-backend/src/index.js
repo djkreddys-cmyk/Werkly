@@ -24,16 +24,21 @@ import {
   changeEmployeePassword,
   createClient,
   createClientTransferRequest,
+  createNotificationLog,
   createEmployee,
   ensureCrmSchema,
-  listClientActivity,
   getClientById,
+  getCrmSettings,
+  listClientActivity,
   listClientFollowUpHistory,
   listClients,
   listClientTransferRequests,
   listEmployees,
+  listNotificationLogs,
+  markNotificationRead,
   reassignClient,
   reviewClientTransferRequest,
+  updateCrmSettings,
   updateClientOnboarding,
   updateClientFollowUp,
   updateEmployee,
@@ -1162,6 +1167,108 @@ app.put("/admin/clients/:id/follow-up", requireInternalUser, async (request, res
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update client follow-up.",
+    });
+  }
+});
+
+app.get("/admin/settings", requireInternalUser, async (_request, response) => {
+  try {
+    const settings = await getCrmSettings();
+    response.json(settings);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load CRM settings.",
+    });
+  }
+});
+
+app.put("/admin/settings", requireAdmin, async (request, response) => {
+  try {
+    const settings = await updateCrmSettings(request.body ?? {});
+    response.json(settings);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update CRM settings.",
+    });
+  }
+});
+
+app.get("/admin/notifications", requireInternalUser, async (request, response) => {
+  try {
+    const notifications = await listNotificationLogs(
+      request.user?.type === "employee" ? request.user.id : null,
+      request.user?.type === "admin"
+    );
+    response.json({ notifications });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load notifications.",
+    });
+  }
+});
+
+app.post("/admin/notifications", requireInternalUser, async (request, response) => {
+  try {
+    const {
+      title,
+      message,
+      category,
+      severity,
+      targetType,
+      targetEmployeeId,
+      deliveryChannels,
+      isRead,
+    } = request.body ?? {};
+
+    if (!title || !message) {
+      return response.status(400).json({
+        message: "Notification title and message are required.",
+      });
+    }
+
+    const notification = await createNotificationLog({
+      title,
+      message,
+      category,
+      severity,
+      targetType:
+        request.user?.type === "employee"
+          ? "employee"
+          : targetType || "all",
+      targetEmployeeId:
+        request.user?.type === "employee"
+          ? request.user.id
+          : targetType === "employee"
+            ? targetEmployeeId
+            : null,
+      deliveryChannels,
+      isRead,
+    });
+
+    response.status(201).json(notification);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to create notification.",
+    });
+  }
+});
+
+app.put("/admin/notifications/:id", requireInternalUser, async (request, response) => {
+  try {
+    const notification = await markNotificationRead(
+      request.params.id,
+      request.user?.type === "employee" ? request.user.id : null,
+      request.user?.type === "admin"
+    );
+
+    if (!notification) {
+      return response.status(404).json({ message: "Notification not found." });
+    }
+
+    response.json(notification);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update notification.",
     });
   }
 });
