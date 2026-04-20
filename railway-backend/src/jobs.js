@@ -172,7 +172,7 @@ export async function listAdminJobs(employeeId = null) {
   const employeeScopeClause = employeeId
     ? (() => {
         values.push(employeeId);
-        return `where coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
+        return `where coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}`;
       })()
     : "";
 
