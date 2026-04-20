@@ -34,6 +34,7 @@ import {
   listEmployees,
   reassignClient,
   reviewClientTransferRequest,
+  updateClientOnboarding,
   updateClientFollowUp,
   updateEmployee,
 } from "./crm.js";
@@ -1075,6 +1076,36 @@ app.get("/admin/clients/:id/activity", requireInternalUser, async (request, resp
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load client activity.",
+    });
+  }
+});
+
+app.put("/admin/clients/:id/onboarding", requireInternalUser, async (request, response) => {
+  try {
+    const { onboardingStatus, notes } = request.body ?? {};
+
+    if (!onboardingStatus) {
+      return response.status(400).json({
+        message: "Onboarding status is required.",
+      });
+    }
+
+    const client = await updateClientOnboarding(request.params.id, {
+      onboardingStatus,
+      notes,
+      actorEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+      actorName: request.user?.name || "Werkly User",
+      actorRole: request.user?.role || request.user?.type || "internal-user",
+    });
+
+    if (!client) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    response.json(client);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update client onboarding.",
     });
   }
 });

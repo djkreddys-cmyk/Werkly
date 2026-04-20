@@ -81,6 +81,22 @@ function downloadExcelReport(
   URL.revokeObjectURL(url);
 }
 
+function getRoleTargets(role?: string) {
+  const normalizedRole = String(role || "").toLowerCase();
+
+  if (normalizedRole.includes("cto") || normalizedRole.includes("founder")) {
+    return { followUps: 6, applications: 3 };
+  }
+  if (normalizedRole.includes("delivery")) {
+    return { followUps: 18, applications: 8 };
+  }
+  if (normalizedRole.includes("recruit")) {
+    return { followUps: 20, applications: 12 };
+  }
+
+  return { followUps: 10, applications: 5 };
+}
+
 function formatDateLabel(value?: string) {
   if (!value) {
     return "No deadline";
@@ -271,6 +287,11 @@ export function AdminDashboardOverview() {
   const [quickNextFollowUpDate, setQuickNextFollowUpDate] = useState("");
   const [quickFollowUpNotes, setQuickFollowUpNotes] = useState("");
   const [isQuickSaving, setIsQuickSaving] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
+    typeof window !== "undefined" && "Notification" in window
+      ? window.Notification.permission
+      : "unsupported"
+  );
   const isAdminView = authType === "admin" || authRole === "super-admin";
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const activeDateKey = normalizeDateKey(selectedDateKey) || todayKey;
@@ -527,6 +548,16 @@ export function AdminDashboardOverview() {
     }
   }
 
+  async function enableNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+
+    const permission = await window.Notification.requestPermission();
+    setNotificationPermission(permission);
+  }
+
   const metrics = useMemo(() => {
     const liveJobs = visibleJobs.filter((job) => {
       if (job.isHidden || job.status !== "open") {
@@ -623,6 +654,7 @@ export function AdminDashboardOverview() {
       visibleEmployees
         .filter((employee) => employee.status === "active")
         .map((employee) => {
+          const targets = getRoleTargets(employee.role);
           const employeeClients = visibleClients.filter(
             (client) => client.assignedEmployeeId === employee.id
           );
@@ -638,16 +670,46 @@ export function AdminDashboardOverview() {
           return {
             id: employee.id,
             fullName: employee.fullName,
+            role: employee.role,
             clients: employeeClients.length,
             jobs: employeeJobs.length,
             applications: employeeApplications.length,
             followUps: employeeFollowUps.length,
+            targetFollowUps: targets.followUps,
+            targetApplications: targets.applications,
           };
         })
         .sort((a, b) => b.followUps - a.followUps)
         .slice(0, isAdminView ? 6 : 1),
     [followUpItems, isAdminView, visibleApplications, visibleClients, visibleEmployees, visibleJobs]
   );
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      notificationPermission !== "granted" ||
+      metrics.overdueFollowUps + metrics.dueTodayFollowUps === 0
+    ) {
+      return;
+    }
+
+    const reminderKey = `werkly-followup-reminder-${todayKey}-${metrics.overdueFollowUps}-${metrics.dueTodayFollowUps}`;
+    if (window.localStorage.getItem(reminderKey)) {
+      return;
+    }
+
+    const title =
+      metrics.overdueFollowUps > 0
+        ? "Werkly CRM: Overdue follow-ups need attention"
+        : "Werkly CRM: Follow-ups due today";
+    const body =
+      metrics.overdueFollowUps > 0
+        ? `${metrics.overdueFollowUps} overdue and ${metrics.dueTodayFollowUps} due today in your current dashboard view.`
+        : `${metrics.dueTodayFollowUps} follow-ups are due today in your current dashboard view.`;
+
+    new window.Notification(title, { body });
+    window.localStorage.setItem(reminderKey, "sent");
+  }, [metrics.dueTodayFollowUps, metrics.overdueFollowUps, notificationPermission, todayKey]);
 
   if (!token) {
     return (
@@ -680,6 +742,28 @@ export function AdminDashboardOverview() {
           </article>
         ))}
       </section>
+
+      {notificationPermission !== "granted" ? (
+        <section className="accent-card flex flex-wrap items-center justify-between gap-4 p-5">
+          <div>
+            <p className="eyebrow">Reminder Alerts</p>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+              Enable automated follow-up notifications
+            </h2>
+            <p className="muted-copy mt-2 text-sm leading-6">
+              Browser reminders will notify you when overdue or due-today follow-ups exist in your
+              current dashboard view.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void enableNotifications()}
+            className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+          >
+            {notificationPermission === "unsupported" ? "Notifications Unsupported" : "Enable Alerts"}
+          </button>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {[
@@ -1157,13 +1241,16 @@ export function AdminDashboardOverview() {
                 downloadExcelReport(
                   "recruiter-productivity.xls",
                   "Recruiter Productivity",
-                  ["Employee", "Clients", "Jobs", "Applications", "Follow-Ups"],
+                  ["Employee", "Role", "Clients", "Jobs", "Applications", "Target Apps", "Follow-Ups", "Target Follow-Ups"],
                   employeeProductivity.map((row) => [
                     row.fullName,
+                    row.role,
                     row.clients,
                     row.jobs,
                     row.applications,
+                    row.targetApplications,
                     row.followUps,
+                    row.targetFollowUps,
                   ])
                 )
               }
@@ -1180,7 +1267,7 @@ export function AdminDashboardOverview() {
               <table className="w-full border-collapse bg-white">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                    {["Employee", "Clients", "Jobs", "Applications", "Follow-Ups"].map(
+                    {["Employee", "Role", "Clients", "Jobs", "Applications", "Apps Target", "Follow-Ups", "Follow-Up Target"].map(
                       (heading) => (
                         <th
                           key={heading}
@@ -1205,13 +1292,22 @@ export function AdminDashboardOverview() {
                       <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
                         {row.fullName}
                       </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {row.role}
+                      </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.clients}</td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.jobs}</td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {row.applications}
                       </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {row.targetApplications}
+                      </td>
                       <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
                         {row.followUps}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {row.targetFollowUps}
                       </td>
                     </tr>
                   ))}
@@ -1245,9 +1341,33 @@ export function AdminDashboardOverview() {
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
                 Follow-Up Details
               </p>
-              <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-                {selectedDateFollowUps.length} items
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                  {selectedDateFollowUps.length} items
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadExcelReport(
+                      "selected-date-followups.xls",
+                      `Follow-Ups for ${formatDateLabel(activeDateKey)}`,
+                      ["Client", "Owner", "Status", "Next Follow-Up", "Last Follow-Up", "Contact", "Notes"],
+                      selectedDateFollowUps.map((item) => [
+                        item.clientName,
+                        item.ownerName,
+                        formatFollowUpStage(item.followUpStatus),
+                        formatDateLabel(item.nextFollowUpDate),
+                        formatDateLabel(item.lastFollowUpDate),
+                        item.contactPhone || item.contactEmail || item.contactPerson,
+                        item.notes || "No notes added",
+                      ])
+                    )
+                  }
+                  className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                >
+                  Export Date View
+                </button>
+              </div>
             </div>
 
             {selectedDateFollowUps.length === 0 ? (

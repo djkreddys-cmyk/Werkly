@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import type {
   ClientActivityRecord,
-  ClientFollowUpHistoryRecord,
   ClientFollowUpStatus,
+  ClientOnboardingStatus,
   ClientRecord,
 } from "@/lib/crm";
 
@@ -67,12 +67,14 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
       : ""
   );
   const [client, setClient] = useState<ClientRecord | null>(null);
-  const [history, setHistory] = useState<ClientFollowUpHistoryRecord[]>([]);
   const [activity, setActivity] = useState<ClientActivityRecord[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingOnboarding, setIsSavingOnboarding] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [onboardingStatus, setOnboardingStatus] = useState<ClientOnboardingStatus>("new-lead");
+  const [onboardingNotes, setOnboardingNotes] = useState("");
   const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("pending");
   const [lastFollowUpDate, setLastFollowUpDate] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
@@ -87,19 +89,12 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
       fetch(`/api/admin/clients/${clientId}`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
-      fetch(`/api/admin/clients/${clientId}/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
       fetch(`/api/admin/clients/${clientId}/activity`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
     ])
-      .then(async ([clientResponse, historyResponse, activityResponse]) => {
+      .then(async ([clientResponse, activityResponse]) => {
         const clientResult = (await clientResponse.json()) as ClientRecord & { message?: string };
-        const historyResult = (await historyResponse.json()) as {
-          history?: ClientFollowUpHistoryRecord[];
-          message?: string;
-        };
         const activityResult = (await activityResponse.json()) as {
           activity?: ClientActivityRecord[];
           message?: string;
@@ -109,16 +104,14 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
           throw new Error(clientResult.message || "Unable to load client.");
         }
 
-        if (!historyResponse.ok) {
-          throw new Error(historyResult.message || "Unable to load client history.");
-        }
         if (!activityResponse.ok) {
           throw new Error(activityResult.message || "Unable to load client activity.");
         }
 
         setClient(clientResult);
-        setHistory(historyResult.history ?? []);
         setActivity(activityResult.activity ?? []);
+        setOnboardingStatus(clientResult.onboardingStatus || "new-lead");
+        setOnboardingNotes(clientResult.notes || "");
         setFollowUpStatus(clientResult.followUpStatus || "pending");
         setLastFollowUpDate(clientResult.lastFollowUpDate || "");
         setNextFollowUpDate(clientResult.nextFollowUpDate || "");
@@ -132,12 +125,70 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
 
   const historySummary = useMemo(
     () => ({
-      total: history.length,
-      closed: history.filter((item) => item.toStatus === "closed").length,
-      due: history.filter((item) => item.toStatus === "follow-up-due").length,
+      total: activity.length,
+      closed: activity.filter((item) => item.toStatus === "closed").length,
+      due: activity.filter((item) => item.toStatus === "follow-up-due").length,
     }),
-    [history]
+    [activity]
   );
+
+  async function refreshActivity(clientRecord?: ClientRecord) {
+    if (!token || !clientRecord) {
+      return;
+    }
+
+    const activityResponse = await fetch(`/api/admin/clients/${clientRecord.id}/activity`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const activityResult = (await activityResponse.json()) as {
+      activity?: ClientActivityRecord[];
+      message?: string;
+    };
+
+    if (activityResponse.ok) {
+      setActivity(activityResult.activity ?? []);
+    }
+  }
+
+  async function handleSaveOnboarding() {
+    if (!token || !client) {
+      return;
+    }
+
+    setIsSavingOnboarding(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/clients/${client.id}/onboarding`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          onboardingStatus,
+          notes: onboardingNotes,
+        }),
+      });
+
+      const result = (await response.json()) as ClientRecord & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save onboarding update.");
+      }
+
+      setClient(result);
+      setMessage("Onboarding stage updated successfully.");
+      await refreshActivity(result);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : "Unable to save onboarding update."
+      );
+    } finally {
+      setIsSavingOnboarding(false);
+    }
+  }
 
   async function handleSaveFollowUp() {
     if (!token || !client) {
@@ -171,28 +222,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
 
       setClient(result);
       setMessage("Follow-up updated successfully.");
-
-      const historyResponse = await fetch(`/api/admin/clients/${client.id}/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const activityResponse = await fetch(`/api/admin/clients/${client.id}/activity`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const historyResult = (await historyResponse.json()) as {
-        history?: ClientFollowUpHistoryRecord[];
-        message?: string;
-      };
-      const activityResult = (await activityResponse.json()) as {
-        activity?: ClientActivityRecord[];
-        message?: string;
-      };
-
-      if (historyResponse.ok) {
-        setHistory(historyResult.history ?? []);
-      }
-      if (activityResponse.ok) {
-        setActivity(activityResult.activity ?? []);
-      }
+      await refreshActivity(result);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save follow-up.");
     } finally {
@@ -329,6 +359,64 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
           </div>
         </article>
 
+        <article className="accent-card p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow">Onboarding Update</p>
+              <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+                Update client onboarding stage
+              </h3>
+            </div>
+            <FollowUpStatusPill status={onboardingStatus} />
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Onboarding Stage
+              </span>
+              <select
+                value={onboardingStatus}
+                onChange={(event) =>
+                  setOnboardingStatus(event.target.value as ClientOnboardingStatus)
+                }
+                className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="new-lead">New Lead</option>
+                <option value="contacted">Contacted</option>
+                <option value="proposal-shared">Proposal Shared</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="onboarded">Onboarded</option>
+                <option value="hold">Hold</option>
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Onboarding Notes
+              </span>
+              <textarea
+                value={onboardingNotes}
+                onChange={(event) => setOnboardingNotes(event.target.value)}
+                className="mt-2 min-h-[150px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </label>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => void handleSaveOnboarding()}
+              disabled={isSavingOnboarding}
+              className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSavingOnboarding ? "Saving..." : "Save Onboarding"}
+            </button>
+          </div>
+        </article>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[1.02fr_0.98fr]">
         <article className="accent-card p-6">
           <div className="flex items-start justify-between gap-4">
             <div>

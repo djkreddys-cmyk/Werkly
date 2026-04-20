@@ -113,6 +113,18 @@ export type ClientActivityRecord = {
   createdAt: string;
 };
 
+export type ClientOnboardingHistoryRecord = {
+  id: string;
+  clientId: string;
+  actorEmployeeId?: string;
+  actorName?: string;
+  actorRole?: string;
+  fromStatus?: ClientOnboardingStatus;
+  toStatus: ClientOnboardingStatus;
+  notes?: string;
+  createdAt: string;
+};
+
 export type ClientTransferRequestStatus = "pending" | "approved" | "rejected";
 
 export type ClientTransferRequestRecord = {
@@ -338,6 +350,20 @@ export async function getClientFollowUpEntries(id: string, token: string) {
   });
 
   return Array.isArray(data) ? data : data.history;
+}
+
+export async function updateClientOnboarding(
+  id: string,
+  payload: Pick<ClientFormPayload, "onboardingStatus" | "notes">,
+  token: string
+) {
+  return readJson<ClientRecord>(`/admin/clients/${id}/onboarding`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
 
 export async function getClientTransferRequests(token: string) {

@@ -138,6 +138,20 @@ export async function ensureCrmSchema() {
     )
   `);
 
+  await query(`
+    create table if not exists client_onboarding_history (
+      id uuid primary key default gen_random_uuid(),
+      client_id uuid not null references clients(id) on delete cascade,
+      actor_employee_id uuid references employees(id) on delete set null,
+      actor_name text,
+      actor_role text,
+      from_status text,
+      to_status text not null,
+      notes text,
+      created_at timestamptz not null default now()
+    )
+  `);
+
   await query(`alter table clients add column if not exists agreement_file_name text`);
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
@@ -157,6 +171,13 @@ export async function ensureCrmSchema() {
   await query(`alter table client_follow_up_history add column if not exists next_follow_up_date date`);
   await query(`alter table client_follow_up_history add column if not exists notes text`);
   await query(`alter table client_follow_up_history add column if not exists created_at timestamptz not null default now()`);
+  await query(`alter table client_onboarding_history add column if not exists actor_employee_id uuid references employees(id) on delete set null`);
+  await query(`alter table client_onboarding_history add column if not exists actor_name text`);
+  await query(`alter table client_onboarding_history add column if not exists actor_role text`);
+  await query(`alter table client_onboarding_history add column if not exists from_status text`);
+  await query(`alter table client_onboarding_history add column if not exists to_status text`);
+  await query(`alter table client_onboarding_history add column if not exists notes text`);
+  await query(`alter table client_onboarding_history add column if not exists created_at timestamptz not null default now()`);
   await query(`alter table employees add column if not exists employee_code text`);
   await query(
     `alter table employees add column if not exists must_change_password boolean not null default true`
@@ -921,6 +942,58 @@ export async function updateClientFollowUp(clientId, payload) {
   return hydratedResult.rows[0] ? mapClientRow(hydratedResult.rows[0]) : null;
 }
 
+export async function updateClientOnboarding(clientId, payload) {
+  const existingResult = await query(
+    `select onboarding_status
+     from clients
+     where id = $1`,
+    [clientId]
+  );
+
+  const existing = existingResult.rows[0];
+  if (!existing) {
+    return null;
+  }
+
+  const updatedResult = await query(
+    `update clients
+        set onboarding_status = $2,
+            notes = $3,
+            updated_at = now()
+      where id = $1
+      returning id`,
+    [clientId, payload.onboardingStatus || "new-lead", payload.notes || null]
+  );
+
+  const updated = updatedResult.rows[0];
+  if (!updated) {
+    return null;
+  }
+
+  await query(
+    `insert into client_onboarding_history (
+      client_id,
+      actor_employee_id,
+      actor_name,
+      actor_role,
+      from_status,
+      to_status,
+      notes
+    ) values ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      clientId,
+      payload.actorEmployeeId || null,
+      payload.actorName || null,
+      payload.actorRole || null,
+      existing.onboarding_status || null,
+      payload.onboardingStatus || "new-lead",
+      payload.notes || null,
+    ]
+  );
+
+  return getClientById(clientId);
+}
+
 export async function listClientFollowUpHistory(clientId) {
   const result = await query(
     `select
@@ -980,6 +1053,23 @@ export async function listClientActivity(clientId) {
          history.created_at
        from client_follow_up_history history
        where history.client_id = $1
+
+       union all
+
+       select
+         onboarding.id::text as id,
+         onboarding.client_id,
+         'onboarding' as activity_type,
+         'Onboarding stage updated' as activity_title,
+         onboarding.notes as activity_summary,
+         onboarding.actor_name,
+         onboarding.actor_role,
+         onboarding.from_status,
+         onboarding.to_status,
+         null::date as effective_date,
+         onboarding.created_at
+       from client_onboarding_history onboarding
+       where onboarding.client_id = $1
 
        union all
 
