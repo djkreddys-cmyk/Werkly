@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
+import type { CrmModuleAccessKey } from "@/lib/access-control";
 import type { ClientRecord, EmployeeRecord, NotificationLogRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 
@@ -16,7 +17,16 @@ type AdminShellProps = {
   showMenu?: boolean;
 };
 
-const moduleSections = [
+const moduleSections: Array<{
+  key: Extract<CrmModuleAccessKey, "hr" | "jobs" | "candidates" | "clients">;
+  label: string;
+  href: string;
+  description: string;
+  items: Array<{
+    href: string;
+    label: string;
+  }>;
+}> = [
   {
     key: "hr",
     label: "HR",
@@ -275,7 +285,8 @@ export function AdminShell({
   const isAdminView = authType === "admin" || authRole === "super-admin";
   const activeModuleKey = getActiveModuleKey(pathname);
   const visibleSections = moduleSections.map((section) => {
-    const moduleKey = section.key === "hr" ? "hr" : section.key;
+    const moduleKey: Extract<CrmModuleAccessKey, "hr" | "jobs" | "candidates" | "clients"> =
+      section.key;
     if (!roleAccess.modules[moduleKey]) {
       return null;
     }
