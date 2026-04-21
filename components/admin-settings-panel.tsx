@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  crmFieldAccessDefinitions,
+  crmModuleAccessDefinitions,
+  defaultCrmAccessControl,
+  mergeCrmAccessControl,
+  type CrmAccessRoleKey,
+} from "@/lib/access-control";
 import type { CrmKpiSettings } from "@/lib/crm";
 
 const defaultSettings: CrmKpiSettings = {
@@ -13,6 +20,7 @@ const defaultSettings: CrmKpiSettings = {
   enableBrowserNotifications: true,
   enableEmailNotifications: false,
   enableWhatsappNotifications: false,
+  accessControl: defaultCrmAccessControl,
 };
 
 function NumberField({
@@ -92,6 +100,7 @@ export function AdminSettingsPanel() {
   const [success, setSuccess] = useState("");
 
   const isAdminView = authType === "admin" || authRole === "super-admin";
+  const accessRoles: CrmAccessRoleKey[] = ["recruiter", "delivery", "leadership"];
 
   useEffect(() => {
     if (!token) {
@@ -112,7 +121,11 @@ export function AdminSettingsPanel() {
           throw new Error(result.message || "Unable to load CRM settings.");
         }
 
-        setSettings({ ...defaultSettings, ...result });
+        setSettings({
+          ...defaultSettings,
+          ...result,
+          accessControl: mergeCrmAccessControl(result.accessControl),
+        });
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load CRM settings.");
@@ -144,7 +157,11 @@ export function AdminSettingsPanel() {
         throw new Error(result.message || "Unable to save CRM settings.");
       }
 
-      setSettings({ ...defaultSettings, ...result });
+      setSettings({
+        ...defaultSettings,
+        ...result,
+        accessControl: mergeCrmAccessControl(result.accessControl),
+      });
       setSuccess("CRM settings updated successfully.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save CRM settings.");
@@ -275,6 +292,121 @@ export function AdminSettingsPanel() {
             />
           </div>
         </article>
+      </section>
+
+      <section className="accent-card p-7">
+        <p className="eyebrow">Access Control</p>
+        <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+          Restrict modules and fields role-wise from the settings page.
+        </h2>
+        <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
+          These are frontend visibility controls for recruiter, delivery, and leadership logins.
+          Super admin keeps full access. You can hide entire modules from the navigation and also
+          hide selected fields or actions inside screens.
+        </p>
+
+        <div className="mt-6 grid gap-5 xl:grid-cols-3">
+          {accessRoles.map((roleKey) => {
+            const roleLabel =
+              roleKey === "recruiter"
+                ? "Recruiter"
+                : roleKey === "delivery"
+                  ? "Delivery"
+                  : "Leadership";
+
+            return (
+              <article
+                key={roleKey}
+                className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                  {roleLabel}
+                </p>
+                <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+                  Module visibility
+                </h3>
+                <div className="mt-4 space-y-3">
+                  {crmModuleAccessDefinitions.map((definition) => (
+                    <label
+                      key={definition.key}
+                      className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold text-[var(--color-ink)]">
+                          {definition.label}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                          {definition.description}
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={settings.accessControl[roleKey].modules[definition.key]}
+                        onChange={(event) =>
+                          setSettings((current) => ({
+                            ...current,
+                            accessControl: {
+                              ...current.accessControl,
+                              [roleKey]: {
+                                ...current.accessControl[roleKey],
+                                modules: {
+                                  ...current.accessControl[roleKey].modules,
+                                  [definition.key]: event.target.checked,
+                                },
+                              },
+                            },
+                          }))
+                        }
+                        className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <h3 className="mt-6 text-xl font-semibold text-[var(--color-ink)]">
+                  Field and action visibility
+                </h3>
+                <div className="mt-4 space-y-3">
+                  {crmFieldAccessDefinitions.map((definition) => (
+                    <label
+                      key={definition.key}
+                      className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold text-[var(--color-ink)]">
+                          {definition.label}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                          {definition.description}
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={settings.accessControl[roleKey].fields[definition.key]}
+                        onChange={(event) =>
+                          setSettings((current) => ({
+                            ...current,
+                            accessControl: {
+                              ...current.accessControl,
+                              [roleKey]: {
+                                ...current.accessControl[roleKey],
+                                fields: {
+                                  ...current.accessControl[roleKey].fields,
+                                  [definition.key]: event.target.checked,
+                                },
+                              },
+                            },
+                          }))
+                        }
+                        className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
       {error ? (

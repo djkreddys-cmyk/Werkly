@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
 import {
   type JobApplication,
   type JobApplicationAssignmentPayload,
@@ -101,6 +102,12 @@ export function AdminCandidatesPanel() {
     }>;
     isLoading: boolean;
   } | null>(null);
+  const [authRole] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
+      : "super-admin"
+  );
+  const { roleAccess } = useCrmAccessControl(token, authType, authRole);
 
   useEffect(() => {
     if (!token) {
@@ -591,6 +598,16 @@ export function AdminCandidatesPanel() {
 
   return (
     <div className="space-y-6">
+      {!roleAccess.modules.candidates ? (
+        <section className="accent-card p-8">
+          <p className="eyebrow">Restricted</p>
+          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            Candidates module is hidden for this login from CRM settings.
+          </h2>
+        </section>
+      ) : null}
+      {roleAccess.modules.candidates ? (
+        <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         {stageOptions.map((stage) => (
           <article key={stage} className="accent-card p-5">
@@ -635,14 +652,16 @@ export function AdminCandidatesPanel() {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={handleApplicantDownload}
-              disabled={filteredApplications.length === 0}
-              className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
-            >
-              Download Applicant Details
-            </button>
+            {roleAccess.modules.reports && roleAccess.fields["reports.download"] ? (
+              <button
+                type="button"
+                onClick={handleApplicantDownload}
+                disabled={filteredApplications.length === 0}
+                className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
+              >
+                Download Applicant Details
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -664,7 +683,7 @@ export function AdminCandidatesPanel() {
                       "Job",
                       "Client",
                       "Recruiter",
-                      "Resume",
+                      ...(roleAccess.fields["candidates.resume"] ? ["Resume"] : []),
                       "Stage",
                       "Applied Date",
                       "Actions",
@@ -729,29 +748,31 @@ export function AdminCandidatesPanel() {
                           <p className="mt-1">{application.recruiterEmail}</p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {application.resumeFileData && application.resumeFileName ? (
-                          <div className="flex flex-col gap-2">
-                            <a
-                              href={application.resumeFileData}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-semibold text-[var(--color-accent-strong)] transition hover:text-[var(--color-dark)]"
-                            >
-                              View Resume
-                            </a>
-                            <a
-                              href={application.resumeFileData}
-                              download={application.resumeFileName}
-                              className="text-xs font-medium text-[var(--color-muted)] transition hover:text-[var(--color-ink)]"
-                            >
-                              Download
-                            </a>
-                          </div>
-                        ) : (
-                          "No resume"
-                        )}
-                      </td>
+                      {roleAccess.fields["candidates.resume"] ? (
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {application.resumeFileData && application.resumeFileName ? (
+                            <div className="flex flex-col gap-2">
+                              <a
+                                href={application.resumeFileData}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-[var(--color-accent-strong)] transition hover:text-[var(--color-dark)]"
+                              >
+                                View Resume
+                              </a>
+                              <a
+                                href={application.resumeFileData}
+                                download={application.resumeFileName}
+                                className="text-xs font-medium text-[var(--color-muted)] transition hover:text-[var(--color-ink)]"
+                              >
+                                Download
+                              </a>
+                            </div>
+                          ) : (
+                            "No resume"
+                          )}
+                        </td>
+                      ) : null}
                       <td className="px-4 py-4 text-sm">
                         <span className="inline-flex rounded-full border border-[rgba(8,96,108,0.14)] bg-[rgba(8,96,108,0.05)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-dark)]">
                           {labelizeStage(
@@ -777,20 +798,30 @@ export function AdminCandidatesPanel() {
                           onClose={() => setActionMenuApplicationId("")}
                           openUp={shouldOpenUp}
                           items={[
-                            {
-                              label: "Update Stage",
-                              onClick: () => openStageEditor(application),
-                            },
-                            {
-                              label: "Transfer Candidate",
-                              onClick: () => openAssignmentEditor(application),
-                            },
+                            ...(roleAccess.fields["candidates.updateStage"]
+                              ? [
+                                  {
+                                    label: "Update Stage",
+                                    onClick: () => openStageEditor(application),
+                                  },
+                                ]
+                              : []),
+                            ...(roleAccess.fields["candidates.transfer"]
+                              ? [
+                                  {
+                                    label: "Transfer Candidate",
+                                    onClick: () => openAssignmentEditor(application),
+                                  },
+                                ]
+                              : []),
                             {
                               label: "View Timeline",
                               onClick: () => void openTimeline(application),
                               tone: "accent",
                             },
-                            ...(application.resumeFileData && application.resumeFileName
+                            ...(roleAccess.fields["candidates.resume"] &&
+                            application.resumeFileData &&
+                            application.resumeFileName
                               ? [
                                   {
                                     label: "View Resume",
@@ -849,6 +880,8 @@ export function AdminCandidatesPanel() {
           </div>
         ) : null}
       </section>
+        </div>
+      ) : null}
 
       {stageDraft ? (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-4">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
+import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
 import type {
   JobApplication,
   JobApplicationStage,
@@ -191,7 +192,22 @@ export function AdminJobsDashboard({
   }, []);
 
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
+  const normalizedAuthRole = authRole.trim().toLowerCase();
+  const { roleAccess } = useCrmAccessControl(token, authType, authRole);
   const canManageJobs = authType === "admin" || authRole === "super-admin";
+  const canUseJobForms = roleAccess.modules.jobs && roleAccess.fields["jobs.createEdit"];
+  const canUseJobAssignments = roleAccess.fields["jobs.assignment"];
+  const canViewJobCompensation = roleAccess.fields["jobs.compensation"];
+  const canToggleJobVisibility = roleAccess.fields["jobs.hideToggle"];
+  const canAddCandidates =
+    roleAccess.fields["jobs.addCandidate"] &&
+    (canManageJobs ||
+      normalizedAuthRole.includes("recruiter") ||
+      normalizedAuthRole.includes("delivery") ||
+      normalizedAuthRole.includes("founder") ||
+      normalizedAuthRole.includes("cto") ||
+      normalizedAuthRole.includes("lead") ||
+      normalizedAuthRole.includes("head"));
   const currentEmployeeId = useMemo(
     () =>
       employees.find(
@@ -429,33 +445,37 @@ export function AdminJobsDashboard({
     return (
       <>
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <select
-            className={fieldClassName}
-            value={form.clientId}
-            onChange={(event) => updateForm("clientId", event.target.value)}
-            required
-          >
-            <option value="">Select client</option>
-            {visibleClients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.companyName}
-              </option>
-              ))}
-            </select>
-          <select
-            className={fieldClassName}
-            value={form.recruiterId}
-            onChange={(event) => updateForm("recruiterId", event.target.value)}
-          >
-            <option value="">Assign recruiter</option>
-            {employees
-              .filter((employee) => employee.status === "active")
-              .map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.fullName} - {employee.role}
-                </option>
-              ))}
-          </select>
+          {canUseJobAssignments ? (
+            <>
+              <select
+                className={fieldClassName}
+                value={form.clientId}
+                onChange={(event) => updateForm("clientId", event.target.value)}
+                required
+              >
+                <option value="">Select client</option>
+                {visibleClients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.companyName}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={fieldClassName}
+                value={form.recruiterId}
+                onChange={(event) => updateForm("recruiterId", event.target.value)}
+              >
+                <option value="">Assign recruiter</option>
+                {employees
+                  .filter((employee) => employee.status === "active")
+                  .map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.fullName} - {employee.role}
+                    </option>
+                  ))}
+              </select>
+            </>
+          ) : null}
           <input
             className={fieldClassName}
             placeholder="Job title"
@@ -491,18 +511,22 @@ export function AdminJobsDashboard({
             onChange={(event) => updateForm("employmentType", event.target.value)}
             required
           />
-          <input
-            className={fieldClassName}
-            placeholder="Salary"
-            value={form.salary}
-            onChange={(event) => updateForm("salary", event.target.value)}
-          />
-          <input
-            className={fieldClassName}
-            placeholder="Package per annum"
-            value={form.packagePerAnnum}
-            onChange={(event) => updateForm("packagePerAnnum", event.target.value)}
-          />
+          {canViewJobCompensation ? (
+            <>
+              <input
+                className={fieldClassName}
+                placeholder="Salary"
+                value={form.salary}
+                onChange={(event) => updateForm("salary", event.target.value)}
+              />
+              <input
+                className={fieldClassName}
+                placeholder="Package per annum"
+                value={form.packagePerAnnum}
+                onChange={(event) => updateForm("packagePerAnnum", event.target.value)}
+              />
+            </>
+          ) : null}
           <select
             className={fieldClassName}
             value={form.status}
@@ -999,7 +1023,18 @@ export function AdminJobsDashboard({
 
   return (
     <div className="space-y-6">
-      {canManageJobs && viewMode !== "existing" ? (
+      {!roleAccess.modules.jobs ? (
+        <section className="accent-card p-8">
+          <p className="eyebrow">Restricted</p>
+          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            Jobs module is hidden for this login from CRM settings.
+          </h2>
+          <p className="muted-copy mt-3 text-base leading-7">
+            Enable the Jobs module for this role in Settings to restore access.
+          </p>
+        </section>
+      ) : null}
+      {roleAccess.modules.jobs && canManageJobs && viewMode !== "existing" && canUseJobForms ? (
       <form
         id="new-job"
         ref={formRef}
@@ -1039,7 +1074,7 @@ export function AdminJobsDashboard({
       </form>
       ) : null}
 
-      {viewMode !== "new" ? (
+      {roleAccess.modules.jobs && viewMode !== "new" ? (
       <section id="existing-jobs" className="accent-card scroll-mt-28 p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -1075,6 +1110,24 @@ export function AdminJobsDashboard({
                         </option>
                       ))}
                   </select>
+                  {roleAccess.modules.reports && roleAccess.fields["reports.download"] ? (
+                    <button
+                      type="button"
+                      onClick={downloadJobsCurrentView}
+                      disabled={filteredJobs.length === 0}
+                      className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Export Current View
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-3">
+                <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
+                  Assigned jobs only
+                </div>
+                {roleAccess.modules.reports && roleAccess.fields["reports.download"] ? (
                   <button
                     type="button"
                     onClick={downloadJobsCurrentView}
@@ -1083,21 +1136,7 @@ export function AdminJobsDashboard({
                   >
                     Export Current View
                   </button>
-                </div>
-              </>
-            ) : (
-              <div className="grid gap-3">
-                <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
-                  Assigned jobs only
-                </div>
-                <button
-                  type="button"
-                  onClick={downloadJobsCurrentView}
-                  disabled={filteredJobs.length === 0}
-                  className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Export Current View
-                </button>
+                ) : null}
               </div>
             )}
           </div>
@@ -1205,18 +1244,26 @@ export function AdminJobsDashboard({
                               label: "Edit",
                               onClick: () => populateForEdit(job),
                             },
-                            {
-                              label: "Add Candidate",
-                              onClick: () => openManualCandidateModal(job),
-                              tone: "accent",
-                            },
-                            {
-                              label: job.isHidden ? "Unhide" : "Hide",
-                              onClick: () => {
-                                void handleVisibilityToggle(job);
-                              },
-                              tone: "danger",
-                            },
+                            ...(canAddCandidates
+                              ? [
+                                  {
+                                    label: "Add Candidate",
+                                    onClick: () => openManualCandidateModal(job),
+                                    tone: "accent" as const,
+                                  },
+                                ]
+                              : []),
+                            ...(canToggleJobVisibility
+                              ? [
+                                  {
+                                    label: job.isHidden ? "Unhide" : "Hide",
+                                    onClick: () => {
+                                      void handleVisibilityToggle(job);
+                                    },
+                                    tone: "danger" as const,
+                                  },
+                                ]
+                              : []),
                             ...(job.slug
                               ? [
                                   {
@@ -1362,6 +1409,7 @@ export function AdminJobsDashboard({
                       <button
                         type="button"
                         onClick={() => openManualCandidateModal(applicationsJob)}
+                        disabled={!canAddCandidates}
                         className="rounded-xl border border-[rgba(8,96,108,0.18)] px-4 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
                       >
                         Add Candidate
@@ -1597,22 +1645,26 @@ export function AdminJobsDashboard({
                     updateManualCandidateField("preferredLocation", event.target.value)
                   }
                 />
-                <input
-                  className={fieldClassName}
-                  placeholder="Current CTC"
-                  value={manualCandidateForm.currentCtc}
-                  onChange={(event) =>
-                    updateManualCandidateField("currentCtc", event.target.value)
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Expected CTC"
-                  value={manualCandidateForm.expectedCtc}
-                  onChange={(event) =>
-                    updateManualCandidateField("expectedCtc", event.target.value)
-                  }
-                />
+                {roleAccess.fields["candidates.compensation"] ? (
+                  <>
+                    <input
+                      className={fieldClassName}
+                      placeholder="Current CTC"
+                      value={manualCandidateForm.currentCtc}
+                      onChange={(event) =>
+                        updateManualCandidateField("currentCtc", event.target.value)
+                      }
+                    />
+                    <input
+                      className={fieldClassName}
+                      placeholder="Expected CTC"
+                      value={manualCandidateForm.expectedCtc}
+                      onChange={(event) =>
+                        updateManualCandidateField("expectedCtc", event.target.value)
+                      }
+                    />
+                  </>
+                ) : null}
                 <input
                   className={fieldClassName}
                   placeholder="Preferred sector"

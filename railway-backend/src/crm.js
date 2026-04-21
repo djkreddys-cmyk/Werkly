@@ -169,6 +169,7 @@ export async function ensureCrmSchema() {
       enable_browser_notifications boolean not null default true,
       enable_email_notifications boolean not null default false,
       enable_whatsapp_notifications boolean not null default false,
+      access_control jsonb not null default '{}'::jsonb,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )
@@ -229,6 +230,7 @@ export async function ensureCrmSchema() {
   await query(`alter table crm_settings add column if not exists enable_browser_notifications boolean not null default true`);
   await query(`alter table crm_settings add column if not exists enable_email_notifications boolean not null default false`);
   await query(`alter table crm_settings add column if not exists enable_whatsapp_notifications boolean not null default false`);
+  await query(`alter table crm_settings add column if not exists access_control jsonb not null default '{}'::jsonb`);
   await query(`alter table notification_logs add column if not exists category text not null default 'general'`);
   await query(`alter table notification_logs add column if not exists severity text not null default 'info'`);
   await query(`alter table notification_logs add column if not exists target_type text not null default 'all'`);
@@ -317,6 +319,147 @@ function mapClientActivityRow(row) {
   };
 }
 
+const defaultAccessControl = {
+  recruiter: {
+    modules: {
+      dashboard: true,
+      hr: true,
+      jobs: true,
+      candidates: true,
+      clients: true,
+      reports: true,
+      settings: false,
+      "activity-center": true,
+    },
+    fields: {
+      "hr.manageEmployees": false,
+      "hr.employeeDates": true,
+      "hr.resetPassword": false,
+      "hr.markInactive": false,
+      "jobs.createEdit": true,
+      "jobs.assignment": true,
+      "jobs.compensation": true,
+      "jobs.hideToggle": true,
+      "jobs.addCandidate": true,
+      "candidates.updateStage": true,
+      "candidates.transfer": true,
+      "candidates.resume": true,
+      "candidates.compensation": true,
+      "clients.onboarding": true,
+      "clients.communicationAddress": true,
+      "clients.transfer": true,
+      "clients.followUp": true,
+      "clients.agreement": true,
+      "reports.download": true,
+    },
+  },
+  delivery: {
+    modules: {
+      dashboard: true,
+      hr: true,
+      jobs: true,
+      candidates: true,
+      clients: true,
+      reports: true,
+      settings: false,
+      "activity-center": true,
+    },
+    fields: {
+      "hr.manageEmployees": false,
+      "hr.employeeDates": true,
+      "hr.resetPassword": false,
+      "hr.markInactive": false,
+      "jobs.createEdit": true,
+      "jobs.assignment": true,
+      "jobs.compensation": true,
+      "jobs.hideToggle": true,
+      "jobs.addCandidate": true,
+      "candidates.updateStage": true,
+      "candidates.transfer": true,
+      "candidates.resume": true,
+      "candidates.compensation": true,
+      "clients.onboarding": true,
+      "clients.communicationAddress": true,
+      "clients.transfer": true,
+      "clients.followUp": true,
+      "clients.agreement": true,
+      "reports.download": true,
+    },
+  },
+  leadership: {
+    modules: {
+      dashboard: true,
+      hr: true,
+      jobs: true,
+      candidates: true,
+      clients: true,
+      reports: true,
+      settings: false,
+      "activity-center": true,
+    },
+    fields: {
+      "hr.manageEmployees": true,
+      "hr.employeeDates": true,
+      "hr.resetPassword": true,
+      "hr.markInactive": true,
+      "jobs.createEdit": true,
+      "jobs.assignment": true,
+      "jobs.compensation": true,
+      "jobs.hideToggle": true,
+      "jobs.addCandidate": true,
+      "candidates.updateStage": true,
+      "candidates.transfer": true,
+      "candidates.resume": true,
+      "candidates.compensation": true,
+      "clients.onboarding": true,
+      "clients.communicationAddress": true,
+      "clients.transfer": true,
+      "clients.followUp": true,
+      "clients.agreement": true,
+      "reports.download": true,
+    },
+  },
+};
+
+function normalizeAccessControl(accessControl) {
+  if (!accessControl || typeof accessControl !== "object") {
+    return defaultAccessControl;
+  }
+
+  return {
+    recruiter: {
+      modules: {
+        ...defaultAccessControl.recruiter.modules,
+        ...(accessControl.recruiter?.modules ?? {}),
+      },
+      fields: {
+        ...defaultAccessControl.recruiter.fields,
+        ...(accessControl.recruiter?.fields ?? {}),
+      },
+    },
+    delivery: {
+      modules: {
+        ...defaultAccessControl.delivery.modules,
+        ...(accessControl.delivery?.modules ?? {}),
+      },
+      fields: {
+        ...defaultAccessControl.delivery.fields,
+        ...(accessControl.delivery?.fields ?? {}),
+      },
+    },
+    leadership: {
+      modules: {
+        ...defaultAccessControl.leadership.modules,
+        ...(accessControl.leadership?.modules ?? {}),
+      },
+      fields: {
+        ...defaultAccessControl.leadership.fields,
+        ...(accessControl.leadership?.fields ?? {}),
+      },
+    },
+  };
+}
+
 function mapCrmSettingsRow(row) {
   return {
     recruiterDailyFollowUps: Number(row.recruiter_daily_follow_ups ?? 20),
@@ -328,6 +471,7 @@ function mapCrmSettingsRow(row) {
     enableBrowserNotifications: Boolean(row.enable_browser_notifications),
     enableEmailNotifications: Boolean(row.enable_email_notifications),
     enableWhatsappNotifications: Boolean(row.enable_whatsapp_notifications),
+    accessControl: normalizeAccessControl(row.access_control),
   };
 }
 
@@ -357,11 +501,12 @@ async function ensureCrmSettingsSeed() {
       leadership_daily_applications,
       enable_browser_notifications,
       enable_email_notifications,
-      enable_whatsapp_notifications
+      enable_whatsapp_notifications,
+      access_control
     )
-    select 20, 12, 18, 8, 6, 3, true, false, false
+    select 20, 12, 18, 8, 6, 3, true, false, false, $1::jsonb
     where not exists (select 1 from crm_settings)
-  `);
+  `, [JSON.stringify(defaultAccessControl)]);
 }
 
 function formatEmployeeCode(date, sequenceNumber) {
@@ -1345,6 +1490,7 @@ export async function updateCrmSettings(payload) {
             enable_browser_notifications = $7,
             enable_email_notifications = $8,
             enable_whatsapp_notifications = $9,
+            access_control = $10::jsonb,
             updated_at = now()
       where id = (select id from crm_settings order by created_at asc limit 1)
       returning *`,
@@ -1358,6 +1504,7 @@ export async function updateCrmSettings(payload) {
       payload.enableBrowserNotifications ?? true,
       payload.enableEmailNotifications ?? false,
       payload.enableWhatsappNotifications ?? false,
+      JSON.stringify(normalizeAccessControl(payload.accessControl)),
     ]
   );
 

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useRef, useState } from "react";
+import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
 import type { ClientRecord, EmployeeRecord, NotificationLogRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 
@@ -267,18 +268,51 @@ export function AdminShell({
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState("");
   const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
+  const { roleAccess } = useCrmAccessControl(token, authType, authRole);
   const displayIdentifier = authEmployeeCode || authIdentifier;
   const displayRole =
     authType === "employee" ? formatRoleLabel(authRole || "employee") : "Super Admin";
   const isAdminView = authType === "admin" || authRole === "super-admin";
   const activeModuleKey = getActiveModuleKey(pathname);
   const visibleSections = moduleSections.map((section) => {
+    const moduleKey = section.key === "hr" ? "hr" : section.key;
+    if (!roleAccess.modules[moduleKey]) {
+      return null;
+    }
+
     if (section.key !== "hr") {
-      return section;
+      return {
+        ...section,
+        items: section.items.filter((item) => {
+          if (item.href.includes("/reports/")) {
+            return roleAccess.modules.reports;
+          }
+          if (item.href === "/admin/jobs/new") {
+            return roleAccess.fields["jobs.createEdit"];
+          }
+          if (item.href === "/admin/candidate-enquiries") {
+            return roleAccess.modules.candidates;
+          }
+          if (item.href === "/admin/clients/new") {
+            return roleAccess.fields["clients.onboarding"];
+          }
+
+          return true;
+        }),
+      };
     }
 
     if (authType === "admin" || authRole === "super-admin") {
-      return section;
+      return {
+        ...section,
+        items: section.items.filter((item) => {
+          if (item.href.includes("/reports/")) {
+            return roleAccess.modules.reports;
+          }
+
+          return true;
+        }),
+      };
     }
 
     return {
@@ -287,13 +321,21 @@ export function AdminShell({
         (item) =>
           item.href !== "/admin/employees" &&
           item.href !== "/admin/employees/new" &&
-          item.href !== "/admin/employees/existing"
+          item.href !== "/admin/employees/existing" &&
+          (!item.href.includes("/reports/") || roleAccess.modules.reports)
       ),
       href: "/admin/leaves",
     };
-  });
+  }).filter((section): section is (typeof moduleSections)[number] => Boolean(section && section.items.length > 0));
   const activeSection =
-    visibleSections.find((section) => section.key === activeModuleKey) ?? visibleSections[0];
+    visibleSections.find((section) => section.key === activeModuleKey) ??
+    visibleSections[0] ?? {
+      key: "dashboard",
+      label: "Dashboard",
+      href: "/admin",
+      description: "CRM workspace",
+      items: [],
+    };
 
   useEffect(() => {
     setIsHydrated(true);
@@ -944,12 +986,14 @@ export function AdminShell({
                       </div>
                     ) : null}
                   </div>
-                  <Link
-                    href="/admin/activity-center"
-                    className="inline-flex h-12 items-center rounded-[1rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-4 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)]"
-                  >
-                    Activity Center
-                  </Link>
+                  {roleAccess.modules["activity-center"] ? (
+                    <Link
+                      href="/admin/activity-center"
+                      className="inline-flex h-12 items-center rounded-[1rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-4 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)]"
+                    >
+                      Activity Center
+                    </Link>
+                  ) : null}
                   <div className="relative" ref={notificationMenuRef}>
                     <button
                       type="button"
@@ -1091,7 +1135,7 @@ export function AdminShell({
                       </div>
 
                         <div className="mt-4 grid gap-2">
-                          {isAdminView ? (
+                          {isAdminView && roleAccess.modules.settings ? (
                             <Link
                               href="/admin/settings"
                               onClick={() => setIsProfileMenuOpen(false)}

@@ -1,3 +1,5 @@
+import type { CrmAccessControlMatrix } from "@/lib/access-control";
+
 export type EmployeeStatus = "active" | "inactive";
 
 export type EmployeeEducationEntry = {
@@ -170,6 +172,7 @@ export type CrmKpiSettings = {
   enableBrowserNotifications: boolean;
   enableEmailNotifications: boolean;
   enableWhatsappNotifications: boolean;
+  accessControl: CrmAccessControlMatrix;
 };
 
 export type ClientTransferRequestStatus = "pending" | "approved" | "rejected";

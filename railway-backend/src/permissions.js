@@ -28,6 +28,7 @@ const ROLE_PERMISSIONS = {
     "reports.view",
     "jobs.view",
     "candidates.view",
+    "candidates.manage",
     "clients.view",
     "clients.followup",
     "audit.view",
