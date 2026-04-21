@@ -170,6 +170,7 @@ export async function ensureCrmSchema() {
       enable_email_notifications boolean not null default false,
       enable_whatsapp_notifications boolean not null default false,
       access_control jsonb not null default '{}'::jsonb,
+      employee_access_overrides jsonb not null default '[]'::jsonb,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )
@@ -231,6 +232,7 @@ export async function ensureCrmSchema() {
   await query(`alter table crm_settings add column if not exists enable_email_notifications boolean not null default false`);
   await query(`alter table crm_settings add column if not exists enable_whatsapp_notifications boolean not null default false`);
   await query(`alter table crm_settings add column if not exists access_control jsonb not null default '{}'::jsonb`);
+  await query(`alter table crm_settings add column if not exists employee_access_overrides jsonb not null default '[]'::jsonb`);
   await query(`alter table notification_logs add column if not exists category text not null default 'general'`);
   await query(`alter table notification_logs add column if not exists severity text not null default 'info'`);
   await query(`alter table notification_logs add column if not exists target_type text not null default 'all'`);
@@ -460,6 +462,26 @@ function normalizeAccessControl(accessControl) {
   };
 }
 
+function normalizeEmployeeAccessOverrides(overrides) {
+  if (!Array.isArray(overrides)) {
+    return [];
+  }
+
+  return overrides
+    .map((override) => ({
+      employeeId: String(override.employeeId ?? "").trim() || null,
+      employeeCode: String(override.employeeCode ?? "").trim() || null,
+      email: String(override.email ?? "").trim().toLowerCase() || null,
+      employeeName: String(override.employeeName ?? "").trim() || null,
+      role: String(override.role ?? "").trim() || null,
+      modules:
+        override.modules && typeof override.modules === "object" ? override.modules : {},
+      fields:
+        override.fields && typeof override.fields === "object" ? override.fields : {},
+    }))
+    .filter((override) => override.employeeId || override.employeeCode || override.email);
+}
+
 function mapCrmSettingsRow(row) {
   return {
     recruiterDailyFollowUps: Number(row.recruiter_daily_follow_ups ?? 20),
@@ -472,6 +494,7 @@ function mapCrmSettingsRow(row) {
     enableEmailNotifications: Boolean(row.enable_email_notifications),
     enableWhatsappNotifications: Boolean(row.enable_whatsapp_notifications),
     accessControl: normalizeAccessControl(row.access_control),
+    employeeAccessOverrides: normalizeEmployeeAccessOverrides(row.employee_access_overrides),
   };
 }
 
@@ -502,9 +525,10 @@ async function ensureCrmSettingsSeed() {
       enable_browser_notifications,
       enable_email_notifications,
       enable_whatsapp_notifications,
-      access_control
+      access_control,
+      employee_access_overrides
     )
-    select 20, 12, 18, 8, 6, 3, true, false, false, $1::jsonb
+    select 20, 12, 18, 8, 6, 3, true, false, false, $1::jsonb, '[]'::jsonb
     where not exists (select 1 from crm_settings)
   `, [JSON.stringify(defaultAccessControl)]);
 }
@@ -1491,6 +1515,7 @@ export async function updateCrmSettings(payload) {
             enable_email_notifications = $8,
             enable_whatsapp_notifications = $9,
             access_control = $10::jsonb,
+            employee_access_overrides = $11::jsonb,
             updated_at = now()
       where id = (select id from crm_settings order by created_at asc limit 1)
       returning *`,
@@ -1505,6 +1530,7 @@ export async function updateCrmSettings(payload) {
       payload.enableEmailNotifications ?? false,
       payload.enableWhatsappNotifications ?? false,
       JSON.stringify(normalizeAccessControl(payload.accessControl)),
+      JSON.stringify(normalizeEmployeeAccessOverrides(payload.employeeAccessOverrides)),
     ]
   );
 

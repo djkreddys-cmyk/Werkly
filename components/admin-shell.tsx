@@ -278,7 +278,13 @@ export function AdminShell({
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState("");
   const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
-  const { roleAccess } = useCrmAccessControl(token, authType, authRole);
+  const { roleAccess } = useCrmAccessControl(
+    token,
+    authType,
+    authRole,
+    authEmployeeCode,
+    authIdentifier
+  );
   const displayIdentifier = authEmployeeCode || authIdentifier;
   const displayRole =
     authType === "employee" ? formatRoleLabel(authRole || "employee") : "Super Admin";

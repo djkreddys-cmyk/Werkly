@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   crmFieldAccessDefinitions,
   crmModuleAccessDefinitions,
   defaultCrmAccessControl,
   mergeCrmAccessControl,
+  normalizeEmployeeAccessOverrides,
   type CrmAccessRoleKey,
+  type CrmEmployeeAccessOverride,
 } from "@/lib/access-control";
-import type { CrmKpiSettings } from "@/lib/crm";
+import type { CrmKpiSettings, EmployeeRecord } from "@/lib/crm";
+
+type SettingsSection = "index" | "kpi" | "notifications" | "access";
 
 const defaultSettings: CrmKpiSettings = {
   recruiterDailyFollowUps: 20,
@@ -21,6 +26,7 @@ const defaultSettings: CrmKpiSettings = {
   enableEmailNotifications: false,
   enableWhatsappNotifications: false,
   accessControl: defaultCrmAccessControl,
+  employeeAccessOverrides: [],
 };
 
 function NumberField({
@@ -77,7 +83,55 @@ function ToggleField({
   );
 }
 
-export function AdminSettingsPanel() {
+function SettingsNav({ activeSection }: { activeSection: SettingsSection }) {
+  const cards = [
+    {
+      key: "kpi",
+      href: "/admin/settings/kpi",
+      eyebrow: "KPI Settings",
+      title: "Productivity targets",
+      description: "Recruiter, delivery, and leadership score targets.",
+    },
+    {
+      key: "notifications",
+      href: "/admin/settings/notifications",
+      eyebrow: "Notification Settings",
+      title: "Reminder channels",
+      description: "Browser, email, and WhatsApp reminder preferences.",
+    },
+    {
+      key: "access",
+      href: "/admin/settings/access",
+      eyebrow: "Access Settings",
+      title: "Employee-wise access control",
+      description: "Role defaults plus person-specific module and field access.",
+    },
+  ] as const;
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      {cards.map((card) => (
+        <Link
+          key={card.key}
+          href={card.href}
+          className={`rounded-[1.6rem] border p-5 transition ${
+            activeSection === card.key
+              ? "border-[rgba(8,96,108,0.18)] bg-[rgba(8,96,108,0.08)]"
+              : "border-[var(--color-line)] bg-white hover:border-[rgba(8,96,108,0.18)]"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+            {card.eyebrow}
+          </p>
+          <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">{card.title}</h3>
+          <p className="muted-copy mt-2 text-sm leading-6">{card.description}</p>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSection }) {
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -94,6 +148,10 @@ export function AdminSettingsPanel() {
       : "super-admin"
   );
   const [settings, setSettings] = useState<CrmKpiSettings>(defaultSettings);
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<"all" | CrmAccessRoleKey>("all");
+  const [selectedEmployeeCode, setSelectedEmployeeCode] = useState("");
+  const [employeeQuery, setEmployeeQuery] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -108,30 +166,132 @@ export function AdminSettingsPanel() {
       return;
     }
 
-    fetch("/api/admin/settings", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        const result = (await response.json()) as Partial<CrmKpiSettings> & { message?: string };
+    const requests = [
+      fetch("/api/admin/settings", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      }),
+    ];
 
-        if (!response.ok) {
-          throw new Error(result.message || "Unable to load CRM settings.");
+    if (section === "access" || section === "index") {
+      requests.push(
+        fetch("/api/admin/employees", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        })
+      );
+    }
+
+    Promise.all(requests)
+      .then(async ([settingsResponse, employeesResponse]) => {
+        const settingsResult = (await settingsResponse.json()) as Partial<CrmKpiSettings> & {
+          message?: string;
+        };
+
+        if (!settingsResponse.ok) {
+          throw new Error(settingsResult.message || "Unable to load CRM settings.");
         }
 
         setSettings({
           ...defaultSettings,
-          ...result,
-          accessControl: mergeCrmAccessControl(result.accessControl),
+          ...settingsResult,
+          accessControl: mergeCrmAccessControl(settingsResult.accessControl),
+          employeeAccessOverrides: normalizeEmployeeAccessOverrides(
+            settingsResult.employeeAccessOverrides
+          ),
         });
+
+        if (employeesResponse) {
+          const employeesResult = (await employeesResponse.json()) as {
+            employees?: EmployeeRecord[];
+            message?: string;
+          };
+          if (!employeesResponse.ok) {
+            throw new Error(employeesResult.message || "Unable to load employees.");
+          }
+          setEmployees(employeesResult.employees ?? []);
+        }
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load CRM settings.");
       })
       .finally(() => setIsLoading(false));
-  }, [token]);
+  }, [section, token]);
+
+  const visibleEmployees = useMemo(() => {
+    return employees
+      .filter((employee) => employee.status === "active")
+      .filter((employee) => {
+        if (selectedRoleFilter === "all") {
+          return true;
+        }
+
+        const normalizedRole = String(employee.role || "").toLowerCase();
+        if (selectedRoleFilter === "delivery") {
+          return normalizedRole.includes("delivery");
+        }
+        if (selectedRoleFilter === "leadership") {
+          return (
+            normalizedRole.includes("founder") ||
+            normalizedRole.includes("cto") ||
+            normalizedRole.includes("lead")
+          );
+        }
+
+        return !normalizedRole.includes("delivery") && !normalizedRole.includes("founder") && !normalizedRole.includes("cto") && !normalizedRole.includes("lead");
+      })
+      .filter((employee) => {
+        const query = employeeQuery.trim().toLowerCase();
+        if (!query) {
+          return true;
+        }
+
+        return (
+          employee.fullName.toLowerCase().includes(query) ||
+          String(employee.employeeCode || "").toLowerCase().includes(query) ||
+          employee.email.toLowerCase().includes(query) ||
+          String(employee.role || "").toLowerCase().includes(query)
+        );
+      });
+  }, [employeeQuery, employees, selectedRoleFilter]);
+
+  const selectedEmployee = visibleEmployees.find(
+    (employee) => employee.employeeCode === selectedEmployeeCode
+  );
+
+  const selectedEmployeeRoleKey: CrmAccessRoleKey = useMemo(() => {
+    const normalizedRole = String(selectedEmployee?.role || "").toLowerCase();
+    if (
+      normalizedRole.includes("founder") ||
+      normalizedRole.includes("cto") ||
+      normalizedRole.includes("lead")
+    ) {
+      return "leadership";
+    }
+    if (normalizedRole.includes("delivery")) {
+      return "delivery";
+    }
+
+    return "recruiter";
+  }, [selectedEmployee?.role]);
+
+  const currentEmployeeOverride = useMemo(() => {
+    if (!selectedEmployee) {
+      return null;
+    }
+
+    return (
+      settings.employeeAccessOverrides.find(
+        (override) =>
+          override.employeeCode === selectedEmployee.employeeCode ||
+          override.email === selectedEmployee.email.toLowerCase()
+      ) ?? null
+    );
+  }, [selectedEmployee, settings.employeeAccessOverrides]);
 
   async function handleSave() {
     if (!token) {
@@ -161,6 +321,7 @@ export function AdminSettingsPanel() {
         ...defaultSettings,
         ...result,
         accessControl: mergeCrmAccessControl(result.accessControl),
+        employeeAccessOverrides: normalizeEmployeeAccessOverrides(result.employeeAccessOverrides),
       });
       setSuccess("CRM settings updated successfully.");
     } catch (saveError) {
@@ -168,6 +329,73 @@ export function AdminSettingsPanel() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function updateEmployeeOverride(
+    field: "modules" | "fields",
+    key: string,
+    value: boolean
+  ) {
+    if (!selectedEmployee) {
+      return;
+    }
+
+    setSettings((current) => {
+      const existingIndex = current.employeeAccessOverrides.findIndex(
+        (override) =>
+          override.employeeCode === selectedEmployee.employeeCode ||
+          override.email === selectedEmployee.email.toLowerCase()
+      );
+
+      const nextOverride: CrmEmployeeAccessOverride = {
+        employeeId: selectedEmployee.id,
+        employeeCode: selectedEmployee.employeeCode,
+        email: selectedEmployee.email.toLowerCase(),
+        employeeName: selectedEmployee.fullName,
+        role: selectedEmployee.role,
+        modules:
+          field === "modules"
+            ? {
+                ...(current.employeeAccessOverrides[existingIndex]?.modules ?? {}),
+                [key]: value,
+              }
+            : { ...(current.employeeAccessOverrides[existingIndex]?.modules ?? {}) },
+        fields:
+          field === "fields"
+            ? {
+                ...(current.employeeAccessOverrides[existingIndex]?.fields ?? {}),
+                [key]: value,
+              }
+            : { ...(current.employeeAccessOverrides[existingIndex]?.fields ?? {}) },
+      };
+
+      const nextOverrides = [...current.employeeAccessOverrides];
+      if (existingIndex >= 0) {
+        nextOverrides[existingIndex] = nextOverride;
+      } else {
+        nextOverrides.push(nextOverride);
+      }
+
+      return {
+        ...current,
+        employeeAccessOverrides: normalizeEmployeeAccessOverrides(nextOverrides),
+      };
+    });
+  }
+
+  function clearSelectedEmployeeOverride() {
+    if (!selectedEmployee) {
+      return;
+    }
+
+    setSettings((current) => ({
+      ...current,
+      employeeAccessOverrides: current.employeeAccessOverrides.filter(
+        (override) =>
+          override.employeeCode !== selectedEmployee.employeeCode &&
+          override.email !== selectedEmployee.email.toLowerCase()
+      ),
+    }));
   }
 
   if (!token) {
@@ -186,7 +414,7 @@ export function AdminSettingsPanel() {
       <section className="accent-card p-8">
         <p className="eyebrow">Restricted</p>
         <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-          Only super admin access can change KPI targets and reminder channels.
+          Only super admin access can change CRM settings.
         </h2>
       </section>
     );
@@ -194,17 +422,28 @@ export function AdminSettingsPanel() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <article className="accent-card p-7">
+      <SettingsNav activeSection={section} />
+
+      {section === "index" ? (
+        <section className="accent-card p-7">
+          <p className="eyebrow">Settings Overview</p>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+            Manage CRM settings from three separate pages.
+          </h2>
+          <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
+            Use KPI Settings for targets, Notification Settings for reminder channels, and Access
+            Settings for role-wise plus employee-wise frontend permissions. This lets you give one
+            Delivery Head add-candidate access while keeping another Delivery Head restricted.
+          </p>
+        </section>
+      ) : null}
+
+      {section === "kpi" ? (
+        <section className="accent-card p-7">
           <p className="eyebrow">KPI Targets</p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-            Control recruiter and delivery score targets from settings.
+            Control recruiter, delivery, and leadership targets.
           </h2>
-          <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
-            These targets now drive the dashboard productivity table instead of fixed values in
-            code, so you can tune the CRM as your team grows.
-          </p>
-
           {isLoading ? (
             <p className="muted-copy mt-6 text-sm">Loading settings...</p>
           ) : (
@@ -253,18 +492,15 @@ export function AdminSettingsPanel() {
               />
             </div>
           )}
-        </article>
+        </section>
+      ) : null}
 
-        <article className="accent-card p-7">
+      {section === "notifications" ? (
+        <section className="accent-card p-7">
           <p className="eyebrow">Reminder Channels</p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
             Decide how reminders should be saved and delivered.
           </h2>
-          <p className="muted-copy mt-3 text-base leading-7">
-            Browser alerts are live inside the CRM. Email and WhatsApp are configurable now, so the
-            next delivery integration can use these saved preferences directly.
-          </p>
-
           <div className="mt-6 space-y-4">
             <ToggleField
               label="Browser Notifications"
@@ -291,123 +527,229 @@ export function AdminSettingsPanel() {
               }
             />
           </div>
-        </article>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="accent-card p-7">
-        <p className="eyebrow">Access Control</p>
-        <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-          Restrict modules and fields role-wise from the settings page.
-        </h2>
-        <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
-          These are frontend visibility controls for recruiter, delivery, and leadership logins.
-          Super admin keeps full access. You can hide entire modules from the navigation and also
-          hide selected fields or actions inside screens.
-        </p>
+      {section === "access" ? (
+        <div className="space-y-6">
+          <section className="accent-card p-7">
+            <p className="eyebrow">Role Defaults</p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+              Set default access by role first.
+            </h2>
+            <div className="mt-6 grid gap-5 xl:grid-cols-3">
+              {accessRoles.map((roleKey) => {
+                const roleLabel =
+                  roleKey === "recruiter"
+                    ? "Recruiter"
+                    : roleKey === "delivery"
+                      ? "Delivery"
+                      : "Leadership";
 
-        <div className="mt-6 grid gap-5 xl:grid-cols-3">
-          {accessRoles.map((roleKey) => {
-            const roleLabel =
-              roleKey === "recruiter"
-                ? "Recruiter"
-                : roleKey === "delivery"
-                  ? "Delivery"
-                  : "Leadership";
+                return (
+                  <article
+                    key={roleKey}
+                    className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                      {roleLabel}
+                    </p>
+                    <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+                      Module visibility
+                    </h3>
+                    <div className="mt-4 space-y-3">
+                      {crmModuleAccessDefinitions.map((definition) => (
+                        <label
+                          key={definition.key}
+                          className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
+                        >
+                          <span>
+                            <span className="block text-sm font-semibold text-[var(--color-ink)]">
+                              {definition.label}
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                              {definition.description}
+                            </span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={settings.accessControl[roleKey].modules[definition.key]}
+                            onChange={(event) =>
+                              setSettings((current) => ({
+                                ...current,
+                                accessControl: {
+                                  ...current.accessControl,
+                                  [roleKey]: {
+                                    ...current.accessControl[roleKey],
+                                    modules: {
+                                      ...current.accessControl[roleKey].modules,
+                                      [definition.key]: event.target.checked,
+                                    },
+                                  },
+                                },
+                              }))
+                            }
+                            className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
 
-            return (
-              <article
-                key={roleKey}
-                className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5"
+          <section className="accent-card p-7">
+            <p className="eyebrow">Employee-Wise Overrides</p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+              Give special access to one employee without changing everyone in the same role.
+            </h2>
+            <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
+              Filter employees by role or search by name, employee code, or email. Then select one
+              employee and override specific modules or fields like Add Candidate, Update Stage, or
+              Report Download.
+            </p>
+
+            <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              <select
+                value={selectedRoleFilter}
+                onChange={(event) =>
+                  setSelectedRoleFilter(event.target.value as "all" | CrmAccessRoleKey)
+                }
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
-                  {roleLabel}
-                </p>
-                <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
-                  Module visibility
-                </h3>
-                <div className="mt-4 space-y-3">
-                  {crmModuleAccessDefinitions.map((definition) => (
-                    <label
-                      key={definition.key}
-                      className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
-                    >
-                      <span>
-                        <span className="block text-sm font-semibold text-[var(--color-ink)]">
-                          {definition.label}
-                        </span>
-                        <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
-                          {definition.description}
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={settings.accessControl[roleKey].modules[definition.key]}
-                        onChange={(event) =>
-                          setSettings((current) => ({
-                            ...current,
-                            accessControl: {
-                              ...current.accessControl,
-                              [roleKey]: {
-                                ...current.accessControl[roleKey],
-                                modules: {
-                                  ...current.accessControl[roleKey].modules,
-                                  [definition.key]: event.target.checked,
-                                },
-                              },
-                            },
-                          }))
-                        }
-                        className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
-                      />
-                    </label>
-                  ))}
+                <option value="all">All roles</option>
+                <option value="recruiter">Recruiter</option>
+                <option value="delivery">Delivery</option>
+                <option value="leadership">Leadership</option>
+              </select>
+              <input
+                value={employeeQuery}
+                onChange={(event) => setEmployeeQuery(event.target.value)}
+                placeholder="Search employee name, code, email, role"
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+              <select
+                value={selectedEmployeeCode}
+                onChange={(event) => setSelectedEmployeeCode(event.target.value)}
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="">Select employee</option>
+                {visibleEmployees.map((employee) => (
+                  <option key={employee.id} value={employee.employeeCode}>
+                    {employee.fullName} - {employee.employeeCode} - {employee.role}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedEmployee ? (
+              <div className="mt-6 space-y-6">
+                <div className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                    Selected Employee
+                  </p>
+                  <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+                    {selectedEmployee.fullName}
+                  </h3>
+                  <p className="muted-copy mt-2 text-sm">
+                    {selectedEmployee.employeeCode} • {selectedEmployee.email} • {selectedEmployee.role}
+                  </p>
+                  <p className="muted-copy mt-2 text-sm">
+                    Base role access: {selectedEmployeeRoleKey}
+                    {currentEmployeeOverride ? " • custom override active" : " • using role defaults"}
+                  </p>
                 </div>
 
-                <h3 className="mt-6 text-xl font-semibold text-[var(--color-ink)]">
-                  Field and action visibility
-                </h3>
-                <div className="mt-4 space-y-3">
-                  {crmFieldAccessDefinitions.map((definition) => (
-                    <label
-                      key={definition.key}
-                      className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
-                    >
-                      <span>
-                        <span className="block text-sm font-semibold text-[var(--color-ink)]">
-                          {definition.label}
-                        </span>
-                        <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
-                          {definition.description}
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={settings.accessControl[roleKey].fields[definition.key]}
-                        onChange={(event) =>
-                          setSettings((current) => ({
-                            ...current,
-                            accessControl: {
-                              ...current.accessControl,
-                              [roleKey]: {
-                                ...current.accessControl[roleKey],
-                                fields: {
-                                  ...current.accessControl[roleKey].fields,
-                                  [definition.key]: event.target.checked,
-                                },
-                              },
-                            },
-                          }))
-                        }
-                        className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
-                      />
-                    </label>
-                  ))}
+                <div className="grid gap-5 xl:grid-cols-2">
+                  <article className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5">
+                    <h3 className="text-xl font-semibold text-[var(--color-ink)]">
+                      Module override
+                    </h3>
+                    <div className="mt-4 space-y-3">
+                      {crmModuleAccessDefinitions.map((definition) => (
+                        <label
+                          key={definition.key}
+                          className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
+                        >
+                          <span>
+                            <span className="block text-sm font-semibold text-[var(--color-ink)]">
+                              {definition.label}
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                              {definition.description}
+                            </span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={
+                              currentEmployeeOverride?.modules?.[definition.key] ??
+                              settings.accessControl[selectedEmployeeRoleKey].modules[definition.key]
+                            }
+                            onChange={(event) =>
+                              updateEmployeeOverride("modules", definition.key, event.target.checked)
+                            }
+                            className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5">
+                    <h3 className="text-xl font-semibold text-[var(--color-ink)]">
+                      Field and action override
+                    </h3>
+                    <div className="mt-4 space-y-3">
+                      {crmFieldAccessDefinitions.map((definition) => (
+                        <label
+                          key={definition.key}
+                          className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
+                        >
+                          <span>
+                            <span className="block text-sm font-semibold text-[var(--color-ink)]">
+                              {definition.label}
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                              {definition.description}
+                            </span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={
+                              currentEmployeeOverride?.fields?.[definition.key] ??
+                              settings.accessControl[selectedEmployeeRoleKey].fields[definition.key]
+                            }
+                            onChange={(event) =>
+                              updateEmployeeOverride("fields", definition.key, event.target.checked)
+                            }
+                            className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </article>
                 </div>
-              </article>
-            );
-          })}
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={clearSelectedEmployeeOverride}
+                    className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                  >
+                    Clear Employee Override
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-[1.4rem] border border-[var(--color-line)] bg-white px-5 py-4 text-sm text-[var(--color-muted)]">
+                Select one employee to configure person-specific access.
+              </div>
+            )}
+          </section>
         </div>
-      </section>
+      ) : null}
 
       {error ? (
         <div className="rounded-[1.25rem] border border-[rgba(190,72,26,0.18)] bg-[rgba(190,72,26,0.08)] px-4 py-3 text-sm text-[var(--color-accent-strong)]">
@@ -421,16 +763,18 @@ export function AdminSettingsPanel() {
         </div>
       ) : null}
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={isSaving || isLoading}
-          className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isSaving ? "Saving..." : "Save Settings"}
-        </button>
-      </div>
+      {section !== "index" ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={isSaving || isLoading}
+            className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSaving ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

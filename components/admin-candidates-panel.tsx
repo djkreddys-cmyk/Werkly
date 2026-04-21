@@ -107,7 +107,13 @@ export function AdminCandidatesPanel() {
       ? window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
       : "super-admin"
   );
-  const { roleAccess } = useCrmAccessControl(token, authType, authRole);
+  const { roleAccess } = useCrmAccessControl(
+    token,
+    authType,
+    authRole,
+    authEmployeeCode,
+    authEmail
+  );
 
   useEffect(() => {
     if (!token) {

@@ -193,7 +193,13 @@ export function AdminJobsDashboard({
 
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const normalizedAuthRole = authRole.trim().toLowerCase();
-  const { roleAccess } = useCrmAccessControl(token, authType, authRole);
+  const { roleAccess } = useCrmAccessControl(
+    token,
+    authType,
+    authRole,
+    authEmployeeCode,
+    adminEmail
+  );
   const canManageJobs = authType === "admin" || authRole === "super-admin";
   const canUseJobForms = roleAccess.modules.jobs && roleAccess.fields["jobs.createEdit"];
   const canUseJobAssignments = roleAccess.fields["jobs.assignment"];

@@ -36,6 +36,16 @@ export type CrmRoleAccessConfig = {
 
 export type CrmAccessControlMatrix = Record<CrmAccessRoleKey, CrmRoleAccessConfig>;
 
+export type CrmEmployeeAccessOverride = {
+  employeeId?: string;
+  employeeCode?: string;
+  email?: string;
+  employeeName?: string;
+  role?: string;
+  modules?: Partial<Record<CrmModuleAccessKey, boolean>>;
+  fields?: Partial<Record<CrmFieldAccessKey, boolean>>;
+};
+
 export const crmModuleAccessDefinitions: Array<{
   key: CrmModuleAccessKey;
   label: string;
@@ -277,6 +287,73 @@ export function getCrmRoleAccess(
 
   const matrix = mergeCrmAccessControl(accessControl);
   return matrix[normalizeCrmRoleKey(authRole, authType)];
+}
+
+export function normalizeEmployeeAccessOverrides(
+  overrides?: CrmEmployeeAccessOverride[]
+): CrmEmployeeAccessOverride[] {
+  if (!Array.isArray(overrides)) {
+    return [];
+  }
+
+  return overrides
+    .map((override) => ({
+      employeeId: String(override.employeeId ?? "").trim() || undefined,
+      employeeCode: String(override.employeeCode ?? "").trim() || undefined,
+      email: String(override.email ?? "").trim().toLowerCase() || undefined,
+      employeeName: String(override.employeeName ?? "").trim() || undefined,
+      role: String(override.role ?? "").trim() || undefined,
+      modules: override.modules ?? {},
+      fields: override.fields ?? {},
+    }))
+    .filter((override) => override.employeeId || override.employeeCode || override.email);
+}
+
+export function findEmployeeAccessOverride(
+  overrides: CrmEmployeeAccessOverride[] | undefined,
+  authEmployeeCode?: string,
+  authEmail?: string
+) {
+  const normalizedCode = String(authEmployeeCode ?? "").trim().toLowerCase();
+  const normalizedEmail = String(authEmail ?? "").trim().toLowerCase();
+
+  return normalizeEmployeeAccessOverrides(overrides).find((override) => {
+    if (override.employeeCode && normalizedCode) {
+      return override.employeeCode.toLowerCase() === normalizedCode;
+    }
+    if (override.email && normalizedEmail) {
+      return override.email.toLowerCase() === normalizedEmail;
+    }
+
+    return false;
+  });
+}
+
+export function getCrmEffectiveAccess(
+  authType: string,
+  authRole: string,
+  authEmployeeCode?: string,
+  authEmail?: string,
+  accessControl?: Partial<Record<CrmAccessRoleKey, Partial<CrmRoleAccessConfig>>>,
+  employeeAccessOverrides?: CrmEmployeeAccessOverride[]
+) {
+  const roleAccess = getCrmRoleAccess(authType, authRole, accessControl);
+  const override = findEmployeeAccessOverride(employeeAccessOverrides, authEmployeeCode, authEmail);
+
+  if (!override || authType === "admin" || String(authRole).trim().toLowerCase() === "super-admin") {
+    return roleAccess;
+  }
+
+  return {
+    modules: {
+      ...roleAccess.modules,
+      ...(override.modules ?? {}),
+    },
+    fields: {
+      ...roleAccess.fields,
+      ...(override.fields ?? {}),
+    },
+  };
 }
 
 export function canAccessCrmModule(

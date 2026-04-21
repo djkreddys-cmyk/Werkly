@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { defaultCrmAccessControl, mergeCrmAccessControl } from "@/lib/access-control";
+import {
+  defaultCrmAccessControl,
+  mergeCrmAccessControl,
+  normalizeEmployeeAccessOverrides,
+} from "@/lib/access-control";
 import type {
   ClientFollowUpStatus,
   ClientRecord,
@@ -98,6 +102,7 @@ const defaultKpiSettings: CrmKpiSettings = {
   enableEmailNotifications: false,
   enableWhatsappNotifications: false,
   accessControl: defaultCrmAccessControl,
+  employeeAccessOverrides: [],
 };
 
 function getRoleTargets(settings: CrmKpiSettings, role?: string) {
@@ -410,6 +415,9 @@ export function AdminDashboardOverview() {
           ...defaultKpiSettings,
           ...settingsResult,
           accessControl: mergeCrmAccessControl(settingsResult.accessControl),
+          employeeAccessOverrides: normalizeEmployeeAccessOverrides(
+            settingsResult.employeeAccessOverrides
+          ),
         });
       }
       )

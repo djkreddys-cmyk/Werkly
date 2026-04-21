@@ -5,10 +5,10 @@ export default function AdminSettingsPage() {
   return (
     <AdminShell
       eyebrow="CRM Settings"
-      title="Manage KPI targets, reminder preferences, and frontend access control."
-      description="Configure recruiter productivity targets, browser reminder behavior, and role-wise module plus field restrictions from one CRM settings page."
+      title="Settings home with KPI, notification, and access control pages."
+      description="Open separate settings pages for KPI targets, reminder channels, and employee-wise access control."
     >
-      <AdminSettingsPanel />
+      <AdminSettingsPanel section="index" />
     </AdminShell>
   );
 }

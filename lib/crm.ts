@@ -1,4 +1,4 @@
-import type { CrmAccessControlMatrix } from "@/lib/access-control";
+import type { CrmAccessControlMatrix, CrmEmployeeAccessOverride } from "@/lib/access-control";
 
 export type EmployeeStatus = "active" | "inactive";
 
@@ -173,6 +173,7 @@ export type CrmKpiSettings = {
   enableEmailNotifications: boolean;
   enableWhatsappNotifications: boolean;
   accessControl: CrmAccessControlMatrix;
+  employeeAccessOverrides: CrmEmployeeAccessOverride[];
 };
 
 export type ClientTransferRequestStatus = "pending" | "approved" | "rejected";

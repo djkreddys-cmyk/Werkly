@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   defaultCrmAccessControl,
-  getCrmRoleAccess,
+  getCrmEffectiveAccess,
   mergeCrmAccessControl,
+  normalizeEmployeeAccessOverrides,
   type CrmAccessControlMatrix,
   type CrmRoleAccessConfig,
 } from "@/lib/access-control";
@@ -15,7 +16,9 @@ const ACCESS_CONTROL_CACHE_KEY = "werklyCrmAccessControl";
 export function useCrmAccessControl(
   token: string,
   authType: string,
-  authRole: string
+  authRole: string,
+  authEmployeeCode = "",
+  authEmail = ""
 ): {
   accessControl: CrmAccessControlMatrix;
   roleAccess: CrmRoleAccessConfig;
@@ -37,6 +40,10 @@ export function useCrmAccessControl(
       return defaultCrmAccessControl;
     }
   });
+  const [employeeAccessOverrides, setEmployeeAccessOverrides] = useState<
+    CrmKpiSettings["employeeAccessOverrides"]
+  >([]);
+
   useEffect(() => {
     if (!token) {
       return;
@@ -56,18 +63,28 @@ export function useCrmAccessControl(
 
         const nextAccessControl = mergeCrmAccessControl(result.accessControl);
         setAccessControl(nextAccessControl);
+        setEmployeeAccessOverrides(normalizeEmployeeAccessOverrides(result.employeeAccessOverrides));
         if (typeof window !== "undefined") {
           window.localStorage.setItem(ACCESS_CONTROL_CACHE_KEY, JSON.stringify(nextAccessControl));
         }
       })
       .catch(() => {
         setAccessControl((current) => mergeCrmAccessControl(current));
+        setEmployeeAccessOverrides((current) => normalizeEmployeeAccessOverrides(current));
       });
   }, [token]);
 
   const roleAccess = useMemo(
-    () => getCrmRoleAccess(authType, authRole, accessControl),
-    [accessControl, authRole, authType]
+    () =>
+      getCrmEffectiveAccess(
+        authType,
+        authRole,
+        authEmployeeCode,
+        authEmail,
+        accessControl,
+        employeeAccessOverrides
+      ),
+    [accessControl, authEmail, authEmployeeCode, authRole, authType, employeeAccessOverrides]
   );
 
   return { accessControl, roleAccess, isLoading: false };
