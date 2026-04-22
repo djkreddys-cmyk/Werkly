@@ -1168,7 +1168,7 @@ export function AdminJobsDashboard({
           </p>
         </section>
       ) : null}
-      {roleAccess.modules.jobs && canManageJobs && viewMode !== "existing" && canUseJobForms ? (
+      {roleAccess.modules.jobs && viewMode !== "existing" && canUseJobForms ? (
       <form
         id="new-job"
         ref={formRef}
