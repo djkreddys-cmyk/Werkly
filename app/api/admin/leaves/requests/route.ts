@@ -33,6 +33,8 @@ export async function POST(request: Request) {
       startDate: string;
       endDate: string;
       reason: string;
+      leavePortion?: "full-day" | "half-day";
+      halfDaySession?: "first-half" | "second-half";
     };
     const leaveRequest = await createLeaveRequest(body, token);
     return NextResponse.json(leaveRequest, { status: 201 });

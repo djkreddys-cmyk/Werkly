@@ -1334,6 +1334,45 @@ export async function assignJobApplication(applicationId, payload, employeeId = 
 }
 
 export async function deleteJobApplication(applicationId) {
-  const result = await query(`delete from job_applications where id = $1`, [applicationId]);
-  return result.rowCount > 0;
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const existingResult = await client.query(
+      `select id, job_id
+       from job_applications
+       where id = $1
+       limit 1`,
+      [applicationId]
+    );
+
+    const existingApplication = existingResult.rows[0];
+    if (!existingApplication) {
+      await client.query("rollback");
+      return false;
+    }
+
+    await client.query(`delete from job_applications where id = $1`, [applicationId]);
+
+    await client.query(
+      `update jobs
+       set applications_count = (
+         select count(*)::int
+         from job_applications
+         where job_applications.job_id = jobs.id
+       ),
+           updated_at = now()
+       where id = $1`,
+      [existingApplication.job_id]
+    );
+
+    await client.query("commit");
+    return true;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

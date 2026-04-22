@@ -53,6 +53,8 @@ function mapLeaveRequestRow(row) {
     startDate: row.start_date,
     endDate: row.end_date,
     daysRequested: Number(row.days_requested ?? 0),
+    leavePortion: row.leave_portion || "full-day",
+    halfDaySession: row.half_day_session || null,
     reason: row.reason,
     status: row.status,
     adminNote: row.admin_note,
@@ -78,7 +80,7 @@ export async function ensureLeaveSchema() {
       id uuid primary key default gen_random_uuid(),
       employee_id uuid not null references employees(id) on delete cascade,
       leave_type_id uuid not null references leave_types(id) on delete cascade,
-      allocated_days integer not null default 0,
+      allocated_days numeric(10,2) not null default 0,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now(),
       unique (employee_id, leave_type_id)
@@ -92,13 +94,37 @@ export async function ensureLeaveSchema() {
       leave_type_id uuid not null references leave_types(id) on delete restrict,
       start_date date not null,
       end_date date not null,
-      days_requested integer not null,
+      days_requested numeric(10,2) not null,
+      leave_portion text not null default 'full-day',
+      half_day_session text,
       reason text not null,
       status text not null default 'pending',
       admin_note text,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )
+  `);
+
+  await query(`
+    alter table employee_leave_assignments
+    alter column allocated_days type numeric(10,2)
+    using allocated_days::numeric
+  `);
+
+  await query(`
+    alter table leave_requests
+    alter column days_requested type numeric(10,2)
+    using days_requested::numeric
+  `);
+
+  await query(`
+    alter table leave_requests
+    add column if not exists leave_portion text not null default 'full-day'
+  `);
+
+  await query(`
+    alter table leave_requests
+    add column if not exists half_day_session text
   `);
 }
 
@@ -155,7 +181,7 @@ export async function listLeaveAssignments(employeeId = null) {
      inner join employees on employees.id = assignments.employee_id
      inner join leave_types on leave_types.id = assignments.leave_type_id
      left join lateral (
-       select coalesce(sum(days_requested), 0)::int as approved_days
+       select coalesce(sum(days_requested), 0)::numeric as approved_days
        from leave_requests
        where leave_requests.employee_id = assignments.employee_id
          and leave_requests.leave_type_id = assignments.leave_type_id
@@ -163,7 +189,7 @@ export async function listLeaveAssignments(employeeId = null) {
          and leave_requests.start_date between $1::date and $2::date
      ) approved_summary on true
      left join lateral (
-       select coalesce(sum(days_requested), 0)::int as pending_days
+       select coalesce(sum(days_requested), 0)::numeric as pending_days
        from leave_requests
        where leave_requests.employee_id = assignments.employee_id
          and leave_requests.leave_type_id = assignments.leave_type_id
@@ -190,7 +216,7 @@ export async function upsertLeaveAssignment(payload) {
     do update set
       allocated_days = excluded.allocated_days,
       updated_at = now()
-    returning id, employee_id, leave_type_id, allocated_days, created_at, updated_at`,
+     returning id, employee_id, leave_type_id, allocated_days, created_at, updated_at`,
     [payload.employeeId, payload.leaveTypeId, payload.allocatedDays]
   );
 
@@ -199,11 +225,21 @@ export async function upsertLeaveAssignment(payload) {
   return assignments.find((assignment) => assignment.id === assignmentId) ?? assignments[0];
 }
 
-function calculateLeaveDays(startDate, endDate) {
+function calculateLeaveDays(startDate, endDate, leavePortion = "full-day") {
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
   const diffMs = end.getTime() - start.getTime();
-  return Math.floor(diffMs / 86400000) + 1;
+  const totalDays = Math.floor(diffMs / 86400000) + 1;
+
+  if (leavePortion === "half-day") {
+    if (totalDays !== 1) {
+      throw new Error("Half-day leave can only be applied for one date.");
+    }
+
+    return 0.5;
+  }
+
+  return totalDays;
 }
 
 async function getLeaveBalanceAvailability(employeeId, leaveTypeId, excludeRequestId = null) {
@@ -222,7 +258,7 @@ async function getLeaveBalanceAvailability(employeeId, leaveTypeId, excludeReque
       coalesce(approved_summary.approved_days, 0) as approved_days
      from employee_leave_assignments assignments
      left join lateral (
-       select coalesce(sum(days_requested), 0)::int as approved_days
+       select coalesce(sum(days_requested), 0)::numeric as approved_days
        from leave_requests
        where leave_requests.employee_id = assignments.employee_id
          and leave_requests.leave_type_id = assignments.leave_type_id
@@ -268,6 +304,8 @@ export async function listLeaveRequests(employeeId = null) {
       requests.start_date,
       requests.end_date,
       requests.days_requested,
+      requests.leave_portion,
+      requests.half_day_session,
       requests.reason,
       requests.status,
       requests.admin_note,
@@ -285,7 +323,19 @@ export async function listLeaveRequests(employeeId = null) {
 }
 
 export async function createLeaveRequest(employeeId, payload) {
-  const daysRequested = calculateLeaveDays(payload.startDate, payload.endDate);
+  const leavePortion = payload.leavePortion === "half-day" ? "half-day" : "full-day";
+  const halfDaySession =
+    leavePortion === "half-day"
+      ? ["first-half", "second-half"].includes(payload.halfDaySession)
+        ? payload.halfDaySession
+        : null
+      : null;
+
+  if (leavePortion === "half-day" && !halfDaySession) {
+    throw new Error("Select first half or second half for half-day leave.");
+  }
+
+  const daysRequested = calculateLeaveDays(payload.startDate, payload.endDate, leavePortion);
   if (daysRequested <= 0) {
     throw new Error("End date must be on or after start date.");
   }
@@ -304,10 +354,12 @@ export async function createLeaveRequest(employeeId, payload) {
       start_date,
       end_date,
       days_requested,
+      leave_portion,
+      half_day_session,
       reason,
       status,
       updated_at
-    ) values ($1, $2, $3::date, $4::date, $5, $6, 'pending', now())
+    ) values ($1, $2, $3::date, $4::date, $5, $6, $7, $8, 'pending', now())
     returning id`,
     [
       employeeId,
@@ -315,6 +367,8 @@ export async function createLeaveRequest(employeeId, payload) {
       payload.startDate,
       payload.endDate,
       daysRequested,
+      leavePortion,
+      halfDaySession,
       payload.reason.trim(),
     ]
   );
@@ -325,7 +379,7 @@ export async function createLeaveRequest(employeeId, payload) {
 
 export async function updateLeaveRequestStatus(id, payload) {
   const existingResult = await query(
-    `select id, employee_id, leave_type_id, start_date, end_date, reason, status
+    `select id, employee_id, leave_type_id, start_date, end_date, reason, status, leave_portion, half_day_session
      from leave_requests
      where id = $1
      limit 1`,
@@ -342,7 +396,18 @@ export async function updateLeaveRequestStatus(id, payload) {
   const nextEndDate = payload.endDate || existingRequest.end_date;
   const nextReason = String(payload.reason ?? existingRequest.reason ?? "").trim();
   const nextStatus = payload.status;
-  const daysRequested = calculateLeaveDays(nextStartDate, nextEndDate);
+  const nextLeavePortion =
+    payload.leavePortion === "half-day" || payload.leavePortion === "full-day"
+      ? payload.leavePortion
+      : existingRequest.leave_portion || "full-day";
+  const nextHalfDaySession =
+    nextLeavePortion === "half-day"
+      ? payload.halfDaySession ?? existingRequest.half_day_session ?? null
+      : null;
+  if (nextLeavePortion === "half-day" && !["first-half", "second-half"].includes(nextHalfDaySession)) {
+    throw new Error("Select first half or second half for half-day leave.");
+  }
+  const daysRequested = calculateLeaveDays(nextStartDate, nextEndDate, nextLeavePortion);
 
   if (daysRequested <= 0) {
     throw new Error("End date must be on or after start date.");
@@ -371,9 +436,11 @@ export async function updateLeaveRequestStatus(id, payload) {
          start_date = $3::date,
          end_date = $4::date,
          days_requested = $5,
-         reason = $6,
-         status = $7,
-         admin_note = $8,
+         leave_portion = $6,
+         half_day_session = $7,
+         reason = $8,
+         status = $9,
+         admin_note = $10,
          updated_at = now()
      where id = $1
      returning id`,
@@ -383,6 +450,8 @@ export async function updateLeaveRequestStatus(id, payload) {
       nextStartDate,
       nextEndDate,
       daysRequested,
+      nextLeavePortion,
+      nextHalfDaySession,
       nextReason,
       nextStatus,
       payload.adminNote || null,

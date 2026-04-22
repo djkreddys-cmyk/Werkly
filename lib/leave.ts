@@ -25,6 +25,8 @@ export type LeaveAssignmentRecord = {
 };
 
 export type LeaveRequestStatus = "pending" | "approved" | "rejected";
+export type LeavePortion = "full-day" | "half-day";
+export type HalfDaySession = "first-half" | "second-half";
 
 export type LeaveRequestRecord = {
   id: string;
@@ -37,6 +39,8 @@ export type LeaveRequestRecord = {
   startDate: string;
   endDate: string;
   daysRequested: number;
+  leavePortion: LeavePortion;
+  halfDaySession?: HalfDaySession | null;
   reason: string;
   status: LeaveRequestStatus;
   adminNote?: string;
@@ -140,7 +144,14 @@ export async function getLeaveRequests(token: string) {
 }
 
 export async function createLeaveRequest(
-  payload: { leaveTypeId: string; startDate: string; endDate: string; reason: string },
+  payload: {
+    leaveTypeId: string;
+    startDate: string;
+    endDate: string;
+    reason: string;
+    leavePortion?: LeavePortion;
+    halfDaySession?: HalfDaySession;
+  },
   token: string
 ) {
   return readJson<LeaveRequestRecord>("/admin/leaves/requests", {
@@ -161,6 +172,8 @@ export async function updateLeaveRequestStatus(
     startDate?: string;
     endDate?: string;
     reason?: string;
+    leavePortion?: LeavePortion;
+    halfDaySession?: HalfDaySession;
   },
   token: string
 ) {

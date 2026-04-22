@@ -21,6 +21,8 @@ export async function PUT(
       startDate?: string;
       endDate?: string;
       reason?: string;
+      leavePortion?: "full-day" | "half-day";
+      halfDaySession?: "first-half" | "second-half";
     };
     const leaveRequest = await updateLeaveRequestStatus(id, body, token);
     return NextResponse.json(leaveRequest);

@@ -422,6 +422,13 @@ export function AdminCandidatesPanel() {
       }
 
       setApplications((current) => current.filter((item) => item.id !== application.id));
+      setJobs((current) =>
+        current.map((job) =>
+          job.id === application.jobId
+            ? { ...job, applicationsCount: Math.max(0, (job.applicationsCount || 0) - 1) }
+            : job
+        )
+      );
       setViewMessage("Candidate deleted successfully.");
     } catch (deleteError) {
       setError(

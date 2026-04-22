@@ -1942,7 +1942,8 @@ app.post("/admin/leaves/requests", requireInternalUser, async (request, response
       });
     }
 
-    const { leaveTypeId, startDate, endDate, reason } = request.body ?? {};
+    const { leaveTypeId, startDate, endDate, reason, leavePortion, halfDaySession } =
+      request.body ?? {};
     if (!leaveTypeId || !startDate || !endDate || !reason) {
       return response.status(400).json({
         message: "Leave type, start date, end date, and reason are required.",
@@ -1954,6 +1955,8 @@ app.post("/admin/leaves/requests", requireInternalUser, async (request, response
       startDate,
       endDate,
       reason,
+      leavePortion,
+      halfDaySession,
     });
     response.status(201).json(leaveRequest);
   } catch (error) {
@@ -1965,7 +1968,16 @@ app.post("/admin/leaves/requests", requireInternalUser, async (request, response
 
 app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) => {
   try {
-    const { status, adminNote, leaveTypeId, startDate, endDate, reason } = request.body ?? {};
+    const {
+      status,
+      adminNote,
+      leaveTypeId,
+      startDate,
+      endDate,
+      reason,
+      leavePortion,
+      halfDaySession,
+    } = request.body ?? {};
     if (!["approved", "rejected", "pending"].includes(status)) {
       return response.status(400).json({ message: "Invalid leave request status." });
     }
@@ -1977,6 +1989,8 @@ app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) =>
       startDate,
       endDate,
       reason,
+      leavePortion,
+      halfDaySession,
     });
 
     if (!leaveRequest) {

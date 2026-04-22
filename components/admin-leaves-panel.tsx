@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { EmployeeRecord } from "@/lib/crm";
 import type {
+  HalfDaySession,
   LeaveAssignmentRecord,
+  LeavePortion,
   LeaveRequestRecord,
   LeaveRequestStatus,
   LeaveTypeRecord,
@@ -26,6 +28,8 @@ type LeaveRequestEditState = {
   leaveTypeId: string;
   startDate: string;
   endDate: string;
+  leavePortion: LeavePortion;
+  halfDaySession: HalfDaySession | "";
   reason: string;
   status: LeaveRequestStatus;
   adminNote: string;
@@ -51,6 +55,29 @@ function formatLeaveYearLabel(startDate?: string, endDate?: string) {
     month: "short",
     year: "numeric",
   })}`;
+}
+
+function formatLeavePortionLabel(
+  leavePortion: LeavePortion,
+  halfDaySession?: HalfDaySession | null
+) {
+  if (leavePortion === "half-day") {
+    if (halfDaySession === "first-half") {
+      return "Half Day - First Half";
+    }
+
+    if (halfDaySession === "second-half") {
+      return "Half Day - Second Half";
+    }
+
+    return "Half Day";
+  }
+
+  return "Full Day";
+}
+
+function formatLeaveDays(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 export function AdminLeavesPanel() {
@@ -89,6 +116,8 @@ export function AdminLeavesPanel() {
   const [requestLeaveTypeId, setRequestLeaveTypeId] = useState("");
   const [requestStartDate, setRequestStartDate] = useState("");
   const [requestEndDate, setRequestEndDate] = useState("");
+  const [requestLeavePortion, setRequestLeavePortion] = useState<LeavePortion>("full-day");
+  const [requestHalfDaySession, setRequestHalfDaySession] = useState<HalfDaySession | "">("");
   const [requestReason, setRequestReason] = useState("");
   const [requestActions, setRequestActions] = useState<Record<string, PendingRequestAction>>(
     {}
@@ -256,6 +285,9 @@ export function AdminLeavesPanel() {
           leaveTypeId: requestLeaveTypeId,
           startDate: requestStartDate,
           endDate: requestEndDate,
+          leavePortion: requestLeavePortion,
+          halfDaySession:
+            requestLeavePortion === "half-day" ? requestHalfDaySession || undefined : undefined,
           reason: requestReason,
         }),
       });
@@ -268,6 +300,8 @@ export function AdminLeavesPanel() {
       setRequestLeaveTypeId("");
       setRequestStartDate("");
       setRequestEndDate("");
+      setRequestLeavePortion("full-day");
+      setRequestHalfDaySession("");
       setRequestReason("");
       setSuccess("Leave request submitted.");
       await loadState();
@@ -323,6 +357,8 @@ export function AdminLeavesPanel() {
       leaveTypeId: request.leaveTypeId,
       startDate: request.startDate,
       endDate: request.endDate,
+      leavePortion: request.leavePortion || "full-day",
+      halfDaySession: request.halfDaySession || "",
       reason: request.reason,
       status: request.status,
       adminNote: request.adminNote ?? "",
@@ -351,6 +387,11 @@ export function AdminLeavesPanel() {
           leaveTypeId: editingRequest.leaveTypeId,
           startDate: editingRequest.startDate,
           endDate: editingRequest.endDate,
+          leavePortion: editingRequest.leavePortion,
+          halfDaySession:
+            editingRequest.leavePortion === "half-day"
+              ? editingRequest.halfDaySession || undefined
+              : undefined,
           reason: editingRequest.reason,
           status: editingRequest.status,
           adminNote: editingRequest.adminNote,
@@ -480,7 +521,7 @@ export function AdminLeavesPanel() {
                 className={inputClassName}
                 type="number"
                 min="0"
-                step="1"
+                step="0.5"
                 value={assignmentDays}
                 onChange={(event) => setAssignmentDays(event.target.value)}
                 placeholder="Allocated days"
@@ -568,16 +609,18 @@ export function AdminLeavesPanel() {
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {canManageLeaves ? assignment.leaveTypeName : assignment.allocatedDays}
+                        {canManageLeaves
+                          ? assignment.leaveTypeName
+                          : formatLeaveDays(assignment.allocatedDays)}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {assignment.approvedDays}
+                        {formatLeaveDays(assignment.approvedDays)}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {assignment.pendingDays}
+                        {formatLeaveDays(assignment.pendingDays)}
                       </td>
                       <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                        {assignment.remainingDays}
+                        {formatLeaveDays(assignment.remainingDays)}
                       </td>
                     </tr>
                   ))}
@@ -595,35 +638,97 @@ export function AdminLeavesPanel() {
             Submit leave only from the balances assigned to you.
           </h2>
           <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmitLeaveRequest}>
-            <select
-              className={inputClassName}
-              value={requestLeaveTypeId}
-              onChange={(event) => setRequestLeaveTypeId(event.target.value)}
-              required
-            >
-              <option value="">Select leave type</option>
-              {availableLeaveTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Leave Type
+              </span>
+              <select
+                className={inputClassName}
+                value={requestLeaveTypeId}
+                onChange={(event) => setRequestLeaveTypeId(event.target.value)}
+                required
+              >
+                <option value="">Select leave type</option>
+                {availableLeaveTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-            <input
-              className={inputClassName}
-              type="date"
-              value={requestStartDate}
-              onChange={(event) => setRequestStartDate(event.target.value)}
-              required
-            />
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Leave Duration
+              </span>
+              <select
+                className={inputClassName}
+                value={requestLeavePortion}
+                onChange={(event) => {
+                  const nextValue = event.target.value as LeavePortion;
+                  setRequestLeavePortion(nextValue);
+                  if (nextValue !== "half-day") {
+                    setRequestHalfDaySession("");
+                  }
+                }}
+                required
+              >
+                <option value="full-day">Full Day</option>
+                <option value="half-day">Half Day</option>
+              </select>
+            </label>
 
-            <input
-              className={inputClassName}
-              type="date"
-              value={requestEndDate}
-              onChange={(event) => setRequestEndDate(event.target.value)}
-              required
-            />
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Start Date
+              </span>
+              <input
+                className={inputClassName}
+                type="date"
+                value={requestStartDate}
+                onChange={(event) => {
+                  setRequestStartDate(event.target.value);
+                  if (requestLeavePortion === "half-day") {
+                    setRequestEndDate(event.target.value);
+                  }
+                }}
+                required
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                End Date
+              </span>
+              <input
+                className={inputClassName}
+                type="date"
+                value={requestEndDate}
+                onChange={(event) => setRequestEndDate(event.target.value)}
+                required
+                disabled={requestLeavePortion === "half-day"}
+              />
+            </label>
+
+            {requestLeavePortion === "half-day" ? (
+              <label className="block md:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Half Day Session
+                </span>
+                <select
+                  className={inputClassName}
+                  value={requestHalfDaySession}
+                  onChange={(event) =>
+                    setRequestHalfDaySession(event.target.value as HalfDaySession | "")
+                  }
+                  required
+                >
+                  <option value="">Select session</option>
+                  <option value="first-half">First Half</option>
+                  <option value="second-half">Second Half</option>
+                </select>
+              </label>
+            ) : null}
 
             <textarea
               className={`${inputClassName} min-h-28 resize-y md:col-span-2`}
@@ -717,9 +822,15 @@ export function AdminLeavesPanel() {
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                           {new Date(request.startDate).toLocaleDateString("en-IN")} to{" "}
                           {new Date(request.endDate).toLocaleDateString("en-IN")}
+                          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-muted)]">
+                            {formatLeavePortionLabel(
+                              request.leavePortion || "full-day",
+                              request.halfDaySession
+                            )}
+                          </p>
                         </td>
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                          {request.daysRequested}
+                          {formatLeaveDays(request.daysRequested)}
                         </td>
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                           {request.reason}
@@ -816,61 +927,145 @@ export function AdminLeavesPanel() {
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <select
-                className={inputClassName}
-                value={editingRequest.leaveTypeId}
-                onChange={(event) =>
-                  setEditingRequest((current) =>
-                    current ? { ...current, leaveTypeId: event.target.value } : current
-                  )
-                }
-              >
-                {state.leaveTypes
-                  .filter((type) => type.isActive)
-                  .map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
-              </select>
-              <select
-                className={inputClassName}
-                value={editingRequest.status}
-                onChange={(event) =>
-                  setEditingRequest((current) =>
-                    current
-                      ? {
-                          ...current,
-                          status: event.target.value as LeaveRequestStatus,
-                        }
-                      : current
-                  )
-                }
-              >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-              <input
-                className={inputClassName}
-                type="date"
-                value={editingRequest.startDate}
-                onChange={(event) =>
-                  setEditingRequest((current) =>
-                    current ? { ...current, startDate: event.target.value } : current
-                  )
-                }
-              />
-              <input
-                className={inputClassName}
-                type="date"
-                value={editingRequest.endDate}
-                onChange={(event) =>
-                  setEditingRequest((current) =>
-                    current ? { ...current, endDate: event.target.value } : current
-                  )
-                }
-              />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Leave Type
+                </span>
+                <select
+                  className={inputClassName}
+                  value={editingRequest.leaveTypeId}
+                  onChange={(event) =>
+                    setEditingRequest((current) =>
+                      current ? { ...current, leaveTypeId: event.target.value } : current
+                    )
+                  }
+                >
+                  {state.leaveTypes
+                    .filter((type) => type.isActive)
+                    .map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Status
+                </span>
+                <select
+                  className={inputClassName}
+                  value={editingRequest.status}
+                  onChange={(event) =>
+                    setEditingRequest((current) =>
+                      current
+                        ? {
+                            ...current,
+                            status: event.target.value as LeaveRequestStatus,
+                          }
+                        : current
+                    )
+                  }
+                >
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Leave Duration
+                </span>
+                <select
+                  className={inputClassName}
+                  value={editingRequest.leavePortion}
+                  onChange={(event) =>
+                    setEditingRequest((current) =>
+                      current
+                        ? {
+                            ...current,
+                            leavePortion: event.target.value as LeavePortion,
+                            halfDaySession:
+                              event.target.value === "half-day" ? current.halfDaySession : "",
+                            endDate:
+                              event.target.value === "half-day"
+                                ? current.startDate
+                                : current.endDate,
+                          }
+                        : current
+                    )
+                  }
+                >
+                  <option value="full-day">Full Day</option>
+                  <option value="half-day">Half Day</option>
+                </select>
+              </label>
+              <div />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Start Date
+                </span>
+                <input
+                  className={inputClassName}
+                  type="date"
+                  value={editingRequest.startDate}
+                  onChange={(event) =>
+                    setEditingRequest((current) =>
+                      current
+                        ? {
+                            ...current,
+                            startDate: event.target.value,
+                            endDate:
+                              current.leavePortion === "half-day"
+                                ? event.target.value
+                                : current.endDate,
+                          }
+                        : current
+                    )
+                  }
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  End Date
+                </span>
+                <input
+                  className={inputClassName}
+                  type="date"
+                  value={editingRequest.endDate}
+                  onChange={(event) =>
+                    setEditingRequest((current) =>
+                      current ? { ...current, endDate: event.target.value } : current
+                    )
+                  }
+                  disabled={editingRequest.leavePortion === "half-day"}
+                />
+              </label>
+              {editingRequest.leavePortion === "half-day" ? (
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Half Day Session
+                  </span>
+                  <select
+                    className={inputClassName}
+                    value={editingRequest.halfDaySession}
+                    onChange={(event) =>
+                      setEditingRequest((current) =>
+                        current
+                          ? {
+                              ...current,
+                              halfDaySession: event.target.value as HalfDaySession | "",
+                            }
+                          : current
+                      )
+                    }
+                  >
+                    <option value="">Select session</option>
+                    <option value="first-half">First Half</option>
+                    <option value="second-half">Second Half</option>
+                  </select>
+                </label>
+              ) : null}
               <textarea
                 className={`${inputClassName} min-h-28 resize-y md:col-span-2`}
                 value={editingRequest.reason}
