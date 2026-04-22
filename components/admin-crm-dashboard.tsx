@@ -18,6 +18,7 @@ import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { TableActionMenu } from "@/components/table-action-menu";
+import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
 
 type EmployeeFormState = {
   id?: string;
@@ -2074,6 +2075,14 @@ export function AdminClientsPanel({
   const [isSavingClientFollowUp, setIsSavingClientFollowUp] = useState(false);
   const [isReviewingTransferRequest, setIsReviewingTransferRequest] = useState(false);
   const isSuperAdmin = authType === "admin" || authRole === "super-admin";
+  const { roleAccess } = useCrmAccessControl(
+    token,
+    authType,
+    authRole,
+    authEmployeeCode,
+    authEmail
+  );
+  const canOnboardClients = roleAccess.modules.clients && roleAccess.fields["clients.onboarding"];
   const currentEmployeeId = useMemo(
     () =>
       employees.find(
@@ -2474,7 +2483,7 @@ export function AdminClientsPanel({
 
   return (
     <section className="space-y-6">
-      {isSuperAdmin && viewMode !== "existing" ? (
+      {canOnboardClients && viewMode !== "existing" ? (
       <div
         id="new-client"
         className="rounded-[2rem] scroll-mt-28 border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]"

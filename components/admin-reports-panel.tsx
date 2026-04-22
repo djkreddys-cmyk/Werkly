@@ -63,6 +63,7 @@ type AttendanceDaySummary = {
   shiftName?: string;
   shiftStartAt?: string;
   shiftEndAt?: string;
+  shiftGraceMinutes?: number;
   lateByMs: number;
   earlyLogoutMs: number;
   overtimeMs: number;
@@ -272,7 +273,10 @@ function getShiftBoundaryMs(reportDate: string, timeValue?: string) {
     return null;
   }
 
-  const boundaryMs = new Date(`${reportDate}T${timeValue}:00`).getTime();
+  const normalizedTimeValue = /^\d{2}:\d{2}$/.test(timeValue)
+    ? `${timeValue}:00`
+    : timeValue;
+  const boundaryMs = new Date(`${reportDate}T${normalizedTimeValue}`).getTime();
   return Number.isNaN(boundaryMs) ? null : boundaryMs;
 }
 
@@ -349,6 +353,59 @@ function getAttendancePolicyLabel(summary: AttendanceDaySummary) {
   }
 
   return flags.length > 0 ? flags.join(", ") : "On time";
+}
+
+function getAttendancePolicyMetrics(summary: AttendanceDaySummary) {
+  const shiftStartMs = summary.shiftStartAt ? new Date(summary.shiftStartAt).getTime() : null;
+  const shiftEndMs = summary.shiftEndAt ? new Date(summary.shiftEndAt).getTime() : null;
+  const firstLoginMs = summary.firstLoginAt ? new Date(summary.firstLoginAt).getTime() : null;
+  const lastLogoutMs = summary.lastLogoutAt ? new Date(summary.lastLogoutAt).getTime() : null;
+
+  if (
+    !shiftStartMs ||
+    Number.isNaN(shiftStartMs) ||
+    !shiftEndMs ||
+    Number.isNaN(shiftEndMs)
+  ) {
+    return {
+      lateByMs: 0,
+      earlyLogoutMs: 0,
+      overtimeMs: 0,
+      attendancePolicyStatus: getAttendancePolicyLabel({
+        ...summary,
+        lateByMs: 0,
+        earlyLogoutMs: 0,
+        overtimeMs: 0,
+      }),
+    };
+  }
+
+  const shiftGraceMs = shiftStartMs + (summary.shiftGraceMinutes ?? 0) * 60 * 1000;
+
+  const lateByMs =
+    firstLoginMs && !Number.isNaN(firstLoginMs) && firstLoginMs > shiftGraceMs
+      ? firstLoginMs - shiftGraceMs
+      : 0;
+  const earlyLogoutMs =
+    lastLogoutMs && !Number.isNaN(lastLogoutMs) && lastLogoutMs < shiftEndMs
+      ? shiftEndMs - lastLogoutMs
+      : 0;
+  const overtimeMs =
+    lastLogoutMs && !Number.isNaN(lastLogoutMs) && lastLogoutMs > shiftEndMs
+      ? lastLogoutMs - shiftEndMs
+      : 0;
+
+  return {
+    lateByMs,
+    earlyLogoutMs,
+    overtimeMs,
+    attendancePolicyStatus: getAttendancePolicyLabel({
+      ...summary,
+      lateByMs,
+      earlyLogoutMs,
+      overtimeMs,
+    }),
+  };
 }
 
 function getCandidateSourceLabel(application: JobApplication) {
@@ -1222,6 +1279,7 @@ export function AdminReportsPanel({
           shiftName: shiftAssignment?.shiftName,
           shiftStartAt: shiftRange ? new Date(shiftRange.shiftStartMs).toISOString() : undefined,
           shiftEndAt: shiftRange ? new Date(shiftRange.shiftEndMs).toISOString() : undefined,
+          shiftGraceMinutes: shiftAssignment?.graceMinutes ?? 0,
           lateByMs:
             shiftRange && loginTime > shiftRange.shiftGraceMs
               ? loginTime - shiftRange.shiftGraceMs
@@ -1271,6 +1329,9 @@ export function AdminReportsPanel({
       if (!existing.shiftEndAt && shiftRange) {
         existing.shiftEndAt = new Date(shiftRange.shiftEndMs).toISOString();
       }
+      if ((existing.shiftGraceMinutes ?? 0) <= 0 && shiftAssignment) {
+        existing.shiftGraceMinutes = shiftAssignment.graceMinutes ?? 0;
+      }
       existing.lateByMs = Math.max(
         existing.lateByMs,
         shiftRange && loginTime > shiftRange.shiftGraceMs
@@ -1312,19 +1373,18 @@ export function AdminReportsPanel({
           }
         }
 
-        return {
+        const finalSummary = {
           ...summary,
           lastLogoutAt: effectiveLastLogoutAt,
           screenIdleSeconds: effectiveIdleSeconds,
           activeSessionCount: effectiveLastLogoutAt ? 0 : summary.activeSessionCount,
           isAutoLoggedOut,
-          attendancePolicyStatus: getAttendancePolicyLabel({
-            ...summary,
-            lastLogoutAt: effectiveLastLogoutAt,
-            screenIdleSeconds: effectiveIdleSeconds,
-            activeSessionCount: effectiveLastLogoutAt ? 0 : summary.activeSessionCount,
-            isAutoLoggedOut,
-          }),
+        };
+        const policyMetrics = getAttendancePolicyMetrics(finalSummary);
+
+        return {
+          ...finalSummary,
+          ...policyMetrics,
         };
       })
       .sort((a, b) => {

@@ -30,6 +30,7 @@ const ROLE_PERMISSIONS = {
     "candidates.view",
     "candidates.manage",
     "clients.view",
+    "clients.manage",
     "clients.followup",
     "audit.view",
   ],
