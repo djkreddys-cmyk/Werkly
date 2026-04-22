@@ -218,6 +218,7 @@ export function AdminJobsDashboard({
       )?.id ?? "",
     [adminEmail, authEmployeeCode, employees]
   );
+  const shouldAutoAssignRecruiter = isEmployeeSession && Boolean(currentEmployeeId);
   const visibleClients = useMemo(() => {
     if (!isEmployeeSession) {
       return clients;
@@ -550,20 +551,22 @@ export function AdminJobsDashboard({
                   </option>
                 ))}
               </select>
-              <select
-                className={fieldClassName}
-                value={form.recruiterId}
-                onChange={(event) => updateForm("recruiterId", event.target.value)}
-              >
-                <option value="">Assign recruiter</option>
-                {employees
-                  .filter((employee) => employee.status === "active")
-                  .map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.fullName} - {employee.role}
-                    </option>
-                  ))}
-              </select>
+              {!shouldAutoAssignRecruiter ? (
+                <select
+                  className={fieldClassName}
+                  value={form.recruiterId}
+                  onChange={(event) => updateForm("recruiterId", event.target.value)}
+                >
+                  <option value="">Assign recruiter</option>
+                  {employees
+                    .filter((employee) => employee.status === "active")
+                    .map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.fullName} - {employee.role}
+                      </option>
+                    ))}
+                </select>
+              ) : null}
             </>
           ) : null}
           <input
@@ -730,6 +733,9 @@ export function AdminJobsDashboard({
     setMessage("");
 
     try {
+      const payload = shouldAutoAssignRecruiter
+        ? { ...form, recruiterId: currentEmployeeId }
+        : form;
       const response = await fetch(
         form.id ? `/api/admin/jobs/${form.id}` : "/api/admin/jobs",
         {
@@ -738,7 +744,7 @@ export function AdminJobsDashboard({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -748,7 +754,10 @@ export function AdminJobsDashboard({
       }
 
       await refreshJobs();
-      setForm(emptyForm);
+      setForm({
+        ...emptyForm,
+        recruiterId: shouldAutoAssignRecruiter ? currentEmployeeId : "",
+      });
       setMessage(form.id ? "Job updated successfully." : "Job created successfully.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save job.");
@@ -882,7 +891,10 @@ export function AdminJobsDashboard({
   }
 
   function resetForm() {
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      recruiterId: shouldAutoAssignRecruiter ? currentEmployeeId : "",
+    });
     setMessage("");
     setError("");
   }

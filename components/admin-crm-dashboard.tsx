@@ -2263,6 +2263,7 @@ export function AdminClientsPanel({
       )?.id ?? "",
     [authEmail, authEmployeeCode, employees]
   );
+  const shouldAutoAssignClientOwner = !isSuperAdmin && Boolean(currentEmployeeId);
   const visibleClients = useMemo(() => {
     if (isSuperAdmin) {
       return clients;
@@ -2370,8 +2371,11 @@ export function AdminClientsPanel({
     setMessage("");
 
     try {
+      const effectiveAssignedEmployeeId = shouldAutoAssignClientOwner
+        ? currentEmployeeId
+        : clientForm.assignedEmployeeId;
       const assignedEmployee = employees.find(
-        (employee) => employee.id === clientForm.assignedEmployeeId
+        (employee) => employee.id === effectiveAssignedEmployeeId
       );
 
       const response = await fetch("/api/admin/clients", {
@@ -2382,6 +2386,7 @@ export function AdminClientsPanel({
         },
         body: JSON.stringify({
           ...clientForm,
+          assignedEmployeeId: effectiveAssignedEmployeeId,
           assignedEmployeeName: assignedEmployee?.fullName,
         }),
       });
@@ -2749,21 +2754,23 @@ export function AdminClientsPanel({
                 onChange={(event) => updateClientField("branch", event.target.value)}
               />
             </label>
-            <label className="block">
-              <span className={clientFormLabelClassName}>Assigned Employee</span>
-              <select
-                className={clientSelectClassName}
-                value={clientForm.assignedEmployeeId}
-                onChange={(event) => updateClientField("assignedEmployeeId", event.target.value)}
-              >
-                <option value="" style={clientSelectOptionStyle}>Assign employee</option>
-                {employeeOptions.map((employee) => (
-                  <option key={employee.id} value={employee.id} style={clientSelectOptionStyle}>
-                    {employee.fullName} - {employee.role}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {isSuperAdmin ? (
+              <label className="block">
+                <span className={clientFormLabelClassName}>Assigned Employee</span>
+                <select
+                  className={clientSelectClassName}
+                  value={clientForm.assignedEmployeeId}
+                  onChange={(event) => updateClientField("assignedEmployeeId", event.target.value)}
+                >
+                  <option value="" style={clientSelectOptionStyle}>Assign employee</option>
+                  {employeeOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id} style={clientSelectOptionStyle}>
+                      {employee.fullName} - {employee.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label className="block">
               <span className={clientFormLabelClassName}>Onboarding Status</span>
               <select
