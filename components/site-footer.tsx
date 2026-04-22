@@ -34,7 +34,7 @@ export function SiteFooter() {
 
   return (
     <footer className="border-t border-white/10 bg-[var(--color-dark)] text-white">
-      <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-5 px-5 py-8 text-center sm:px-8">
+      <div className="mx-auto flex w-full max-w-[92rem] flex-col items-center gap-5 px-4 py-8 text-center sm:px-6 lg:px-8">
         <div className="w-full max-w-[640px] space-y-3">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]/90">
             Werkly
