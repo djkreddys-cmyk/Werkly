@@ -127,6 +127,21 @@ function LogoutIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+function LockIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M6.5 8V6.75C6.5 4.82 8.07 3.25 10 3.25C11.93 3.25 13.5 4.82 13.5 6.75V8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <rect x="4.5" y="8" width="11" height="8.5" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M10 11V13.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function BellIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
@@ -279,6 +294,11 @@ export function AdminShell({
   const [notificationError, setNotificationError] = useState("");
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("unread");
   const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [profileNewPassword, setProfileNewPassword] = useState("");
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState("");
+  const [profilePasswordMessage, setProfilePasswordMessage] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const { roleAccess } = useCrmAccessControl(
     token,
     authType,
@@ -891,6 +911,74 @@ export function AdminShell({
     }
   }
 
+  async function handleProfilePasswordChange() {
+    if (!token || authType !== "employee") {
+      return;
+    }
+    if (profileNewPassword.trim().length < 6) {
+      setProfilePasswordMessage("New password must be at least 6 characters long.");
+      return;
+    }
+    if (profileNewPassword !== profileConfirmPassword) {
+      setProfilePasswordMessage("New password and confirm password must match.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setProfilePasswordMessage("");
+
+    try {
+      const response = await fetch("/api/admin/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ newPassword: profileNewPassword }),
+      });
+      const result = (await response.json()) as {
+        token?: string;
+        user?: {
+          type: "admin" | "employee";
+          name: string;
+          email?: string;
+          role: string;
+          employeeCode?: string;
+        };
+        message?: string;
+      };
+
+      if (!response.ok || !result.token || !result.user) {
+        throw new Error(result.message || "Unable to change password.");
+      }
+
+      window.localStorage.setItem("werklyAdminToken", result.token);
+      window.localStorage.setItem(
+        "werklyAdminEmail",
+        result.user.employeeCode ?? result.user.email ?? authIdentifier
+      );
+      window.localStorage.setItem("werklyAuthType", result.user.type);
+      window.localStorage.setItem("werklyAuthName", result.user.name);
+      window.localStorage.setItem("werklyAuthRole", result.user.role);
+      if (result.user.employeeCode) {
+        window.localStorage.setItem("werklyEmployeeCode", result.user.employeeCode);
+      }
+
+      setProfileNewPassword("");
+      setProfileConfirmPassword("");
+      setProfilePasswordMessage("Password updated successfully.");
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (error) {
+      setProfilePasswordMessage(
+        error instanceof Error ? error.message : "Unable to change password."
+      );
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  }
+
   return (
     <div className="crm-shell-bg min-h-screen">
       <div className="min-h-screen">
@@ -1219,6 +1307,20 @@ export function AdminShell({
                             <span>Visit Website</span>
                             <GlobeIcon className="h-4 w-4" />
                           </Link>
+                          {authType === "employee" ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsProfileMenuOpen(false);
+                                setIsChangePasswordOpen(true);
+                                setProfilePasswordMessage("");
+                              }}
+                              className="inline-flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)] hover:text-[var(--color-accent)]"
+                            >
+                              <span>Change Password</span>
+                              <LockIcon className="h-4 w-4" />
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={handleLogout}
@@ -1267,6 +1369,91 @@ export function AdminShell({
             <div className="px-5 py-8 sm:px-8 sm:py-10">{children}</div>
           </section>
         </main>
+        {isChangePasswordOpen ? (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[rgba(7,23,29,0.44)] p-4">
+            <div className="w-full max-w-xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-7 shadow-[0_28px_80px_rgba(15,23,42,0.22)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="eyebrow">Change Password</p>
+                  <h2 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                    Update your employee login password
+                  </h2>
+                  <p className="muted-copy mt-2 text-sm leading-6">
+                    Set a new password for your current employee session.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChangePasswordOpen(false);
+                    setProfilePasswordMessage("");
+                    setProfileNewPassword("");
+                    setProfileConfirmPassword("");
+                  }}
+                  className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-medium text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-4">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-[var(--color-ink)]">
+                    New Password
+                  </span>
+                  <input
+                    type="password"
+                    value={profileNewPassword}
+                    onChange={(event) => setProfileNewPassword(event.target.value)}
+                    className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    placeholder="Enter new password"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-[var(--color-ink)]">
+                    Confirm Password
+                  </span>
+                  <input
+                    type="password"
+                    value={profileConfirmPassword}
+                    onChange={(event) => setProfileConfirmPassword(event.target.value)}
+                    className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    placeholder="Re-enter new password"
+                  />
+                </label>
+              </div>
+
+              {profilePasswordMessage ? (
+                <p className="mt-4 text-sm font-medium text-[var(--color-dark)]">
+                  {profilePasswordMessage}
+                </p>
+              ) : null}
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleProfilePasswordChange()}
+                  disabled={isUpdatingPassword}
+                  className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isUpdatingPassword ? "Updating..." : "Save Password"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChangePasswordOpen(false);
+                    setProfilePasswordMessage("");
+                    setProfileNewPassword("");
+                    setProfileConfirmPassword("");
+                  }}
+                  className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

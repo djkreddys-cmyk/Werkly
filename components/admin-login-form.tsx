@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const fieldClassName =
@@ -115,8 +115,21 @@ export function AdminLoginForm() {
   const [forgotPasswordOtp, setForgotPasswordOtp] = useState("");
   const [forgotPasswordResetToken, setForgotPasswordResetToken] = useState("");
   const [forgotPasswordMessage, setForgotPasswordMessage] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setResendCooldown((current) => Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
 
   function getClientContext() {
     const clientTime = new Date();
@@ -243,13 +256,13 @@ export function AdminLoginForm() {
     setForgotPasswordOtp("");
     setForgotPasswordResetToken("");
     setForgotPasswordMessage("");
+    setResendCooldown(0);
     setNewPassword("");
     setConfirmPassword("");
     setError("");
   }
 
-  async function handleForgotPasswordRequest(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitForgotPasswordRequest() {
     setIsSubmitting(true);
     setError("");
     setForgotPasswordMessage("");
@@ -267,15 +280,21 @@ export function AdminLoginForm() {
       const result = (await response.json()) as {
         requestId?: string;
         maskedEmail?: string;
+        resendCooldownSeconds?: number;
         message?: string;
+        retryAfterSeconds?: number;
       };
 
       if (!response.ok || !result.requestId) {
+        if (result.retryAfterSeconds) {
+          setResendCooldown(result.retryAfterSeconds);
+        }
         throw new Error(result.message || "Unable to send OTP.");
       }
 
       setForgotPasswordRequestId(result.requestId);
       setForgotPasswordMaskedEmail(result.maskedEmail || "");
+      setResendCooldown(result.resendCooldownSeconds || 60);
       setForgotPasswordMessage(result.message || "OTP sent to your registered email.");
       setForgotPasswordStep("verify");
     } catch (submissionError) {
@@ -283,6 +302,11 @@ export function AdminLoginForm() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function handleForgotPasswordRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await submitForgotPasswordRequest();
   }
 
   async function handleForgotPasswordVerify(event: React.FormEvent<HTMLFormElement>) {
@@ -529,6 +553,14 @@ export function AdminLoginForm() {
             className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
           >
             Change Details
+          </button>
+          <button
+            type="button"
+            onClick={() => void submitForgotPasswordRequest()}
+            disabled={isSubmitting || resendCooldown > 0}
+            className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : "Resend OTP"}
           </button>
         </div>
       </form>

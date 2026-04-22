@@ -1,6 +1,9 @@
 import bcrypt from "bcryptjs";
 import { pool, query } from "./db.js";
 
+const PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = 60;
+const PASSWORD_RESET_MAX_ATTEMPTS = 5;
+
 function sanitizeEducationDetails(entries) {
   if (!Array.isArray(entries)) {
     return [];
@@ -931,6 +934,30 @@ export async function findEmployeeForPasswordReset(identifier, dateOfBirth) {
 }
 
 export async function createEmployeePasswordResetRequest(employeeId, otp) {
+  const latestRequestResult = await query(
+    `select id, created_at
+     from employee_password_reset_requests
+     where employee_id = $1
+     order by created_at desc
+     limit 1`,
+    [employeeId]
+  );
+
+  const latestRequest = latestRequestResult.rows[0];
+  if (latestRequest?.created_at) {
+    const elapsedSeconds = Math.floor(
+      (Date.now() - new Date(latestRequest.created_at).getTime()) / 1000
+    );
+    if (elapsedSeconds < PASSWORD_RESET_RESEND_COOLDOWN_SECONDS) {
+      const retryAfterSeconds = PASSWORD_RESET_RESEND_COOLDOWN_SECONDS - elapsedSeconds;
+      const error = new Error(
+        `Please wait ${retryAfterSeconds} seconds before requesting a new OTP.`
+      );
+      error.retryAfterSeconds = retryAfterSeconds;
+      throw error;
+    }
+  }
+
   await query(
     `update employee_password_reset_requests
      set consumed_at = now(),
@@ -956,6 +983,7 @@ export async function createEmployeePasswordResetRequest(employeeId, otp) {
   return {
     id: result.rows[0]?.id,
     expiresAt: result.rows[0]?.expires_at,
+    resendCooldownSeconds: PASSWORD_RESET_RESEND_COOLDOWN_SECONDS,
   };
 }
 
@@ -1011,19 +1039,35 @@ export async function verifyEmployeePasswordResetOtp({
     throw new Error("This OTP request is no longer active.");
   }
 
+  if (Number(row.attempts || 0) >= PASSWORD_RESET_MAX_ATTEMPTS) {
+    await query(
+      `update employee_password_reset_requests
+       set consumed_at = now(),
+           updated_at = now()
+       where id = $1`,
+      [requestId]
+    );
+    throw new Error("Too many wrong OTP attempts. Please request a new OTP.");
+  }
+
   if (new Date(row.expires_at).getTime() < Date.now()) {
     throw new Error("OTP has expired. Please request a new one.");
   }
 
   const isValidOtp = await bcrypt.compare(String(otp ?? ""), row.otp_hash);
   if (!isValidOtp) {
+    const nextAttempts = Number(row.attempts || 0) + 1;
     await query(
       `update employee_password_reset_requests
        set attempts = attempts + 1,
+           consumed_at = case when attempts + 1 >= $2 then now() else consumed_at end,
            updated_at = now()
        where id = $1`,
-      [requestId]
+      [requestId, PASSWORD_RESET_MAX_ATTEMPTS]
     );
+    if (nextAttempts >= PASSWORD_RESET_MAX_ATTEMPTS) {
+      throw new Error("Too many wrong OTP attempts. Please request a new OTP.");
+    }
     throw new Error("Invalid OTP. Please check the code sent to your email.");
   }
 

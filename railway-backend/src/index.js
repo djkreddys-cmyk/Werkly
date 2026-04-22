@@ -733,12 +733,18 @@ app.post("/auth/forgot-password/request", async (request, response) => {
     return response.json({
       requestId: resetRequest.id,
       maskedEmail: maskEmailAddress(employee.email),
+      resendCooldownSeconds: resetRequest.resendCooldownSeconds,
       message: "OTP sent to your registered email address.",
     });
   } catch (error) {
-    return response.status(500).json({
+    const retryAfterSeconds =
+      error instanceof Error && "retryAfterSeconds" in error
+        ? Number(error.retryAfterSeconds)
+        : null;
+    return response.status(retryAfterSeconds ? 429 : 500).json({
       message:
         error instanceof Error ? error.message : "Unable to start forgot password flow.",
+      retryAfterSeconds,
     });
   }
 });
