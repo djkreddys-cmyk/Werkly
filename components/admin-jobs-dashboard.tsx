@@ -1699,152 +1699,200 @@ export function AdminJobsDashboard({
 
             <form className="mt-6" onSubmit={handleManualCandidateSubmit}>
               <div className="grid gap-4 md:grid-cols-3">
-                <input
-                  className={fieldClassName}
-                  placeholder="Candidate name"
-                  value={manualCandidateForm.candidateName}
-                  onChange={(event) =>
-                    updateManualCandidateField("candidateName", event.target.value)
-                  }
-                  required
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Email"
-                  value={manualCandidateForm.candidateEmail}
-                  onChange={(event) =>
-                    updateManualCandidateField("candidateEmail", event.target.value)
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Phone"
-                  value={manualCandidateForm.candidatePhone}
-                  onChange={(event) =>
-                    updateManualCandidateField("candidatePhone", event.target.value)
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Experience"
-                  value={manualCandidateForm.experience}
-                  onChange={(event) =>
-                    updateManualCandidateField("experience", event.target.value)
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Current company"
-                  value={manualCandidateForm.currentCompany}
-                  onChange={(event) =>
-                    updateManualCandidateField("currentCompany", event.target.value)
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Current location"
-                  value={manualCandidateForm.currentLocation}
-                  onChange={(event) =>
-                    updateManualCandidateField("currentLocation", event.target.value)
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Current designation"
-                  value={manualCandidateForm.currentDesignation}
-                  onChange={(event) =>
-                    updateManualCandidateField("currentDesignation", event.target.value)
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Preferred role"
-                  value={manualCandidateForm.preferredRole}
-                  onChange={(event) =>
-                    updateManualCandidateField("preferredRole", event.target.value)
-                  }
-                />
-                <input
-                  className={fieldClassName}
-                  placeholder="Preferred location"
-                  value={manualCandidateForm.preferredLocation}
-                  onChange={(event) =>
-                    updateManualCandidateField("preferredLocation", event.target.value)
-                  }
-                />
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Candidate Name</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Candidate name"
+                    value={manualCandidateForm.candidateName}
+                    onChange={(event) =>
+                      updateManualCandidateField("candidateName", event.target.value)
+                    }
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Email</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Email"
+                    value={manualCandidateForm.candidateEmail}
+                    onChange={(event) =>
+                      updateManualCandidateField("candidateEmail", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Phone</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Phone"
+                    value={manualCandidateForm.candidatePhone}
+                    onChange={(event) =>
+                      updateManualCandidateField("candidatePhone", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Experience</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Experience"
+                    value={manualCandidateForm.experience}
+                    onChange={(event) =>
+                      updateManualCandidateField("experience", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Current Company</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Current company"
+                    value={manualCandidateForm.currentCompany}
+                    onChange={(event) =>
+                      updateManualCandidateField("currentCompany", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Current Location</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Current location"
+                    value={manualCandidateForm.currentLocation}
+                    onChange={(event) =>
+                      updateManualCandidateField("currentLocation", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Current Designation</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Current designation"
+                    value={manualCandidateForm.currentDesignation}
+                    onChange={(event) =>
+                      updateManualCandidateField("currentDesignation", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Preferred Role</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Preferred role"
+                    value={manualCandidateForm.preferredRole}
+                    onChange={(event) =>
+                      updateManualCandidateField("preferredRole", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Preferred Location</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Preferred location"
+                    value={manualCandidateForm.preferredLocation}
+                    onChange={(event) =>
+                      updateManualCandidateField("preferredLocation", event.target.value)
+                    }
+                  />
+                </label>
                 {roleAccess.fields["candidates.compensation"] ? (
                   <>
-                    <input
-                      className={fieldClassName}
-                      placeholder="Current CTC"
-                      value={manualCandidateForm.currentCtc}
-                      onChange={(event) =>
-                        updateManualCandidateField("currentCtc", event.target.value)
-                      }
-                    />
-                    <input
-                      className={fieldClassName}
-                      placeholder="Expected CTC"
-                      value={manualCandidateForm.expectedCtc}
-                      onChange={(event) =>
-                        updateManualCandidateField("expectedCtc", event.target.value)
-                      }
-                    />
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Current CTC</span>
+                      <input
+                        className={fieldClassName}
+                        placeholder="Current CTC"
+                        value={manualCandidateForm.currentCtc}
+                        onChange={(event) =>
+                          updateManualCandidateField("currentCtc", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Expected CTC</span>
+                      <input
+                        className={fieldClassName}
+                        placeholder="Expected CTC"
+                        value={manualCandidateForm.expectedCtc}
+                        onChange={(event) =>
+                          updateManualCandidateField("expectedCtc", event.target.value)
+                        }
+                      />
+                    </label>
                   </>
                 ) : null}
-                <input
-                  className={fieldClassName}
-                  placeholder="Preferred sector"
-                  value={manualCandidateForm.preferredSector}
-                  onChange={(event) =>
-                    updateManualCandidateField("preferredSector", event.target.value)
-                  }
-                />
-                <select
-                  className={fieldClassName}
-                  value={manualCandidateForm.sourceType}
-                  onChange={(event) =>
-                    updateManualCandidateField("sourceType", event.target.value)
-                  }
-                >
-                  {manualSourceOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className={fieldClassName}
-                  value={manualCandidateForm.initialStage}
-                  onChange={(event) =>
-                    updateManualCandidateField(
-                      "initialStage",
-                      event.target.value as JobApplicationStage
-                    )
-                  }
-                >
-                  {applicationStages.map((stage) => (
-                    <option key={stage} value={stage}>
-                      {stage.charAt(0).toUpperCase() + stage.slice(1)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={fieldClassName}
-                  type="date"
-                  value={manualCandidateForm.stageDate}
-                  onChange={(event) =>
-                    updateManualCandidateField("stageDate", event.target.value)
-                  }
-                />
-                <textarea
-                  className={`${fieldClassName} min-h-[120px] resize-y md:col-span-3`}
-                  placeholder="Initial stage remarks"
-                  value={manualCandidateForm.stageNote}
-                  onChange={(event) =>
-                    updateManualCandidateField("stageNote", event.target.value)
-                  }
-                />
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Preferred Sector</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Preferred sector"
+                    value={manualCandidateForm.preferredSector}
+                    onChange={(event) =>
+                      updateManualCandidateField("preferredSector", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Source</span>
+                  <select
+                    className={fieldClassName}
+                    value={manualCandidateForm.sourceType}
+                    onChange={(event) =>
+                      updateManualCandidateField("sourceType", event.target.value)
+                    }
+                  >
+                    {manualSourceOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Initial Stage</span>
+                  <select
+                    className={fieldClassName}
+                    value={manualCandidateForm.initialStage}
+                    onChange={(event) =>
+                      updateManualCandidateField(
+                        "initialStage",
+                        event.target.value as JobApplicationStage
+                      )
+                    }
+                  >
+                    {applicationStages.map((stage) => (
+                      <option key={stage} value={stage}>
+                        {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Stage Effective Date</span>
+                  <input
+                    className={fieldClassName}
+                    type="date"
+                    value={manualCandidateForm.stageDate}
+                    onChange={(event) =>
+                      updateManualCandidateField("stageDate", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block md:col-span-3">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Stage Remarks</span>
+                  <textarea
+                    className={`${fieldClassName} min-h-[120px] resize-y`}
+                    placeholder="Initial stage remarks"
+                    value={manualCandidateForm.stageNote}
+                    onChange={(event) =>
+                      updateManualCandidateField("stageNote", event.target.value)
+                    }
+                  />
+                </label>
               </div>
 
               <div className="mt-4 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">

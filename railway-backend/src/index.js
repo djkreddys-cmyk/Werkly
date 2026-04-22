@@ -85,6 +85,7 @@ import {
   ensureShiftSchema,
   listShiftAssignments,
   listShifts,
+  updateShiftAssignment,
 } from "./shifts.js";
 import {
   createManualJobApplication,
@@ -2111,6 +2112,61 @@ app.post("/admin/shifts/assignments", requireAdmin, async (request, response) =>
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to assign shift.",
+    });
+  }
+});
+
+app.put("/admin/shifts/assignments/:id", requireAdmin, async (request, response) => {
+  try {
+    const {
+      employeeId,
+      shiftId,
+      effectiveFromDate,
+      effectiveToDate,
+      assignmentNote,
+    } = request.body ?? {};
+
+    if (!employeeId || !shiftId || !effectiveFromDate) {
+      return response.status(400).json({
+        message: "Employee, shift, and effective from date are required.",
+      });
+    }
+
+    const previousAssignment = (await listShiftAssignments()).find(
+      (assignment) => assignment.id === request.params.id
+    );
+
+    const assignment = await updateShiftAssignment(request.params.id, {
+      employeeId,
+      shiftId,
+      effectiveFromDate,
+      effectiveToDate,
+      assignmentNote,
+    });
+
+    if (!assignment) {
+      return response.status(404).json({ message: "Shift assignment was not found." });
+    }
+
+    await createAuditLog({
+      actionType: "shift.assignment.updated",
+      entityType: "shift-assignment",
+      entityId: assignment.id,
+      ...getActorDetails(request),
+      beforeData: previousAssignment || {},
+      afterData: assignment,
+      metadata: {
+        shiftId: assignment.shiftId,
+        shiftName: assignment.shiftName,
+        employeeId: assignment.employeeId,
+        employeeName: assignment.employeeName,
+      },
+    });
+
+    response.json(assignment);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update shift assignment.",
     });
   }
 });

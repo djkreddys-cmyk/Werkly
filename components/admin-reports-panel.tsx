@@ -15,6 +15,7 @@ import type {
   JobApplicationStageHistory,
   JobSummary,
 } from "@/lib/jobs";
+import type { ShiftAssignmentRecord } from "@/lib/shifts";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 type ReportModule = "overview" | "hr" | "jobs" | "candidates" | "clients";
@@ -40,6 +41,7 @@ type ReportState = {
   activity: ScreenActivityRecord[];
   enquiries: CandidateEnquiry[];
   jobs: JobSummary[];
+  shiftAssignments: ShiftAssignmentRecord[];
   transferRequests: ClientTransferRequestRecord[];
 };
 
@@ -252,6 +254,32 @@ function formatDuration(totalMs: number) {
   const minutes = totalMinutes % 60;
 
   return `${hours}h ${minutes}m`;
+}
+
+function getDayEndMs(dateKey: string) {
+  return new Date(`${dateKey}T23:59:59.999`).getTime();
+}
+
+function getShiftWindowEndMs(
+  assignment: ShiftAssignmentRecord | undefined,
+  reportDate: string
+) {
+  if (!assignment?.shiftEndTime) {
+    return null;
+  }
+
+  const startMs = new Date(`${reportDate}T${assignment.shiftStartTime || "00:00"}:00`).getTime();
+  let endMs = new Date(`${reportDate}T${assignment.shiftEndTime}:00`).getTime();
+
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+    return null;
+  }
+
+  if (endMs <= startMs) {
+    endMs += 24 * 60 * 60 * 1000;
+  }
+
+  return endMs + assignment.graceMinutes * 60 * 1000;
 }
 
 function getCandidateSourceLabel(application: JobApplication) {
@@ -702,6 +730,7 @@ export function AdminReportsPanel({
     activity: [],
     enquiries: [],
     jobs: [],
+    shiftAssignments: [],
     transferRequests: [],
   });
   const [isLoading, setIsLoading] = useState(Boolean(token));
@@ -743,6 +772,7 @@ export function AdminReportsPanel({
       loadJson("/api/admin/activity"),
       loadJson("/api/admin/candidate-enquiries"),
       loadJson("/api/admin/jobs"),
+      loadJson("/api/admin/shifts/assignments"),
       loadJson("/api/admin/client-transfer-requests"),
     ])
       .then(
@@ -755,6 +785,7 @@ export function AdminReportsPanel({
           activityResult,
           enquiriesResult,
           jobsResult,
+          shiftAssignmentsResult,
           transferRequestsResult,
         ]) => {
           setState({
@@ -766,6 +797,7 @@ export function AdminReportsPanel({
             activity: activityResult.activity ?? [],
             enquiries: enquiriesResult.enquiries ?? [],
             jobs: jobsResult.jobs ?? [],
+            shiftAssignments: shiftAssignmentsResult.assignments ?? [],
             transferRequests: transferRequestsResult.requests ?? [],
           });
         }
@@ -972,6 +1004,40 @@ export function AdminReportsPanel({
       string,
       { activeSeconds: number; idleSeconds: number; lastSeenAt?: string }
     >();
+    const sessionActivityMap = new Map<
+      string,
+      { activeSeconds: number; idleSeconds: number; lastSeenAt?: string }
+    >();
+
+    const findShiftAssignment = (
+      userId: string | undefined,
+      userIdentifier: string,
+      reportDate: string
+    ) => {
+      return state.shiftAssignments
+        .filter((assignment) => {
+          const sameEmployee =
+            assignment.employeeId === userId ||
+            assignment.employeeCode === userIdentifier ||
+            assignment.employeeEmail === userIdentifier;
+          if (!sameEmployee) {
+            return false;
+          }
+
+          const startDate = assignment.effectiveFromDate?.slice(0, 10);
+          const endDate = assignment.effectiveToDate?.slice(0, 10);
+          if (!startDate) {
+            return false;
+          }
+
+          return startDate <= reportDate && (!endDate || endDate >= reportDate);
+        })
+        .sort(
+          (first, second) =>
+            new Date(second.effectiveFromDate).getTime() -
+            new Date(first.effectiveFromDate).getTime()
+        )[0];
+    };
 
     visibleActivity.forEach((entry) => {
       const reportDate = entry.lastSeenAt.slice(0, 10);
@@ -992,6 +1058,21 @@ export function AdminReportsPanel({
       }
 
       activitySummaryMap.set(summaryKey, existing);
+
+      const sessionKey = `${entry.sessionId}-${reportDate}`;
+      const existingSession = sessionActivityMap.get(sessionKey) ?? {
+        activeSeconds: 0,
+        idleSeconds: 0,
+      };
+      existingSession.activeSeconds += entry.activeSeconds;
+      existingSession.idleSeconds += entry.idleSeconds;
+      if (
+        !existingSession.lastSeenAt ||
+        new Date(entry.lastSeenAt).getTime() > new Date(existingSession.lastSeenAt).getTime()
+      ) {
+        existingSession.lastSeenAt = entry.lastSeenAt;
+      }
+      sessionActivityMap.set(sessionKey, existingSession);
     });
 
     visibleAttendance.forEach((session) => {
@@ -1000,8 +1081,51 @@ export function AdminReportsPanel({
       const summaryKey = `${userKey}-${reportDate}`;
       const existing = summaries.get(summaryKey);
       const loginTime = new Date(session.loginAt).getTime();
-      const logoutTime = session.logoutAt ? new Date(session.logoutAt).getTime() : null;
-      const workedMs = logoutTime && logoutTime >= loginTime ? logoutTime - loginTime : 0;
+      const sessionActivity = sessionActivityMap.get(`${session.sessionId}-${reportDate}`);
+      const shiftAssignment = findShiftAssignment(
+        session.userId,
+        session.userIdentifier,
+        reportDate
+      );
+      const dayEndMs = getDayEndMs(reportDate);
+      const shiftEndMs = getShiftWindowEndMs(shiftAssignment, reportDate);
+      const lastSeenMs = sessionActivity?.lastSeenAt
+        ? new Date(sessionActivity.lastSeenAt).getTime()
+        : null;
+
+      let effectiveLogoutMs = session.logoutAt ? new Date(session.logoutAt).getTime() : null;
+      let sessionAutoLoggedOut = false;
+
+      if (lastSeenMs && !Number.isNaN(lastSeenMs)) {
+        const inactivityLogoutMs = lastSeenMs + AUTO_LOGOUT_THRESHOLD_MS;
+
+        if (!effectiveLogoutMs) {
+          if (reportGeneratedAt - lastSeenMs >= AUTO_LOGOUT_THRESHOLD_MS) {
+            effectiveLogoutMs = inactivityLogoutMs;
+            sessionAutoLoggedOut = true;
+          }
+        } else if (inactivityLogoutMs < effectiveLogoutMs) {
+          effectiveLogoutMs = inactivityLogoutMs;
+          sessionAutoLoggedOut = true;
+        }
+      }
+
+      if (effectiveLogoutMs) {
+        effectiveLogoutMs = Math.min(effectiveLogoutMs, dayEndMs);
+        if (shiftEndMs) {
+          effectiveLogoutMs = Math.min(effectiveLogoutMs, shiftEndMs);
+        }
+      }
+
+      const workedMs =
+        effectiveLogoutMs && effectiveLogoutMs >= loginTime ? effectiveLogoutMs - loginTime : 0;
+      const effectiveLogoutAt = effectiveLogoutMs
+        ? new Date(effectiveLogoutMs).toISOString()
+        : undefined;
+      const inferredIdleSeconds =
+        sessionAutoLoggedOut && lastSeenMs && effectiveLogoutMs
+          ? Math.max(0, Math.floor((effectiveLogoutMs - lastSeenMs) / 1000))
+          : 0;
 
       if (!existing) {
         summaries.set(summaryKey, {
@@ -1011,86 +1135,72 @@ export function AdminReportsPanel({
           userName: session.userName || session.userIdentifier,
           reportDate,
           firstLoginAt: session.loginAt,
-          lastLogoutAt: session.logoutAt,
+          lastLogoutAt: effectiveLogoutAt,
           totalWorkedMs: workedMs,
-          activeSessionCount: session.logoutAt ? 0 : 1,
+          activeSessionCount: effectiveLogoutAt ? 0 : 1,
           sessions: [session],
           screenActiveSeconds: activitySummaryMap.get(summaryKey)?.activeSeconds ?? 0,
-          screenIdleSeconds: activitySummaryMap.get(summaryKey)?.idleSeconds ?? 0,
+          screenIdleSeconds: Math.max(
+            activitySummaryMap.get(summaryKey)?.idleSeconds ?? 0,
+            inferredIdleSeconds
+          ),
           lastSeenAt: activitySummaryMap.get(summaryKey)?.lastSeenAt,
+          isAutoLoggedOut: sessionAutoLoggedOut,
         });
         return;
       }
 
       existing.sessions.push(session);
       existing.totalWorkedMs += workedMs;
-      existing.activeSessionCount += session.logoutAt ? 0 : 1;
+      existing.activeSessionCount += effectiveLogoutAt ? 0 : 1;
 
       if (new Date(session.loginAt).getTime() < new Date(existing.firstLoginAt).getTime()) {
         existing.firstLoginAt = session.loginAt;
       }
 
       if (
-        session.logoutAt &&
+        effectiveLogoutAt &&
         (!existing.lastLogoutAt ||
-          new Date(session.logoutAt).getTime() > new Date(existing.lastLogoutAt).getTime())
+          new Date(effectiveLogoutAt).getTime() > new Date(existing.lastLogoutAt).getTime())
       ) {
-        existing.lastLogoutAt = session.logoutAt;
+        existing.lastLogoutAt = effectiveLogoutAt;
       }
 
       existing.screenActiveSeconds = activitySummaryMap.get(summaryKey)?.activeSeconds ?? 0;
-      existing.screenIdleSeconds = activitySummaryMap.get(summaryKey)?.idleSeconds ?? 0;
+      existing.screenIdleSeconds = Math.max(
+        activitySummaryMap.get(summaryKey)?.idleSeconds ?? 0,
+        inferredIdleSeconds
+      );
       existing.lastSeenAt = activitySummaryMap.get(summaryKey)?.lastSeenAt;
+      existing.isAutoLoggedOut = existing.isAutoLoggedOut || sessionAutoLoggedOut;
     });
 
     return Array.from(summaries.values())
       .map((summary) => {
         let effectiveLastLogoutAt = summary.lastLogoutAt;
-        let isAutoLoggedOut = false;
+        let effectiveIdleSeconds = summary.screenIdleSeconds;
+        let isAutoLoggedOut = Boolean(summary.isAutoLoggedOut);
 
-        if (
-          !summary.lastLogoutAt &&
-          summary.lastSeenAt &&
-          reportGeneratedAt - new Date(summary.lastSeenAt).getTime() >= AUTO_LOGOUT_THRESHOLD_MS
-        ) {
-          effectiveLastLogoutAt = new Date(
-            new Date(summary.lastSeenAt).getTime() + AUTO_LOGOUT_THRESHOLD_MS
-          ).toISOString();
-          isAutoLoggedOut = true;
-        }
-
-        const recalculatedWorkedMs = summary.sessions.reduce((total, session) => {
-          const loginAtMs = new Date(session.loginAt).getTime();
-          const effectiveLogoutMs = session.logoutAt
-            ? new Date(session.logoutAt).getTime()
-            : effectiveLastLogoutAt
-              ? new Date(effectiveLastLogoutAt).getTime()
-              : null;
-
-          if (!effectiveLogoutMs || effectiveLogoutMs < loginAtMs) {
-            return total;
+        if (!effectiveLastLogoutAt && summary.lastSeenAt) {
+          const lastSeenMs = new Date(summary.lastSeenAt).getTime();
+          if (reportGeneratedAt - lastSeenMs >= AUTO_LOGOUT_THRESHOLD_MS) {
+            const fallbackLogoutMs = Math.min(
+              lastSeenMs + AUTO_LOGOUT_THRESHOLD_MS,
+              getDayEndMs(summary.reportDate)
+            );
+            effectiveLastLogoutAt = new Date(fallbackLogoutMs).toISOString();
+            effectiveIdleSeconds = Math.max(
+              effectiveIdleSeconds,
+              Math.max(0, Math.floor((fallbackLogoutMs - lastSeenMs) / 1000))
+            );
+            isAutoLoggedOut = true;
           }
-
-          return total + (effectiveLogoutMs - loginAtMs);
-        }, 0);
-
-        const inferredIdleSeconds =
-          isAutoLoggedOut && summary.lastSeenAt && effectiveLastLogoutAt
-            ? Math.max(
-                0,
-                Math.floor(
-                  (new Date(effectiveLastLogoutAt).getTime() -
-                    new Date(summary.lastSeenAt).getTime()) /
-                    1000
-                )
-              )
-            : 0;
+        }
 
         return {
           ...summary,
           lastLogoutAt: effectiveLastLogoutAt,
-          totalWorkedMs: recalculatedWorkedMs,
-          screenIdleSeconds: Math.max(summary.screenIdleSeconds, inferredIdleSeconds),
+          screenIdleSeconds: effectiveIdleSeconds,
           activeSessionCount: effectiveLastLogoutAt ? 0 : summary.activeSessionCount,
           isAutoLoggedOut,
         };
@@ -1103,7 +1213,7 @@ export function AdminReportsPanel({
 
         return a.userName.localeCompare(b.userName);
       });
-  }, [reportGeneratedAt, visibleActivity, visibleAttendance]);
+  }, [reportGeneratedAt, state.shiftAssignments, visibleActivity, visibleAttendance]);
 
   const employeeActivityRows = useMemo(() => {
     const todayKey = new Date().toISOString().slice(0, 10);

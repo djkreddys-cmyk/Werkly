@@ -82,6 +82,7 @@ export function AdminShiftsPanel() {
   );
   const [assignmentToDate, setAssignmentToDate] = useState("");
   const [assignmentNote, setAssignmentNote] = useState("");
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
 
   const canManageShifts = authType === "admin" || authRole === "super-admin";
 
@@ -152,6 +153,26 @@ export function AdminShiftsPanel() {
     );
   }
 
+  function resetAssignmentForm() {
+    setEditingAssignmentId(null);
+    setAssignmentEmployeeId("");
+    setAssignmentShiftId("");
+    setAssignmentFromDate(new Date().toISOString().slice(0, 10));
+    setAssignmentToDate("");
+    setAssignmentNote("");
+  }
+
+  function startEditingAssignment(assignment: ShiftAssignmentRecord) {
+    setEditingAssignmentId(assignment.id);
+    setAssignmentEmployeeId(assignment.employeeId);
+    setAssignmentShiftId(assignment.shiftId);
+    setAssignmentFromDate(assignment.effectiveFromDate?.slice(0, 10) || "");
+    setAssignmentToDate(assignment.effectiveToDate?.slice(0, 10) || "");
+    setAssignmentNote(assignment.assignmentNote || "");
+    setError("");
+    setSuccess("");
+  }
+
   async function handleCreateShift(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -215,41 +236,68 @@ export function AdminShiftsPanel() {
     setIsSavingAssignment(true);
 
     try {
-      const response = await fetch("/api/admin/shifts/assignments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          employeeId: assignmentEmployeeId,
-          shiftId: assignmentShiftId,
-          effectiveFromDate: assignmentFromDate,
-          effectiveToDate: assignmentToDate || undefined,
-          assignmentNote,
-        }),
-      });
+      const isEditing = Boolean(editingAssignmentId);
+      const response = await fetch(
+        isEditing
+          ? `/api/admin/shifts/assignments/${editingAssignmentId}`
+          : "/api/admin/shifts/assignments",
+        {
+          method: isEditing ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            employeeId: assignmentEmployeeId,
+            shiftId: assignmentShiftId,
+            effectiveFromDate: assignmentFromDate,
+            effectiveToDate: assignmentToDate || undefined,
+            assignmentNote,
+          }),
+        }
+      );
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Unable to assign shift.");
+        throw new Error(
+          result.message ||
+            (isEditing
+              ? "Unable to update shift assignment."
+              : "Unable to assign shift.")
+        );
       }
 
-      setAssignmentEmployeeId("");
-      setAssignmentShiftId("");
-      setAssignmentFromDate(new Date().toISOString().slice(0, 10));
-      setAssignmentToDate("");
-      setAssignmentNote("");
-      setSuccess("Shift assigned successfully.");
+      resetAssignmentForm();
+      setSuccess(
+        isEditing
+          ? "Shift assignment updated successfully."
+          : "Shift assigned successfully."
+      );
       await loadState();
     } catch (submissionError) {
       setError(
-        submissionError instanceof Error ? submissionError.message : "Unable to assign shift."
+        submissionError instanceof Error
+          ? submissionError.message
+          : editingAssignmentId
+            ? "Unable to update shift assignment."
+            : "Unable to assign shift."
       );
     } finally {
       setIsSavingAssignment(false);
     }
   }
+
+  const assignmentFormTitle = editingAssignmentId
+    ? "Edit assigned shift period."
+    : "Assign shifts to staff with date ranges.";
+  const assignmentFormDescription = editingAssignmentId
+    ? "Update the employee, shift, effective dates, or remarks for this assignment."
+    : "This supports future shift changes because each assignment is stored separately with an effective period.";
+  const assignmentSubmitLabel = isSavingAssignment
+    ? "Saving..."
+    : editingAssignmentId
+      ? "Update Shift Assignment"
+      : "Assign Shift";
 
   return (
     <div className="space-y-6">
@@ -275,51 +323,81 @@ export function AdminShiftsPanel() {
               Add as many shift templates as needed for future teams, timings, and locations.
             </p>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <input
-                className={inputClassName}
-                value={shiftName}
-                onChange={(event) => setShiftName(event.target.value)}
-                placeholder="General Shift"
-                required
-              />
-              <input
-                className={inputClassName}
-                value={shiftCode}
-                onChange={(event) => setShiftCode(event.target.value)}
-                placeholder="GEN-A"
-              />
-              <input
-                className={inputClassName}
-                type="time"
-                value={shiftStartTime}
-                onChange={(event) => setShiftStartTime(event.target.value)}
-                required
-              />
-              <input
-                className={inputClassName}
-                type="time"
-                value={shiftEndTime}
-                onChange={(event) => setShiftEndTime(event.target.value)}
-                required
-              />
-              <input
-                className={inputClassName}
-                type="number"
-                min="0"
-                step="5"
-                value={shiftBreakMinutes}
-                onChange={(event) => setShiftBreakMinutes(event.target.value)}
-                placeholder="Break minutes"
-              />
-              <input
-                className={inputClassName}
-                type="number"
-                min="0"
-                step="5"
-                value={shiftGraceMinutes}
-                onChange={(event) => setShiftGraceMinutes(event.target.value)}
-                placeholder="Grace minutes"
-              />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Shift Name
+                </span>
+                <input
+                  className={inputClassName}
+                  value={shiftName}
+                  onChange={(event) => setShiftName(event.target.value)}
+                  placeholder="General Shift"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Shift Code
+                </span>
+                <input
+                  className={inputClassName}
+                  value={shiftCode}
+                  onChange={(event) => setShiftCode(event.target.value)}
+                  placeholder="GEN-A"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Start Time
+                </span>
+                <input
+                  className={inputClassName}
+                  type="time"
+                  value={shiftStartTime}
+                  onChange={(event) => setShiftStartTime(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  End Time
+                </span>
+                <input
+                  className={inputClassName}
+                  type="time"
+                  value={shiftEndTime}
+                  onChange={(event) => setShiftEndTime(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Break Minutes
+                </span>
+                <input
+                  className={inputClassName}
+                  type="number"
+                  min="0"
+                  step="5"
+                  value={shiftBreakMinutes}
+                  onChange={(event) => setShiftBreakMinutes(event.target.value)}
+                  placeholder="Break minutes"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Grace Minutes
+                </span>
+                <input
+                  className={inputClassName}
+                  type="number"
+                  min="0"
+                  step="5"
+                  value={shiftGraceMinutes}
+                  onChange={(event) => setShiftGraceMinutes(event.target.value)}
+                  placeholder="Grace minutes"
+                />
+              </label>
               <div className="md:col-span-2">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                   Working Days
@@ -344,12 +422,17 @@ export function AdminShiftsPanel() {
                   })}
                 </div>
               </div>
-              <textarea
-                className={`${inputClassName} min-h-28 resize-y md:col-span-2`}
-                value={shiftNotes}
-                onChange={(event) => setShiftNotes(event.target.value)}
-                placeholder="Optional shift notes, location notes, or future staffing comments"
-              />
+              <label className="block md:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Description / Notes
+                </span>
+                <textarea
+                  className={`${inputClassName} min-h-28 resize-y`}
+                  value={shiftNotes}
+                  onChange={(event) => setShiftNotes(event.target.value)}
+                  placeholder="Optional shift notes, location notes, or future staffing comments"
+                />
+              </label>
             </div>
             <button
               type="submit"
@@ -363,70 +446,104 @@ export function AdminShiftsPanel() {
           <form className="accent-card p-7" onSubmit={handleAssignShift}>
             <p className="eyebrow">Shift Assignment</p>
             <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-              Assign shifts to staff with date ranges.
+              {assignmentFormTitle}
             </h2>
-            <p className="muted-copy mt-3 text-sm">
-              This supports future shift changes because each assignment is stored separately with an effective period.
-            </p>
+            <p className="muted-copy mt-3 text-sm">{assignmentFormDescription}</p>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <select
-                className={inputClassName}
-                value={assignmentEmployeeId}
-                onChange={(event) => setAssignmentEmployeeId(event.target.value)}
-                required
-              >
-                <option value="">Select employee</option>
-                {state.employees
-                  .filter((employee) => employee.status === "active")
-                  .map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.fullName}
-                      {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
-                    </option>
-                  ))}
-              </select>
-              <select
-                className={inputClassName}
-                value={assignmentShiftId}
-                onChange={(event) => setAssignmentShiftId(event.target.value)}
-                required
-              >
-                <option value="">Select shift</option>
-                {state.shifts
-                  .filter((shift) => shift.isActive)
-                  .map((shift) => (
-                    <option key={shift.id} value={shift.id}>
-                      {shift.name} ({formatTimeLabel(shift.startTime)} - {formatTimeLabel(shift.endTime)})
-                    </option>
-                  ))}
-              </select>
-              <input
-                className={inputClassName}
-                type="date"
-                value={assignmentFromDate}
-                onChange={(event) => setAssignmentFromDate(event.target.value)}
-                required
-              />
-              <input
-                className={inputClassName}
-                type="date"
-                value={assignmentToDate}
-                onChange={(event) => setAssignmentToDate(event.target.value)}
-              />
-              <textarea
-                className={`${inputClassName} min-h-28 resize-y md:col-span-2`}
-                value={assignmentNote}
-                onChange={(event) => setAssignmentNote(event.target.value)}
-                placeholder="Optional note like week rotation, branch coverage, or temporary support"
-              />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Employee
+                </span>
+                <select
+                  className={inputClassName}
+                  value={assignmentEmployeeId}
+                  onChange={(event) => setAssignmentEmployeeId(event.target.value)}
+                  required
+                >
+                  <option value="">Select employee</option>
+                  {state.employees
+                    .filter((employee) => employee.status === "active")
+                    .map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.fullName}
+                        {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Shift
+                </span>
+                <select
+                  className={inputClassName}
+                  value={assignmentShiftId}
+                  onChange={(event) => setAssignmentShiftId(event.target.value)}
+                  required
+                >
+                  <option value="">Select shift</option>
+                  {state.shifts
+                    .filter((shift) => shift.isActive)
+                    .map((shift) => (
+                      <option key={shift.id} value={shift.id}>
+                        {shift.name} ({formatTimeLabel(shift.startTime)} - {formatTimeLabel(shift.endTime)})
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Effective From Date
+                </span>
+                <input
+                  className={inputClassName}
+                  type="date"
+                  value={assignmentFromDate}
+                  onChange={(event) => setAssignmentFromDate(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Effective To Date
+                </span>
+                <input
+                  className={inputClassName}
+                  type="date"
+                  value={assignmentToDate}
+                  onChange={(event) => setAssignmentToDate(event.target.value)}
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Description / Remarks
+                </span>
+                <textarea
+                  className={`${inputClassName} min-h-28 resize-y`}
+                  value={assignmentNote}
+                  onChange={(event) => setAssignmentNote(event.target.value)}
+                  placeholder="Optional note like week rotation, branch coverage, or temporary support"
+                />
+              </label>
             </div>
-            <button
-              type="submit"
-              disabled={isSavingAssignment}
-              className="mt-6 rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isSavingAssignment ? "Saving..." : "Assign Shift"}
-            </button>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="submit"
+                disabled={isSavingAssignment}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {assignmentSubmitLabel}
+              </button>
+              {editingAssignmentId ? (
+                <button
+                  type="button"
+                  onClick={resetAssignmentForm}
+                  className="rounded-2xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                >
+                  Cancel Edit
+                </button>
+              ) : null}
+            </div>
           </form>
         </section>
       ) : null}
@@ -524,6 +641,7 @@ export function AdminShiftsPanel() {
                       "Effective Period",
                       "Working Days",
                       "Remarks",
+                      ...(canManageShifts ? ["Actions"] : []),
                     ].map((heading) => (
                       <th
                         key={heading}
@@ -588,6 +706,17 @@ export function AdminShiftsPanel() {
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {assignment.assignmentNote || "No remarks added"}
                       </td>
+                      {canManageShifts ? (
+                        <td className="px-4 py-4 text-sm">
+                          <button
+                            type="button"
+                            onClick={() => startEditingAssignment(assignment)}
+                            className="rounded-full border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>

@@ -128,3 +128,23 @@ export async function createShiftAssignment(
     },
   });
 }
+
+export async function updateShiftAssignment(
+  assignmentId: string,
+  payload: {
+    employeeId: string;
+    shiftId: string;
+    effectiveFromDate: string;
+    effectiveToDate?: string;
+    assignmentNote?: string;
+  },
+  token: string
+) {
+  return readJson<ShiftAssignmentRecord>(`/admin/shifts/assignments/${assignmentId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}

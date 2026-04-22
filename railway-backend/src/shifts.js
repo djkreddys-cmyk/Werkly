@@ -224,3 +224,27 @@ export async function createShiftAssignment(payload) {
   const assignments = await listShiftAssignments();
   return assignments.find((assignment) => assignment.id === assignmentId) ?? null;
 }
+
+export async function updateShiftAssignment(assignmentId, payload) {
+  await query(
+    `update employee_shift_assignments
+     set employee_id = $2,
+         shift_id = $3,
+         effective_from_date = $4::date,
+         effective_to_date = $5::date,
+         assignment_note = $6,
+         updated_at = now()
+     where id = $1`,
+    [
+      assignmentId,
+      payload.employeeId,
+      payload.shiftId,
+      payload.effectiveFromDate,
+      payload.effectiveToDate || null,
+      String(payload.assignmentNote ?? "").trim() || null,
+    ]
+  );
+
+  const assignments = await listShiftAssignments();
+  return assignments.find((assignment) => assignment.id === assignmentId) ?? null;
+}
