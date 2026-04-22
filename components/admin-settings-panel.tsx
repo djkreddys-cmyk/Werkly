@@ -8,6 +8,7 @@ import {
   defaultCrmAccessControl,
   mergeCrmAccessControl,
   normalizeEmployeeAccessOverrides,
+  type CrmAccessRoleKey,
   type CrmEmployeeAccessOverride,
 } from "@/lib/access-control";
 import type { CrmKpiSettings, EmployeeRecord } from "@/lib/crm";
