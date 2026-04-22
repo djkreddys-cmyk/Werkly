@@ -629,12 +629,18 @@ export function AdminJobsDashboard({
             <option value="open">Open</option>
             <option value="closed">Closed</option>
           </select>
-          <input
-            className={fieldClassName}
-            type="date"
-            value={form.lastDateToApply}
-            onChange={(event) => updateForm("lastDateToApply", event.target.value)}
-          />
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              Last Date To Apply
+            </span>
+            <input
+              className={fieldClassName}
+              type="date"
+              aria-label="Last date to apply"
+              value={form.lastDateToApply}
+              onChange={(event) => updateForm("lastDateToApply", event.target.value)}
+            />
+          </label>
         </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
