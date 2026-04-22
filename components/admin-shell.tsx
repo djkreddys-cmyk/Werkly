@@ -36,6 +36,7 @@ const moduleSections: Array<{
       { href: "/admin/employees/new", label: "Employee Creation" },
       { href: "/admin/employees/existing", label: "Existing Employees" },
       { href: "/admin/leaves", label: "Leave Types & Access" },
+      { href: "/admin/shifts", label: "Shifts & Assignment" },
       { href: "/admin/reports/hr", label: "Reports" },
     ],
   },
@@ -208,6 +209,7 @@ function getActiveModuleKey(pathname: string) {
   if (
     pathname.startsWith("/admin/employees") ||
     pathname.startsWith("/admin/leaves") ||
+    pathname.startsWith("/admin/shifts") ||
     pathname.startsWith("/admin/reports/hr")
   ) {
     return "hr";

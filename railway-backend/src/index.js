@@ -80,6 +80,13 @@ import {
   upsertLeaveAssignment,
 } from "./leave.js";
 import {
+  createShift,
+  createShiftAssignment,
+  ensureShiftSchema,
+  listShiftAssignments,
+  listShifts,
+} from "./shifts.js";
+import {
   createManualJobApplication,
   createCandidateEnquiry,
   createJob,
@@ -1983,6 +1990,131 @@ app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) =>
   }
 });
 
+app.get("/admin/shifts", requireInternalUser, async (_request, response) => {
+  try {
+    const shifts = await listShifts();
+    response.json({ shifts });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load shifts.",
+    });
+  }
+});
+
+app.post("/admin/shifts", requireAdmin, async (request, response) => {
+  try {
+    const {
+      name,
+      code,
+      startTime,
+      endTime,
+      breakMinutes,
+      graceMinutes,
+      workingDays,
+      notes,
+      isActive,
+    } = request.body ?? {};
+
+    if (!name || !startTime || !endTime) {
+      return response.status(400).json({
+        message: "Shift name, start time, and end time are required.",
+      });
+    }
+
+    const shift = await createShift({
+      name,
+      code,
+      startTime,
+      endTime,
+      breakMinutes,
+      graceMinutes,
+      workingDays,
+      notes,
+      isActive,
+    });
+
+    await createAuditLog({
+      actionType: "shift.created",
+      entityType: "shift",
+      entityId: shift.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: shift,
+    });
+
+    response.status(201).json(shift);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to create shift.",
+    });
+  }
+});
+
+app.get("/admin/shifts/assignments", requireInternalUser, async (request, response) => {
+  try {
+    const assignments = await listShiftAssignments(
+      request.user?.type === "employee" ? request.user.id : null
+    );
+    response.json({ assignments });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load shift assignments.",
+    });
+  }
+});
+
+app.post("/admin/shifts/assignments", requireAdmin, async (request, response) => {
+  try {
+    const {
+      employeeId,
+      shiftId,
+      effectiveFromDate,
+      effectiveToDate,
+      assignmentNote,
+    } = request.body ?? {};
+
+    if (!employeeId || !shiftId || !effectiveFromDate) {
+      return response.status(400).json({
+        message: "Employee, shift, and effective from date are required.",
+      });
+    }
+
+    const assignment = await createShiftAssignment({
+      employeeId,
+      shiftId,
+      effectiveFromDate,
+      effectiveToDate,
+      assignmentNote,
+    });
+
+    if (!assignment) {
+      return response.status(404).json({ message: "Unable to create shift assignment." });
+    }
+
+    await createAuditLog({
+      actionType: "shift.assigned",
+      entityType: "shift-assignment",
+      entityId: assignment.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: assignment,
+      metadata: {
+        shiftId: assignment.shiftId,
+        shiftName: assignment.shiftName,
+        employeeId: assignment.employeeId,
+        employeeName: assignment.employeeName,
+      },
+    });
+
+    response.status(201).json(assignment);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to assign shift.",
+    });
+  }
+});
+
 app.post("/admin/clients", requirePermission("clients.manage"), async (request, response) => {
   try {
     const {
@@ -2920,6 +3052,7 @@ ensureCrmSchema()
   .then(() => ensureJobsSchema())
   .then(() => ensureAuthAuditSchema())
   .then(() => ensureLeaveSchema())
+  .then(() => ensureShiftSchema())
   .then(() => ensureWorkflowSchema())
   .then(() => {
     app.listen(port, () => {
