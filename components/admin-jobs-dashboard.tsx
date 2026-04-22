@@ -162,6 +162,7 @@ export function AdminJobsDashboard({
   const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
   const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
   const [recruiterFilter, setRecruiterFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
   const [jobsPage, setJobsPage] = useState(1);
   const [stageDraft, setStageDraft] = useState<{
     application: JobApplication;
@@ -254,6 +255,10 @@ export function AdminJobsDashboard({
     if (savedRecruiterFilter) {
       setRecruiterFilter(savedRecruiterFilter);
     }
+    const savedClientFilter = window.localStorage.getItem("werklyJobsClientFilter");
+    if (savedClientFilter) {
+      setClientFilter(savedClientFilter);
+    }
   }, [canManageJobs]);
 
   useEffect(() => {
@@ -262,7 +267,8 @@ export function AdminJobsDashboard({
     }
 
     window.localStorage.setItem("werklyJobsRecruiterFilter", recruiterFilter);
-  }, [canManageJobs, recruiterFilter]);
+    window.localStorage.setItem("werklyJobsClientFilter", clientFilter);
+  }, [canManageJobs, clientFilter, recruiterFilter]);
 
   useEffect(() => {
     if (!token) {
@@ -330,20 +336,57 @@ export function AdminJobsDashboard({
   );
 
   const filteredJobs = useMemo(() => {
-    if (recruiterFilter === "all") {
-      return sortedJobs;
+    const recruiterScopedJobs =
+      recruiterFilter === "all"
+        ? sortedJobs
+        : recruiterFilter === "unassigned"
+          ? sortedJobs.filter((job) => !job.recruiterId)
+          : sortedJobs.filter((job) => job.recruiterId === recruiterFilter);
+
+    if (clientFilter === "all") {
+      return recruiterScopedJobs;
     }
 
-    if (recruiterFilter === "unassigned") {
-      return sortedJobs.filter((job) => !job.recruiterId);
+    if (clientFilter === "unassigned") {
+      return recruiterScopedJobs.filter((job) => !job.clientId);
     }
 
-    return sortedJobs.filter((job) => job.recruiterId === recruiterFilter);
+    return recruiterScopedJobs.filter((job) => job.clientId === clientFilter);
+  }, [clientFilter, recruiterFilter, sortedJobs]);
+
+  const recruiterClientOptions = useMemo(() => {
+    const recruiterScopedJobs =
+      recruiterFilter === "all"
+        ? sortedJobs
+        : recruiterFilter === "unassigned"
+          ? sortedJobs.filter((job) => !job.recruiterId)
+          : sortedJobs.filter((job) => job.recruiterId === recruiterFilter);
+
+    const seen = new Map<string, string>();
+    recruiterScopedJobs.forEach((job) => {
+      if (job.clientId && job.clientName && !seen.has(job.clientId)) {
+        seen.set(job.clientId, job.clientName);
+      }
+    });
+
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((first, second) => first.name.localeCompare(second.name));
   }, [recruiterFilter, sortedJobs]);
 
   useEffect(() => {
     setJobsPage(1);
-  }, [recruiterFilter, sortedJobs.length]);
+  }, [clientFilter, recruiterFilter, sortedJobs.length]);
+
+  useEffect(() => {
+    if (
+      clientFilter !== "all" &&
+      clientFilter !== "unassigned" &&
+      !recruiterClientOptions.some((client) => client.id === clientFilter)
+    ) {
+      setClientFilter("all");
+    }
+  }, [clientFilter, recruiterClientOptions]);
 
   const jobsPageSize = 8;
   const jobsPageCount = Math.max(1, Math.ceil(filteredJobs.length / jobsPageSize));
@@ -458,6 +501,7 @@ export function AdminJobsDashboard({
           isShared: canManageJobs,
           filters: {
             recruiterFilter,
+            clientFilter,
             viewMode,
             authType,
           },
@@ -1178,34 +1222,54 @@ export function AdminJobsDashboard({
                 : "Showing only the jobs assigned to your login."}
             </p>
           </div>
-          <div className="w-full max-w-sm lg:sticky lg:top-24">
+          <div className="w-full max-w-5xl lg:sticky lg:top-24">
             {canManageJobs ? (
               <>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                  Filter by recruiter
-                </label>
-                <div className="grid gap-3">
-                  <select
-                    value={recruiterFilter}
-                    onChange={(event) => setRecruiterFilter(event.target.value)}
-                    className={fieldClassName}
-                  >
-                    <option value="all">All recruiters</option>
-                    <option value="unassigned">Unassigned jobs</option>
-                    {employees
-                      .filter((employee) => employee.status === "active")
-                      .map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.fullName}
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto_auto] xl:items-end">
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Filter by Recruiter
+                    </span>
+                    <select
+                      value={recruiterFilter}
+                      onChange={(event) => setRecruiterFilter(event.target.value)}
+                      className={fieldClassName}
+                    >
+                      <option value="all">All recruiters</option>
+                      <option value="unassigned">Unassigned jobs</option>
+                      {employees
+                        .filter((employee) => employee.status === "active")
+                        .map((employee) => (
+                          <option key={employee.id} value={employee.id}>
+                            {employee.fullName}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Filter by Client
+                    </span>
+                    <select
+                      value={clientFilter}
+                      onChange={(event) => setClientFilter(event.target.value)}
+                      className={fieldClassName}
+                    >
+                      <option value="all">All clients</option>
+                      <option value="unassigned">Unassigned clients</option>
+                      {recruiterClientOptions.map((client) => (
+                        <option key={client.id} value={client.id}>
+                          {client.name}
                         </option>
                       ))}
-                  </select>
+                    </select>
+                  </label>
                   {roleAccess.modules.reports && roleAccess.fields["reports.download"] ? (
                     <button
                       type="button"
                       onClick={downloadJobsCurrentView}
                       disabled={filteredJobs.length === 0}
-                      className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Export Current View
                     </button>
@@ -1213,14 +1277,14 @@ export function AdminJobsDashboard({
                   <button
                     type="button"
                     onClick={() => void saveCurrentJobsView()}
-                    className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                   >
                     Save Current View
                   </button>
                 </div>
               </>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_auto_auto] md:items-end">
                 <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
                   Assigned jobs only
                 </div>
@@ -1229,7 +1293,7 @@ export function AdminJobsDashboard({
                     type="button"
                     onClick={downloadJobsCurrentView}
                     disabled={filteredJobs.length === 0}
-                    className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Export Current View
                     </button>
@@ -1237,7 +1301,7 @@ export function AdminJobsDashboard({
                   <button
                     type="button"
                     onClick={() => void saveCurrentJobsView()}
-                    className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                   >
                     Save Current View
                   </button>
