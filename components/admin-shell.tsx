@@ -1285,6 +1285,20 @@ export function AdminShell({
                             {displayRole}
                           </span>
                         </div>
+                        {authType === "employee" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsProfileMenuOpen(false);
+                              setIsChangePasswordOpen(true);
+                              setProfilePasswordMessage("");
+                            }}
+                            className="mt-4 inline-flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)] hover:text-[var(--color-accent)]"
+                          >
+                            <span>Password Reset</span>
+                            <LockIcon className="h-4 w-4" />
+                          </button>
+                        ) : null}
                       </div>
 
                         <div className="mt-4 grid gap-2">
@@ -1307,20 +1321,6 @@ export function AdminShell({
                             <span>Visit Website</span>
                             <GlobeIcon className="h-4 w-4" />
                           </Link>
-                          {authType === "employee" ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsProfileMenuOpen(false);
-                                setIsChangePasswordOpen(true);
-                                setProfilePasswordMessage("");
-                              }}
-                              className="inline-flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)] hover:text-[var(--color-accent)]"
-                            >
-                              <span>Change Password</span>
-                              <LockIcon className="h-4 w-4" />
-                            </button>
-                          ) : null}
                           <button
                             type="button"
                             onClick={handleLogout}
