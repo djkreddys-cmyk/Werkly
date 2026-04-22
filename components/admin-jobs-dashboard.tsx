@@ -175,6 +175,7 @@ export function AdminJobsDashboard({
   );
   const [isSavingCandidate, setIsSavingCandidate] = useState(false);
   const [actionMenuJobId, setActionMenuJobId] = useState("");
+  const [viewMessage, setViewMessage] = useState("");
 
   const isEditing = Boolean(form.id);
 
@@ -434,6 +435,50 @@ export function AdminJobsDashboard({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  async function saveCurrentJobsView() {
+    if (!token) {
+      return;
+    }
+
+    setViewMessage("");
+
+    try {
+      const response = await fetch("/api/admin/saved-views", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          moduleKey: "jobs",
+          viewKey: viewMode === "existing" ? "existing-jobs" : "jobs-dashboard",
+          viewName: `Jobs View ${new Date().toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`,
+          isShared: canManageJobs,
+          filters: {
+            recruiterFilter,
+            viewMode,
+            authType,
+          },
+          columns: ["job", "client", "recruiter", "location", "applications", "status"],
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save jobs view.");
+      }
+
+      setViewMessage("Current jobs view saved.");
+    } catch (saveError) {
+      setViewMessage(saveError instanceof Error ? saveError.message : "Unable to save jobs view.");
+    }
   }
 
   function updateForm(field: keyof JobEditorState, value: string) {
@@ -1126,6 +1171,13 @@ export function AdminJobsDashboard({
                       Export Current View
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void saveCurrentJobsView()}
+                    className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                  >
+                    Save Current View
+                  </button>
                 </div>
               </>
             ) : (
@@ -1139,14 +1191,22 @@ export function AdminJobsDashboard({
                     onClick={downloadJobsCurrentView}
                     disabled={filteredJobs.length === 0}
                     className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Export Current View
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void saveCurrentJobsView()}
+                    className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                   >
-                    Export Current View
+                    Save Current View
                   </button>
-                ) : null}
               </div>
             )}
           </div>
         </div>
+        {viewMessage ? <p className="mt-4 text-sm font-medium text-[var(--color-dark)]">{viewMessage}</p> : null}
 
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading jobs...</p>
@@ -1247,6 +1307,11 @@ export function AdminJobsDashboard({
                           openUp={shouldOpenUp}
                           items={[
                             {
+                              label: "Open Job Page",
+                              href: `/admin/jobs/${job.id}`,
+                              tone: "accent",
+                            },
+                            {
                               label: "Edit",
                               onClick: () => populateForEdit(job),
                             },
@@ -1294,7 +1359,7 @@ export function AdminJobsDashboard({
           <p className="muted-copy mt-6 text-sm">
             {canManageJobs
               ? "No jobs matched the selected recruiter filter."
-              : "No assigned jobs are available for this login yet."}
+              : "No assigned jobs are available for this login yet. If jobs were just assigned, refresh after backend sync."}
           </p>
         ) : null}
         {!isLoading && filteredJobs.length > jobsPageSize ? (

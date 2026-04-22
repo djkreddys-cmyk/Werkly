@@ -462,6 +462,8 @@ function ReportFilterBar({
   onSourceChange,
   onExport,
   exportLabel,
+  onSaveView,
+  saveFeedback,
 }: {
   startDate: string;
   endDate: string;
@@ -487,6 +489,8 @@ function ReportFilterBar({
   onSourceChange?: (value: string) => void;
   onExport: () => void;
   exportLabel: string;
+  onSaveView?: () => void;
+  saveFeedback?: string;
 }) {
   return (
     <section className="accent-card p-5">
@@ -631,13 +635,29 @@ function ReportFilterBar({
           ) : null}
         </div>
 
-        <button
-          type="button"
-          onClick={onExport}
-          className="inline-flex items-center justify-center rounded-xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[rgba(8,96,108,0.92)]"
-        >
-          {exportLabel}
-        </button>
+        <div className="flex flex-col gap-3 xl:items-end">
+          <div className="flex flex-wrap gap-3">
+            {onSaveView ? (
+              <button
+                type="button"
+                onClick={onSaveView}
+                className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
+              >
+                Save Current View
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onExport}
+              className="inline-flex items-center justify-center rounded-xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[rgba(8,96,108,0.92)]"
+            >
+              {exportLabel}
+            </button>
+          </div>
+          {saveFeedback ? (
+            <p className="text-sm font-medium text-[var(--color-dark)]">{saveFeedback}</p>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -694,6 +714,7 @@ export function AdminReportsPanel({
   const [selectedJob, setSelectedJob] = useState("");
   const [selectedSource, setSelectedSource] = useState("");
   const [selectedStage, setSelectedStage] = useState("");
+  const [viewMessage, setViewMessage] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -754,6 +775,58 @@ export function AdminReportsPanel({
       })
       .finally(() => setIsLoading(false));
   }, [token]);
+
+  const saveCurrentReportView = async () => {
+    if (!token || report === "index") {
+      return;
+    }
+
+    setViewMessage("");
+
+    try {
+      const response = await fetch("/api/admin/saved-views", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          moduleKey: module,
+          viewKey: report,
+          viewName: `${String(module).toUpperCase()} ${String(report).replaceAll("-", " ")}`,
+          ownerType: authType === "admin" ? "admin" : "employee",
+          roleKey: authRole,
+          isShared: authType === "admin",
+          filters: {
+            authType,
+            authRole,
+            authEmail,
+            authEmployeeCode,
+            startDate,
+            endDate,
+            exactDate,
+            selectedRecruiter,
+            selectedClient,
+            selectedJob,
+            selectedSource,
+            selectedStage,
+          },
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save this report view.");
+      }
+
+      setViewMessage("Current report filters saved.");
+      window.setTimeout(() => setViewMessage(""), 3000);
+    } catch (saveError) {
+      setViewMessage(
+        saveError instanceof Error ? saveError.message : "Unable to save this report view."
+      );
+    }
+  };
 
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const currentEmployeeId = state.employees.find(
@@ -1476,6 +1549,8 @@ export function AdminReportsPanel({
             )
           }
           exportLabel="Download HR Report"
+          onSaveView={saveCurrentReportView}
+          saveFeedback={viewMessage}
         />
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1717,6 +1792,8 @@ export function AdminReportsPanel({
             )
           }
           exportLabel="Download Jobs Report"
+          onSaveView={saveCurrentReportView}
+          saveFeedback={viewMessage}
         />
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1921,6 +1998,8 @@ export function AdminReportsPanel({
             )
           }
           exportLabel="Download Candidates Report"
+          onSaveView={saveCurrentReportView}
+          saveFeedback={viewMessage}
         />
 
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -2147,6 +2226,8 @@ export function AdminReportsPanel({
           )
         }
         exportLabel="Download Clients Report"
+        onSaveView={saveCurrentReportView}
+        saveFeedback={viewMessage}
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -2323,6 +2404,8 @@ export function AdminReportsPanel({
             )
           }
           exportLabel="Download Follow-Up Report"
+          onSaveView={saveCurrentReportView}
+          saveFeedback={viewMessage}
         />
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

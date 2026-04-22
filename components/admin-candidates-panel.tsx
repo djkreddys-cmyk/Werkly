@@ -114,6 +114,7 @@ export function AdminCandidatesPanel() {
     authEmployeeCode,
     authEmail
   );
+  const [viewMessage, setViewMessage] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -602,6 +603,52 @@ export function AdminCandidatesPanel() {
     URL.revokeObjectURL(url);
   }
 
+  async function saveCurrentCandidatesView() {
+    if (!token) {
+      return;
+    }
+
+    setViewMessage("");
+
+    try {
+      const response = await fetch("/api/admin/saved-views", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          moduleKey: "candidates",
+          viewKey: "job-applicants",
+          viewName: `Candidates View ${new Date().toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`,
+          isShared: !isEmployeeSession,
+          filters: {
+            query,
+            stageFilter,
+            authType,
+          },
+          columns: ["candidate", "contact", "job", "client", "recruiter", "stage", "appliedDate"],
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save candidates view.");
+      }
+
+      setViewMessage("Current candidates view saved.");
+    } catch (saveError) {
+      setViewMessage(
+        saveError instanceof Error ? saveError.message : "Unable to save candidates view."
+      );
+    }
+  }
+
   return (
     <div className="space-y-6">
       {!roleAccess.modules.candidates ? (
@@ -668,10 +715,20 @@ export function AdminCandidatesPanel() {
                 Download Applicant Details
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={() => void saveCurrentCandidatesView()}
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] sm:col-span-2"
+            >
+              Save Current View
+            </button>
           </div>
         </div>
 
         {error ? <p className="mt-4 text-sm font-medium text-red-700">{error}</p> : null}
+        {viewMessage ? (
+          <p className="mt-4 text-sm font-medium text-[var(--color-dark)]">{viewMessage}</p>
+        ) : null}
 
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading candidates...</p>
@@ -804,6 +861,11 @@ export function AdminCandidatesPanel() {
                           onClose={() => setActionMenuApplicationId("")}
                           openUp={shouldOpenUp}
                           items={[
+                            {
+                              label: "Open Candidate Page",
+                              href: `/admin/candidates/${application.id}`,
+                              tone: "accent",
+                            },
                             ...(roleAccess.fields["candidates.updateStage"]
                               ? [
                                   {

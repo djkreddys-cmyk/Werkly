@@ -671,6 +671,11 @@ function CrmEmployeesList({
                             openUp={shouldOpenUp}
                             items={[
                               {
+                                label: "Open Profile",
+                                href: `/admin/employees/${employee.id}`,
+                                tone: "accent",
+                              },
+                              {
                                 label: "Edit",
                                 onClick: () => onEdit(employee),
                               },
@@ -719,6 +724,9 @@ function CrmClientsList({
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
   const [actionMenuClientId, setActionMenuClientId] = useState("");
+  const [token] = useState(
+    typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
+  );
   const [query, setQuery] = useState(() =>
     typeof window !== "undefined" ? window.localStorage.getItem("werklyClientsQuery") ?? "" : ""
   );
@@ -824,6 +832,39 @@ function CrmClientsList({
     URL.revokeObjectURL(url);
   }
 
+  async function saveCurrentClientsView() {
+    if (!token) {
+      return;
+    }
+
+    try {
+      await fetch("/api/admin/saved-views", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          moduleKey: "clients",
+          viewKey: "assigned-clients",
+          viewName: `Clients View ${new Date().toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`,
+          filters: {
+            query,
+            statusFilter,
+          },
+          columns: ["client", "contact", "owner", "onboarding", "followUp", "jobs", "status"],
+        }),
+      });
+    } catch {
+      // Keep the page usable even if saved-view persistence fails.
+    }
+  }
+
   return (
     <>
       <section className="accent-card p-6">
@@ -868,6 +909,13 @@ function CrmClientsList({
             className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Export Current View
+          </button>
+          <button
+            type="button"
+            onClick={() => void saveCurrentClientsView()}
+            className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+          >
+            Save Current View
           </button>
         </div>
 
