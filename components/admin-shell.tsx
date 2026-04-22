@@ -277,6 +277,7 @@ export function AdminShell({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState("");
+  const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("unread");
   const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
   const { roleAccess } = useCrmAccessControl(
     token,
@@ -550,16 +551,18 @@ export function AdminShell({
     }
 
     let isMounted = true;
-    setIsNotificationsLoading(true);
-    setNotificationError("");
 
-    fetch("/api/admin/notifications", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    })
-      .then(async (response) => {
+    const loadNotifications = async () => {
+      setIsNotificationsLoading(true);
+      setNotificationError("");
+
+      try {
+        const response = await fetch("/api/admin/notifications", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        });
         const result = (await response.json()) as {
           notifications?: NotificationLogRecord[];
           message?: string;
@@ -572,22 +575,27 @@ export function AdminShell({
         if (isMounted) {
           setNotifications(result.notifications ?? []);
         }
-      })
-      .catch((loadError) => {
+      } catch (loadError) {
         if (isMounted) {
           setNotificationError(
             loadError instanceof Error ? loadError.message : "Unable to load notifications."
           );
         }
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) {
           setIsNotificationsLoading(false);
         }
-      });
+      }
+    };
+
+    void loadNotifications();
+    const refreshId = window.setInterval(() => {
+      void loadNotifications();
+    }, 120000);
 
     return () => {
       isMounted = false;
+      window.clearInterval(refreshId);
     };
   }, [isHydrated, pathname, showMenu, token]);
 
@@ -846,7 +854,12 @@ export function AdminShell({
       ].slice(0, 10)
     : [];
 
-  async function handleNotificationRead(id: string) {
+  const visibleNotifications =
+    notificationFilter === "unread"
+      ? notifications.filter((item) => !item.isRead)
+      : notifications;
+
+  async function handleNotificationRead(id: string, actionUrl?: string) {
     if (!token) {
       return;
     }
@@ -867,6 +880,10 @@ export function AdminShell({
       setNotifications((current) =>
         current.map((item) => (item.id === id ? { ...item, isRead: true } : item))
       );
+      if (actionUrl) {
+        setIsNotificationsOpen(false);
+        router.push(actionUrl);
+      }
     } catch (error) {
       setNotificationError(
         error instanceof Error ? error.message : "Unable to update notification."
@@ -1036,6 +1053,25 @@ export function AdminShell({
                             {unreadNotifications} unread
                           </span>
                         </div>
+                        <div className="mt-4 flex gap-2">
+                          {[
+                            { key: "unread", label: "Unread" },
+                            { key: "all", label: "All" },
+                          ].map((item) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              onClick={() => setNotificationFilter(item.key as "all" | "unread")}
+                              className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                                notificationFilter === item.key
+                                  ? "bg-[var(--color-accent)] text-[var(--color-ink)]"
+                                  : "border border-white/10 bg-white/6 text-white/72 hover:bg-white/10"
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
 
                         {notificationError ? (
                           <p className="mt-4 rounded-xl border border-[rgba(241,166,75,0.18)] bg-[rgba(241,166,75,0.12)] px-3 py-2 text-sm text-white/90">
@@ -1045,17 +1081,17 @@ export function AdminShell({
 
                         {isNotificationsLoading ? (
                           <p className="mt-4 text-sm text-white/70">Loading notifications...</p>
-                        ) : notifications.length === 0 ? (
+                        ) : visibleNotifications.length === 0 ? (
                           <p className="mt-4 text-sm text-white/70">
-                            No saved reminders are available yet.
+                            {notificationFilter === "unread"
+                              ? "No unread notifications are available right now."
+                              : "No saved reminders are available yet."}
                           </p>
                         ) : (
                           <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1">
-                            {notifications.map((item) => (
-                              <button
+                            {visibleNotifications.map((item) => (
+                              <div
                                 key={item.id}
-                                type="button"
-                                onClick={() => void handleNotificationRead(item.id)}
                                 className={`w-full rounded-[1rem] border px-4 py-3 text-left transition ${
                                   item.isRead
                                     ? "border-white/8 bg-white/6 text-white/72"
@@ -1082,7 +1118,27 @@ export function AdminShell({
                                     timeStyle: "short",
                                   })}
                                 </p>
-                              </button>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {!item.isRead ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleNotificationRead(item.id)}
+                                      className="rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                                    >
+                                      Mark Read
+                                    </button>
+                                  ) : null}
+                                  {item.actionUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleNotificationRead(item.id, item.actionUrl)}
+                                      className="rounded-xl bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:opacity-90"
+                                    >
+                                      Open
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
                             ))}
                           </div>
                         )}

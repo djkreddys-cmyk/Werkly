@@ -120,6 +120,267 @@ async function recordTimeline(request, payload) {
   });
 }
 
+const candidateStageSequence = ["applied", "shortlisted", "interview", "offered", "joined"];
+
+function requiresStageOverrideApproval(currentStage, nextStage) {
+  const safeCurrent = String(currentStage || "applied").toLowerCase();
+  const safeNext = String(nextStage || "applied").toLowerCase();
+
+  if (!safeCurrent || !safeNext || safeCurrent === safeNext) {
+    return false;
+  }
+
+  if (safeCurrent === "joined" || safeCurrent === "rejected") {
+    return true;
+  }
+
+  const currentIndex = candidateStageSequence.indexOf(safeCurrent);
+  const nextIndex = candidateStageSequence.indexOf(safeNext);
+
+  if (currentIndex === -1 || nextIndex === -1) {
+    return false;
+  }
+
+  return nextIndex < currentIndex;
+}
+
+async function getApplicationById(applicationId) {
+  const applications = await listAdminApplications(null);
+  return applications.find((application) => application.id === applicationId) || null;
+}
+
+function getEntityActionUrl(entityType, entityId) {
+  if (!entityId) {
+    return "/admin/settings/workflows";
+  }
+
+  if (entityType === "candidate") {
+    return `/admin/candidates/${entityId}`;
+  }
+  if (entityType === "client") {
+    return `/admin/clients/${entityId}`;
+  }
+  if (entityType === "employee") {
+    return `/admin/employees/${entityId}`;
+  }
+  if (entityType === "job") {
+    return `/admin/jobs/${entityId}`;
+  }
+
+  return "/admin/settings/workflows";
+}
+
+async function notifyApprovalLifecycle(approval, eventType) {
+  const isCreated = eventType === "created";
+  const targetEmployeeId =
+    approval.requestedByEmployeeId || approval.assignedApproverEmployeeId || null;
+
+  await createNotificationLog({
+    title: isCreated
+      ? `${approval.entityLabel || approval.requestType}: approval raised`
+      : `${approval.entityLabel || approval.requestType}: approval ${approval.requestStatus}`,
+    message: isCreated
+      ? approval.reason || "A sensitive CRM action is waiting for review."
+      : `Approval request was ${approval.requestStatus}.`,
+    category: "approval",
+    severity: isCreated ? "warning" : approval.requestStatus === "approved" ? "info" : "warning",
+    targetType: targetEmployeeId ? "employee" : "all",
+    targetEmployeeId,
+    actionUrl: getEntityActionUrl(approval.entityType, approval.entityId),
+    entityType: approval.entityType,
+    entityId: approval.entityId,
+    metadata: {
+      approvalId: approval.id,
+      requestType: approval.requestType,
+      requestStatus: approval.requestStatus,
+    },
+  });
+}
+
+async function applyApprovedWorkflowAction(request, approval) {
+  if (!approval || approval.requestStatus !== "approved") {
+    return null;
+  }
+
+  const requestedData = approval.requestedData || {};
+
+  if (approval.requestType === "candidate-transfer") {
+    const previousApplication = await getApplicationById(approval.entityId);
+    const application = await assignJobApplication(
+      approval.entityId,
+      {
+        assignedEmployeeId: requestedData.assignedEmployeeId || null,
+        assignmentType: requestedData.assignmentType || approval.metadata?.assignmentType || "ownership-transfer",
+        effectiveFromDate: requestedData.effectiveFromDate || approval.effectiveFromDate || null,
+        effectiveToDate: requestedData.effectiveToDate || approval.effectiveToDate || null,
+        note: approval.reason || requestedData.note || "Candidate transfer approved.",
+      },
+      null
+    );
+
+    if (application) {
+      await createAuditLog({
+        actionType:
+          (requestedData.assignmentType || approval.metadata?.assignmentType) === "follow-up-support"
+            ? "candidate.followup-assigned-approved"
+            : "candidate.reassigned-approved",
+        entityType: "application",
+        entityId: application.id,
+        ...getActorDetails(request),
+        beforeData: previousApplication || {},
+        afterData: application,
+        metadata: {
+          approvalId: approval.id,
+          requestType: approval.requestType,
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "candidate",
+        entityId: application.id,
+        entityLabel: application.candidateName,
+        eventType: "candidate.transfer-approved",
+        title: "Candidate transfer approved",
+        summary: approval.reason || "Candidate assignment was applied after approval.",
+        beforeData: previousApplication || {},
+        afterData: application,
+        metadata: {
+          approvalId: approval.id,
+        },
+      });
+    }
+
+    return application;
+  }
+
+  if (approval.requestType === "client-transfer") {
+    const previousClient = await getClientById(approval.entityId);
+    const client = await reassignClient(approval.entityId, {
+      assignedEmployeeId: requestedData.assignedEmployeeId || requestedData.requestedToEmployeeId || null,
+      assignmentType: requestedData.assignmentType || approval.metadata?.assignmentType || "ownership-transfer",
+      effectiveFromDate: requestedData.effectiveFromDate || approval.effectiveFromDate || null,
+      effectiveToDate: requestedData.effectiveToDate || approval.effectiveToDate || null,
+      reason: approval.reason || "Client transfer approved.",
+    });
+
+    if (client) {
+      await createAuditLog({
+        actionType:
+          (requestedData.assignmentType || approval.metadata?.assignmentType) === "follow-up-support"
+            ? "client.followup-assigned-approved"
+            : "client.reassigned-approved",
+        entityType: "client",
+        entityId: client.id,
+        ...getActorDetails(request),
+        beforeData: previousClient || {},
+        afterData: client,
+        metadata: {
+          approvalId: approval.id,
+          requestType: approval.requestType,
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "client",
+        entityId: client.id,
+        entityLabel: client.companyName,
+        eventType: "client.transfer-approved",
+        title: "Client transfer approved",
+        summary: approval.reason || "Client assignment was applied after approval.",
+        beforeData: previousClient || {},
+        afterData: client,
+        metadata: {
+          approvalId: approval.id,
+        },
+      });
+    }
+
+    return client;
+  }
+
+  if (approval.requestType === "employee-inactivation") {
+    const currentEmployee = await getEmployeeById(approval.entityId);
+    const nextEmployee = await updateEmployee(approval.entityId, {
+      ...(approval.beforeData || currentEmployee || {}),
+      ...(requestedData || {}),
+    });
+
+    if (nextEmployee) {
+      await createAuditLog({
+        actionType: "employee.inactivation-approved",
+        entityType: "employee",
+        entityId: nextEmployee.id,
+        ...getActorDetails(request),
+        beforeData: currentEmployee || {},
+        afterData: nextEmployee,
+        metadata: {
+          approvalId: approval.id,
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "employee",
+        entityId: nextEmployee.id,
+        entityLabel: nextEmployee.fullName,
+        eventType: "employee.inactivation-approved",
+        title: "Employee inactivation approved",
+        summary: approval.reason || "Employee was marked inactive after approval.",
+        beforeData: currentEmployee || {},
+        afterData: nextEmployee,
+        metadata: {
+          approvalId: approval.id,
+        },
+      });
+    }
+
+    return nextEmployee;
+  }
+
+  if (approval.requestType === "candidate-stage-override") {
+    const previousApplication = await getApplicationById(approval.entityId);
+    const application = await updateJobApplicationStage(
+      approval.entityId,
+      requestedData.stage,
+      requestedData.stageNote,
+      requestedData.stageDate,
+      null
+    );
+
+    if (application) {
+      await createAuditLog({
+        actionType: "candidate.stage-override-approved",
+        entityType: "application",
+        entityId: application.id,
+        ...getActorDetails(request),
+        beforeData: previousApplication || {},
+        afterData: application,
+        metadata: {
+          approvalId: approval.id,
+          requestType: approval.requestType,
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "candidate",
+        entityId: application.id,
+        entityLabel: application.candidateName,
+        eventType: "candidate.stage-override-approved",
+        title: "Candidate stage override approved",
+        summary: approval.reason || "Candidate stage change was applied after approval.",
+        beforeData: previousApplication || {},
+        afterData: application,
+        metadata: {
+          approvalId: approval.id,
+        },
+      });
+    }
+
+    return application;
+  }
+
+  return null;
+}
+
 app.use(
   cors({
     origin: allowedOrigin,
@@ -737,6 +998,64 @@ app.put(
         });
       }
 
+      const currentApplication = await getApplicationById(request.params.id);
+      if (!currentApplication) {
+        return response.status(404).json({ message: "Application not found." });
+      }
+
+      if (
+        request.user?.type !== "admin" &&
+        requiresStageOverrideApproval(currentApplication.stage, stage)
+      ) {
+        const approval = await createApprovalRequest({
+          requestType: "candidate-stage-override",
+          entityType: "candidate",
+          entityId: request.params.id,
+          entityLabel: currentApplication.candidateName,
+          requestedByEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+          effectiveFromDate: stageDate,
+          reason: stageNote,
+          beforeData: currentApplication,
+          requestedData: {
+            stage,
+            stageNote,
+            stageDate,
+          },
+          metadata: {
+            jobId: currentApplication.jobId,
+            jobCode: currentApplication.jobCode,
+            fromStage: currentApplication.stage,
+            toStage: stage,
+          },
+        });
+
+        await recordTimeline(request, {
+          entityType: "candidate",
+          entityId: currentApplication.id,
+          entityLabel: currentApplication.candidateName,
+          eventType: "candidate.stage-override-requested",
+          title: "Candidate stage override requested",
+          summary: `Stage move from ${currentApplication.stage || "applied"} to ${stage} is waiting for approval.`,
+          beforeData: currentApplication,
+          afterData: {
+            stage,
+            stageNote,
+            stageDate,
+          },
+          metadata: {
+            approvalId: approval.id,
+          },
+        });
+
+        await notifyApprovalLifecycle(approval, "created");
+
+        return response.status(202).json({
+          approvalPending: true,
+          approval,
+          message: "This stage override was sent for approval.",
+        });
+      }
+
       const application = await updateJobApplicationStage(
         request.params.id,
         stage,
@@ -798,7 +1117,7 @@ app.put(
 );
 
 app.put(
-  "/admin/jobs/applications/:id/assignment",
+      "/admin/jobs/applications/:id/assignment",
   requirePermission("candidates.manage"),
   async (request, response) => {
     try {
@@ -816,6 +1135,67 @@ app.put(
       if (!String(note ?? "").trim()) {
         return response.status(400).json({
           message: "Transfer remarks are required for candidate assignment changes.",
+        });
+      }
+
+      const currentApplication = await getApplicationById(request.params.id);
+      if (!currentApplication) {
+        return response.status(404).json({ message: "Application not found." });
+      }
+
+      if (
+        request.user?.type !== "admin" &&
+        (assignmentType || "ownership-transfer") === "ownership-transfer"
+      ) {
+        const approval = await createApprovalRequest({
+          requestType: "candidate-transfer",
+          entityType: "candidate",
+          entityId: request.params.id,
+          entityLabel: currentApplication.candidateName,
+          requestedByEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+          effectiveFromDate,
+          effectiveToDate,
+          reason: note,
+          beforeData: currentApplication,
+          requestedData: {
+            assignedEmployeeId,
+            assignmentType: assignmentType || "ownership-transfer",
+            effectiveFromDate,
+            effectiveToDate,
+            note,
+          },
+          metadata: {
+            jobId: currentApplication.jobId,
+            jobCode: currentApplication.jobCode,
+            assignmentType: assignmentType || "ownership-transfer",
+          },
+        });
+
+        await recordTimeline(request, {
+          entityType: "candidate",
+          entityId: currentApplication.id,
+          entityLabel: currentApplication.candidateName,
+          eventType: "candidate.transfer-requested",
+          title: "Candidate transfer requested",
+          summary: note || "Candidate transfer is waiting for approval.",
+          beforeData: currentApplication,
+          afterData: {
+            assignedEmployeeId,
+            assignmentType: assignmentType || "ownership-transfer",
+            effectiveFromDate,
+            effectiveToDate,
+          },
+          metadata: {
+            approvalId: approval.id,
+          },
+        });
+
+        await notifyApprovalLifecycle(approval, "created");
+
+        return response.status(202).json({
+          approvalPending: true,
+          approval,
+          message: "Candidate transfer request submitted for approval.",
         });
       }
 
@@ -881,27 +1261,6 @@ app.put(
           assignmentType: assignmentType || "ownership-transfer",
         },
       });
-
-      if ((assignmentType || "ownership-transfer") === "ownership-transfer") {
-        await createApprovalRequest({
-          requestType: "candidate-transfer",
-          entityType: "candidate",
-          entityId: application.id,
-          entityLabel: application.candidateName,
-          requestedByEmployeeId: request.user?.type === "employee" ? request.user.id : null,
-          effectiveFromDate,
-          effectiveToDate,
-          reason: note,
-          beforeData: {},
-          requestedData: {
-            assignedEmployeeId,
-          },
-          metadata: {
-            jobId: application.jobId,
-            jobCode: application.jobCode,
-          },
-        });
-      }
 
       response.json(application);
     } catch (error) {
@@ -1052,6 +1411,68 @@ app.put("/admin/employees/:id", requirePermission("employees.manage"), async (re
     }
 
     const previousEmployee = await getEmployeeById(request.params.id);
+    if (!previousEmployee) {
+      return response.status(404).json({ message: "Employee not found." });
+    }
+
+    if (
+      request.user?.type !== "admin" &&
+      status === "inactive" &&
+      previousEmployee.status !== "inactive"
+    ) {
+      const approval = await createApprovalRequest({
+        requestType: "employee-inactivation",
+        entityType: "employee",
+        entityId: previousEmployee.id,
+        entityLabel: previousEmployee.fullName,
+        requestedByEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+        effectiveFromDate: inactiveDate,
+        reason: inactiveRemarks,
+        beforeData: previousEmployee,
+        requestedData: {
+          fullName,
+          email,
+          phone,
+          role,
+          dateOfBirth,
+          dateOfJoining,
+          educationQualification,
+          previousExperience,
+          educationDetails,
+          experienceDetails,
+          status,
+          inactiveDate,
+          inactiveRemarks,
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "employee",
+        entityId: previousEmployee.id,
+        entityLabel: previousEmployee.fullName,
+        eventType: "employee.inactivation-requested",
+        title: "Employee inactivation requested",
+        summary: inactiveRemarks || "Employee inactivation is waiting for approval.",
+        beforeData: previousEmployee,
+        afterData: {
+          status,
+          inactiveDate,
+          inactiveRemarks,
+        },
+        metadata: {
+          approvalId: approval.id,
+        },
+      });
+
+      await notifyApprovalLifecycle(approval, "created");
+
+      return response.status(202).json({
+        approvalPending: true,
+        approval,
+        message: "Employee inactivation request submitted for approval.",
+      });
+    }
+
     const employee = await updateEmployee(request.params.id, {
       fullName,
       email,
@@ -1068,10 +1489,6 @@ app.put("/admin/employees/:id", requirePermission("employees.manage"), async (re
       inactiveDate,
       inactiveRemarks,
     });
-
-    if (!employee) {
-      return response.status(404).json({ message: "Employee not found." });
-    }
 
     await createAuditLog({
       actionType: "employee.updated",
@@ -1101,24 +1518,6 @@ app.put("/admin/employees/:id", requirePermission("employees.manage"), async (re
       beforeData: previousEmployee || {},
       afterData: employee,
     });
-
-    if (status === "inactive" && previousEmployee?.status !== "inactive") {
-      await createApprovalRequest({
-        requestType: "employee-inactivation",
-        entityType: "employee",
-        entityId: employee.id,
-        entityLabel: employee.fullName,
-        requestedByEmployeeId: request.user?.type === "employee" ? request.user.id : null,
-        effectiveFromDate: inactiveDate,
-        reason: inactiveRemarks,
-        beforeData: previousEmployee || {},
-        requestedData: {
-          status,
-          inactiveDate,
-          inactiveRemarks,
-        },
-      });
-    }
 
     response.json(employee);
   } catch (error) {
@@ -1740,6 +2139,8 @@ app.post("/admin/approvals", requireInternalUser, async (request, response) => {
       afterData: approval,
     });
 
+    await notifyApprovalLifecycle(approval, "created");
+
     response.status(201).json(approval);
   } catch (error) {
     response.status(500).json({
@@ -1768,6 +2169,8 @@ app.put("/admin/approvals/:id", requireAdmin, async (request, response) => {
       return response.status(404).json({ message: "Approval request not found." });
     }
 
+    const appliedEntity = await applyApprovedWorkflowAction(request, approval);
+
     await recordTimeline(request, {
       entityType: "approval-request",
       entityId: approval.id,
@@ -1777,12 +2180,28 @@ app.put("/admin/approvals/:id", requireAdmin, async (request, response) => {
       summary: `Approval request marked as ${requestStatus}.`,
       beforeData: {},
       afterData: approval,
+      metadata: {
+        appliedEntityId: appliedEntity?.id || null,
+      },
     });
+
+    await notifyApprovalLifecycle(approval, "reviewed");
 
     response.json(approval);
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to review approval request.",
+    });
+  }
+});
+
+app.post("/admin/workflows/run-sla", requireAdmin, async (_request, response) => {
+  try {
+    await runSlaEscalations();
+    response.json({ success: true });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to run reminder workflow.",
     });
   }
 });

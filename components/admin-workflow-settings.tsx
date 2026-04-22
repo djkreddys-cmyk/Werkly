@@ -35,6 +35,7 @@ export function AdminWorkflowSettings() {
   const [rules, setRules] = useState<SlaRuleRecord[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [isSaving, setIsSaving] = useState(false);
+  const [isRunningWorkflow, setIsRunningWorkflow] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -147,6 +148,39 @@ export function AdminWorkflowSettings() {
     }
   }
 
+  async function runReminderWorkflow() {
+    if (!token) {
+      return;
+    }
+
+    setIsRunningWorkflow(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/admin/workflows/run-sla", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to run reminder workflow.");
+      }
+
+      setSuccess("Reminder workflow executed and notifications were refreshed.");
+    } catch (workflowError) {
+      setError(
+        workflowError instanceof Error
+          ? workflowError.message
+          : "Unable to run reminder workflow."
+      );
+    } finally {
+      setIsRunningWorkflow(false);
+    }
+  }
+
   if (!token) {
     return (
       <section className="accent-card p-8">
@@ -192,6 +226,14 @@ export function AdminWorkflowSettings() {
               Review sensitive CRM requests
             </h3>
           </div>
+          <button
+            type="button"
+            onClick={() => void runReminderWorkflow()}
+            disabled={isRunningWorkflow}
+            className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isRunningWorkflow ? "Running..." : "Run Reminder Check"}
+          </button>
         </div>
 
         {isLoading ? (
@@ -241,6 +283,24 @@ export function AdminWorkflowSettings() {
                 <p className="mt-4 text-sm leading-6 text-[var(--color-muted)]">
                   {approval.reason || approval.remarks || "No reason was added for this request."}
                 </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Effective From
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--color-ink)]">
+                      {formatDateTime(approval.effectiveFromDate)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Effective To
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--color-ink)]">
+                      {formatDateTime(approval.effectiveToDate)}
+                    </p>
+                  </div>
+                </div>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
                     type="button"

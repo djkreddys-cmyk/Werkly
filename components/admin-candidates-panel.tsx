@@ -336,6 +336,11 @@ export function AdminCandidatesPanel() {
         throw new Error(updated.message || "Unable to update candidate stage.");
       }
 
+      if ("approvalPending" in updated && (updated as { approvalPending?: boolean }).approvalPending) {
+        setError(updated.message || "Stage override request submitted for approval.");
+        return;
+      }
+
       setApplications((current) =>
         current.map((application) =>
           application.id === id
@@ -489,6 +494,12 @@ export function AdminCandidatesPanel() {
 
       if (!response.ok) {
         throw new Error(updated.message || "Unable to update candidate transfer.");
+      }
+
+      if ("approvalPending" in updated && (updated as { approvalPending?: boolean }).approvalPending) {
+        setAssignmentDraft(null);
+        setError(updated.message || "Candidate transfer request submitted for approval.");
+        return;
       }
 
       setApplications((current) =>

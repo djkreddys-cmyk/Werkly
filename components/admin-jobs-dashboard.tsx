@@ -976,6 +976,11 @@ export function AdminJobsDashboard({
         throw new Error(result.message || "Unable to update application stage.");
       }
 
+      if ("approvalPending" in result && (result as { approvalPending?: boolean }).approvalPending) {
+        setMessage(result.message || "Stage override request submitted for approval.");
+        return;
+      }
+
       setApplications((current) =>
         current.map((application) =>
           application.id === applicationId
