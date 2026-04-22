@@ -680,27 +680,44 @@ export async function updateSlaRules(rules = []) {
   const updates = [];
 
   for (const rule of rules) {
+    const normalizedRule = {
+      ruleKey: String(rule.ruleKey || ""),
+      label: String(rule.label || "").trim(),
+      description:
+        typeof rule.description === "string" && rule.description.trim().length > 0
+          ? rule.description.trim()
+          : null,
+      thresholdDays: Number(rule.thresholdDays ?? 0),
+      severity: String(rule.severity || "warning"),
+      isActive: Boolean(rule.isActive),
+      escalationTarget: String(rule.escalationTarget || "admin"),
+      metadata:
+        rule.metadata && typeof rule.metadata === "object" && !Array.isArray(rule.metadata)
+          ? rule.metadata
+          : {},
+    };
+
     const result = await query(
       `update crm_sla_rules
-          set label = $2,
-              description = $3,
-              threshold_days = $4,
-              severity = $5,
-              is_active = $6,
-              escalation_target = $7,
-              metadata = $8::jsonb,
+          set label = $2::text,
+              description = $3::text,
+              threshold_days = $4::integer,
+              severity = $5::text,
+              is_active = $6::boolean,
+              escalation_target = $7::text,
+              metadata = coalesce($8::jsonb, '{}'::jsonb),
               updated_at = now()
-        where rule_key = $1
+        where rule_key = $1::text
         returning *`,
       [
-        rule.ruleKey,
-        rule.label,
-        rule.description || null,
-        Number(rule.thresholdDays ?? 0),
-        rule.severity || "warning",
-        Boolean(rule.isActive),
-        rule.escalationTarget || "admin",
-        JSON.stringify(rule.metadata || {}),
+        normalizedRule.ruleKey,
+        normalizedRule.label,
+        normalizedRule.description,
+        Number.isFinite(normalizedRule.thresholdDays) ? normalizedRule.thresholdDays : 0,
+        normalizedRule.severity,
+        normalizedRule.isActive,
+        normalizedRule.escalationTarget,
+        JSON.stringify(normalizedRule.metadata),
       ]
     );
 

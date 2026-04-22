@@ -204,9 +204,6 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                     </td>
                     <td className="px-4 py-4">
                       <p className="font-semibold text-[var(--color-ink)]">{job.title}</p>
-                      <p className="mt-1 text-sm text-[var(--color-muted)]">
-                        {job.clientName || "Werkly client mandate"}
-                      </p>
                     </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{job.sector}</td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{job.location}</td>
