@@ -1234,12 +1234,17 @@ export function AdminDashboardOverview() {
                   {authEmployeeCode}
                 </div>
               ) : null}
-              <input
-                type="date"
-                value={activeDateKey}
-                onChange={(event) => openDateDetails(event.target.value)}
-                className="min-w-[146px] rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              />
+              <label className="block min-w-[146px]">
+                <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Follow-Up Date
+                </span>
+                <input
+                  type="date"
+                  value={activeDateKey}
+                  onChange={(event) => openDateDetails(event.target.value)}
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                />
+              </label>
               <select
                 value={selectedFollowUpStatus}
                 onChange={(event) =>

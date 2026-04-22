@@ -2035,21 +2035,31 @@ export function AdminJobsDashboard({
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <input
-                value={stageDraft.stage.charAt(0).toUpperCase() + stageDraft.stage.slice(1)}
-                readOnly
-                className="w-full rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
-              />
-              <input
-                type="date"
-                value={stageDraft.date}
-                onChange={(event) =>
-                  setStageDraft((current) =>
-                    current ? { ...current, date: event.target.value } : current
-                  )
-                }
-                className={fieldClassName}
-              />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Current Stage
+                </span>
+                <input
+                  value={stageDraft.stage.charAt(0).toUpperCase() + stageDraft.stage.slice(1)}
+                  readOnly
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Stage Effective Date
+                </span>
+                <input
+                  type="date"
+                  value={stageDraft.date}
+                  onChange={(event) =>
+                    setStageDraft((current) =>
+                      current ? { ...current, date: event.target.value } : current
+                    )
+                  }
+                  className={fieldClassName}
+                />
+              </label>
             </div>
 
             <textarea

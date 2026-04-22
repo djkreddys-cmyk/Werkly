@@ -406,8 +406,18 @@ function EmployeeExperienceFields({
             <div className="grid gap-4 sm:grid-cols-2">
               <input className={inputClassName} placeholder="Company name" value={entry.companyName} onChange={(event) => onChange(index, "companyName", event.target.value)} />
               <input className={inputClassName} placeholder="Designation" value={entry.designation ?? ""} onChange={(event) => onChange(index, "designation", event.target.value)} />
-              <input className={inputClassName} type="date" value={entry.startDate ?? ""} onChange={(event) => onChange(index, "startDate", event.target.value)} />
-              <input className={inputClassName} type="date" value={entry.endDate ?? ""} onChange={(event) => onChange(index, "endDate", event.target.value)} />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Start Date
+                </span>
+                <input className={inputClassName} type="date" value={entry.startDate ?? ""} onChange={(event) => onChange(index, "startDate", event.target.value)} />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  End Date
+                </span>
+                <input className={inputClassName} type="date" value={entry.endDate ?? ""} onChange={(event) => onChange(index, "endDate", event.target.value)} />
+              </label>
               <input className={inputClassName} placeholder="Total duration" value={entry.totalDuration ?? ""} onChange={(event) => onChange(index, "totalDuration", event.target.value)} />
               <input className={inputClassName} placeholder="Industry" value={entry.industry ?? ""} onChange={(event) => onChange(index, "industry", event.target.value)} />
               <textarea className={`${textareaClassName} sm:col-span-2`} placeholder="Responsibilities" value={entry.responsibilities ?? ""} onChange={(event) => onChange(index, "responsibilities", event.target.value)} />
