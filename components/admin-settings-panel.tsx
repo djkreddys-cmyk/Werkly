@@ -8,7 +8,6 @@ import {
   defaultCrmAccessControl,
   mergeCrmAccessControl,
   normalizeEmployeeAccessOverrides,
-  type CrmAccessRoleKey,
   type CrmEmployeeAccessOverride,
 } from "@/lib/access-control";
 import type { CrmKpiSettings, EmployeeRecord } from "@/lib/crm";
@@ -156,13 +155,9 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
   );
   const [settings, setSettings] = useState<CrmKpiSettings>(defaultSettings);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
-  const [selectedRoleFilter, setSelectedRoleFilter] = useState<"all" | CrmAccessRoleKey>("all");
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState("");
   const [selectedModuleFilter, setSelectedModuleFilter] = useState<
     "all" | (typeof crmModuleAccessDefinitions)[number]["key"]
-  >("all");
-  const [selectedFieldFilter, setSelectedFieldFilter] = useState<
-    "all" | "hr" | "jobs" | "candidates" | "clients" | "reports"
   >("all");
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [isSaving, setIsSaving] = useState(false);
@@ -235,31 +230,8 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
   const visibleEmployees = useMemo(() => {
     return employees
       .filter((employee) => employee.status === "active")
-      .filter((employee) => {
-        if (selectedRoleFilter === "all") {
-          return true;
-        }
-
-        const normalizedRole = String(employee.role || "").toLowerCase();
-        if (selectedRoleFilter === "delivery") {
-          return normalizedRole.includes("delivery");
-        }
-        if (selectedRoleFilter === "leadership") {
-          return (
-            normalizedRole.includes("founder") ||
-            normalizedRole.includes("cto") ||
-            normalizedRole.includes("lead")
-          );
-        }
-
-        return !normalizedRole.includes("delivery") && !normalizedRole.includes("founder") && !normalizedRole.includes("cto") && !normalizedRole.includes("lead");
-      })
       .sort((first, second) => first.fullName.localeCompare(second.fullName));
-  }, [employees, selectedRoleFilter]);
-
-  useEffect(() => {
-    setSelectedEmployeeCode("");
-  }, [selectedRoleFilter]);
+  }, [employees]);
 
   const selectedEmployee = visibleEmployees.find(
     (employee) => employee.employeeCode === selectedEmployeeCode
@@ -304,14 +276,14 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
   }, [selectedModuleFilter]);
 
   const visibleFieldDefinitions = useMemo(() => {
-    if (selectedFieldFilter === "all") {
+    if (selectedModuleFilter === "all") {
       return crmFieldAccessDefinitions;
     }
 
     return crmFieldAccessDefinitions.filter((definition) =>
-      definition.key.startsWith(`${selectedFieldFilter}.`)
+      definition.key.startsWith(`${selectedModuleFilter}.`)
     );
-  }, [selectedFieldFilter]);
+  }, [selectedModuleFilter]);
 
   async function handleSave() {
     if (!token) {
@@ -558,24 +530,12 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
               Set access with dropdown filters and employee-wise override.
             </h2>
             <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
-              First select role, then employee, then choose module filter and fields filter. This
-              lets you give one person special access like Add Candidate without changing all users
-              in the same role.
+              First select employee, then choose module. The related module fields and actions will
+              appear automatically in the box below so you can give one person special access
+              without changing all users in the same role.
             </p>
 
-            <div className="mt-6 grid gap-4 lg:grid-cols-4">
-              <select
-                value={selectedRoleFilter}
-                onChange={(event) =>
-                  setSelectedRoleFilter(event.target.value as "all" | CrmAccessRoleKey)
-                }
-                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              >
-                <option value="all">Select role</option>
-                <option value="recruiter">Recruiter</option>
-                <option value="delivery">Delivery</option>
-                <option value="leadership">Leadership</option>
-              </select>
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
               <select
                 value={selectedEmployeeCode}
                 onChange={(event) => setSelectedEmployeeCode(event.target.value)}
@@ -596,30 +556,14 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
                   )
                 }
                 className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              >
-                <option value="all">All modules</option>
-                {crmModuleAccessDefinitions.map((definition) => (
-                  <option key={definition.key} value={definition.key}>
-                    {definition.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={selectedFieldFilter}
-                onChange={(event) =>
-                  setSelectedFieldFilter(
-                    event.target.value as "all" | "hr" | "jobs" | "candidates" | "clients" | "reports"
-                  )
-                }
-                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              >
-                <option value="all">All fields</option>
-                <option value="hr">HR fields</option>
-                <option value="jobs">Jobs fields</option>
-                <option value="candidates">Candidates fields</option>
-                <option value="clients">Clients fields</option>
-                <option value="reports">Reports fields</option>
-              </select>
+                >
+                  <option value="all">All modules</option>
+                  {crmModuleAccessDefinitions.map((definition) => (
+                    <option key={definition.key} value={definition.key}>
+                      {definition.label}
+                    </option>
+                  ))}
+                </select>
             </div>
 
             {selectedEmployee ? (
@@ -680,32 +624,40 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
                       Field and action override
                     </h3>
                     <div className="mt-4 space-y-3">
-                      {visibleFieldDefinitions.map((definition) => (
-                        <label
-                          key={definition.key}
-                          className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
-                        >
-                          <span>
-                            <span className="block text-sm font-semibold text-[var(--color-ink)]">
-                              {definition.label}
+                      {visibleFieldDefinitions.length ? (
+                        visibleFieldDefinitions.map((definition) => (
+                          <label
+                            key={definition.key}
+                            className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
+                          >
+                            <span>
+                              <span className="block text-sm font-semibold text-[var(--color-ink)]">
+                                {definition.label}
+                              </span>
+                              <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                                {definition.description}
+                              </span>
                             </span>
-                            <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
-                              {definition.description}
-                            </span>
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={
-                              currentEmployeeOverride?.fields?.[definition.key] ??
-                              settings.accessControl[selectedEmployeeRoleKey].fields[definition.key]
-                            }
-                            onChange={(event) =>
-                              updateEmployeeOverride("fields", definition.key, event.target.checked)
-                            }
-                            className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
-                          />
-                        </label>
-                      ))}
+                            <input
+                              type="checkbox"
+                              checked={
+                                currentEmployeeOverride?.fields?.[definition.key] ??
+                                settings.accessControl[selectedEmployeeRoleKey].fields[
+                                  definition.key
+                                ]
+                              }
+                              onChange={(event) =>
+                                updateEmployeeOverride("fields", definition.key, event.target.checked)
+                              }
+                              className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
+                            />
+                          </label>
+                        ))
+                      ) : (
+                        <div className="rounded-[1.1rem] border border-dashed border-[var(--color-line)] px-4 py-5 text-sm text-[var(--color-muted)]">
+                          No field-level access items are configured for the selected module yet.
+                        </div>
+                      )}
                     </div>
                   </article>
                 </div>
