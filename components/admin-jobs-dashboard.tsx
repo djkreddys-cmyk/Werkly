@@ -193,7 +193,6 @@ export function AdminJobsDashboard({
   }, []);
 
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
-  const normalizedAuthRole = authRole.trim().toLowerCase();
   const { roleAccess } = useCrmAccessControl(
     token,
     authType,
@@ -208,14 +207,9 @@ export function AdminJobsDashboard({
   const canViewJobCompensation = roleAccess.fields["jobs.compensation"];
   const canToggleJobVisibility = roleAccess.fields["jobs.hideToggle"];
   const canAddCandidates =
-    roleAccess.fields["jobs.addCandidate"] &&
-    (canManageJobs ||
-      normalizedAuthRole.includes("recruiter") ||
-      normalizedAuthRole.includes("delivery") ||
-      normalizedAuthRole.includes("founder") ||
-      normalizedAuthRole.includes("cto") ||
-      normalizedAuthRole.includes("lead") ||
-      normalizedAuthRole.includes("head"));
+    roleAccess.modules.jobs &&
+    roleAccess.modules.candidates &&
+    roleAccess.fields["jobs.addCandidate"];
   const currentEmployeeId = useMemo(
     () =>
       employees.find(
