@@ -451,6 +451,7 @@ function CrmEmployeesList({
   employees,
   attendance,
   activity,
+  token,
   onEdit,
   canEdit,
   onResetPassword,
@@ -460,6 +461,7 @@ function CrmEmployeesList({
   employees: EmployeeRecord[];
   attendance: AttendanceSessionRecord[];
   activity: ScreenActivityRecord[];
+  token: string;
   onEdit: (employee: EmployeeRecord) => void;
   canEdit: boolean;
   onResetPassword: (employee: EmployeeRecord) => void;
@@ -467,6 +469,9 @@ function CrmEmployeesList({
   resettingEmployeeId: string;
 }) {
   const [actionMenuEmployeeId, setActionMenuEmployeeId] = useState("");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | EmployeeStatus>("all");
+  const [viewMessage, setViewMessage] = useState("");
   const todayKey = new Date().toISOString().slice(0, 10);
   const attendanceByEmployee = useMemo(() => {
     const summary = new Map<
@@ -538,6 +543,136 @@ function CrmEmployeesList({
     return summary;
   }, [activity, todayKey]);
 
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((employee) => {
+      const matchesQuery =
+        !query ||
+        [
+          employee.fullName,
+          employee.employeeCode,
+          employee.email,
+          employee.phone,
+          employee.role,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query.trim().toLowerCase()));
+
+      const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
+
+      return matchesQuery && matchesStatus;
+    });
+  }, [employees, query, statusFilter]);
+
+  function exportCurrentEmployeesView() {
+    const workbookMarkup = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+      th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+      th { background: #eaf2f4; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>Employees Current View</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Code</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Role</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filteredEmployees
+          .map(
+            (employee) => `<tr>
+              <td>${employee.fullName}</td>
+              <td>${employee.employeeCode || "Pending"}</td>
+              <td>${employee.email}</td>
+              <td>${employee.phone || "Not added"}</td>
+              <td>${employee.role}</td>
+              <td>${employee.status}</td>
+            </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>
+  </body>
+</html>`;
+
+    const blob = new Blob([workbookMarkup], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "employees-current-view.xls";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function saveCurrentEmployeesView() {
+    if (!token) {
+      return;
+    }
+
+    setViewMessage("");
+
+    try {
+      const response = await fetch("/api/admin/saved-views", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          moduleKey: "hr",
+          viewKey: "existing-employees",
+          viewName: `Employees View ${new Date().toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`,
+          filters: {
+            query,
+            statusFilter,
+          },
+          columns: [
+            "employee",
+            "code",
+            "email",
+            "phone",
+            "screenTime",
+            "idleTime",
+            "lastSeen",
+            "firstLogin",
+            "lastLogout",
+            "status",
+          ],
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save employees view.");
+      }
+
+      setViewMessage("Current employees view saved.");
+    } catch (saveError) {
+      setViewMessage(
+        saveError instanceof Error ? saveError.message : "Unable to save employees view."
+      );
+    }
+  }
+
   return (
     <section className="accent-card p-6">
       <div className="flex items-center justify-between gap-4">
@@ -552,8 +687,45 @@ function CrmEmployeesList({
         </span>
       </div>
 
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_220px_auto_auto] xl:items-end">
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search employee, code, email, phone"
+          className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+        />
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value as "all" | EmployeeStatus)}
+          className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+        >
+          <option value="all">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <button
+          type="button"
+          onClick={exportCurrentEmployeesView}
+          disabled={filteredEmployees.length === 0}
+          className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Export Current View
+        </button>
+        <button
+          type="button"
+          onClick={() => void saveCurrentEmployeesView()}
+          className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+        >
+          Save Current View
+        </button>
+      </div>
+
+      {viewMessage ? (
+        <p className="mt-4 text-sm font-medium text-[var(--color-dark)]">{viewMessage}</p>
+      ) : null}
+
       <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
-        {employees.length === 0 ? (
+        {filteredEmployees.length === 0 ? (
           <p className="muted-copy p-5 text-sm">No employee logins have been created yet.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -583,8 +755,8 @@ function CrmEmployeesList({
                 </tr>
               </thead>
               <tbody>
-                {employees.map((employee, index) => {
-                  const shouldOpenUp = index >= employees.length - 2;
+                {filteredEmployees.map((employee, index) => {
+                  const shouldOpenUp = index >= filteredEmployees.length - 2;
                   const attendanceSummary =
                     attendanceByEmployee.get(employee.id) ??
                     attendanceByEmployee.get(employee.employeeCode || "") ??
@@ -598,7 +770,7 @@ function CrmEmployeesList({
                     <tr
                       key={employee.id}
                       className={
-                        index === employees.length - 1
+                        index === filteredEmployees.length - 1
                           ? "align-top"
                           : "align-top border-b border-[var(--color-line)]"
                       }
@@ -885,7 +1057,7 @@ function CrmClientsList({
           </span>
         </div>
 
-        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_220px_auto_auto] xl:items-end">
           <input
             value={query}
             onChange={(event) => {
@@ -911,14 +1083,14 @@ function CrmClientsList({
             type="button"
             onClick={exportCurrentView}
             disabled={filteredClients.length === 0}
-            className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Export Current View
           </button>
           <button
             type="button"
             onClick={() => void saveCurrentClientsView()}
-            className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+            className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
           >
             Save Current View
           </button>
@@ -1823,6 +1995,7 @@ export function AdminEmployeesPanel({
             employees={employees}
             attendance={attendance}
             activity={activity}
+            token={token}
             onEdit={loadEmployeeForEdit}
             canEdit={canManageEmployees}
             onResetPassword={loadEmployeeForPasswordReset}

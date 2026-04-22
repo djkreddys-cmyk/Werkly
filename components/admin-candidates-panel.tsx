@@ -742,7 +742,7 @@ export function AdminCandidatesPanel() {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[520px]">
+          <div className="grid w-full gap-3 md:grid-cols-2 xl:min-w-[880px] xl:grid-cols-[minmax(260px,1fr)_220px_auto_auto] xl:items-end">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -766,7 +766,7 @@ export function AdminCandidatesPanel() {
                 type="button"
                 onClick={handleApplicantDownload}
                 disabled={filteredApplications.length === 0}
-                className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
+                className="h-[50px] rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Download Applicant Details
               </button>
@@ -774,7 +774,7 @@ export function AdminCandidatesPanel() {
             <button
               type="button"
               onClick={() => void saveCurrentCandidatesView()}
-              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] sm:col-span-2"
+              className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
             >
               Save Current View
             </button>

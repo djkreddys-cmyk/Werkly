@@ -648,8 +648,8 @@ function ReportFilterBar({
 }) {
   return (
     <section className="accent-card p-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(6,minmax(0,1fr))_auto_auto] xl:items-end">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
               Start Date
@@ -787,31 +787,27 @@ function ReportFilterBar({
               </select>
             </label>
           ) : null}
-        </div>
 
-        <div className="flex flex-col gap-3 xl:items-end">
-          <div className="flex flex-wrap gap-3">
-            {onSaveView ? (
-              <button
-                type="button"
-                onClick={onSaveView}
-                className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
-              >
-                Save Current View
-              </button>
-            ) : null}
+          {onSaveView ? (
             <button
               type="button"
-              onClick={onExport}
-              className="inline-flex items-center justify-center rounded-xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[rgba(8,96,108,0.92)]"
+              onClick={onSaveView}
+              className="h-[50px] inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:border-[var(--color-dark)] hover:bg-[rgba(8,96,108,0.06)]"
             >
-              {exportLabel}
+              Save Current View
             </button>
-          </div>
-          {saveFeedback ? (
-            <p className="text-sm font-medium text-[var(--color-dark)]">{saveFeedback}</p>
           ) : null}
+          <button
+            type="button"
+            onClick={onExport}
+            className="h-[50px] inline-flex items-center justify-center rounded-xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[rgba(8,96,108,0.92)]"
+          >
+            {exportLabel}
+          </button>
         </div>
+        {saveFeedback ? (
+          <p className="text-sm font-medium text-[var(--color-dark)]">{saveFeedback}</p>
+        ) : null}
       </div>
     </section>
   );
