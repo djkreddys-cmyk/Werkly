@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { JobDetail } from "@/lib/jobs";
 
@@ -173,6 +174,18 @@ export function AdminJobIdTrigger({
                     {(job.requirements ?? []).length ? job.requirements?.join(", ") : "Not added"}
                   </p>
                 </div>
+              </div>
+            ) : null}
+
+            {jobId ? (
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href={`/admin/jobs/${jobId}`}
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                >
+                  Open Full Page
+                </Link>
               </div>
             ) : null}
           </div>

@@ -501,6 +501,7 @@ function mapCrmSettingsRow(row) {
 function mapNotificationLogRow(row) {
   return {
     id: row.id,
+    notificationKey: row.notification_key,
     title: row.title,
     message: row.message,
     category: row.category,
@@ -509,7 +510,13 @@ function mapNotificationLogRow(row) {
     targetEmployeeId: row.target_employee_id,
     deliveryChannels: Array.isArray(row.delivery_channels) ? row.delivery_channels : [],
     isRead: Boolean(row.is_read),
+    actionUrl: row.action_url,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    metadata: row.metadata && typeof row.metadata === "object" ? row.metadata : {},
+    readAt: row.read_at,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -1557,7 +1564,14 @@ export async function listNotificationLogs(employeeId = null, includeAllForAdmin
       target_employee_id,
       delivery_channels,
       is_read,
-      created_at
+      notification_key,
+      action_url,
+      entity_type,
+      entity_id,
+      metadata,
+      read_at,
+      created_at,
+      updated_at
      from notification_logs
      ${whereClause}
      order by created_at desc
@@ -1571,6 +1585,7 @@ export async function listNotificationLogs(employeeId = null, includeAllForAdmin
 export async function createNotificationLog(payload) {
   const result = await query(
     `insert into notification_logs (
+      notification_key,
       title,
       message,
       category,
@@ -1578,10 +1593,17 @@ export async function createNotificationLog(payload) {
       target_type,
       target_employee_id,
       delivery_channels,
-      is_read
-    ) values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+      is_read,
+      action_url,
+      entity_type,
+      entity_id,
+      metadata,
+      read_at,
+      updated_at
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13::jsonb, $14, now())
     returning *`,
     [
+      payload.notificationKey || null,
       payload.title,
       payload.message,
       payload.category || "general",
@@ -1590,6 +1612,11 @@ export async function createNotificationLog(payload) {
       payload.targetEmployeeId || null,
       JSON.stringify(payload.deliveryChannels || []),
       payload.isRead ?? false,
+      payload.actionUrl || null,
+      payload.entityType || null,
+      payload.entityId || null,
+      JSON.stringify(payload.metadata || {}),
+      payload.isRead ? new Date().toISOString() : null,
     ]
   );
 
@@ -1608,6 +1635,8 @@ export async function markNotificationRead(id, employeeId = null, includeAllForA
   const result = await query(
     `update notification_logs
         set is_read = true
+            , read_at = now()
+            , updated_at = now()
       ${whereClause}
       returning *`,
     values

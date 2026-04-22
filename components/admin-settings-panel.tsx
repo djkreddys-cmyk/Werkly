@@ -117,6 +117,20 @@ function SettingsNav({ activeSection }: { activeSection: SettingsSection }) {
       title: "Operational activity feed",
       description: "Audit logs, candidate history, transfers, and notifications with filters.",
     },
+    {
+      key: "workflow",
+      href: "/admin/settings/workflows",
+      eyebrow: "Workflow Settings",
+      title: "Approvals and SLA rules",
+      description: "Review approval-backed actions and escalation rules from one admin page.",
+    },
+    {
+      key: "savedViews",
+      href: "/admin/settings/saved-views",
+      eyebrow: "Saved Views",
+      title: "Reusable filters",
+      description: "Manage current-view presets saved from dashboard and module screens.",
+    },
   ] as const;
 
   return (
@@ -507,7 +521,8 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
           <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
             Use KPI Settings for targets, Notification Settings for reminder channels, and Access
             Settings for employee-wise frontend permissions. Activity Center is now also grouped
-            under Settings with employee-wise and date-wise filtering.
+            under Settings with employee-wise and date-wise filtering. Workflow Settings now cover
+            approval queues and SLA rules, while Saved Views manages reusable filter presets.
           </p>
         </section>
       ) : null}

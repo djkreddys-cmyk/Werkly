@@ -329,6 +329,7 @@ export function AdminDashboardOverview() {
       ? window.Notification.permission
       : "unsupported"
   );
+  const [viewMessage, setViewMessage] = useState("");
   const isAdminView = authType === "admin" || authRole === "super-admin";
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const activeDateKey = normalizeDateKey(selectedDateKey) || todayKey;
@@ -690,6 +691,53 @@ export function AdminDashboardOverview() {
     setNotificationPermission(permission);
   }
 
+  async function saveCurrentDashboardView() {
+    if (!token) {
+      return;
+    }
+
+    setViewMessage("");
+
+    try {
+      const response = await fetch("/api/admin/saved-views", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          moduleKey: "dashboard",
+          viewKey: "follow-up-dashboard",
+          viewName: `Dashboard View ${new Date().toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`,
+          isShared: isAdminView,
+          filters: {
+            employeeId: activeEmployeeFilter || "all",
+            followUpStatus: selectedFollowUpStatus,
+            selectedDate: activeDateKey,
+            authType,
+          },
+          columns: ["client", "owner", "status", "nextFollowUpDate"],
+        }),
+      });
+      const result = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save dashboard view.");
+      }
+
+      setViewMessage("Current dashboard view saved successfully.");
+    } catch (saveError) {
+      setViewMessage(
+        saveError instanceof Error ? saveError.message : "Unable to save dashboard view."
+      );
+    }
+  }
+
   const metrics = useMemo(() => {
     const liveJobs = visibleJobs.filter((job) => {
       if (job.isHidden || job.status !== "open") {
@@ -919,6 +967,27 @@ export function AdminDashboardOverview() {
             <p className="muted-copy mt-3 text-sm leading-6">{item.detail}</p>
           </article>
         ))}
+      </section>
+
+      <section className="accent-card flex flex-wrap items-center justify-between gap-4 p-5">
+        <div>
+          <p className="eyebrow">Saved Views</p>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+            Save the current dashboard filters
+          </h2>
+          <p className="muted-copy mt-2 text-sm leading-6">
+            Keep the selected employee, follow-up status, and date view as a reusable preset from
+            Settings → Saved Views.
+          </p>
+          {viewMessage ? <p className="mt-3 text-sm font-medium text-[var(--color-dark)]">{viewMessage}</p> : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => void saveCurrentDashboardView()}
+          className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+        >
+          Save Current View
+        </button>
       </section>
 
       {settings.enableBrowserNotifications && notificationPermission !== "granted" ? (

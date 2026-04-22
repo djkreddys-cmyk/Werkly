@@ -1,5 +1,27 @@
 import { NextResponse } from "next/server";
-import { type EmployeeFormPayload, updateEmployee } from "@/lib/crm";
+import { getEmployeeById, type EmployeeFormPayload, updateEmployee } from "@/lib/crm";
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "").trim();
+
+    if (!token) {
+      return NextResponse.json({ message: "Admin token is required." }, { status: 401 });
+    }
+
+    const { id } = await context.params;
+    const employee = await getEmployeeById(id, token);
+    return NextResponse.json(employee);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to load employee from backend.";
+    return NextResponse.json({ message }, { status: 500 });
+  }
+}
 
 export async function PUT(
   request: Request,

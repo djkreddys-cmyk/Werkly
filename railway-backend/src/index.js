@@ -48,6 +48,21 @@ import {
   updateEmployee,
 } from "./crm.js";
 import {
+  createApprovalRequest,
+  createTimelineEvent,
+  ensureWorkflowSchema,
+  listApprovalRequests,
+  listSavedViews,
+  listSlaRules,
+  listTimelineEvents,
+  reviewApprovalRequest,
+  reviewPendingApprovalByEntity,
+  runSlaEscalations,
+  updateSlaRules,
+  upsertSavedView,
+  deleteSavedView,
+} from "./workflow.js";
+import {
   createLeaveRequest,
   createLeaveType,
   ensureLeaveSchema,
@@ -91,6 +106,18 @@ function getActorDetails(request) {
     actorName: request.user?.name || "Werkly User",
     actorRole: scope.roleKey,
   };
+}
+
+async function recordTimeline(request, payload) {
+  const actor = getActorDetails(request);
+  return createTimelineEvent({
+    ...payload,
+    actorType: actor.actorType,
+    actorId: actor.actorId,
+    actorIdentifier: actor.actorIdentifier,
+    actorName: actor.actorName,
+    actorRole: actor.actorRole,
+  });
 }
 
 app.use(
@@ -662,6 +689,21 @@ app.post("/admin/jobs/:id/applications", requirePermission("candidates.manage"),
       },
     });
 
+    await recordTimeline(request, {
+      entityType: "candidate",
+      entityId: application.id,
+      entityLabel: application.candidateName,
+      eventType: "candidate.created",
+      title: "Candidate added manually",
+      summary: `${application.candidateName} was added against ${application.jobTitle || "the selected job"}.`,
+      beforeData: {},
+      afterData: application,
+      metadata: {
+        jobId: application.jobId,
+        jobCode: application.jobCode,
+      },
+    });
+
     response.status(201).json(application);
   } catch (error) {
     response.status(500).json({
@@ -688,6 +730,11 @@ app.put(
 
       if (!allowedStages.includes(stage)) {
         return response.status(400).json({ message: "Invalid application stage." });
+      }
+      if (!String(stageNote ?? "").trim() || !stageDate) {
+        return response.status(400).json({
+          message: "Stage remark and effective date are required.",
+        });
       }
 
       const application = await updateJobApplicationStage(
@@ -719,6 +766,25 @@ app.put(
         },
       });
 
+      await recordTimeline(request, {
+        entityType: "candidate",
+        entityId: application.id,
+        entityLabel: application.candidateName,
+        eventType: "candidate.stage-updated",
+        title: "Candidate stage updated",
+        summary: `${application.candidateName} moved to ${application.stage || stage}.`,
+        beforeData: {},
+        afterData: {
+          stage: application.stage,
+          stageNote: application.stageNote,
+          stageDate: application.stageDate,
+        },
+        metadata: {
+          jobId: application.jobId,
+          jobCode: application.jobCode,
+        },
+      });
+
       response.json(application);
     } catch (error) {
       response.status(500).json({
@@ -746,6 +812,11 @@ app.put(
 
       if (!assignedEmployeeId) {
         return response.status(400).json({ message: "Target employee is required." });
+      }
+      if (!String(note ?? "").trim()) {
+        return response.status(400).json({
+          message: "Transfer remarks are required for candidate assignment changes.",
+        });
       }
 
       const application = await assignJobApplication(
@@ -786,6 +857,52 @@ app.put(
         },
       });
 
+      await recordTimeline(request, {
+        entityType: "candidate",
+        entityId: application.id,
+        entityLabel: application.candidateName,
+        eventType:
+          assignmentType === "follow-up-support"
+            ? "candidate.follow-up-assigned"
+            : "candidate.reassigned",
+        title:
+          assignmentType === "follow-up-support"
+            ? "Candidate follow-up assigned"
+            : "Candidate ownership transferred",
+        summary: String(note || "Candidate assignment updated."),
+        beforeData: {},
+        afterData: {
+          assignedEmployeeId: application.assignedEmployeeId,
+          followUpEmployeeId: application.followUpEmployeeId,
+          followUpFromDate: application.followUpFromDate,
+          followUpToDate: application.followUpToDate,
+        },
+        metadata: {
+          assignmentType: assignmentType || "ownership-transfer",
+        },
+      });
+
+      if ((assignmentType || "ownership-transfer") === "ownership-transfer") {
+        await createApprovalRequest({
+          requestType: "candidate-transfer",
+          entityType: "candidate",
+          entityId: application.id,
+          entityLabel: application.candidateName,
+          requestedByEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+          effectiveFromDate,
+          effectiveToDate,
+          reason: note,
+          beforeData: {},
+          requestedData: {
+            assignedEmployeeId,
+          },
+          metadata: {
+            jobId: application.jobId,
+            jobCode: application.jobCode,
+          },
+        });
+      }
+
       response.json(application);
     } catch (error) {
       response.status(500).json({
@@ -805,6 +922,22 @@ app.get("/admin/employees", requireInternalUser, async (_request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load employees.",
+    });
+  }
+});
+
+app.get("/admin/employees/:id", requireInternalUser, async (request, response) => {
+  try {
+    const employee = await getEmployeeById(request.params.id);
+
+    if (!employee) {
+      return response.status(404).json({ message: "Employee not found." });
+    }
+
+    response.json(employee);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load employee details.",
     });
   }
 });
@@ -863,6 +996,17 @@ app.post("/admin/employees", requirePermission("employees.manage"), async (reque
       entityType: "employee",
       entityId: employee.id,
       ...getActorDetails(request),
+      beforeData: {},
+      afterData: employee,
+    });
+
+    await recordTimeline(request, {
+      entityType: "employee",
+      entityId: employee.id,
+      entityLabel: employee.fullName,
+      eventType: "employee.created",
+      title: "Employee created",
+      summary: `${employee.fullName} was added to Werkly CRM.`,
       beforeData: {},
       afterData: employee,
     });
@@ -938,6 +1082,44 @@ app.put("/admin/employees/:id", requirePermission("employees.manage"), async (re
       afterData: employee,
     });
 
+    await recordTimeline(request, {
+      entityType: "employee",
+      entityId: employee.id,
+      entityLabel: employee.fullName,
+      eventType:
+        status === "inactive" && previousEmployee?.status !== "inactive"
+          ? "employee.inactivated"
+          : "employee.updated",
+      title:
+        status === "inactive" && previousEmployee?.status !== "inactive"
+          ? "Employee marked inactive"
+          : "Employee updated",
+      summary:
+        status === "inactive" && inactiveRemarks
+          ? inactiveRemarks
+          : `${employee.fullName} details were updated.`,
+      beforeData: previousEmployee || {},
+      afterData: employee,
+    });
+
+    if (status === "inactive" && previousEmployee?.status !== "inactive") {
+      await createApprovalRequest({
+        requestType: "employee-inactivation",
+        entityType: "employee",
+        entityId: employee.id,
+        entityLabel: employee.fullName,
+        requestedByEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+        effectiveFromDate: inactiveDate,
+        reason: inactiveRemarks,
+        beforeData: previousEmployee || {},
+        requestedData: {
+          status,
+          inactiveDate,
+          inactiveRemarks,
+        },
+      });
+    }
+
     response.json(employee);
   } catch (error) {
     response.status(500).json({
@@ -972,6 +1154,21 @@ app.post("/admin/employees/:id/reset-password", requirePermission("employees.man
       entityType: "employee",
       entityId: employee.id,
       ...getActorDetails(request),
+      beforeData: {
+        mustChangePassword: previousEmployee?.mustChangePassword,
+      },
+      afterData: {
+        mustChangePassword: employee.mustChangePassword,
+      },
+    });
+
+    await recordTimeline(request, {
+      entityType: "employee",
+      entityId: employee.id,
+      entityLabel: employee.fullName,
+      eventType: "employee.password-reset",
+      title: "Password reset",
+      summary: `${employee.fullName}'s password was reset.`,
       beforeData: {
         mustChangePassword: previousEmployee?.mustChangePassword,
       },
@@ -1193,6 +1390,17 @@ app.post("/admin/clients", requirePermission("clients.manage"), async (request, 
       afterData: client,
     });
 
+    await recordTimeline(request, {
+      entityType: "client",
+      entityId: client.id,
+      entityLabel: client.companyName,
+      eventType: "client.created",
+      title: "Client onboarded",
+      summary: `${client.companyName} was added to the CRM.`,
+      beforeData: {},
+      afterData: client,
+    });
+
     response.status(201).json(client);
   } catch (error) {
     response.status(500).json({
@@ -1304,6 +1512,17 @@ app.put("/admin/clients/:id/onboarding", requirePermission("clients.manage"), as
       afterData: client,
     });
 
+    await recordTimeline(request, {
+      entityType: "client",
+      entityId: client.id,
+      entityLabel: client.companyName,
+      eventType: "client.onboarding-updated",
+      title: "Client onboarding updated",
+      summary: notes || `Onboarding moved to ${onboardingStatus}.`,
+      beforeData: previousClient || {},
+      afterData: client,
+    });
+
     response.json(client);
   } catch (error) {
     response.status(500).json({
@@ -1320,6 +1539,11 @@ app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) =
     if (!assignedEmployeeId) {
       return response.status(400).json({
         message: "Target employee is required.",
+      });
+    }
+    if (!String(reason ?? "").trim()) {
+      return response.status(400).json({
+        message: "Transfer reason is required.",
       });
     }
 
@@ -1354,6 +1578,26 @@ app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) =
       },
     });
 
+    await recordTimeline(request, {
+      entityType: "client",
+      entityId: client.id,
+      entityLabel: client.companyName,
+      eventType:
+        assignmentType === "follow-up-support"
+          ? "client.follow-up-assigned"
+          : "client.reassigned",
+      title:
+        assignmentType === "follow-up-support"
+          ? "Client follow-up assigned"
+          : "Client ownership transferred",
+      summary: reason || "Client assignment updated.",
+      beforeData: previousClient || {},
+      afterData: client,
+      metadata: {
+        assignmentType: assignmentType || "ownership-transfer",
+      },
+    });
+
     response.json(client);
   } catch (error) {
     response.status(500).json({
@@ -1369,6 +1613,11 @@ app.put("/admin/clients/:id/follow-up", requirePermission("clients.followup"), a
     if (!followUpStatus) {
       return response.status(400).json({
         message: "Follow-up status is required.",
+      });
+    }
+    if (followUpStatus === "closed" && !String(followUpNotes ?? "").trim()) {
+      return response.status(400).json({
+        message: "Follow-up notes are required before closing the client follow-up.",
       });
     }
 
@@ -1392,6 +1641,17 @@ app.put("/admin/clients/:id/follow-up", requirePermission("clients.followup"), a
       entityType: "client",
       entityId: client.id,
       ...getActorDetails(request),
+      beforeData: previousClient || {},
+      afterData: client,
+    });
+
+    await recordTimeline(request, {
+      entityType: "client",
+      entityId: client.id,
+      entityLabel: client.companyName,
+      eventType: "client.follow-up-updated",
+      title: "Client follow-up updated",
+      summary: followUpNotes || `Follow-up moved to ${followUpStatus}.`,
       beforeData: previousClient || {},
       afterData: client,
     });
@@ -1426,8 +1686,217 @@ app.put("/admin/settings", requireAdmin, async (request, response) => {
   }
 });
 
+app.get("/admin/approvals", requireInternalUser, async (request, response) => {
+  try {
+    const approvals = await listApprovalRequests({
+      employeeId: request.user?.type === "employee" ? request.user.id : null,
+      isAdmin: request.user?.type === "admin",
+      requestStatus: request.query.status || null,
+      requestType: request.query.requestType || null,
+      entityType: request.query.entityType || null,
+    });
+    response.json({ approvals });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load approvals.",
+    });
+  }
+});
+
+app.post("/admin/approvals", requireInternalUser, async (request, response) => {
+  try {
+    const { requestType, entityType, entityId, entityLabel, effectiveFromDate, effectiveToDate, reason, remarks, beforeData, requestedData, metadata } =
+      request.body ?? {};
+
+    if (!requestType || !entityType || !entityId) {
+      return response.status(400).json({
+        message: "Request type, entity type, and entity id are required.",
+      });
+    }
+
+    const approval = await createApprovalRequest({
+      requestType,
+      entityType,
+      entityId,
+      entityLabel,
+      requestedByEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+      effectiveFromDate,
+      effectiveToDate,
+      reason,
+      remarks,
+      beforeData,
+      requestedData,
+      metadata,
+    });
+
+    await recordTimeline(request, {
+      entityType: "approval-request",
+      entityId: approval.id,
+      entityLabel: approval.entityLabel || approval.requestType,
+      eventType: "approval-request.created",
+      title: "Approval request created",
+      summary: approval.reason || "A new approval request was raised.",
+      beforeData: {},
+      afterData: approval,
+    });
+
+    response.status(201).json(approval);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to create approval request.",
+    });
+  }
+});
+
+app.put("/admin/approvals/:id", requireAdmin, async (request, response) => {
+  try {
+    const { requestStatus, reviewedData } = request.body ?? {};
+
+    if (!["approved", "rejected", "cancelled"].includes(requestStatus)) {
+      return response.status(400).json({
+        message: "Invalid approval status.",
+      });
+    }
+
+    const approval = await reviewApprovalRequest(request.params.id, {
+      requestStatus,
+      reviewedData,
+      reviewedByEmployeeId: null,
+    });
+
+    if (!approval) {
+      return response.status(404).json({ message: "Approval request not found." });
+    }
+
+    await recordTimeline(request, {
+      entityType: "approval-request",
+      entityId: approval.id,
+      entityLabel: approval.entityLabel || approval.requestType,
+      eventType: "approval-request.reviewed",
+      title: "Approval request reviewed",
+      summary: `Approval request marked as ${requestStatus}.`,
+      beforeData: {},
+      afterData: approval,
+    });
+
+    response.json(approval);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to review approval request.",
+    });
+  }
+});
+
+app.get("/admin/timeline", requireInternalUser, async (request, response) => {
+  try {
+    const timeline = await listTimelineEvents({
+      entityType: request.query.entityType || null,
+      entityId: request.query.entityId || null,
+      actorId: request.query.actorId || null,
+      limit: request.query.limit || 80,
+    });
+    response.json({ timeline });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load timeline.",
+    });
+  }
+});
+
+app.get("/admin/saved-views", requireInternalUser, async (request, response) => {
+  try {
+    const views = await listSavedViews({
+      moduleKey: request.query.moduleKey || null,
+      ownerEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+      isAdmin: request.user?.type === "admin",
+      includeAll: request.query.scope === "all",
+    });
+    response.json({ views });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load saved views.",
+    });
+  }
+});
+
+app.post("/admin/saved-views", requireInternalUser, async (request, response) => {
+  try {
+    const { id, moduleKey, viewKey, viewName, ownerType, roleKey, isShared, filters, columns } =
+      request.body ?? {};
+
+    if (!moduleKey || !viewKey || !viewName) {
+      return response.status(400).json({
+        message: "Module, view key, and view name are required.",
+      });
+    }
+
+    const view = await upsertSavedView({
+      id,
+      moduleKey,
+      viewKey,
+      viewName,
+      ownerType: request.user?.type === "admin" ? ownerType || "admin" : "employee",
+      ownerEmployeeId: request.user?.type === "employee" ? request.user.id : null,
+      roleKey,
+      isShared,
+      filters,
+      columns,
+    });
+
+    response.status(id ? 200 : 201).json(view);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to save current view.",
+    });
+  }
+});
+
+app.delete("/admin/saved-views/:id", requireInternalUser, async (request, response) => {
+  try {
+    const deleted = await deleteSavedView(
+      request.params.id,
+      request.user?.type === "employee" ? request.user.id : null,
+      request.user?.type === "admin"
+    );
+
+    if (!deleted) {
+      return response.status(404).json({ message: "Saved view not found." });
+    }
+
+    response.json({ success: true });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to delete saved view.",
+    });
+  }
+});
+
+app.get("/admin/sla-rules", requireAdmin, async (_request, response) => {
+  try {
+    const rules = await listSlaRules();
+    response.json({ rules });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load SLA rules.",
+    });
+  }
+});
+
+app.put("/admin/sla-rules", requireAdmin, async (request, response) => {
+  try {
+    const rules = Array.isArray(request.body?.rules) ? request.body.rules : [];
+    const updatedRules = await updateSlaRules(rules);
+    response.json({ rules: updatedRules });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update SLA rules.",
+    });
+  }
+});
+
 app.get("/admin/notifications", requireInternalUser, async (request, response) => {
   try {
+    await runSlaEscalations();
     const notifications = await listNotificationLogs(
       request.user?.type === "employee" ? request.user.id : null,
       request.user?.type === "admin"
@@ -1451,6 +1920,11 @@ app.post("/admin/notifications", requireInternalUser, async (request, response) 
       targetEmployeeId,
       deliveryChannels,
       isRead,
+      notificationKey,
+      actionUrl,
+      entityType,
+      entityId,
+      metadata,
     } = request.body ?? {};
 
     if (!title || !message) {
@@ -1476,6 +1950,11 @@ app.post("/admin/notifications", requireInternalUser, async (request, response) 
             : null,
       deliveryChannels,
       isRead,
+      notificationKey,
+      actionUrl,
+      entityType,
+      entityId,
+      metadata,
     });
 
     response.status(201).json(notification);
@@ -1543,6 +2022,35 @@ app.post("/admin/client-transfer-requests", requireInternalUser, async (request,
       effectiveFromDate,
       reason,
     });
+
+    await createApprovalRequest({
+      requestType: "client-transfer",
+      entityType: "client",
+      entityId: clientId,
+      entityLabel: transferRequest.clientName,
+      requestedByEmployeeId: request.user.id,
+      effectiveFromDate,
+      reason,
+      beforeData: {},
+      requestedData: {
+        requestedToEmployeeId,
+      },
+      metadata: {
+        legacyTransferRequestId: transferRequest.id,
+      },
+    });
+
+    await recordTimeline(request, {
+      entityType: "client",
+      entityId: clientId,
+      entityLabel: transferRequest.clientName,
+      eventType: "client.transfer-request-created",
+      title: "Client transfer requested",
+      summary: reason || "Client transfer request raised for approval.",
+      beforeData: {},
+      afterData: transferRequest,
+    });
+
     response.status(201).json(transferRequest);
   } catch (error) {
     response.status(500).json({
@@ -1581,6 +2089,26 @@ app.put("/admin/client-transfer-requests/:id", requireAdmin, async (request, res
       },
     });
 
+    await reviewPendingApprovalByEntity("client", reviewed.clientId, "client-transfer", {
+      requestStatus: status,
+      reviewedData: reviewed,
+      reviewedByEmployeeId: null,
+    });
+
+    await recordTimeline(request, {
+      entityType: "client",
+      entityId: reviewed.clientId,
+      entityLabel: reviewed.clientName,
+      eventType: "client.transfer-request-reviewed",
+      title: "Client transfer reviewed",
+      summary: adminNote || `Client transfer request marked ${status}.`,
+      beforeData: {},
+      afterData: reviewed,
+      metadata: {
+        status,
+      },
+    });
+
     response.json(reviewed);
   } catch (error) {
     response.status(500).json({
@@ -1599,6 +2127,17 @@ app.post("/admin/jobs", requirePermission("jobs.manage"), async (request, respon
       entityType: "job",
       entityId: job.id,
       ...getActorDetails(request),
+      beforeData: {},
+      afterData: job,
+    });
+
+    await recordTimeline(request, {
+      entityType: "job",
+      entityId: job.id,
+      entityLabel: job.title,
+      eventType: "job.created",
+      title: "Job created",
+      summary: `${job.title} was added to the CRM.`,
       beforeData: {},
       afterData: job,
     });
@@ -1629,6 +2168,17 @@ app.put("/admin/jobs/:id", requirePermission("jobs.manage"), async (request, res
       afterData: job,
     });
 
+    await recordTimeline(request, {
+      entityType: "job",
+      entityId: job.id,
+      entityLabel: job.title,
+      eventType: "job.updated",
+      title: "Job updated",
+      summary: `${job.title} details were updated.`,
+      beforeData: previousJob || {},
+      afterData: job,
+    });
+
     response.json(job);
   } catch (error) {
     response.status(500).json({
@@ -1641,6 +2191,7 @@ ensureCrmSchema()
   .then(() => ensureJobsSchema())
   .then(() => ensureAuthAuditSchema())
   .then(() => ensureLeaveSchema())
+  .then(() => ensureWorkflowSchema())
   .then(() => {
     app.listen(port, () => {
       console.log(`Werkly Railway backend listening on port ${port}`);

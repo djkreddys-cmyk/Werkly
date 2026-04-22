@@ -135,6 +135,7 @@ export type ClientOnboardingHistoryRecord = {
 
 export type NotificationLogRecord = {
   id: string;
+  notificationKey?: string;
   title: string;
   message: string;
   category: string;
@@ -143,7 +144,13 @@ export type NotificationLogRecord = {
   targetEmployeeId?: string;
   deliveryChannels: string[];
   isRead?: boolean;
+  actionUrl?: string;
+  entityType?: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
+  readAt?: string;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type AuditLogRecord = {
@@ -297,6 +304,14 @@ export async function getEmployees(token: string) {
   );
 
   return Array.isArray(data) ? data : data.employees;
+}
+
+export async function getEmployeeById(id: string, token: string) {
+  return readJson<EmployeeRecord>(`/admin/employees/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
 
 export async function createEmployee(payload: EmployeeFormPayload, token: string) {
