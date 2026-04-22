@@ -4,9 +4,9 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://werkly.in"),
-  title: "Werkly Consulting Pvt LTD | Non-IT Search and Selection Partner",
+  title: "Werkly Consulting Pvt LTD | IT and Non-IT Hiring Partner",
   description:
-    "Werkly Consulting Pvt LTD delivers end-to-end, tailor-made HR and recruitment solutions across Non-IT sectors with structured execution, domain-specific teams, and measurable outcomes.",
+    "Werkly Consulting Pvt LTD delivers tailored HR and recruitment solutions across IT and Non-IT hiring with structured execution, domain-focused search, and measurable outcomes.",
 };
 
 export default function RootLayout({

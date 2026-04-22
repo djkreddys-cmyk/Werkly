@@ -7,9 +7,9 @@ import { SiteHeader } from "@/components/site-header";
 
 const approachPoints = [
   "Understanding client business models and workforce strategy",
-  "Delivering customized talent acquisition solutions",
-  "Ensuring speed without compromising quality",
-  "Maintaining long-term partnerships through trust and performance",
+  "Delivering customized IT and Non-IT talent acquisition solutions",
+  "Ensuring speed without compromising candidate quality",
+  "Maintaining long-term partnerships through trust, consistency, and performance",
 ];
 
 const processSteps = [
@@ -21,12 +21,12 @@ const processSteps = [
   {
     title: "Structured Execution",
     description:
-      "Search, screening, and shortlisting run through defined delivery processes built for quality and speed.",
+      "Search, screening, and shortlisting run through defined delivery processes built for quality, speed, and role relevance.",
   },
   {
     title: "Outcome-Focused Delivery",
     description:
-      "Mandates are closed with clear coordination, timely execution, and measurable outcomes.",
+      "Mandates are closed with clear coordination, timely execution, and measurable outcomes across business and technology teams.",
   },
   {
     title: "Delivery Principles",
@@ -36,6 +36,8 @@ const processSteps = [
 ];
 
 const sectors = [
+  "Technology, Digital & Product",
+  "IT Services, Infrastructure & Support",
   "Pharma & Life Sciences",
   "Biotech & Nutraceuticals",
   "Food & Beverages",
@@ -61,11 +63,31 @@ export default function Home() {
                   Werkly Consulting Pvt LTD
                 </p>
                 <h1 className="mt-6 max-w-2xl font-[family-name:var(--font-display)] text-[3.3rem] leading-[0.98] sm:text-[4.35rem] lg:text-[4.85rem]">
-                  Nextgen HR solutions for Non-IT businesses.
+                  Recruitment solutions for IT and Non-IT hiring teams.
                 </h1>
                 <p className="mt-5 max-w-xl text-[1.03rem] leading-8 text-white/80 sm:text-[1.08rem]">
-                  Structured search and selection support for companies that need faster hiring closures, stronger candidate quality, and better sector alignment.
+                  Structured search and selection support for companies that need stronger hiring pipelines across technology, business, engineering, operations, and leadership functions.
                 </p>
+                <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-3">
+                  <div className="rounded-[1.35rem] border border-white/12 bg-white/8 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                      Hiring Coverage
+                    </p>
+                    <p className="mt-3 text-2xl font-semibold text-white">IT + Non-IT</p>
+                  </div>
+                  <div className="rounded-[1.35rem] border border-white/12 bg-white/8 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                      Delivery Model
+                    </p>
+                    <p className="mt-3 text-2xl font-semibold text-white">Structured Search</p>
+                  </div>
+                  <div className="rounded-[1.35rem] border border-white/12 bg-white/8 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                      Support Style
+                    </p>
+                    <p className="mt-3 text-2xl font-semibold text-white">Fast + Focused</p>
+                  </div>
+                </div>
               </div>
               <div className="motion-rise motion-rise-delay-1 grid gap-5 sm:grid-cols-[1.05fr_0.95fr]">
                 <div className="hero-frame overflow-hidden rounded-[1.8rem] border border-white/12 bg-white/8 p-3">
@@ -93,7 +115,7 @@ export default function Home() {
                       Established in 2025
                     </p>
                     <p className="mt-3 text-lg leading-8 text-white/86">
-                      Forward-thinking search and selection support for Non-IT hiring mandates.
+                      Forward-thinking search and selection support for both IT and Non-IT hiring mandates.
                     </p>
                   </div>
                 </div>
@@ -107,14 +129,14 @@ export default function Home() {
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">What We Do Best</p>
             <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
-              Sector-led recruitment support designed for clarity, speed, and hiring confidence.
+              Recruitment support designed for clarity, speed, and hiring confidence across multiple functions.
             </h2>
           </div>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             <article className="accent-card p-7 text-center">
-              <p className="eyebrow">Sector Focus</p>
+              <p className="eyebrow">Hiring Breadth</p>
               <p className="mt-4 text-base leading-7 muted-copy">
-                Dedicated support across life sciences, industrial, engineering, and operations-driven roles.
+                Dedicated support across technology, life sciences, industrial, engineering, operations, and business-critical roles.
               </p>
             </article>
             <article className="accent-card p-7 text-center">
@@ -126,8 +148,28 @@ export default function Home() {
             <article className="accent-card p-7 text-center">
               <p className="eyebrow">Client Reach</p>
               <p className="mt-4 text-base leading-7 muted-copy">
-                Hyderabad headquarters with Vijayawada branch support for active hiring mandates.
+                Hyderabad headquarters with Vijayawada branch support for active mandates across growing teams.
               </p>
+            </article>
+          </div>
+          <div className="mt-10 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+            <article className="accent-card p-7">
+              <p className="eyebrow">What We Cover</p>
+              <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+                One hiring partner for specialist, operational, and leadership mandates.
+              </h3>
+              <p className="mt-4 text-base leading-7 muted-copy">
+                Werkly supports organizations that need reliable hiring execution across software, digital, support, engineering, manufacturing, commercial, and business functions. We work as a structured partner, not just a sourcing layer.
+              </p>
+            </article>
+            <article className="accent-card p-7">
+              <p className="eyebrow">Engagement Style</p>
+              <ul className="mt-4 space-y-3 text-base leading-7 muted-copy">
+                <li>Role-aligned search and screening</li>
+                <li>Faster shortlist movement with clear coordination</li>
+                <li>Flexible support for single roles and bulk mandates</li>
+                <li>Consistent communication through the hiring cycle</li>
+              </ul>
             </article>
           </div>
           </RevealSection>
@@ -141,13 +183,13 @@ export default function Home() {
               Recruitment support built around the sectors you actually hire for.
             </h2>
             <p className="mt-5 text-base leading-7 muted-copy sm:text-lg">
-              Werkly brings domain context into search and selection so briefs move faster, screening gets sharper, and closures happen with better alignment.
+              Werkly brings role context into search and selection so briefs move faster, screening gets sharper, and closures happen with better alignment across IT and Non-IT teams.
             </p>
           </div>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {sectors.map((sector) => (
               <article key={sector} className="accent-card flex min-h-[172px] flex-col justify-between p-6">
-                <p className="eyebrow">Non-IT Vertical</p>
+                <p className="eyebrow">Hiring Vertical</p>
                 <h3 className="mt-5 text-2xl font-semibold leading-snug text-[var(--color-ink)]">
                   {sector}
                 </h3>
@@ -165,7 +207,7 @@ export default function Home() {
               <div className="accent-card p-7 sm:p-8">
                 <p className="eyebrow">Process</p>
                 <h2 className="mt-4 max-w-lg section-title">
-                  A structured delivery model built for faster, clearer hiring decisions.
+                  A structured delivery model built for faster, clearer hiring decisions across functions.
                 </h2>
                 <ul className="space-y-3 pt-5">
                   {approachPoints.map((point) => (
@@ -199,10 +241,10 @@ export default function Home() {
             <div className="accent-card p-8 sm:p-9">
               <p className="eyebrow">Client Engagement</p>
               <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
-                Engage Werkly for structured, results-driven recruitment support.
+                Engage Werkly for structured, results-driven hiring support.
               </h2>
               <p className="mt-5 max-w-2xl text-base leading-7 muted-copy sm:text-lg">
-                We support organizations that need strong search and selection delivery, clear turnaround discipline, and long-term recruitment partnerships.
+                We support organizations that need strong search and selection delivery, clear turnaround discipline, and long-term recruitment partnerships across IT and Non-IT hiring.
               </p>
               <p className="mt-4 text-sm leading-6 muted-copy">
                 Use the Enquiry button in the navigation to open either the candidate form or the company requirements form.

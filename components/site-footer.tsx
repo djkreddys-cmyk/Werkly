@@ -40,10 +40,10 @@ export function SiteFooter() {
             Werkly
           </p>
           <h2 className="mx-auto w-full max-w-[560px] font-[family-name:var(--font-display)] text-[1.85rem] leading-[1.18] text-white">
-            Nextgen HR solutions with structured Non-IT recruitment delivery.
+            Recruitment support built for both IT and Non-IT hiring teams.
           </h2>
           <p className="mx-auto w-full max-w-[620px] text-sm leading-7 text-white/68">
-            Werkly Consulting Pvt LTD supports clients with customized search and selection solutions across diverse Non-IT industries.
+            Werkly Consulting Pvt LTD supports companies with customized search and selection solutions across technology, business, engineering, operations, and leadership hiring.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-white/80">

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { headers } from "next/headers";
 import type { JobSummary } from "@/lib/jobs";
+import { PublicJobsTable } from "@/components/public-jobs-table";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -36,12 +36,31 @@ export default async function JobsPage() {
           <div className="section-shell py-16 sm:py-20">
             <p className="eyebrow">Current Openings</p>
             <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-tight text-[var(--color-ink)] sm:text-5xl">
-              Explore active hiring mandates across Werkly&apos;s Non-IT sectors.
+              Explore active IT and Non-IT hiring opportunities from Werkly.
             </h1>
             <p className="muted-copy mt-5 max-w-3xl text-base leading-8 sm:text-lg">
-              Browse live roles, review job details, and apply through the hiring flow
-              that best fits your profile.
+              Review live openings in technology, business, engineering, operations, and leadership functions through one clear public jobs board.
             </p>
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              <article className="accent-card p-5">
+                <p className="eyebrow">Filter First</p>
+                <p className="mt-3 text-sm leading-7 text-[var(--color-muted)]">
+                  Use sector, location, and employment filters to quickly verify the roles relevant to your profile.
+                </p>
+              </article>
+              <article className="accent-card p-5">
+                <p className="eyebrow">Clear Visibility</p>
+                <p className="mt-3 text-sm leading-7 text-[var(--color-muted)]">
+                  See job IDs, position details, experience expectations, and deadlines in a cleaner table layout.
+                </p>
+              </article>
+              <article className="accent-card p-5">
+                <p className="eyebrow">Direct Apply Flow</p>
+                <p className="mt-3 text-sm leading-7 text-[var(--color-muted)]">
+                  Open any role to review the full mandate and continue into the application process with better clarity.
+                </p>
+              </article>
+            </div>
           </div>
         </section>
 
@@ -65,65 +84,7 @@ export default async function JobsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-5 lg:grid-cols-2">
-              {jobs.map((job) => (
-                <article key={job.id} className="accent-card flex h-full flex-col p-7">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="eyebrow">{job.sector}</p>
-                      <h2 className="mt-3 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-                        {job.title}
-                      </h2>
-                      {job.jobCode ? (
-                        <p className="mt-3 text-sm font-semibold text-[var(--color-accent-strong)]">
-                          Job ID: {job.jobCode}
-                        </p>
-                      ) : null}
-                    </div>
-                    <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-dark)]">
-                      {job.status}
-                    </span>
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap gap-3 text-sm text-[var(--color-muted)]">
-                    <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                      {job.location}
-                    </span>
-                    <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                      {job.experience}
-                    </span>
-                    <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                      {job.employmentType}
-                    </span>
-                    {job.salary ? (
-                      <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                        {job.salary}
-                      </span>
-                    ) : null}
-                    {job.lastDateToApply ? (
-                      <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                        Apply by {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
-                      </span>
-                    ) : null}
-                    <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                      Applied {job.applicationsCount}
-                    </span>
-                  </div>
-
-                  <div className="mt-auto flex items-center justify-between gap-4 pt-8">
-                    <p className="text-sm text-[var(--color-muted)]">
-                      Posted {new Date(job.postedAt).toLocaleDateString("en-IN")}
-                    </p>
-                    <Link
-                      href={`/jobs/${job.slug}`}
-                      className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-                    >
-                      View Details
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <PublicJobsTable jobs={jobs} />
           )}
         </section>
       </main>
