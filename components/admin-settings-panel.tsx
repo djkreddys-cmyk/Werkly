@@ -13,7 +13,7 @@ import {
 } from "@/lib/access-control";
 import type { CrmKpiSettings, EmployeeRecord } from "@/lib/crm";
 
-type SettingsSection = "index" | "kpi" | "notifications" | "access";
+type SettingsSection = "index" | "kpi" | "notifications" | "access" | "activity";
 
 const defaultSettings: CrmKpiSettings = {
   recruiterDailyFollowUps: 20,
@@ -106,6 +106,13 @@ function SettingsNav({ activeSection }: { activeSection: SettingsSection }) {
       title: "Employee-wise access control",
       description: "Role defaults plus person-specific module and field access.",
     },
+    {
+      key: "activity",
+      href: "/admin/settings/activity",
+      eyebrow: "Activity Center",
+      title: "Operational activity feed",
+      description: "Audit logs, candidate history, transfers, and notifications with filters.",
+    },
   ] as const;
 
   return (
@@ -151,15 +158,18 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<"all" | CrmAccessRoleKey>("all");
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState("");
-  const [employeeQuery, setEmployeeQuery] = useState("");
+  const [selectedModuleFilter, setSelectedModuleFilter] = useState<
+    "all" | (typeof crmModuleAccessDefinitions)[number]["key"]
+  >("all");
+  const [selectedFieldFilter, setSelectedFieldFilter] = useState<
+    "all" | "hr" | "jobs" | "candidates" | "clients" | "reports"
+  >("all");
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const isAdminView = authType === "admin" || authRole === "super-admin";
-  const accessRoles: CrmAccessRoleKey[] = ["recruiter", "delivery", "leadership"];
-
   useEffect(() => {
     if (!token) {
       setIsLoading(false);
@@ -244,20 +254,12 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
 
         return !normalizedRole.includes("delivery") && !normalizedRole.includes("founder") && !normalizedRole.includes("cto") && !normalizedRole.includes("lead");
       })
-      .filter((employee) => {
-        const query = employeeQuery.trim().toLowerCase();
-        if (!query) {
-          return true;
-        }
+      .sort((first, second) => first.fullName.localeCompare(second.fullName));
+  }, [employees, selectedRoleFilter]);
 
-        return (
-          employee.fullName.toLowerCase().includes(query) ||
-          String(employee.employeeCode || "").toLowerCase().includes(query) ||
-          employee.email.toLowerCase().includes(query) ||
-          String(employee.role || "").toLowerCase().includes(query)
-        );
-      });
-  }, [employeeQuery, employees, selectedRoleFilter]);
+  useEffect(() => {
+    setSelectedEmployeeCode("");
+  }, [selectedRoleFilter]);
 
   const selectedEmployee = visibleEmployees.find(
     (employee) => employee.employeeCode === selectedEmployeeCode
@@ -292,6 +294,24 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
       ) ?? null
     );
   }, [selectedEmployee, settings.employeeAccessOverrides]);
+
+  const visibleModuleDefinitions = useMemo(() => {
+    if (selectedModuleFilter === "all") {
+      return crmModuleAccessDefinitions;
+    }
+
+    return crmModuleAccessDefinitions.filter((definition) => definition.key === selectedModuleFilter);
+  }, [selectedModuleFilter]);
+
+  const visibleFieldDefinitions = useMemo(() => {
+    if (selectedFieldFilter === "all") {
+      return crmFieldAccessDefinitions;
+    }
+
+    return crmFieldAccessDefinitions.filter((definition) =>
+      definition.key.startsWith(`${selectedFieldFilter}.`)
+    );
+  }, [selectedFieldFilter]);
 
   async function handleSave() {
     if (!token) {
@@ -432,8 +452,8 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
           </h2>
           <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
             Use KPI Settings for targets, Notification Settings for reminder channels, and Access
-            Settings for role-wise plus employee-wise frontend permissions. This lets you give one
-            Delivery Head add-candidate access while keeping another Delivery Head restricted.
+            Settings for role-wise plus employee-wise frontend permissions. Activity Center is now
+            also grouped under Settings with employee-wise and date-wise filtering.
           </p>
         </section>
       ) : null}
@@ -533,85 +553,17 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
       {section === "access" ? (
         <div className="space-y-6">
           <section className="accent-card p-7">
-            <p className="eyebrow">Role Defaults</p>
-            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-              Set default access by role first.
-            </h2>
-            <div className="mt-6 grid gap-5 xl:grid-cols-3">
-              {accessRoles.map((roleKey) => {
-                const roleLabel =
-                  roleKey === "recruiter"
-                    ? "Recruiter"
-                    : roleKey === "delivery"
-                      ? "Delivery"
-                      : "Leadership";
-
-                return (
-                  <article
-                    key={roleKey}
-                    className="rounded-[1.6rem] border border-[var(--color-line)] bg-white p-5"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
-                      {roleLabel}
-                    </p>
-                    <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
-                      Module visibility
-                    </h3>
-                    <div className="mt-4 space-y-3">
-                      {crmModuleAccessDefinitions.map((definition) => (
-                        <label
-                          key={definition.key}
-                          className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
-                        >
-                          <span>
-                            <span className="block text-sm font-semibold text-[var(--color-ink)]">
-                              {definition.label}
-                            </span>
-                            <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
-                              {definition.description}
-                            </span>
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={settings.accessControl[roleKey].modules[definition.key]}
-                            onChange={(event) =>
-                              setSettings((current) => ({
-                                ...current,
-                                accessControl: {
-                                  ...current.accessControl,
-                                  [roleKey]: {
-                                    ...current.accessControl[roleKey],
-                                    modules: {
-                                      ...current.accessControl[roleKey].modules,
-                                      [definition.key]: event.target.checked,
-                                    },
-                                  },
-                                },
-                              }))
-                            }
-                            className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="accent-card p-7">
             <p className="eyebrow">Employee-Wise Overrides</p>
             <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-              Give special access to one employee without changing everyone in the same role.
+              Set access with dropdown filters and employee-wise override.
             </h2>
             <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
-              Filter employees by role or search by name, employee code, or email. Then select one
-              employee and override specific modules or fields like Add Candidate, Update Stage, or
-              Report Download.
+              First select role, then employee, then choose module filter and fields filter. This
+              lets you give one person special access like Add Candidate without changing all users
+              in the same role.
             </p>
 
-            <div className="mt-6 grid gap-4 lg:grid-cols-3">
+            <div className="mt-6 grid gap-4 lg:grid-cols-4">
               <select
                 value={selectedRoleFilter}
                 onChange={(event) =>
@@ -619,17 +571,11 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
                 }
                 className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               >
-                <option value="all">All roles</option>
+                <option value="all">Select role</option>
                 <option value="recruiter">Recruiter</option>
                 <option value="delivery">Delivery</option>
                 <option value="leadership">Leadership</option>
               </select>
-              <input
-                value={employeeQuery}
-                onChange={(event) => setEmployeeQuery(event.target.value)}
-                placeholder="Search employee name, code, email, role"
-                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              />
               <select
                 value={selectedEmployeeCode}
                 onChange={(event) => setSelectedEmployeeCode(event.target.value)}
@@ -641,6 +587,38 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
                     {employee.fullName} - {employee.employeeCode} - {employee.role}
                   </option>
                 ))}
+              </select>
+              <select
+                value={selectedModuleFilter}
+                onChange={(event) =>
+                  setSelectedModuleFilter(
+                    event.target.value as "all" | (typeof crmModuleAccessDefinitions)[number]["key"]
+                  )
+                }
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="all">All modules</option>
+                {crmModuleAccessDefinitions.map((definition) => (
+                  <option key={definition.key} value={definition.key}>
+                    {definition.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedFieldFilter}
+                onChange={(event) =>
+                  setSelectedFieldFilter(
+                    event.target.value as "all" | "hr" | "jobs" | "candidates" | "clients" | "reports"
+                  )
+                }
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              >
+                <option value="all">All fields</option>
+                <option value="hr">HR fields</option>
+                <option value="jobs">Jobs fields</option>
+                <option value="candidates">Candidates fields</option>
+                <option value="clients">Clients fields</option>
+                <option value="reports">Reports fields</option>
               </select>
             </div>
 
@@ -668,7 +646,7 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
                       Module override
                     </h3>
                     <div className="mt-4 space-y-3">
-                      {crmModuleAccessDefinitions.map((definition) => (
+                      {visibleModuleDefinitions.map((definition) => (
                         <label
                           key={definition.key}
                           className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
@@ -702,7 +680,7 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
                       Field and action override
                     </h3>
                     <div className="mt-4 space-y-3">
-                      {crmFieldAccessDefinitions.map((definition) => (
+                      {visibleFieldDefinitions.map((definition) => (
                         <label
                           key={definition.key}
                           className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"

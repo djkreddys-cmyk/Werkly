@@ -1003,14 +1003,6 @@ export function AdminShell({
                       </div>
                     ) : null}
                   </div>
-                  {roleAccess.modules["activity-center"] ? (
-                    <Link
-                      href="/admin/activity-center"
-                      className="inline-flex h-12 items-center rounded-[1rem] border border-white/14 bg-[rgba(255,255,255,0.08)] px-4 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)]"
-                    >
-                      Activity Center
-                    </Link>
-                  ) : null}
                   <div className="relative" ref={notificationMenuRef}>
                     <button
                       type="button"

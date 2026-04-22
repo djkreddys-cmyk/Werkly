@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { AuditLogRecord, ClientTransferRequestRecord, NotificationLogRecord } from "@/lib/crm";
+import type {
+  AuditLogRecord,
+  ClientTransferRequestRecord,
+  EmployeeRecord,
+  NotificationLogRecord,
+} from "@/lib/crm";
 import type { JobApplicationStageHistory } from "@/lib/jobs";
 
 type ActivityCenterState = {
@@ -31,6 +36,18 @@ function formatActionLabel(value: string) {
     .join(" ");
 }
 
+function getDateKey(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function AdminActivityCenter() {
   const [token] = useState(
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
@@ -41,9 +58,12 @@ export function AdminActivityCenter() {
     history: [],
     transfers: [],
   });
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
   const [category, setCategory] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -63,8 +83,18 @@ export function AdminActivityCenter() {
       fetch("/api/admin/client-transfer-requests", {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch("/api/admin/employees", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([auditResponse, notificationsResponse, historyResponse, transfersResponse]) => {
+      .then(
+        async ([
+          auditResponse,
+          notificationsResponse,
+          historyResponse,
+          transfersResponse,
+          employeesResponse,
+        ]) => {
         const auditResult = (await auditResponse.json()) as {
           logs?: AuditLogRecord[];
           message?: string;
@@ -81,6 +111,10 @@ export function AdminActivityCenter() {
           requests?: ClientTransferRequestRecord[];
           message?: string;
         };
+        const employeesResult = (await employeesResponse.json()) as {
+          employees?: EmployeeRecord[];
+          message?: string;
+        };
 
         if (!auditResponse.ok) {
           throw new Error(auditResult.message || "Unable to load audit logs.");
@@ -94,6 +128,9 @@ export function AdminActivityCenter() {
         if (!transfersResponse.ok) {
           throw new Error(transfersResult.message || "Unable to load client transfer requests.");
         }
+        if (!employeesResponse.ok) {
+          throw new Error(employeesResult.message || "Unable to load employees.");
+        }
 
         setState({
           auditLogs: auditResult.logs ?? [],
@@ -101,7 +138,9 @@ export function AdminActivityCenter() {
           history: historyResult.history ?? [],
           transfers: transfersResult.requests ?? [],
         });
-      })
+        setEmployees(employeesResult.employees ?? []);
+      }
+      )
       .catch((loadError) => {
         setError(
           loadError instanceof Error ? loadError.message : "Unable to load activity center."
@@ -109,6 +148,11 @@ export function AdminActivityCenter() {
       })
       .finally(() => setIsLoading(false));
   }, [token]);
+
+  const employeeLookup = useMemo(
+    () => new Map(employees.map((employee) => [employee.id, employee])),
+    [employees]
+  );
 
   const feedItems = useMemo(() => {
     const auditItems = state.auditLogs.map((log) => ({
@@ -123,6 +167,7 @@ export function AdminActivityCenter() {
       actorName: log.actorName,
       actorRole: log.actorRole,
       createdAt: log.createdAt,
+      employeeIds: log.actorId ? [log.actorId] : [],
     }));
 
     const notificationItems = state.notifications.map((item) => ({
@@ -130,9 +175,13 @@ export function AdminActivityCenter() {
       category: "notification",
       title: item.title,
       summary: item.message,
-      actorName: "Notification Center",
+      actorName:
+        item.targetEmployeeId && employeeLookup.get(item.targetEmployeeId)
+          ? employeeLookup.get(item.targetEmployeeId)?.fullName
+          : "Notification Center",
       actorRole: item.category,
       createdAt: item.createdAt,
+      employeeIds: item.targetEmployeeId ? [item.targetEmployeeId] : [],
     }));
 
     const historyItems = state.history.map((item) => ({
@@ -143,6 +192,7 @@ export function AdminActivityCenter() {
       actorName: item.recruiterName,
       actorRole: "Recruiter",
       createdAt: item.changedAt,
+      employeeIds: [],
     }));
 
     const transferItems = state.transfers.map((item) => ({
@@ -153,12 +203,33 @@ export function AdminActivityCenter() {
       actorName: item.reviewedByEmployeeName || item.requestedByEmployeeName,
       actorRole: item.status,
       createdAt: item.reviewedAt || item.createdAt,
+      employeeIds: [
+        item.requestedByEmployeeId,
+        item.requestedToEmployeeId,
+        item.reviewedByEmployeeId,
+      ].filter(Boolean),
     }));
 
     return [...auditItems, ...notificationItems, ...historyItems, ...transferItems]
       .filter((item) => category === "all" || item.category === category)
+      .filter(
+        (item) =>
+          employeeFilter === "all" ||
+          item.employeeIds.includes(employeeFilter) ||
+          item.actorName === employeeLookup.get(employeeFilter)?.fullName
+      )
+      .filter((item) => !dateFilter || getDateKey(item.createdAt) === dateFilter)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [category, state.auditLogs, state.history, state.notifications, state.transfers]);
+  }, [
+    category,
+    dateFilter,
+    employeeFilter,
+    employeeLookup,
+    state.auditLogs,
+    state.history,
+    state.notifications,
+    state.transfers,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -174,7 +245,7 @@ export function AdminActivityCenter() {
               dedicated operational feed.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[360px]">
+          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[540px]">
             <select
               value={category}
               onChange={(event) => setCategory(event.target.value)}
@@ -186,11 +257,29 @@ export function AdminActivityCenter() {
               <option value="candidate-history">Candidate history</option>
               <option value="transfer">Transfers</option>
             </select>
+            <select
+              value={employeeFilter}
+              onChange={(event) => setEmployeeFilter(event.target.value)}
+              className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="all">All employees</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.fullName} - {employee.employeeCode || employee.role}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(event) => setDateFilter(event.target.value)}
+              className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+            />
             <Link
-              href="/admin/reports"
+              href="/admin/settings"
               className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-center text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
             >
-              Open Reports
+              Open Settings
             </Link>
           </div>
         </div>
