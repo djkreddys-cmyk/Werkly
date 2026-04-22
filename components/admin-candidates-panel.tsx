@@ -115,6 +115,7 @@ export function AdminCandidatesPanel() {
     authEmail
   );
   const [viewMessage, setViewMessage] = useState("");
+  const isSuperAdmin = authType === "admin" || authRole === "super-admin";
 
   useEffect(() => {
     if (!token) {
@@ -390,6 +391,43 @@ export function AdminCandidatesPanel() {
       note: application.followUpAssignmentNote || "",
     });
     setError("");
+  }
+
+  async function handleDeleteCandidate(application: JobApplication) {
+    if (!token || !isSuperAdmin) {
+      setError("Only Super Admin can delete candidates.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete candidate "${application.candidateName}" from the CRM? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setActionMenuApplicationId("");
+
+    try {
+      const response = await fetch(`/api/admin/applications/${application.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const result = (await response.json()) as { message?: string; success?: boolean };
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Unable to delete candidate.");
+      }
+
+      setApplications((current) => current.filter((item) => item.id !== application.id));
+      setViewMessage("Candidate deleted successfully.");
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error ? deleteError.message : "Unable to delete candidate."
+      );
+    }
   }
 
   async function openTimeline(application: JobApplication) {
@@ -917,6 +955,17 @@ export function AdminCandidatesPanel() {
                                       document.body.appendChild(link);
                                       link.click();
                                       document.body.removeChild(link);
+                                    },
+                                    tone: "danger" as const,
+                                  },
+                                ]
+                              : []),
+                            ...(isSuperAdmin
+                              ? [
+                                  {
+                                    label: "Delete Candidate",
+                                    onClick: () => {
+                                      void handleDeleteCandidate(application);
                                     },
                                     tone: "danger" as const,
                                   },

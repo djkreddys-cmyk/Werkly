@@ -656,26 +656,28 @@ export function AdminLoginForm() {
 
       {error ? <p className="mt-4 text-sm font-medium text-red-600">{error}</p> : null}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="mt-6 rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        {isSubmitting ? "Signing in..." : "Sign In"}
-      </button>
+      <div className="mt-6 flex items-center justify-between gap-4">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isSubmitting ? "Signing in..." : "Sign In"}
+        </button>
 
-      <button
-        type="button"
-        onClick={() => {
-          setForgotPasswordStep("request");
-          setForgotPasswordIdentifier(identifier);
-          setError("");
-          setForgotPasswordMessage("");
-        }}
-        className="mt-4 text-sm font-semibold text-[var(--color-dark)] transition hover:text-[var(--color-accent-strong)]"
-      >
-        Forgot Password?
-      </button>
+        <button
+          type="button"
+          onClick={() => {
+            setForgotPasswordStep("request");
+            setForgotPasswordIdentifier(identifier);
+            setError("");
+            setForgotPasswordMessage("");
+          }}
+          className="text-sm font-semibold text-[var(--color-dark)] transition hover:text-[var(--color-accent-strong)]"
+        >
+          Forgot Password?
+        </button>
+      </div>
     </form>
   );
 }

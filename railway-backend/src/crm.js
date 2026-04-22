@@ -1286,6 +1286,11 @@ export async function getClientById(clientId) {
   return result.rows[0] ? mapClientRow(result.rows[0]) : null;
 }
 
+export async function deleteClient(clientId) {
+  const result = await query(`delete from clients where id = $1`, [clientId]);
+  return result.rowCount > 0;
+}
+
 export async function createClient(payload) {
   const result = await query(
     `insert into clients (

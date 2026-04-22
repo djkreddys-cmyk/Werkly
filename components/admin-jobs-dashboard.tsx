@@ -201,6 +201,7 @@ export function AdminJobsDashboard({
     authEmployeeCode,
     adminEmail
   );
+  const isSuperAdmin = authType === "admin" || authRole === "super-admin";
   const canManageJobs = authType === "admin" || authRole === "super-admin";
   const canUseJobForms = roleAccess.modules.jobs && roleAccess.fields["jobs.createEdit"];
   const canUseJobAssignments = roleAccess.fields["jobs.assignment"];
@@ -764,6 +765,45 @@ export function AdminJobsDashboard({
       setError(
         deleteError instanceof Error ? deleteError.message : "Unable to update job visibility."
       );
+    }
+  }
+
+  async function handleDeleteJob(job: JobSummary) {
+    if (!token || !isSuperAdmin) {
+      setError("Only Super Admin can delete jobs.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete job "${job.title}"${job.jobCode ? ` (${job.jobCode})` : ""}? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setActionMenuJobId("");
+
+    try {
+      const response = await fetch(`/api/admin/jobs/${job.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const result = (await response.json()) as { message?: string; success?: boolean };
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Unable to delete job.");
+      }
+
+      await refreshJobs();
+      if (form.id === job.id) {
+        setForm(emptyForm);
+      }
+      setMessage("Job deleted successfully.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete job.");
     }
   }
 
@@ -1347,6 +1387,17 @@ export function AdminJobsDashboard({
                                     href: `/jobs/${job.slug}`,
                                     external: true,
                                     tone: "accent" as const,
+                                  },
+                                ]
+                              : []),
+                            ...(isSuperAdmin
+                              ? [
+                                  {
+                                    label: "Delete Job",
+                                    onClick: () => {
+                                      void handleDeleteJob(job);
+                                    },
+                                    tone: "danger" as const,
                                   },
                                 ]
                               : []),

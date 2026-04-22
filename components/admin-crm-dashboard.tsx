@@ -714,13 +714,17 @@ function CrmEmployeesList({
 function CrmClientsList({
   clients,
   canManageActions,
+  canDelete,
   onTransfer,
   onFollowUp,
+  onDelete,
 }: {
   clients: ClientRecord[];
   canManageActions: boolean;
+  canDelete: boolean;
   onTransfer: (client: ClientRecord) => void;
   onFollowUp: (client: ClientRecord) => void;
+  onDelete: (client: ClientRecord) => void;
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
   const [actionMenuClientId, setActionMenuClientId] = useState("");
@@ -1042,6 +1046,15 @@ function CrmClientsList({
                                 label: "Transfer Client",
                                 onClick: () => onTransfer(client),
                               },
+                              ...(canDelete
+                                ? [
+                                    {
+                                      label: "Delete Client",
+                                      onClick: () => onDelete(client),
+                                      tone: "danger" as const,
+                                    },
+                                  ]
+                                : []),
                             ]}
                           />
                         ) : (
@@ -2206,6 +2219,41 @@ export function AdminClientsPanel({
     }
   }
 
+  async function handleDeleteClient(client: ClientRecord) {
+    if (!token || !isSuperAdmin) {
+      setError("Only Super Admin can delete clients.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete client "${client.companyName}" from the CRM? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/clients/${client.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const result = (await response.json()) as { message?: string; success?: boolean };
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Unable to delete client.");
+      }
+
+      await refreshCrm(token);
+      setMessage("Client deleted successfully.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete client.");
+    }
+  }
+
   async function refreshTransferRequests() {
     if (!token) {
       return;
@@ -2605,6 +2653,7 @@ export function AdminClientsPanel({
           <CrmClientsList
             clients={visibleClients}
             canManageActions
+            canDelete={isSuperAdmin}
             onTransfer={(client) => {
               setSelectedTransferClient(client);
               setTransferToEmployeeId("");
@@ -2623,6 +2672,9 @@ export function AdminClientsPanel({
               setFollowUpNotes(client.followUpNotes || "");
               setError("");
               setMessage("");
+            }}
+            onDelete={(client) => {
+              void handleDeleteClient(client);
             }}
           />
         </div>

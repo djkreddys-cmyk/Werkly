@@ -32,6 +32,7 @@ import {
   createClient,
   createClientTransferRequest,
   createNotificationLog,
+  deleteClient,
   createEmployee,
   ensureCrmSchema,
   findEmployeeForPasswordReset,
@@ -82,6 +83,8 @@ import {
   createManualJobApplication,
   createCandidateEnquiry,
   createJob,
+  deleteJob,
+  deleteJobApplication,
   ensureJobsSchema,
   getAdminJobById,
   getJobBySlug,
@@ -1482,6 +1485,40 @@ app.put(
   }
 );
 
+app.delete("/admin/applications/:id", requireAdmin, async (request, response) => {
+  try {
+    const previousApplication = await getApplicationById(request.params.id);
+    if (!previousApplication) {
+      return response.status(404).json({ message: "Candidate not found." });
+    }
+
+    const deleted = await deleteJobApplication(request.params.id);
+    if (!deleted) {
+      return response.status(404).json({ message: "Candidate not found." });
+    }
+
+    await createAuditLog({
+      actionType: "candidate.deleted",
+      entityType: "application",
+      entityId: request.params.id,
+      ...getActorDetails(request),
+      beforeData: previousApplication,
+      afterData: {},
+      metadata: {
+        candidateName: previousApplication.candidateName,
+        jobTitle: previousApplication.jobTitle,
+        jobCode: previousApplication.jobCode,
+      },
+    });
+
+    response.json({ success: true });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to delete candidate.",
+    });
+  }
+});
+
 app.get("/admin/employees", requireInternalUser, async (_request, response) => {
   try {
     const employees = await listEmployees();
@@ -2271,6 +2308,38 @@ app.put("/admin/clients/:id/follow-up", requirePermission("clients.followup"), a
   }
 });
 
+app.delete("/admin/clients/:id", requireAdmin, async (request, response) => {
+  try {
+    const previousClient = await getClientById(request.params.id);
+    if (!previousClient) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    const deleted = await deleteClient(request.params.id);
+    if (!deleted) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    await createAuditLog({
+      actionType: "client.deleted",
+      entityType: "client",
+      entityId: request.params.id,
+      ...getActorDetails(request),
+      beforeData: previousClient,
+      afterData: {},
+      metadata: {
+        companyName: previousClient.companyName,
+      },
+    });
+
+    response.json({ success: true });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to delete client.",
+    });
+  }
+});
+
 app.get("/admin/settings", requireInternalUser, async (_request, response) => {
   try {
     const settings = await getCrmSettings();
@@ -2810,6 +2879,39 @@ app.put("/admin/jobs/:id", requirePermission("jobs.manage"), async (request, res
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update job.",
+    });
+  }
+});
+
+app.delete("/admin/jobs/:id", requireAdmin, async (request, response) => {
+  try {
+    const previousJob = await getAdminJobById(request.params.id);
+    if (!previousJob) {
+      return response.status(404).json({ message: "Job not found." });
+    }
+
+    const deleted = await deleteJob(request.params.id);
+    if (!deleted) {
+      return response.status(404).json({ message: "Job not found." });
+    }
+
+    await createAuditLog({
+      actionType: "job.deleted",
+      entityType: "job",
+      entityId: request.params.id,
+      ...getActorDetails(request),
+      beforeData: previousJob,
+      afterData: {},
+      metadata: {
+        jobTitle: previousJob.title,
+        jobCode: previousJob.jobCode,
+      },
+    });
+
+    response.json({ success: true });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to delete job.",
     });
   }
 });

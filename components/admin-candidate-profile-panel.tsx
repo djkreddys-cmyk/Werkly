@@ -28,17 +28,22 @@ function formatLabel(value?: string) {
     .join(" ");
 }
 
-function getResumeUrl(application: JobApplication | null) {
+function getResumeData(application: JobApplication | null) {
   if (!application?.resumeFileData) {
-    return "";
-  }
-
-  if (application.resumeFileData.startsWith("data:")) {
-    return application.resumeFileData;
+    return null;
   }
 
   const fileType = application.resumeFileType || "application/octet-stream";
-  return `data:${fileType};base64,${application.resumeFileData}`;
+  if (application.resumeFileData.startsWith("data:")) {
+    const [header, content = ""] = application.resumeFileData.split(",", 2);
+    const mimeType = header.match(/^data:(.*?);base64$/)?.[1] || fileType;
+    return { mimeType, base64: content };
+  }
+
+  return {
+    mimeType: fileType,
+    base64: application.resumeFileData,
+  };
 }
 
 export function AdminCandidateProfilePanel({ applicationId }: { applicationId: string }) {
@@ -101,7 +106,36 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
     }),
     [logs]
   );
-  const resumeUrl = useMemo(() => getResumeUrl(application), [application]);
+  const resumeData = useMemo(() => getResumeData(application), [application]);
+  const resumeViewUrl = useMemo(() => {
+    if (!resumeData || typeof window === "undefined") {
+      return "";
+    }
+
+    try {
+      const binary = window.atob(resumeData.base64);
+      const bytes = new Uint8Array(binary.length);
+
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+
+      const blob = new Blob([bytes], { type: resumeData.mimeType });
+      return window.URL.createObjectURL(blob);
+    } catch {
+      return "";
+    }
+  }, [resumeData]);
+
+  useEffect(() => {
+    if (!resumeViewUrl || typeof window === "undefined") {
+      return;
+    }
+
+    return () => {
+      window.URL.revokeObjectURL(resumeViewUrl);
+    };
+  }, [resumeViewUrl]);
 
   if (isLoading) {
     return (
@@ -199,20 +233,24 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
               </h3>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {resumeUrl ? (
+              {resumeData ? (
                 <>
                   <a
-                    href={resumeUrl}
+                    href={resumeViewUrl || "#"}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    className={`inline-flex items-center rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] ${
+                      resumeViewUrl ? "" : "pointer-events-none opacity-60"
+                    }`}
                   >
                     View Resume
                   </a>
                   <a
-                    href={resumeUrl}
+                    href={resumeViewUrl || "#"}
                     download={application.resumeFileName || `${application.candidateName}-resume`}
-                    className="inline-flex items-center rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    className={`inline-flex items-center rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] ${
+                      resumeViewUrl ? "" : "pointer-events-none opacity-60"
+                    }`}
                   >
                     Download Resume
                   </a>

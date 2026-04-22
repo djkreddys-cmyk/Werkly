@@ -973,6 +973,64 @@ export async function listAdminApplications(employeeId = null) {
   return result.rows.map(mapApplicationRow);
 }
 
+export async function getAdminApplicationById(applicationId) {
+  const result = await query(
+    `select
+      job_applications.id,
+      job_applications.job_id,
+      job_applications.assigned_employee_id,
+      job_applications.stage,
+      job_applications.stage_note,
+      job_applications.stage_date,
+      job_applications.stage_updated_at,
+      jobs.job_code,
+      clients.company_name as client_name,
+      employees.full_name as recruiter_name,
+      employees.email as recruiter_email,
+      jobs.location as job_location,
+      jobs.sector,
+      job_applications.candidate_name,
+      job_applications.candidate_email,
+      job_applications.candidate_phone,
+      job_applications.experience,
+      job_applications.current_company,
+      job_applications.current_location,
+      job_applications.current_designation,
+      job_applications.preferred_role,
+      job_applications.current_ctc,
+      job_applications.expected_ctc,
+      job_applications.preferred_location,
+      job_applications.preferred_sector,
+      job_applications.source_type,
+      job_applications.source_note,
+      job_applications.entry_type,
+      job_applications.resume_file_name,
+      job_applications.resume_file_type,
+      job_applications.resume_file_data,
+      job_applications.uploaded_by_employee_id,
+      job_applications.follow_up_employee_id,
+      follow_up_employee.full_name as follow_up_employee_name,
+      job_applications.follow_up_from_date,
+      job_applications.follow_up_to_date,
+      job_applications.follow_up_assignment_note,
+      uploader.full_name as uploaded_by_employee_name,
+      job_applications.candidate_message,
+      coalesce(job_applications.job_title, jobs.title) as job_title,
+      job_applications.applied_at
+     from job_applications
+     left join jobs on jobs.id = job_applications.job_id
+     left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id)
+     left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
+     left join employees follow_up_employee on follow_up_employee.id = job_applications.follow_up_employee_id
+     where job_applications.id = $1
+     limit 1`,
+    [applicationId]
+  );
+
+  return result.rows[0] ? mapApplicationRow(result.rows[0]) : null;
+}
+
 export async function listApplicationStageHistory(employeeId = null) {
   const values = [];
   const employeeScopeClause = employeeId
@@ -1273,4 +1331,9 @@ export async function assignJobApplication(applicationId, payload, employeeId = 
 
   const refreshed = await listAdminApplications(employeeId);
   return refreshed.find((application) => application.id === applicationId) ?? null;
+}
+
+export async function deleteJobApplication(applicationId) {
+  const result = await query(`delete from job_applications where id = $1`, [applicationId]);
+  return result.rowCount > 0;
 }

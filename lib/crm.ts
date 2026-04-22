@@ -379,6 +379,15 @@ export async function getClientById(id: string, token: string) {
   });
 }
 
+export async function deleteClient(id: string, token: string) {
+  return readJson<{ success: boolean }>(`/admin/clients/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export async function updateClientFollowUp(
   id: string,
   payload: Pick<

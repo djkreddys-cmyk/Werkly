@@ -667,6 +667,15 @@ export async function deleteJob(id: string, token: string) {
   });
 }
 
+export async function deleteJobApplication(id: string, token: string) {
+  return readJson<{ success: boolean }>(`/admin/applications/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export function splitMultiline(value: string) {
   return value
     .split("\n")
