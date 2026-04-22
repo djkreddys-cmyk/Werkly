@@ -28,6 +28,19 @@ function formatLabel(value?: string) {
     .join(" ");
 }
 
+function getResumeUrl(application: JobApplication | null) {
+  if (!application?.resumeFileData) {
+    return "";
+  }
+
+  if (application.resumeFileData.startsWith("data:")) {
+    return application.resumeFileData;
+  }
+
+  const fileType = application.resumeFileType || "application/octet-stream";
+  return `data:${fileType};base64,${application.resumeFileData}`;
+}
+
 export function AdminCandidateProfilePanel({ applicationId }: { applicationId: string }) {
   const [token] = useState(
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
@@ -88,6 +101,7 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
     }),
     [logs]
   );
+  const resumeUrl = useMemo(() => getResumeUrl(application), [application]);
 
   if (isLoading) {
     return (
@@ -184,9 +198,34 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
                 Candidate activity trail
               </h3>
             </div>
-            <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-              {metrics.stageUpdates} stage updates
-            </span>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {resumeUrl ? (
+                <>
+                  <a
+                    href={resumeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                  >
+                    View Resume
+                  </a>
+                  <a
+                    href={resumeUrl}
+                    download={application.resumeFileName || `${application.candidateName}-resume`}
+                    className="inline-flex items-center rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                  >
+                    Download Resume
+                  </a>
+                </>
+              ) : (
+                <span className="rounded-xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-medium text-[var(--color-muted)]">
+                  No resume uploaded
+                </span>
+              )}
+              <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+                {metrics.stageUpdates} stage updates
+              </span>
+            </div>
           </div>
 
           {logs.length === 0 ? (
