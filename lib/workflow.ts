@@ -22,7 +22,20 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Railway request failed with status ${response.status}`);
+    let message = text;
+
+    if (text) {
+      try {
+        const parsed = JSON.parse(text) as { message?: string };
+        if (parsed?.message) {
+          message = parsed.message;
+        }
+      } catch {
+        // Keep raw text when the backend response is not JSON.
+      }
+    }
+
+    throw new Error(message || `Railway request failed with status ${response.status}`);
   }
 
   return response.json() as Promise<T>;
