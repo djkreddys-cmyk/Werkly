@@ -1068,7 +1068,7 @@ export function AdminCandidatesPanel() {
               </label>
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                  Effective Date
+                  Stage Effective Date
                 </span>
                 <input
                   type="date"
@@ -1208,7 +1208,7 @@ export function AdminCandidatesPanel() {
 
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                  From When
+                  Effective From Date
                 </span>
                 <input
                   type="date"
@@ -1227,7 +1227,7 @@ export function AdminCandidatesPanel() {
               {assignmentDraft.assignmentType === "follow-up-support" ? (
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                    Till When
+                    Effective To Date
                   </span>
                   <input
                     type="date"

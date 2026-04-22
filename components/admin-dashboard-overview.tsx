@@ -1709,7 +1709,7 @@ export function AdminDashboardOverview() {
                       </div>
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                          Last Follow-Up
+                          Last Follow-Up Date
                         </p>
                         <p className="mt-1 text-sm text-[var(--color-ink)]">
                           {formatDateLabel(item.lastFollowUpDate)}
@@ -1725,7 +1725,7 @@ export function AdminDashboardOverview() {
                       </div>
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                          Next Follow-Up
+                          Next Follow-Up Date
                         </p>
                         <p className="mt-1 text-sm text-[var(--color-ink)]">
                           {formatDateLabel(item.nextFollowUpDate)}
@@ -1790,7 +1790,7 @@ export function AdminDashboardOverview() {
                         </label>
                         <label className="block">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                            Last Follow-Up
+                            Last Follow-Up Date
                           </span>
                           <input
                             type="date"
@@ -1801,7 +1801,7 @@ export function AdminDashboardOverview() {
                         </label>
                         <label className="block sm:col-span-2">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                            Next Follow-Up
+                            Next Follow-Up Date
                           </span>
                           <input
                             type="date"

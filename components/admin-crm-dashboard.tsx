@@ -3071,7 +3071,7 @@ export function AdminClientsPanel({
 
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                  From When
+                  Effective From Date
                 </span>
                 <input
                   className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
@@ -3085,7 +3085,7 @@ export function AdminClientsPanel({
               {isSuperAdmin && transferType === "follow-up-support" ? (
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                    Till When
+                    Effective To Date
                   </span>
                   <input
                     className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"

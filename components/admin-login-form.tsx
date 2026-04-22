@@ -463,7 +463,7 @@ export function AdminLoginForm() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-[var(--color-ink)]">Date of birth</span>
+            <span className="text-sm font-medium text-[var(--color-ink)]">Date of Birth (DOB)</span>
             <input
               className={fieldClassName}
               type="date"
