@@ -146,6 +146,22 @@ export type AdminLoginResponse = {
   };
 };
 
+export type ForgotPasswordRequestResponse = {
+  requestId: string;
+  maskedEmail: string;
+  message?: string;
+};
+
+export type ForgotPasswordVerifyResponse = {
+  resetToken: string;
+  employee?: {
+    employeeCode?: string;
+    name?: string;
+    email?: string;
+  };
+  message?: string;
+};
+
 type AuthClientContext = {
   clientTime?: string;
   clientTimezone?: string;
@@ -484,6 +500,32 @@ export async function changeEmployeePassword(newPassword: string, token: string)
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  });
+}
+
+export async function requestForgotPasswordOtp(identifier: string, dateOfBirth: string) {
+  return readJson<ForgotPasswordRequestResponse>("/auth/forgot-password/request", {
+    method: "POST",
+    body: JSON.stringify({ identifier, dateOfBirth }),
+  });
+}
+
+export async function verifyForgotPasswordOtp(
+  requestId: string,
+  identifier: string,
+  dateOfBirth: string,
+  otp: string
+) {
+  return readJson<ForgotPasswordVerifyResponse>("/auth/forgot-password/verify", {
+    method: "POST",
+    body: JSON.stringify({ requestId, identifier, dateOfBirth, otp }),
+  });
+}
+
+export async function resetForgotPassword(resetToken: string, newPassword: string) {
+  return readJson<{ success: boolean; message?: string }>("/auth/forgot-password/reset", {
+    method: "POST",
+    body: JSON.stringify({ resetToken, newPassword }),
   });
 }
 

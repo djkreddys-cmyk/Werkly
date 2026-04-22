@@ -97,6 +97,8 @@ type LoginResponse = {
   user?: LoginUser;
 };
 
+type ForgotPasswordStep = "request" | "verify" | "reset";
+
 export function AdminLoginForm() {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
@@ -105,6 +107,14 @@ export function AdminLoginForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pendingPasswordChangeToken, setPendingPasswordChangeToken] = useState("");
   const [pendingUserLabel, setPendingUserLabel] = useState("");
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<ForgotPasswordStep | null>(null);
+  const [forgotPasswordIdentifier, setForgotPasswordIdentifier] = useState("");
+  const [forgotPasswordDob, setForgotPasswordDob] = useState("");
+  const [forgotPasswordRequestId, setForgotPasswordRequestId] = useState("");
+  const [forgotPasswordMaskedEmail, setForgotPasswordMaskedEmail] = useState("");
+  const [forgotPasswordOtp, setForgotPasswordOtp] = useState("");
+  const [forgotPasswordResetToken, setForgotPasswordResetToken] = useState("");
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -224,6 +234,145 @@ export function AdminLoginForm() {
     }
   }
 
+  function resetForgotPasswordFlow() {
+    setForgotPasswordStep(null);
+    setForgotPasswordIdentifier("");
+    setForgotPasswordDob("");
+    setForgotPasswordRequestId("");
+    setForgotPasswordMaskedEmail("");
+    setForgotPasswordOtp("");
+    setForgotPasswordResetToken("");
+    setForgotPasswordMessage("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+  }
+
+  async function handleForgotPasswordRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+    setForgotPasswordMessage("");
+
+    try {
+      const response = await fetch("/api/admin/forgot-password/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: forgotPasswordIdentifier,
+          dateOfBirth: forgotPasswordDob,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        requestId?: string;
+        maskedEmail?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !result.requestId) {
+        throw new Error(result.message || "Unable to send OTP.");
+      }
+
+      setForgotPasswordRequestId(result.requestId);
+      setForgotPasswordMaskedEmail(result.maskedEmail || "");
+      setForgotPasswordMessage(result.message || "OTP sent to your registered email.");
+      setForgotPasswordStep("verify");
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : "Unable to send OTP.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleForgotPasswordVerify(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+    setForgotPasswordMessage("");
+
+    try {
+      const response = await fetch("/api/admin/forgot-password/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: forgotPasswordRequestId,
+          identifier: forgotPasswordIdentifier,
+          dateOfBirth: forgotPasswordDob,
+          otp: forgotPasswordOtp,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        resetToken?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !result.resetToken) {
+        throw new Error(result.message || "Unable to verify OTP.");
+      }
+
+      setForgotPasswordResetToken(result.resetToken);
+      setForgotPasswordMessage(
+        result.message || "OTP verified successfully. Set a new password."
+      );
+      setForgotPasswordStep("reset");
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : "Unable to verify OTP.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleForgotPasswordReset(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (newPassword.trim().length < 6) {
+      setError("New password must be at least 6 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("New password and confirm password must match.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+    setForgotPasswordMessage("");
+
+    try {
+      const response = await fetch("/api/admin/forgot-password/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resetToken: forgotPasswordResetToken,
+          newPassword,
+        }),
+      });
+
+      const result = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Unable to reset password.");
+      }
+
+      resetForgotPasswordFlow();
+      setIdentifier(forgotPasswordIdentifier);
+      setForgotPasswordMessage("");
+      setError("");
+      setPassword("");
+      setConfirmPassword("");
+      setNewPassword("");
+      window.alert(result.message || "Password changed successfully. Please sign in.");
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error ? submissionError.message : "Unable to reset password."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   if (pendingPasswordChangeToken) {
     return (
       <form className="accent-card mx-auto max-w-xl p-8 sm:p-9" onSubmit={handlePasswordChange}>
@@ -261,6 +410,180 @@ export function AdminLoginForm() {
         >
           {isSubmitting ? "Updating..." : "Save New Password"}
         </button>
+      </form>
+    );
+  }
+
+  if (forgotPasswordStep === "request") {
+    return (
+      <form className="accent-card mx-auto max-w-xl p-8 sm:p-9" onSubmit={handleForgotPasswordRequest}>
+        <p className="eyebrow">Forgot Password</p>
+        <h1 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)] sm:text-4xl">
+          Verify employee ID and DOB first.
+        </h1>
+        <p className="muted-copy mt-4 text-base leading-7">
+          Enter your employee code and date of birth. If they match, we will send an OTP to your
+          registered email address.
+        </p>
+
+        <div className="mt-8 space-y-4">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-[var(--color-ink)]">Employee code</span>
+            <input
+              className={fieldClassName}
+              type="text"
+              value={forgotPasswordIdentifier}
+              onChange={(event) => setForgotPasswordIdentifier(event.target.value)}
+              placeholder="2604003"
+              required
+            />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-[var(--color-ink)]">Date of birth</span>
+            <input
+              className={fieldClassName}
+              type="date"
+              value={forgotPasswordDob}
+              onChange={(event) => setForgotPasswordDob(event.target.value)}
+              required
+            />
+          </label>
+        </div>
+
+        {error ? <p className="mt-4 text-sm font-medium text-red-600">{error}</p> : null}
+        {forgotPasswordMessage ? (
+          <p className="mt-4 text-sm font-medium text-[var(--color-dark)]">
+            {forgotPasswordMessage}
+          </p>
+        ) : null}
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? "Sending OTP..." : "Send OTP"}
+          </button>
+          <button
+            type="button"
+            onClick={resetForgotPasswordFlow}
+            className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+          >
+            Back to Sign In
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  if (forgotPasswordStep === "verify") {
+    return (
+      <form className="accent-card mx-auto max-w-xl p-8 sm:p-9" onSubmit={handleForgotPasswordVerify}>
+        <p className="eyebrow">OTP Verification</p>
+        <h1 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)] sm:text-4xl">
+          Verify the OTP sent to your email.
+        </h1>
+        <p className="muted-copy mt-4 text-base leading-7">
+          We sent a 6-digit OTP to {forgotPasswordMaskedEmail || "your registered email"}.
+        </p>
+
+        <div className="mt-8 space-y-4">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-[var(--color-ink)]">OTP</span>
+            <input
+              className={fieldClassName}
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={forgotPasswordOtp}
+              onChange={(event) => setForgotPasswordOtp(event.target.value)}
+              placeholder="Enter 6-digit OTP"
+              required
+            />
+          </label>
+        </div>
+
+        {error ? <p className="mt-4 text-sm font-medium text-red-600">{error}</p> : null}
+        {forgotPasswordMessage ? (
+          <p className="mt-4 text-sm font-medium text-[var(--color-dark)]">
+            {forgotPasswordMessage}
+          </p>
+        ) : null}
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? "Verifying..." : "Verify OTP"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setForgotPasswordStep("request");
+              setForgotPasswordOtp("");
+              setError("");
+            }}
+            className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+          >
+            Change Details
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  if (forgotPasswordStep === "reset") {
+    return (
+      <form className="accent-card mx-auto max-w-xl p-8 sm:p-9" onSubmit={handleForgotPasswordReset}>
+        <p className="eyebrow">Set New Password</p>
+        <h1 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)] sm:text-4xl">
+          Create your new login password.
+        </h1>
+        <p className="muted-copy mt-4 text-base leading-7">
+          OTP verification is complete. Set a new password for your employee login now.
+        </p>
+
+        <div className="mt-8 space-y-4">
+          <PasswordField
+            label="New password"
+            value={newPassword}
+            onChange={setNewPassword}
+            placeholder="Create a new password"
+          />
+          <PasswordField
+            label="Confirm password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            placeholder="Re-enter the new password"
+          />
+        </div>
+
+        {error ? <p className="mt-4 text-sm font-medium text-red-600">{error}</p> : null}
+        {forgotPasswordMessage ? (
+          <p className="mt-4 text-sm font-medium text-[var(--color-dark)]">
+            {forgotPasswordMessage}
+          </p>
+        ) : null}
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? "Resetting..." : "Reset Password"}
+          </button>
+          <button
+            type="button"
+            onClick={resetForgotPasswordFlow}
+            className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+          >
+            Back to Sign In
+          </button>
+        </div>
       </form>
     );
   }
@@ -307,6 +630,19 @@ export function AdminLoginForm() {
         className="mt-6 rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isSubmitting ? "Signing in..." : "Sign In"}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setForgotPasswordStep("request");
+          setForgotPasswordIdentifier(identifier);
+          setError("");
+          setForgotPasswordMessage("");
+        }}
+        className="mt-4 text-sm font-semibold text-[var(--color-dark)] transition hover:text-[var(--color-accent-strong)]"
+      >
+        Forgot Password?
       </button>
     </form>
   );

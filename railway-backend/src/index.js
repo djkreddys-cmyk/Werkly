@@ -15,21 +15,26 @@ import {
 import {
   createAdminToken,
   createEmployeeToken,
+  createPasswordResetToken,
   requireAdmin,
   requireInternalUser,
   requirePermission,
   requirePasswordChangeEligibleUser,
   validateAdmin,
+  verifyPasswordResetToken,
 } from "./auth.js";
 import {
   adminResetEmployeePassword,
   authenticateEmployee,
   changeEmployeePassword,
+  consumeEmployeePasswordResetRequest,
+  createEmployeePasswordResetRequest,
   createClient,
   createClientTransferRequest,
   createNotificationLog,
   createEmployee,
   ensureCrmSchema,
+  findEmployeeForPasswordReset,
   getClientById,
   getCrmSettings,
   getEmployeeById,
@@ -42,6 +47,7 @@ import {
   markNotificationRead,
   reassignClient,
   reviewClientTransferRequest,
+  verifyEmployeePasswordResetOtp,
   updateCrmSettings,
   updateClientOnboarding,
   updateClientFollowUp,
@@ -118,6 +124,62 @@ async function recordTimeline(request, payload) {
     actorName: actor.actorName,
     actorRole: actor.actorRole,
   });
+}
+
+function maskEmailAddress(email) {
+  const safeEmail = String(email || "").trim();
+  const [localPart, domain = ""] = safeEmail.split("@");
+  if (!localPart || !domain) {
+    return safeEmail;
+  }
+
+  const visibleStart = localPart.slice(0, 2);
+  const maskedLocal =
+    visibleStart + "*".repeat(Math.max(localPart.length - visibleStart.length, 2));
+
+  return `${maskedLocal}@${domain}`;
+}
+
+async function sendPasswordResetOtpEmail({ email, employeeCode, otp }) {
+  const senderEmail = process.env.RESEND_FROM_EMAIL;
+  const senderName = process.env.RESEND_FROM_NAME || "Werkly CRM";
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey || !senderEmail || !email) {
+    throw new Error(
+      "Password reset email is not configured. Add RESEND_API_KEY and RESEND_FROM_EMAIL."
+    );
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: `${senderName} <${senderEmail}>`,
+      to: [email],
+      subject: `Werkly CRM password reset OTP - ${employeeCode || "Employee Login"}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;color:#18343a;line-height:1.6;">
+          <h2 style="margin:0 0 12px;">Werkly CRM Password Reset</h2>
+          <p style="margin:0 0 12px;">Use the OTP below to verify your employee login and continue with password reset.</p>
+          <div style="display:inline-block;padding:14px 18px;border-radius:12px;background:#eaf2f4;border:1px solid #cfdde2;font-size:24px;font-weight:700;letter-spacing:0.3em;color:#0a5561;">
+            ${String(otp)}
+          </div>
+          <p style="margin:16px 0 0;">This OTP will expire in 10 minutes.</p>
+          <p style="margin:8px 0 0;">If you did not request this reset, please ignore this email.</p>
+        </div>
+      `,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Unable to send password reset OTP email.");
+  }
 }
 
 const candidateStageSequence = ["applied", "shortlisted", "interview", "offered", "joined"];
@@ -636,6 +698,146 @@ app.post(
     }
   }
 );
+
+app.post("/auth/forgot-password/request", async (request, response) => {
+  try {
+    const { identifier, dateOfBirth } = request.body ?? {};
+
+    if (!identifier || !dateOfBirth) {
+      return response.status(400).json({
+        message: "Employee ID and date of birth are required.",
+      });
+    }
+
+    const employee = await findEmployeeForPasswordReset(identifier, dateOfBirth);
+    if (!employee) {
+      return response.status(404).json({
+        message: "Employee ID and DOB do not match our records.",
+      });
+    }
+
+    if (!employee.email) {
+      return response.status(400).json({
+        message: "Registered email is missing for this employee login.",
+      });
+    }
+
+    const otp = `${Math.floor(100000 + Math.random() * 900000)}`;
+    const resetRequest = await createEmployeePasswordResetRequest(employee.id, otp);
+    await sendPasswordResetOtpEmail({
+      email: employee.email,
+      employeeCode: employee.employeeCode,
+      otp,
+    });
+
+    return response.json({
+      requestId: resetRequest.id,
+      maskedEmail: maskEmailAddress(employee.email),
+      message: "OTP sent to your registered email address.",
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to start forgot password flow.",
+    });
+  }
+});
+
+app.post("/auth/forgot-password/verify", async (request, response) => {
+  try {
+    const { requestId, identifier, dateOfBirth, otp } = request.body ?? {};
+
+    if (!requestId || !identifier || !dateOfBirth || !otp) {
+      return response.status(400).json({
+        message: "Request, employee ID, DOB, and OTP are required.",
+      });
+    }
+
+    const verified = await verifyEmployeePasswordResetOtp({
+      requestId,
+      identifier,
+      dateOfBirth,
+      otp,
+    });
+
+    if (!verified) {
+      return response.status(404).json({
+        message: "Unable to verify this password reset request.",
+      });
+    }
+
+    const resetToken = createPasswordResetToken({
+      requestId: verified.requestId,
+      employeeId: verified.employee.id,
+      employeeCode: verified.employee.employeeCode,
+      email: verified.employee.email,
+    });
+
+    return response.json({
+      resetToken,
+      employee: {
+        employeeCode: verified.employee.employeeCode,
+        name: verified.employee.fullName,
+        email: verified.employee.email,
+      },
+      message: "OTP verified successfully. You can now set a new password.",
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to verify OTP.",
+    });
+  }
+});
+
+app.post("/auth/forgot-password/reset", async (request, response) => {
+  try {
+    const { resetToken, newPassword } = request.body ?? {};
+
+    if (!resetToken || !newPassword) {
+      return response.status(400).json({
+        message: "Reset token and new password are required.",
+      });
+    }
+
+    if (String(newPassword).trim().length < 6) {
+      return response.status(400).json({
+        message: "New password must be at least 6 characters long.",
+      });
+    }
+
+    const decoded = verifyPasswordResetToken(String(resetToken));
+    const consumed = await consumeEmployeePasswordResetRequest(
+      decoded.requestId,
+      decoded.employeeId
+    );
+
+    if (!consumed) {
+      return response.status(400).json({
+        message: "Password reset session is invalid or expired.",
+      });
+    }
+
+    const employee = await changeEmployeePassword(
+      decoded.employeeId,
+      String(newPassword).trim()
+    );
+
+    if (!employee) {
+      return response.status(404).json({
+        message: "Employee not found.",
+      });
+    }
+
+    return response.json({
+      success: true,
+      message: "Password changed successfully. Please sign in with your new password.",
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to reset password.",
+    });
+  }
+});
 
 app.get("/jobs", async (_request, response) => {
   try {

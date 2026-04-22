@@ -191,6 +191,20 @@ export async function ensureCrmSchema() {
     )
   `);
 
+  await query(`
+    create table if not exists employee_password_reset_requests (
+      id uuid primary key default gen_random_uuid(),
+      employee_id uuid not null references employees(id) on delete cascade,
+      otp_hash text not null,
+      verified_at timestamptz,
+      consumed_at timestamptz,
+      expires_at timestamptz not null,
+      attempts integer not null default 0,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+
   await query(`alter table clients add column if not exists agreement_file_name text`);
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
@@ -240,6 +254,11 @@ export async function ensureCrmSchema() {
   await query(`alter table notification_logs add column if not exists delivery_channels jsonb not null default '[]'::jsonb`);
   await query(`alter table notification_logs add column if not exists is_read boolean not null default false`);
   await query(`alter table notification_logs add column if not exists created_at timestamptz not null default now()`);
+  await query(`alter table employee_password_reset_requests add column if not exists verified_at timestamptz`);
+  await query(`alter table employee_password_reset_requests add column if not exists consumed_at timestamptz`);
+  await query(`alter table employee_password_reset_requests add column if not exists attempts integer not null default 0`);
+  await query(`alter table employee_password_reset_requests add column if not exists updated_at timestamptz not null default now()`);
+  await query(`create index if not exists idx_employee_password_reset_requests_employee on employee_password_reset_requests(employee_id, created_at desc)`);
   await query(`alter table employees add column if not exists employee_code text`);
   await query(
     `alter table employees add column if not exists must_change_password boolean not null default true`
@@ -855,6 +874,204 @@ export async function authenticateEmployee(identifier, password) {
   }
 
   return mapEmployeeRow(employee);
+}
+
+function normalizeDateKey(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+export async function findEmployeeForPasswordReset(identifier, dateOfBirth) {
+  const normalizedIdentifier = String(identifier ?? "").trim();
+  const normalizedDateOfBirth = normalizeDateKey(dateOfBirth);
+
+  if (!normalizedIdentifier || !normalizedDateOfBirth) {
+    return null;
+  }
+
+  const normalizedEmail = normalizedIdentifier.toLowerCase();
+  const result = await query(
+    `select
+      id,
+      full_name,
+      email,
+      employee_code,
+      phone,
+      role,
+      date_of_birth,
+      date_of_joining,
+      education_qualification,
+      previous_experience,
+      status,
+      must_change_password,
+      inactive_date,
+      inactive_remarks,
+      created_at
+     from employees
+     where (employee_code = $1 or lower(email) = $2)
+       and date_of_birth = $3::date
+     limit 1`,
+    [normalizedIdentifier, normalizedEmail, normalizedDateOfBirth]
+  );
+
+  const employee = result.rows[0];
+  if (!employee || employee.status !== "active") {
+    return null;
+  }
+
+  return mapEmployeeRow(employee);
+}
+
+export async function createEmployeePasswordResetRequest(employeeId, otp) {
+  await query(
+    `update employee_password_reset_requests
+     set consumed_at = now(),
+         updated_at = now()
+     where employee_id = $1
+       and consumed_at is null
+       and verified_at is null`,
+    [employeeId]
+  );
+
+  const otpHash = await bcrypt.hash(String(otp), 10);
+  const result = await query(
+    `insert into employee_password_reset_requests (
+      employee_id,
+      otp_hash,
+      expires_at,
+      updated_at
+    ) values ($1, $2, now() + interval '10 minutes', now())
+    returning id, expires_at`,
+    [employeeId, otpHash]
+  );
+
+  return {
+    id: result.rows[0]?.id,
+    expiresAt: result.rows[0]?.expires_at,
+  };
+}
+
+export async function verifyEmployeePasswordResetOtp({
+  requestId,
+  identifier,
+  dateOfBirth,
+  otp,
+}) {
+  const normalizedIdentifier = String(identifier ?? "").trim();
+  const normalizedDateOfBirth = normalizeDateKey(dateOfBirth);
+  const normalizedEmail = normalizedIdentifier.toLowerCase();
+
+  const result = await query(
+    `select
+      requests.id,
+      requests.employee_id,
+      requests.otp_hash,
+      requests.verified_at,
+      requests.consumed_at,
+      requests.expires_at,
+      requests.attempts,
+      employees.id as employee_id_value,
+      employees.full_name,
+      employees.email,
+      employees.employee_code,
+      employees.phone,
+      employees.role,
+      employees.date_of_birth,
+      employees.date_of_joining,
+      employees.education_qualification,
+      employees.previous_experience,
+      employees.status,
+      employees.must_change_password,
+      employees.inactive_date,
+      employees.inactive_remarks,
+      employees.created_at
+     from employee_password_reset_requests requests
+     join employees on employees.id = requests.employee_id
+     where requests.id = $1
+       and (employees.employee_code = $2 or lower(employees.email) = $3)
+       and employees.date_of_birth = $4::date
+     limit 1`,
+    [requestId, normalizedIdentifier, normalizedEmail, normalizedDateOfBirth]
+  );
+
+  const row = result.rows[0];
+  if (!row || row.status !== "active") {
+    return null;
+  }
+
+  if (row.consumed_at || row.verified_at) {
+    throw new Error("This OTP request is no longer active.");
+  }
+
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    throw new Error("OTP has expired. Please request a new one.");
+  }
+
+  const isValidOtp = await bcrypt.compare(String(otp ?? ""), row.otp_hash);
+  if (!isValidOtp) {
+    await query(
+      `update employee_password_reset_requests
+       set attempts = attempts + 1,
+           updated_at = now()
+       where id = $1`,
+      [requestId]
+    );
+    throw new Error("Invalid OTP. Please check the code sent to your email.");
+  }
+
+  await query(
+    `update employee_password_reset_requests
+     set verified_at = now(),
+         updated_at = now()
+     where id = $1`,
+    [requestId]
+  );
+
+  return {
+    requestId: row.id,
+    employee: mapEmployeeRow({
+      id: row.employee_id_value,
+      full_name: row.full_name,
+      email: row.email,
+      employee_code: row.employee_code,
+      phone: row.phone,
+      role: row.role,
+      date_of_birth: row.date_of_birth,
+      date_of_joining: row.date_of_joining,
+      education_qualification: row.education_qualification,
+      previous_experience: row.previous_experience,
+      status: row.status,
+      must_change_password: row.must_change_password,
+      inactive_date: row.inactive_date,
+      inactive_remarks: row.inactive_remarks,
+      created_at: row.created_at,
+    }),
+  };
+}
+
+export async function consumeEmployeePasswordResetRequest(requestId, employeeId) {
+  const result = await query(
+    `update employee_password_reset_requests
+     set consumed_at = now(),
+         updated_at = now()
+     where id = $1
+       and employee_id = $2
+       and verified_at is not null
+       and consumed_at is null
+       and expires_at > now()
+     returning id`,
+    [requestId, employeeId]
+  );
+
+  return Boolean(result.rows[0]);
 }
 
 export async function changeEmployeePassword(employeeId, newPassword) {

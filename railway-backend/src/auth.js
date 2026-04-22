@@ -38,6 +38,12 @@ function createAuthToken(payload) {
   });
 }
 
+function createScopedAuthToken(payload, expiresIn) {
+  return jwt.sign(payload, getJwtSecret(), {
+    expiresIn,
+  });
+}
+
 export function createAdminToken(email, sessionId) {
   return createAuthToken({
     type: "admin",
@@ -60,6 +66,28 @@ export function createEmployeeToken(employee, sessionId = employee.sessionId) {
     sessionId,
     mustChangePassword: Boolean(employee.mustChangePassword),
   });
+}
+
+export function createPasswordResetToken(payload) {
+  return createScopedAuthToken(
+    {
+      type: "password-reset",
+      employeeId: payload.employeeId,
+      requestId: payload.requestId,
+      employeeCode: payload.employeeCode,
+      email: payload.email,
+    },
+    "15m"
+  );
+}
+
+export function verifyPasswordResetToken(token) {
+  const decoded = jwt.verify(token, getJwtSecret());
+  if (decoded.type !== "password-reset") {
+    throw new Error("Invalid password reset token.");
+  }
+
+  return decoded;
 }
 
 function authenticateInternalUser(request, response, next, options = {}) {
