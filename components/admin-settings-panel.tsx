@@ -6,10 +6,14 @@ import {
   crmFieldAccessDefinitions,
   crmModuleAccessDefinitions,
   defaultCrmAccessControl,
+  getCrmEffectiveAccess,
   mergeCrmAccessControl,
+  normalizeCrmRoleKey,
   normalizeEmployeeAccessOverrides,
   type CrmAccessRoleKey,
   type CrmEmployeeAccessOverride,
+  type CrmFieldAccessKey,
+  type CrmModuleAccessKey,
 } from "@/lib/access-control";
 import type { CrmKpiSettings, EmployeeRecord } from "@/lib/crm";
 
@@ -156,6 +160,7 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
   );
   const [settings, setSettings] = useState<CrmKpiSettings>(defaultSettings);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState("");
   const [selectedModuleFilter, setSelectedModuleFilter] = useState<
     "all" | (typeof crmModuleAccessDefinitions)[number]["key"]
@@ -166,6 +171,7 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
   const [success, setSuccess] = useState("");
 
   const isAdminView = authType === "admin" || authRole === "super-admin";
+
   useEffect(() => {
     if (!token) {
       setIsLoading(false);
@@ -229,29 +235,28 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
   }, [section, token]);
 
   const visibleEmployees = useMemo(() => {
+    const normalizedQuery = employeeSearchQuery.trim().toLowerCase();
+
     return employees
       .filter((employee) => employee.status === "active")
+      .filter((employee) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        return [employee.fullName, employee.employeeCode, employee.email, employee.role].some(
+          (value) => String(value || "").toLowerCase().includes(normalizedQuery)
+        );
+      })
       .sort((first, second) => first.fullName.localeCompare(second.fullName));
-  }, [employees]);
+  }, [employeeSearchQuery, employees]);
 
   const selectedEmployee = visibleEmployees.find(
     (employee) => employee.employeeCode === selectedEmployeeCode
   );
 
   const selectedEmployeeRoleKey: CrmAccessRoleKey = useMemo(() => {
-    const normalizedRole = String(selectedEmployee?.role || "").toLowerCase();
-    if (
-      normalizedRole.includes("founder") ||
-      normalizedRole.includes("cto") ||
-      normalizedRole.includes("lead")
-    ) {
-      return "leadership";
-    }
-    if (normalizedRole.includes("delivery")) {
-      return "delivery";
-    }
-
-    return "recruiter";
+    return normalizeCrmRoleKey(selectedEmployee?.role, "employee");
   }, [selectedEmployee?.role]);
 
   const currentEmployeeOverride = useMemo(() => {
@@ -285,6 +290,37 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
       definition.key.startsWith(`${selectedModuleFilter}.`)
     );
   }, [selectedModuleFilter]);
+
+  const effectiveAccess = useMemo(() => {
+    if (!selectedEmployee) {
+      return null;
+    }
+
+    return getCrmEffectiveAccess(
+      "employee",
+      selectedEmployee.role,
+      selectedEmployee.employeeCode,
+      selectedEmployee.email,
+      settings.accessControl,
+      settings.employeeAccessOverrides
+    );
+  }, [selectedEmployee, settings.accessControl, settings.employeeAccessOverrides]);
+
+  const effectiveModuleDefinitions = useMemo(() => {
+    if (!effectiveAccess) {
+      return [];
+    }
+
+    return visibleModuleDefinitions.filter((definition) => effectiveAccess.modules[definition.key]);
+  }, [effectiveAccess, visibleModuleDefinitions]);
+
+  const effectiveFieldDefinitions = useMemo(() => {
+    if (!effectiveAccess) {
+      return [];
+    }
+
+    return visibleFieldDefinitions.filter((definition) => effectiveAccess.fields[definition.key]);
+  }, [effectiveAccess, visibleFieldDefinitions]);
 
   async function handleSave() {
     if (!token) {
@@ -324,11 +360,7 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
     }
   }
 
-  function updateEmployeeOverride(
-    field: "modules" | "fields",
-    key: string,
-    value: boolean
-  ) {
+  function updateEmployeeOverride(field: "modules" | "fields", key: string, value: boolean) {
     if (!selectedEmployee) {
       return;
     }
@@ -391,6 +423,55 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
     }));
   }
 
+  function resetEmployeeModuleOverride(moduleKey: CrmModuleAccessKey) {
+    if (!selectedEmployee) {
+      return;
+    }
+
+    setSettings((current) => {
+      const existingIndex = current.employeeAccessOverrides.findIndex(
+        (override) =>
+          override.employeeCode === selectedEmployee.employeeCode ||
+          override.email === selectedEmployee.email.toLowerCase()
+      );
+
+      if (existingIndex < 0) {
+        return current;
+      }
+
+      const existingOverride = current.employeeAccessOverrides[existingIndex];
+      const nextModules = { ...(existingOverride.modules ?? {}) };
+      const nextFields = { ...(existingOverride.fields ?? {}) };
+
+      delete nextModules[moduleKey];
+
+      crmFieldAccessDefinitions.forEach((definition) => {
+        if (definition.key.startsWith(`${moduleKey}.`)) {
+          delete nextFields[definition.key as CrmFieldAccessKey];
+        }
+      });
+
+      const hasModuleOverrides = Object.keys(nextModules).length > 0;
+      const hasFieldOverrides = Object.keys(nextFields).length > 0;
+      const nextOverrides = [...current.employeeAccessOverrides];
+
+      if (!hasModuleOverrides && !hasFieldOverrides) {
+        nextOverrides.splice(existingIndex, 1);
+      } else {
+        nextOverrides[existingIndex] = {
+          ...existingOverride,
+          modules: nextModules,
+          fields: nextFields,
+        };
+      }
+
+      return {
+        ...current,
+        employeeAccessOverrides: normalizeEmployeeAccessOverrides(nextOverrides),
+      };
+    });
+  }
+
   if (!token) {
     return (
       <section className="accent-card p-8">
@@ -425,8 +506,8 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
           </h2>
           <p className="muted-copy mt-3 max-w-4xl text-base leading-7">
             Use KPI Settings for targets, Notification Settings for reminder channels, and Access
-            Settings for role-wise plus employee-wise frontend permissions. Activity Center is now
-            also grouped under Settings with employee-wise and date-wise filtering.
+            Settings for employee-wise frontend permissions. Activity Center is now also grouped
+            under Settings with employee-wise and date-wise filtering.
           </p>
         </section>
       ) : null}
@@ -536,7 +617,14 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
               without changing all users in the same role.
             </p>
 
-            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              <input
+                type="search"
+                value={employeeSearchQuery}
+                onChange={(event) => setEmployeeSearchQuery(event.target.value)}
+                placeholder="Search employee by name, code, email, or role"
+                className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
               <select
                 value={selectedEmployeeCode}
                 onChange={(event) => setSelectedEmployeeCode(event.target.value)}
@@ -557,32 +645,82 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
                   )
                 }
                 className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-                >
-                  <option value="all">All modules</option>
-                  {crmModuleAccessDefinitions.map((definition) => (
-                    <option key={definition.key} value={definition.key}>
-                      {definition.label}
-                    </option>
-                  ))}
-                </select>
+              >
+                <option value="all">All modules</option>
+                {crmModuleAccessDefinitions.map((definition) => (
+                  <option key={definition.key} value={definition.key}>
+                    {definition.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {selectedEmployee ? (
               <div className="mt-6 space-y-6">
-                <div className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
-                    Selected Employee
-                  </p>
-                  <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
-                    {selectedEmployee.fullName}
-                  </h3>
-                  <p className="muted-copy mt-2 text-sm">
-                    {selectedEmployee.employeeCode} • {selectedEmployee.email} • {selectedEmployee.role}
-                  </p>
-                  <p className="muted-copy mt-2 text-sm">
-                    Base role access: {selectedEmployeeRoleKey}
-                    {currentEmployeeOverride ? " • custom override active" : " • using role defaults"}
-                  </p>
+                <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+                  <div className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                      Selected Employee
+                    </p>
+                    <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">
+                      {selectedEmployee.fullName}
+                    </h3>
+                    <p className="muted-copy mt-2 text-sm">
+                      {selectedEmployee.employeeCode} • {selectedEmployee.email} • {selectedEmployee.role}
+                    </p>
+                    <p className="muted-copy mt-2 text-sm">
+                      Base role access: {selectedEmployeeRoleKey}
+                      {currentEmployeeOverride
+                        ? " • custom override active"
+                        : " • using role defaults"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[1.4rem] border border-[var(--color-line)] bg-white p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                      Effective Access Summary
+                    </p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-[1rem] border border-[var(--color-line)] px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                          Enabled Modules
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
+                          {effectiveModuleDefinitions.length}
+                        </p>
+                      </div>
+                      <div className="rounded-[1rem] border border-[var(--color-line)] px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                          Enabled Fields
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
+                          {effectiveFieldDefinitions.length}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                          Active Modules
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
+                          {effectiveModuleDefinitions.length
+                            ? effectiveModuleDefinitions.map((definition) => definition.label).join(", ")
+                            : "No modules enabled for this selection."}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                          Active Fields
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
+                          {effectiveFieldDefinitions.length
+                            ? effectiveFieldDefinitions.map((definition) => definition.label).join(", ")
+                            : "No field-level permissions enabled for this selection."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid gap-5 xl:grid-cols-2">
@@ -592,30 +730,41 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
                     </h3>
                     <div className="mt-4 space-y-3">
                       {visibleModuleDefinitions.map((definition) => (
-                        <label
+                        <div
                           key={definition.key}
-                          className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
+                          className="rounded-[1.1rem] border border-[var(--color-line)] px-4 py-3"
                         >
-                          <span>
-                            <span className="block text-sm font-semibold text-[var(--color-ink)]">
-                              {definition.label}
+                          <div className="flex items-start justify-between gap-3">
+                            <span>
+                              <span className="block text-sm font-semibold text-[var(--color-ink)]">
+                                {definition.label}
+                              </span>
+                              <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
+                                {definition.description}
+                              </span>
                             </span>
-                            <span className="mt-1 block text-xs leading-5 text-[var(--color-muted)]">
-                              {definition.description}
-                            </span>
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={
-                              currentEmployeeOverride?.modules?.[definition.key] ??
-                              settings.accessControl[selectedEmployeeRoleKey].modules[definition.key]
-                            }
-                            onChange={(event) =>
-                              updateEmployeeOverride("modules", definition.key, event.target.checked)
-                            }
-                            className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
-                          />
-                        </label>
+                            <input
+                              type="checkbox"
+                              checked={
+                                currentEmployeeOverride?.modules?.[definition.key] ??
+                                settings.accessControl[selectedEmployeeRoleKey].modules[definition.key]
+                              }
+                              onChange={(event) =>
+                                updateEmployeeOverride("modules", definition.key, event.target.checked)
+                              }
+                              className="mt-1 h-5 w-5 accent-[var(--color-dark)]"
+                            />
+                          </div>
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => resetEmployeeModuleOverride(definition.key)}
+                              className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                            >
+                              Reset {definition.label}
+                            </button>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </article>

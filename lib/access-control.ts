@@ -9,6 +9,9 @@ export type CrmModuleAccessKey =
   | "settings"
   | "activity-center";
 export type CrmFieldAccessKey =
+  | "dashboard.summaryCards"
+  | "dashboard.followUpCalendar"
+  | "dashboard.alertWidgets"
   | "hr.manageEmployees"
   | "hr.employeeDates"
   | "hr.resetPassword"
@@ -27,7 +30,14 @@ export type CrmFieldAccessKey =
   | "clients.transfer"
   | "clients.followUp"
   | "clients.agreement"
-  | "reports.download";
+  | "reports.download"
+  | "settings.kpi"
+  | "settings.notifications"
+  | "settings.accessControl"
+  | "settings.activityCenter"
+  | "activity-center.auditLogs"
+  | "activity-center.notifications"
+  | "activity-center.transfers";
 
 export type CrmRoleAccessConfig = {
   modules: Record<CrmModuleAccessKey, boolean>;
@@ -70,6 +80,21 @@ export const crmFieldAccessDefinitions: Array<{
   label: string;
   description: string;
 }> = [
+  {
+    key: "dashboard.summaryCards",
+    label: "Dashboard summary cards",
+    description: "Show KPI cards, work counts, and dashboard summary tiles.",
+  },
+  {
+    key: "dashboard.followUpCalendar",
+    label: "Follow-up calendar",
+    description: "Show follow-up calendar, date popup, and schedule views on dashboard.",
+  },
+  {
+    key: "dashboard.alertWidgets",
+    label: "Dashboard alerts",
+    description: "Show upcoming follow-ups, overdue alerts, and productivity widgets.",
+  },
   {
     key: "hr.manageEmployees",
     label: "Employee create/edit",
@@ -165,6 +190,41 @@ export const crmFieldAccessDefinitions: Array<{
     label: "Download reports",
     description: "Show export and download controls on report screens.",
   },
+  {
+    key: "settings.kpi",
+    label: "KPI settings",
+    description: "Show productivity target settings and KPI target controls.",
+  },
+  {
+    key: "settings.notifications",
+    label: "Notification settings",
+    description: "Show browser, email, and WhatsApp reminder setting controls.",
+  },
+  {
+    key: "settings.accessControl",
+    label: "Access control settings",
+    description: "Show module access, field access, and employee override controls.",
+  },
+  {
+    key: "settings.activityCenter",
+    label: "Activity center settings access",
+    description: "Show activity center entry inside the settings area.",
+  },
+  {
+    key: "activity-center.auditLogs",
+    label: "Audit log feed",
+    description: "Show audit trail items and admin activity records.",
+  },
+  {
+    key: "activity-center.notifications",
+    label: "Notification activity",
+    description: "Show CRM notifications and follow-up reminder feed items.",
+  },
+  {
+    key: "activity-center.transfers",
+    label: "Transfer activity",
+    description: "Show candidate and client transfer activity records.",
+  },
 ];
 
 function buildModuleMap(overrides: Partial<Record<CrmModuleAccessKey, boolean>> = {}) {
@@ -193,6 +253,10 @@ export const defaultCrmAccessControl: CrmAccessControlMatrix = {
       settings: false,
     }),
     fields: buildFieldMap({
+      "settings.kpi": false,
+      "settings.notifications": false,
+      "settings.accessControl": false,
+      "settings.activityCenter": false,
       "hr.manageEmployees": false,
       "hr.resetPassword": false,
       "hr.markInactive": false,
@@ -203,6 +267,10 @@ export const defaultCrmAccessControl: CrmAccessControlMatrix = {
       settings: false,
     }),
     fields: buildFieldMap({
+      "settings.kpi": false,
+      "settings.notifications": false,
+      "settings.accessControl": false,
+      "settings.activityCenter": false,
       "hr.manageEmployees": false,
       "hr.resetPassword": false,
       "hr.markInactive": false,
