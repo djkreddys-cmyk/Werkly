@@ -60,6 +60,13 @@ type AttendanceDaySummary = {
   screenIdleSeconds: number;
   lastSeenAt?: string;
   isAutoLoggedOut?: boolean;
+  shiftName?: string;
+  shiftStartAt?: string;
+  shiftEndAt?: string;
+  lateByMs: number;
+  earlyLogoutMs: number;
+  overtimeMs: number;
+  attendancePolicyStatus: string;
 };
 
 type AdminReportsPanelProps = {
@@ -260,26 +267,88 @@ function getDayEndMs(dateKey: string) {
   return new Date(`${dateKey}T23:59:59.999`).getTime();
 }
 
-function getShiftWindowEndMs(
+function getShiftBoundaryMs(reportDate: string, timeValue?: string) {
+  if (!timeValue) {
+    return null;
+  }
+
+  const boundaryMs = new Date(`${reportDate}T${timeValue}:00`).getTime();
+  return Number.isNaN(boundaryMs) ? null : boundaryMs;
+}
+
+function getShiftRange(
   assignment: ShiftAssignmentRecord | undefined,
   reportDate: string
 ) {
-  if (!assignment?.shiftEndTime) {
+  if (!assignment?.shiftStartTime || !assignment.shiftEndTime) {
     return null;
   }
 
-  const startMs = new Date(`${reportDate}T${assignment.shiftStartTime || "00:00"}:00`).getTime();
-  let endMs = new Date(`${reportDate}T${assignment.shiftEndTime}:00`).getTime();
+  const shiftStartMs = getShiftBoundaryMs(reportDate, assignment.shiftStartTime);
+  const rawShiftEndMs = getShiftBoundaryMs(reportDate, assignment.shiftEndTime);
 
-  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+  if (!shiftStartMs || !rawShiftEndMs) {
     return null;
   }
 
-  if (endMs <= startMs) {
-    endMs += 24 * 60 * 60 * 1000;
+  let shiftEndMs = rawShiftEndMs;
+  if (shiftEndMs <= shiftStartMs) {
+    shiftEndMs += 24 * 60 * 60 * 1000;
   }
 
-  return endMs + assignment.graceMinutes * 60 * 1000;
+  const shiftGraceMs = shiftStartMs + assignment.graceMinutes * 60 * 1000;
+
+  return {
+    shiftStartMs,
+    shiftEndMs,
+    shiftGraceMs,
+  };
+}
+
+function formatShiftSlot(startAt?: string, endAt?: string) {
+  if (!startAt || !endAt) {
+    return "Not assigned";
+  }
+
+  return `${new Date(startAt).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })} - ${new Date(endAt).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })}`;
+}
+
+function getAttendancePolicyLabel(summary: AttendanceDaySummary) {
+  if (!summary.shiftName) {
+    return "No shift assigned";
+  }
+
+  if (!summary.firstLoginAt) {
+    return "No attendance";
+  }
+
+  const flags: string[] = [];
+
+  if (summary.totalWorkedMs < 4 * 60 * 60 * 1000) {
+    flags.push("Short attendance");
+  }
+  if (summary.lateByMs > 0) {
+    flags.push("Late");
+  }
+  if (summary.earlyLogoutMs > 0) {
+    flags.push("Early logout");
+  }
+  if (summary.overtimeMs > 0) {
+    flags.push("Overtime");
+  }
+  if (summary.activeSessionCount > 0) {
+    flags.push("Open session");
+  }
+
+  return flags.length > 0 ? flags.join(", ") : "On time";
 }
 
 function getCandidateSourceLabel(application: JobApplication) {
@@ -909,7 +978,11 @@ export function AdminReportsPanel({
       return state.clients;
     }
 
-    return state.clients.filter((client) => client.assignedEmployeeId === currentEmployeeId);
+    return state.clients.filter(
+      (client) =>
+        client.assignedEmployeeId === currentEmployeeId ||
+        client.followUpEmployeeId === currentEmployeeId
+    );
   }, [currentEmployeeId, isEmployeeSession, state.clients]);
 
   const visibleJobs = useMemo(() => {
@@ -918,7 +991,10 @@ export function AdminReportsPanel({
     }
 
     return state.jobs.filter(
-      (job) => job.recruiterId === currentEmployeeId || job.recruiterEmail === authEmail
+      (job) =>
+        job.recruiterId === currentEmployeeId ||
+        job.recruiterEmail === authEmail ||
+        job.clientFollowUpEmployeeId === currentEmployeeId
     );
   }, [authEmail, currentEmployeeId, isEmployeeSession, state.jobs]);
 
@@ -1082,16 +1158,16 @@ export function AdminReportsPanel({
       const existing = summaries.get(summaryKey);
       const loginTime = new Date(session.loginAt).getTime();
       const sessionActivity = sessionActivityMap.get(`${session.sessionId}-${reportDate}`);
+      const dayEndMs = getDayEndMs(reportDate);
+      const lastSeenMs = sessionActivity?.lastSeenAt
+        ? new Date(sessionActivity.lastSeenAt).getTime()
+        : null;
       const shiftAssignment = findShiftAssignment(
         session.userId,
         session.userIdentifier,
         reportDate
       );
-      const dayEndMs = getDayEndMs(reportDate);
-      const shiftEndMs = getShiftWindowEndMs(shiftAssignment, reportDate);
-      const lastSeenMs = sessionActivity?.lastSeenAt
-        ? new Date(sessionActivity.lastSeenAt).getTime()
-        : null;
+      const shiftRange = getShiftRange(shiftAssignment, reportDate);
 
       let effectiveLogoutMs = session.logoutAt ? new Date(session.logoutAt).getTime() : null;
       let sessionAutoLoggedOut = false;
@@ -1112,9 +1188,6 @@ export function AdminReportsPanel({
 
       if (effectiveLogoutMs) {
         effectiveLogoutMs = Math.min(effectiveLogoutMs, dayEndMs);
-        if (shiftEndMs) {
-          effectiveLogoutMs = Math.min(effectiveLogoutMs, shiftEndMs);
-        }
       }
 
       const workedMs =
@@ -1146,6 +1219,22 @@ export function AdminReportsPanel({
           ),
           lastSeenAt: activitySummaryMap.get(summaryKey)?.lastSeenAt,
           isAutoLoggedOut: sessionAutoLoggedOut,
+          shiftName: shiftAssignment?.shiftName,
+          shiftStartAt: shiftRange ? new Date(shiftRange.shiftStartMs).toISOString() : undefined,
+          shiftEndAt: shiftRange ? new Date(shiftRange.shiftEndMs).toISOString() : undefined,
+          lateByMs:
+            shiftRange && loginTime > shiftRange.shiftGraceMs
+              ? loginTime - shiftRange.shiftGraceMs
+              : 0,
+          earlyLogoutMs:
+            shiftRange && effectiveLogoutMs && effectiveLogoutMs < shiftRange.shiftEndMs
+              ? shiftRange.shiftEndMs - effectiveLogoutMs
+              : 0,
+          overtimeMs:
+            shiftRange && effectiveLogoutMs && effectiveLogoutMs > shiftRange.shiftEndMs
+              ? effectiveLogoutMs - shiftRange.shiftEndMs
+              : 0,
+          attendancePolicyStatus: shiftAssignment?.shiftName ? "On time" : "No shift assigned",
         });
         return;
       }
@@ -1173,6 +1262,32 @@ export function AdminReportsPanel({
       );
       existing.lastSeenAt = activitySummaryMap.get(summaryKey)?.lastSeenAt;
       existing.isAutoLoggedOut = existing.isAutoLoggedOut || sessionAutoLoggedOut;
+      if (!existing.shiftName && shiftAssignment?.shiftName) {
+        existing.shiftName = shiftAssignment.shiftName;
+      }
+      if (!existing.shiftStartAt && shiftRange) {
+        existing.shiftStartAt = new Date(shiftRange.shiftStartMs).toISOString();
+      }
+      if (!existing.shiftEndAt && shiftRange) {
+        existing.shiftEndAt = new Date(shiftRange.shiftEndMs).toISOString();
+      }
+      existing.lateByMs = Math.max(
+        existing.lateByMs,
+        shiftRange && loginTime > shiftRange.shiftGraceMs
+          ? loginTime - shiftRange.shiftGraceMs
+          : 0
+      );
+      existing.earlyLogoutMs = Math.max(
+        existing.earlyLogoutMs,
+        shiftRange && effectiveLogoutMs && effectiveLogoutMs < shiftRange.shiftEndMs
+          ? shiftRange.shiftEndMs - effectiveLogoutMs
+          : 0
+      );
+      existing.overtimeMs +=
+        shiftRange && effectiveLogoutMs && effectiveLogoutMs > shiftRange.shiftEndMs
+          ? effectiveLogoutMs - shiftRange.shiftEndMs
+          : 0;
+      existing.attendancePolicyStatus = existing.shiftName ? "On time" : "No shift assigned";
     });
 
     return Array.from(summaries.values())
@@ -1203,6 +1318,13 @@ export function AdminReportsPanel({
           screenIdleSeconds: effectiveIdleSeconds,
           activeSessionCount: effectiveLastLogoutAt ? 0 : summary.activeSessionCount,
           isAutoLoggedOut,
+          attendancePolicyStatus: getAttendancePolicyLabel({
+            ...summary,
+            lastLogoutAt: effectiveLastLogoutAt,
+            screenIdleSeconds: effectiveIdleSeconds,
+            activeSessionCount: effectiveLastLogoutAt ? 0 : summary.activeSessionCount,
+            isAutoLoggedOut,
+          }),
         };
       })
       .sort((a, b) => {
@@ -1493,8 +1615,7 @@ export function AdminReportsPanel({
     () =>
       [...state.enquiries]
         .filter((enquiry) => isWithinDateRange(enquiry.createdAt, startDate, endDate))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 8),
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [endDate, startDate, state.enquiries]
   );
 
@@ -1637,9 +1758,15 @@ export function AdminReportsPanel({
               [
                 "Employee",
                 "Date",
+                "Shift",
+                "Shift Timing",
                 "First Login",
                 "Last Logout",
                 "Worked Hours",
+                "Late By",
+                "Early Logout",
+                "Overtime",
+                "Policy Status",
                 "Screen Time",
                 "Idle Time",
                 "Last Seen",
@@ -1648,9 +1775,15 @@ export function AdminReportsPanel({
               filteredAttendanceSummary.map((summary) => [
                 summary.userName,
                 formatDate(summary.reportDate),
+                summary.shiftName || "Not assigned",
+                formatShiftSlot(summary.shiftStartAt, summary.shiftEndAt),
                 formatDateTime(summary.firstLoginAt),
                 formatDateTime(summary.lastLogoutAt),
                 formatDuration(summary.totalWorkedMs),
+                formatDuration(summary.lateByMs),
+                formatDuration(summary.earlyLogoutMs),
+                formatDuration(summary.overtimeMs),
+                summary.attendancePolicyStatus,
                 formatDuration(summary.screenActiveSeconds * 1000),
                 formatDuration(summary.screenIdleSeconds * 1000),
                 formatDateTime(summary.lastSeenAt),
@@ -1715,9 +1848,15 @@ export function AdminReportsPanel({
                 headings={[
                   "Employee",
                   "Date",
+                  "Shift",
+                  "Shift Timing",
                   "First Login",
                   "Last Logout",
                   "Worked Hours",
+                  "Late By",
+                  "Early Logout",
+                  "Overtime",
+                  "Policy Status",
                   "Screen Time",
                   "Idle Time",
                   "Last Seen",
@@ -1743,6 +1882,12 @@ export function AdminReportsPanel({
                       {formatDate(summary.reportDate)}
                     </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {summary.shiftName || "Not assigned"}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatShiftSlot(summary.shiftStartAt, summary.shiftEndAt)}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                       {formatDateTime(summary.firstLoginAt)}
                     </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
@@ -1750,6 +1895,20 @@ export function AdminReportsPanel({
                     </td>
                     <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
                       {formatDuration(summary.totalWorkedMs)}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {formatDuration(summary.lateByMs)}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {formatDuration(summary.earlyLogoutMs)}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {formatDuration(summary.overtimeMs)}
+                    </td>
+                    <td className="px-4 py-4 text-sm">
+                      <span className="font-semibold text-[var(--color-ink)]">
+                        {summary.attendancePolicyStatus}
+                      </span>
                     </td>
                     <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
                       {formatDuration(summary.screenActiveSeconds * 1000)}

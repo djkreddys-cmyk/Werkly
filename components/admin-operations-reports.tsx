@@ -16,6 +16,25 @@ function getDateKey(value?: string) {
   return value?.slice(0, 10) || "";
 }
 
+function isEmployeeActiveDuringMonth(employee: EmployeeRecord, monthStart: Date, monthEnd: Date) {
+  const joiningDate = employee.dateOfJoining ? new Date(`${employee.dateOfJoining}T00:00:00`) : null;
+  const inactiveDate = employee.inactiveDate ? new Date(`${employee.inactiveDate}T00:00:00`) : null;
+
+  if (joiningDate && joiningDate.getTime() > monthEnd.getTime()) {
+    return false;
+  }
+
+  if (inactiveDate && inactiveDate.getTime() < monthStart.getTime()) {
+    return false;
+  }
+
+  if (!inactiveDate && employee.status !== "active" && joiningDate) {
+    return joiningDate.getTime() <= monthEnd.getTime();
+  }
+
+  return true;
+}
+
 function downloadExcelReport(
   filename: string,
   sheetTitle: string,
@@ -106,6 +125,14 @@ export function AdminOperationsReports({ type }: { type: "aging" | "trends" }) {
   const todayKey = today.toISOString().slice(0, 10);
 
   const agingRows = useMemo(() => {
+    const applicationCountsByJob = new Map<string, number>();
+    applications.forEach((application) => {
+      applicationCountsByJob.set(
+        application.jobId,
+        (applicationCountsByJob.get(application.jobId) ?? 0) + 1
+      );
+    });
+
     const jobRows = jobs
       .filter((job) => job.status === "open")
       .map((job) => {
@@ -117,7 +144,7 @@ export function AdminOperationsReports({ type }: { type: "aging" | "trends" }) {
           owner: job.recruiterName || "Unassigned",
           stage: job.status,
           ageDays,
-          detail: `${job.applicationsCount} applications`,
+          detail: `${applicationCountsByJob.get(job.id) ?? job.applicationsCount} applications`,
         };
       });
 
@@ -145,15 +172,20 @@ export function AdminOperationsReports({ type }: { type: "aging" | "trends" }) {
     });
 
     const candidateRows = applications.map((application) => {
-      const appliedDate = new Date(application.appliedAt);
-      const ageDays = Math.max(0, Math.floor((today.getTime() - appliedDate.getTime()) / 86400000));
+      const stageReferenceDate = new Date(application.stageUpdatedAt || application.appliedAt);
+      const ageDays = Math.max(
+        0,
+        Math.floor((today.getTime() - stageReferenceDate.getTime()) / 86400000)
+      );
       return {
         type: "Candidate",
         name: application.candidateName,
         owner: application.recruiterName || "Unassigned",
         stage: application.stage || "applied",
         ageDays,
-        detail: application.jobTitle || "No job linked",
+        detail: `${application.jobTitle || "No job linked"} | stage since ${formatDate(
+          application.stageUpdatedAt || application.appliedAt
+        )}`,
       };
     });
 
@@ -167,10 +199,15 @@ export function AdminOperationsReports({ type }: { type: "aging" | "trends" }) {
     });
 
     return monthKeys.map((monthKey) => {
+      const [year, month] = monthKey.split("-").map(Number);
+      const monthStart = new Date(year, month - 1, 1);
+      const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
       const jobsCount = jobs.filter((job) => job.postedAt?.startsWith(monthKey)).length;
       const candidatesCount = applications.filter((item) => item.appliedAt?.startsWith(monthKey)).length;
       const clientsCount = clients.filter((item) => item.createdAt?.startsWith(monthKey)).length;
-      const activeEmployees = employees.filter((item) => item.status === "active").length;
+      const activeEmployees = employees.filter((item) =>
+        isEmployeeActiveDuringMonth(item, monthStart, monthEnd)
+      ).length;
 
       return {
         monthKey,

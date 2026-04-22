@@ -6,6 +6,8 @@ export type JobSummary = {
   clientId?: string;
   clientName?: string;
   recruiterId?: string;
+  clientAssignedEmployeeId?: string;
+  clientFollowUpEmployeeId?: string;
   recruiterName?: string;
   recruiterEmail?: string;
   slug: string;
