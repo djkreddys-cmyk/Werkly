@@ -935,6 +935,62 @@ app.get("/admin/candidate-enquiries", requireInternalUser, async (_request, resp
   }
 });
 
+app.post("/admin/candidate-enquiries", requirePermission("candidates.manage"), async (request, response) => {
+  try {
+    const {
+      candidateName,
+      candidateEmail,
+      candidatePhone,
+      experience,
+      currentCompany,
+      currentLocation,
+      currentDesignation,
+      preferredRole,
+      currentCtc,
+      expectedCtc,
+      preferredLocation,
+      preferredSector,
+      candidateMessage,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+      sourceType,
+    } = request.body ?? {};
+
+    if (!candidateName || (!candidateEmail && !candidatePhone)) {
+      return response.status(400).json({
+        message: "Candidate name and either email or phone are required.",
+      });
+    }
+
+    const enquiry = await createCandidateEnquiry({
+      candidateName,
+      candidateEmail: candidateEmail || "",
+      candidatePhone,
+      experience,
+      currentCompany,
+      currentLocation,
+      currentDesignation,
+      preferredRole,
+      currentCtc,
+      expectedCtc,
+      preferredLocation,
+      preferredSector,
+      candidateMessage,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+      sourceType: sourceType || "manual_candidate_enquiry",
+    });
+
+    response.status(201).json(enquiry);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to save candidate enquiry.",
+    });
+  }
+});
+
 app.get("/admin/applications/history", requireInternalUser, async (_request, response) => {
   try {
     const history = await listApplicationStageHistory(

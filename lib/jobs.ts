@@ -122,6 +122,26 @@ export type CandidateEnquiry = {
   createdAt: string;
 };
 
+export type CandidateEnquiryPayload = {
+  candidateName: string;
+  candidateEmail?: string;
+  candidatePhone?: string;
+  experience?: string;
+  currentCompany?: string;
+  currentLocation?: string;
+  currentDesignation?: string;
+  preferredRole?: string;
+  currentCtc?: string;
+  expectedCtc?: string;
+  preferredLocation?: string;
+  preferredSector?: string;
+  candidateMessage?: string;
+  resumeFileName?: string;
+  resumeFileType?: string;
+  resumeFileData?: string;
+  sourceType?: string;
+};
+
 export type JobApplicationStage =
   | "applied"
   | "shortlisted"
@@ -628,6 +648,19 @@ export async function getAdminCandidateEnquiries(token: string) {
   );
 
   return Array.isArray(data) ? data : data.enquiries;
+}
+
+export async function createAdminCandidateEnquiry(
+  payload: CandidateEnquiryPayload,
+  token: string
+) {
+  return readJson<CandidateEnquiry>("/admin/candidate-enquiries", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
 
 export async function updateJobApplicationStage(

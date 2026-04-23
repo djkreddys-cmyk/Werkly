@@ -1,7 +1,126 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { CandidateEnquiry } from "@/lib/jobs";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CandidateEnquiry, CandidateEnquiryPayload } from "@/lib/jobs";
+
+const emptyEnquiryForm: CandidateEnquiryPayload = {
+  candidateName: "",
+  candidateEmail: "",
+  candidatePhone: "",
+  experience: "",
+  currentCompany: "",
+  currentLocation: "",
+  currentDesignation: "",
+  preferredRole: "",
+  currentCtc: "",
+  expectedCtc: "",
+  preferredLocation: "",
+  preferredSector: "",
+  candidateMessage: "",
+  sourceType: "manual_candidate_enquiry",
+};
+
+const fieldClassName =
+  "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
+
+const enquiryFormFields: Array<{
+  field: keyof CandidateEnquiryPayload;
+  label: string;
+  required?: boolean;
+}> = [
+  { field: "candidateName", label: "Candidate Name", required: true },
+  { field: "candidateEmail", label: "Email" },
+  { field: "candidatePhone", label: "Phone" },
+  { field: "experience", label: "Experience" },
+  { field: "currentCompany", label: "Current Company" },
+  { field: "currentLocation", label: "Current Location" },
+  { field: "currentDesignation", label: "Current Designation" },
+  { field: "preferredRole", label: "Preferred Role" },
+  { field: "preferredLocation", label: "Preferred Location" },
+  { field: "preferredSector", label: "Preferred Sector" },
+  { field: "currentCtc", label: "Current CTC" },
+  { field: "expectedCtc", label: "Expected CTC" },
+  { field: "sourceType", label: "Source" },
+];
+
+function parseCsvRows(text: string) {
+  const rows: string[][] = [];
+  let current = "";
+  let row: string[] = [];
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+      row.push(current.trim());
+      if (row.some(Boolean)) {
+        rows.push(row);
+      }
+      row = [];
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  row.push(current.trim());
+  if (row.some(Boolean)) {
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function normalizeHeader(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function mapImportRow(headers: string[], row: string[]): CandidateEnquiryPayload {
+  const values = new Map<string, string>();
+  headers.forEach((header, index) => values.set(normalizeHeader(header), row[index] ?? ""));
+  const getValue = (...keys: string[]) =>
+    keys.map((key) => values.get(normalizeHeader(key)) ?? "").find(Boolean) ?? "";
+
+  return {
+    candidateName: getValue("Candidate Name", "Name"),
+    candidateEmail: getValue("Email", "Email ID", "Mail ID"),
+    candidatePhone: getValue("Phone", "Mobile", "Mobile No", "Contact"),
+    experience: getValue("Experience", "Total Exp", "Total Experience"),
+    currentCompany: getValue("Current Company", "Company"),
+    currentLocation: getValue("Current Location", "Location"),
+    currentDesignation: getValue("Current Designation", "Designation"),
+    preferredRole: getValue("Preferred Role", "Position", "Role"),
+    currentCtc: getValue("Current CTC", "CTC"),
+    expectedCtc: getValue("Expected CTC"),
+    preferredLocation: getValue("Preferred Location"),
+    preferredSector: getValue("Preferred Sector", "Sector"),
+    candidateMessage: getValue("Remarks", "Notes", "Candidate Note"),
+    sourceType: getValue("Source") || "excel_import",
+  };
+}
 
 export function AdminCandidateEnquiriesPanel() {
   const [token] = useState(
@@ -9,10 +128,27 @@ export function AdminCandidateEnquiriesPanel() {
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
       : ""
   );
+  const [authType] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthType") ?? "admin"
+      : "admin"
+  );
+  const [authRole] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
+      : "super-admin"
+  );
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [enquiries, setEnquiries] = useState<CandidateEnquiry[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
+  const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [form, setForm] = useState<CandidateEnquiryPayload>(emptyEnquiryForm);
+  const isSuperAdmin = authType === "admin" || authRole === "super-admin";
 
   useEffect(() => {
     if (!token) {
@@ -43,6 +179,124 @@ export function AdminCandidateEnquiriesPanel() {
       })
       .finally(() => setIsLoading(false));
   }, [token]);
+
+  function updateForm(field: keyof CandidateEnquiryPayload, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveCandidateEnquiry(payload: CandidateEnquiryPayload) {
+    const response = await fetch("/api/admin/candidate-enquiries", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const result = (await response.json()) as CandidateEnquiry & { message?: string };
+    if (!response.ok) {
+      throw new Error(result.message || "Unable to save candidate enquiry.");
+    }
+    return result;
+  }
+
+  async function handleManualSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!token) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    if (!form.candidateName?.trim() || (!form.candidateEmail?.trim() && !form.candidatePhone?.trim())) {
+      setError("Candidate name and either email or phone are required.");
+      return;
+    }
+
+    setIsSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const created = await saveCandidateEnquiry({
+        ...form,
+        sourceType: form.sourceType || "manual_candidate_enquiry",
+      });
+      setEnquiries((current) => [created, ...current]);
+      setForm(emptyEnquiryForm);
+      setIsAddOpen(false);
+      setMessage("Candidate enquiry added successfully.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to save candidate enquiry.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleImportFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!isSuperAdmin) {
+      setError("Only Super Admin can import candidate enquiries.");
+      return;
+    }
+
+    setIsImporting(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const text = await file.text();
+      const rows = parseCsvRows(text);
+      const [headers, ...dataRows] = rows;
+      if (!headers || dataRows.length === 0) {
+        throw new Error("Import file must include headers and at least one candidate row.");
+      }
+
+      const payloads = dataRows
+        .map((row) => mapImportRow(headers, row))
+        .filter((payload) => payload.candidateName && (payload.candidateEmail || payload.candidatePhone));
+
+      if (payloads.length === 0) {
+        throw new Error("No valid candidate rows found. Candidate Name and Email or Phone are required.");
+      }
+
+      const existingKeys = new Set(
+        enquiries.flatMap((enquiry) => [
+          enquiry.candidateEmail ? `email:${enquiry.candidateEmail.toLowerCase()}` : "",
+          enquiry.candidatePhone ? `phone:${enquiry.candidatePhone.replace(/\D/g, "")}` : "",
+        ]).filter(Boolean)
+      );
+      const uniquePayloads = payloads.filter((payload) => {
+        const emailKey = payload.candidateEmail ? `email:${payload.candidateEmail.toLowerCase()}` : "";
+        const phoneKey = payload.candidatePhone ? `phone:${payload.candidatePhone.replace(/\D/g, "")}` : "";
+        if ((emailKey && existingKeys.has(emailKey)) || (phoneKey && existingKeys.has(phoneKey))) {
+          return false;
+        }
+        if (emailKey) existingKeys.add(emailKey);
+        if (phoneKey) existingKeys.add(phoneKey);
+        return true;
+      });
+
+      if (uniquePayloads.length === 0) {
+        setMessage("No new rows imported. All valid rows already exist by email or phone.");
+        return;
+      }
+
+      const created = await Promise.all(uniquePayloads.map((payload) => saveCandidateEnquiry(payload)));
+      setEnquiries((current) => [...created, ...current]);
+      setMessage(`Imported ${created.length} candidate enquiries. Skipped ${payloads.length - uniquePayloads.length} duplicate rows.`);
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : "Unable to import candidate enquiries.");
+    } finally {
+      setIsImporting(false);
+    }
+  }
 
   const filteredEnquiries = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -78,17 +332,55 @@ export function AdminCandidateEnquiriesPanel() {
           </p>
         </div>
 
-        <div className="w-full max-w-md">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search name, email, phone, role, location"
-            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
-          />
+        <div className="grid w-full gap-3 md:grid-cols-2 xl:max-w-4xl xl:grid-cols-[minmax(260px,1fr)_auto_auto] xl:items-end">
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              Search
+            </span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search name, email, phone, role, location"
+              className={fieldClassName}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setIsAddOpen(true)}
+            className="h-[50px] rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+          >
+            Add Candidate Enquiry
+          </button>
+          {isSuperAdmin ? (
+            <>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                disabled={isImporting}
+                className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isImporting ? "Importing..." : "Import Excel"}
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
 
       {error ? <p className="mt-4 text-sm font-medium text-red-700">{error}</p> : null}
+      {message ? <p className="mt-4 text-sm font-medium text-[var(--color-dark)]">{message}</p> : null}
+      {isSuperAdmin ? (
+        <p className="muted-copy mt-3 text-sm">
+          Import supports Excel-compatible CSV files with headers like Candidate Name, Email, Phone,
+          Experience, Current Company, Preferred Role, Preferred Location, Source, and Remarks.
+        </p>
+      ) : null}
 
       {isLoading ? (
         <p className="muted-copy mt-6 text-sm">Loading candidate enquiries...</p>
@@ -179,6 +471,76 @@ export function AdminCandidateEnquiriesPanel() {
           </div>
         </div>
       )}
+
+      {isAddOpen ? (
+        <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto bg-slate-950/55 p-3 sm:p-4 lg:items-center">
+          <div className="my-3 flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)] sm:my-4 sm:max-h-[calc(100vh-2rem)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-4 py-4 sm:px-6">
+              <div>
+                <p className="eyebrow">Candidate Enquiry</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  Add old or direct candidate profile.
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddOpen(false)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleManualSubmit}>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {enquiryFormFields.map(({ field, label, required }) => (
+                    <label key={field} className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                        {label}
+                      </span>
+                      <input
+                        className={fieldClassName}
+                        value={String(form[field] ?? "")}
+                        onChange={(event) =>
+                          updateForm(field, event.target.value)
+                        }
+                        required={Boolean(required)}
+                      />
+                    </label>
+                  ))}
+                  <label className="block sm:col-span-2 xl:col-span-3">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Remarks
+                    </span>
+                    <textarea
+                      className={`${fieldClassName} min-h-[130px] resize-y`}
+                      value={form.candidateMessage ?? ""}
+                      onChange={(event) => updateForm("candidateMessage", event.target.value)}
+                      placeholder="Old database note, reference details, or migration remarks"
+                    />
+                  </label>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--color-line)] bg-white px-4 py-4 sm:flex-row sm:px-6">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSaving ? "Saving..." : "Save Candidate Enquiry"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddOpen(false)}
+                  className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
