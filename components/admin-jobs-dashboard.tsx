@@ -1811,29 +1811,30 @@ export function AdminJobsDashboard({
       ) : null}
 
       {manualCandidateJob ? (
-        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="w-full max-w-6xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
+        <div className="fixed inset-0 z-[125] flex items-start justify-center overflow-y-auto bg-slate-950/55 p-3 sm:p-4 lg:items-center">
+          <div className="my-3 flex max-h-[calc(100vh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[1.5rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)] sm:my-4 sm:max-h-[calc(100vh-2rem)] sm:rounded-[1.8rem]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-4 py-4 sm:px-6">
+              <div className="min-w-0">
                 <p className="eyebrow">Manual Candidate Entry</p>
-                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)] sm:text-2xl">
                   Add candidate against {manualCandidateJob.title}
                 </h3>
-                <p className="muted-copy mt-2 text-sm">
+                <p className="muted-copy mt-2 max-w-4xl text-sm">
                   Track shortlisted resumes from referral, vendor, WhatsApp, Naukri, LinkedIn, or any outside source directly in the CRM.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeManualCandidateModal}
-                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+                className="shrink-0 rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
               >
                 Close
               </button>
             </div>
 
-            <form className="mt-6" onSubmit={handleManualCandidateSubmit}>
-              <div className="grid gap-4 md:grid-cols-3">
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleManualCandidateSubmit}>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Candidate Name</span>
                   <input
@@ -2017,7 +2018,7 @@ export function AdminJobsDashboard({
                     }
                   />
                 </label>
-                <label className="block md:col-span-3">
+                <label className="block sm:col-span-2 xl:col-span-3">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Stage Remarks</span>
                   <textarea
                     className={`${fieldClassName} min-h-[120px] resize-y`}
@@ -2049,8 +2050,9 @@ export function AdminJobsDashboard({
                   </span>
                 </div>
               </div>
+              </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--color-line)] bg-white px-4 py-4 sm:flex-row sm:flex-wrap sm:px-6">
                 <button
                   type="submit"
                   disabled={isSavingCandidate}
