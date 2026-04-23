@@ -821,6 +821,54 @@ export function AdminJobsDashboard({
     }
   }
 
+  async function handleMakeJobLive(job: JobSummary) {
+    if (!token) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setActionMenuJobId("");
+
+    try {
+      const response = await fetch(`/api/admin/jobs/${job.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          clientId: job.clientId ?? "",
+          recruiterId: job.recruiterId ?? "",
+          title: job.title,
+          location: job.location,
+          sector: job.sector,
+          experience: job.experience,
+          employmentType: job.employmentType,
+          salary: job.salary ?? "",
+          packagePerAnnum: job.packagePerAnnum ?? "",
+          status: "open",
+          isHidden: false,
+          postedAt: job.postedAt,
+          lastDateToApply: job.lastDateToApply ?? "",
+          responsibilities: (job.responsibilities ?? []).join("\n"),
+          requirements: (job.requirements ?? []).join("\n"),
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to make job live.");
+      }
+
+      await refreshJobs();
+      setMessage("Job is live now.");
+    } catch (liveError) {
+      setError(liveError instanceof Error ? liveError.message : "Unable to make job live.");
+    }
+  }
+
   async function handleDeleteJob(job: JobSummary) {
     if (!token || !isSuperAdmin) {
       setError("Only Super Admin can delete jobs.");
@@ -1447,6 +1495,17 @@ export function AdminJobsDashboard({
                               : []),
                             ...(canToggleJobVisibility
                               ? [
+                                  ...(job.status === "draft"
+                                    ? [
+                                        {
+                                          label: "Make Live",
+                                          onClick: () => {
+                                            void handleMakeJobLive(job);
+                                          },
+                                          tone: "accent" as const,
+                                        },
+                                      ]
+                                    : []),
                                   {
                                     label: job.isHidden ? "Unhide" : "Hide",
                                     onClick: () => {
@@ -1456,7 +1515,7 @@ export function AdminJobsDashboard({
                                   },
                                 ]
                               : []),
-                            ...(job.slug
+                            ...(job.slug && isLiveOnWebsite(job)
                               ? [
                                   {
                                     label: "View",
