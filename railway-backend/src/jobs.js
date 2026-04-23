@@ -411,6 +411,8 @@ export async function createJob(payload) {
   try {
     await client.query("begin");
     const jobCode = await generateJobCode(client, payload.postedAt);
+    const allowedStatuses = new Set(["draft", "open", "closed"]);
+    const normalizedStatus = allowedStatuses.has(payload.status) ? payload.status : "open";
     const result = await client.query(
       `insert into jobs (
         job_code,
@@ -450,7 +452,7 @@ export async function createJob(payload) {
         payload.employmentType,
         payload.salary || null,
         payload.packagePerAnnum || null,
-        payload.status,
+        normalizedStatus,
         payload.isHidden ?? false,
         payload.postedAt || null,
         payload.lastDateToApply || null,

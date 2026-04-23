@@ -66,7 +66,7 @@ const emptyForm: JobEditorState = {
   employmentType: "Full Time",
   salary: "",
   packagePerAnnum: "",
-  status: "draft",
+  status: "open",
   isHidden: false,
   lastDateToApply: "",
   responsibilities: "",
