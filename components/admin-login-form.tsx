@@ -140,6 +140,14 @@ export function AdminLoginForm() {
     };
   }
 
+  function buildSessionCookie(value: string, maxAgeSeconds: number) {
+    const secureAttribute =
+      typeof window !== "undefined" && window.location.protocol === "https:"
+        ? "; Secure"
+        : "";
+    return `werklyAdminSession=${value}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax${secureAttribute}`;
+  }
+
   function persistSession(token: string, user: LoginUser) {
     window.localStorage.setItem("werklyAdminToken", token);
     window.localStorage.setItem(
@@ -155,6 +163,8 @@ export function AdminLoginForm() {
     } else {
       window.localStorage.removeItem("werklyEmployeeCode");
     }
+
+    document.cookie = buildSessionCookie("1", 60 * 60 * 12);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

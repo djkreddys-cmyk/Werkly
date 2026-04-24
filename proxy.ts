@@ -9,6 +9,8 @@ export function proxy(request: NextRequest) {
     host.includes("localhost") || host.startsWith("127.0.0.1");
   const isAdminHost = host.startsWith(ADMIN_HOST);
   const isAdminPath = nextUrl.pathname.startsWith("/admin");
+  const isAdminLoginPath = nextUrl.pathname.startsWith("/admin/login");
+  const hasAdminSession = request.cookies.get("werklyAdminSession")?.value === "1";
 
   if (isLocalHost) {
     return NextResponse.next();
@@ -21,6 +23,17 @@ export function proxy(request: NextRequest) {
 
   if (isAdminHost && nextUrl.pathname === "/") {
     const redirectUrl = new URL("/admin/login", `https://${ADMIN_HOST}`);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (isAdminHost && isAdminPath && !isAdminLoginPath && !hasAdminSession) {
+    const redirectUrl = new URL("/admin/login", `https://${ADMIN_HOST}`);
+    redirectUrl.searchParams.set("redirect", nextUrl.pathname + nextUrl.search);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (isAdminHost && isAdminLoginPath && hasAdminSession) {
+    const redirectUrl = new URL("/admin", `https://${ADMIN_HOST}`);
     return NextResponse.redirect(redirectUrl);
   }
 

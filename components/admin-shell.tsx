@@ -421,6 +421,11 @@ export function AdminShell({
     } catch {
       // Clear local session even if the logout audit call fails.
     } finally {
+      const secureAttribute =
+        typeof window !== "undefined" && window.location.protocol === "https:"
+          ? "; Secure"
+          : "";
+      document.cookie = `werklyAdminSession=; Path=/; Max-Age=0; SameSite=Lax${secureAttribute}`;
       window.localStorage.removeItem("werklyAdminToken");
       window.localStorage.removeItem("werklyAdminEmail");
       window.localStorage.removeItem("werklyAuthType");
@@ -431,6 +436,16 @@ export function AdminShell({
       router.refresh();
     }
   }
+
+  useEffect(() => {
+    if (!showMenu || !isHydrated) {
+      return;
+    }
+
+    if (!token) {
+      router.replace("/admin/login");
+    }
+  }, [isHydrated, router, showMenu, token]);
 
   useEffect(() => {
     logoutHandlerRef.current = handleLogout;
