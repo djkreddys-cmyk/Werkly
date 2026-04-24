@@ -117,6 +117,8 @@ export function AdminCandidateEditModal({
     return null;
   }
 
+  const currentApplication = application;
+
   function updateField<Key extends keyof CandidateEditFormState>(
     key: Key,
     value: CandidateEditFormState[Key]
@@ -190,7 +192,11 @@ export function AdminCandidateEditModal({
         resumeFileData: form.resumeFileData || undefined,
       };
 
-      const updatedApplication = await updateJobApplicationDetails(application.id, payload, token);
+      const updatedApplication = await updateJobApplicationDetails(
+        currentApplication.id,
+        payload,
+        token
+      );
       onSaved(updatedApplication);
       onClose();
     } catch (saveError) {
@@ -210,6 +216,7 @@ export function AdminCandidateEditModal({
             <p className="eyebrow">Edit Candidate</p>
             <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)] sm:text-2xl">
               {application.candidateName}
+              {currentApplication.candidateName}
             </h3>
             <p className="muted-copy mt-2 text-sm">
               Update missing candidate details, contact info, profile summary fields, and resume.
