@@ -215,7 +215,6 @@ export function AdminCandidateEditModal({
           <div className="min-w-0">
             <p className="eyebrow">Edit Candidate</p>
             <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)] sm:text-2xl">
-              {application.candidateName}
               {currentApplication.candidateName}
             </h3>
             <p className="muted-copy mt-2 text-sm">

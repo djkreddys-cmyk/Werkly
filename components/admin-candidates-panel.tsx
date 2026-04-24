@@ -1058,6 +1058,20 @@ export function AdminCandidatesPanel() {
         </div>
       ) : null}
 
+      <AdminCandidateEditModal
+        token={token}
+        application={editingApplication}
+        canViewCompensation={roleAccess.fields["candidates.compensation"]}
+        onClose={() => setEditingApplication(null)}
+        onSaved={(updatedApplication) => {
+          setApplications((current) =>
+            current.map((application) =>
+              application.id === updatedApplication.id ? updatedApplication : application
+            )
+          );
+        }}
+      />
+
       {stageDraft ? (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-4">
           <div className="w-full max-w-xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
