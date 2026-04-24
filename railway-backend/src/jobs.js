@@ -410,12 +410,56 @@ async function generateJobCode(client, postedAt) {
   return `${prefix}${String(nextSequence).padStart(4, "0")}`;
 }
 
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function generateUniqueJobSlug(client, baseValue, excludeId = null) {
+  const baseSlug = slugify(baseValue) || `job-${Date.now()}`;
+  let attempt = 0;
+
+  while (attempt < 200) {
+    const candidateSlug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
+    const values = [candidateSlug];
+    let whereClause = `where slug = $1`;
+
+    if (excludeId) {
+      values.push(excludeId);
+      whereClause += ` and id <> $2`;
+    }
+
+    const existing = await client.query(
+      `select id
+       from jobs
+       ${whereClause}
+       limit 1`,
+      values
+    );
+
+    if (!existing.rows[0]) {
+      return candidateSlug;
+    }
+
+    attempt += 1;
+  }
+
+  return `${baseSlug}-${Date.now()}`;
+}
+
 export async function createJob(payload) {
   const client = await pool.connect();
 
   try {
     await client.query("begin");
     const jobCode = await generateJobCode(client, payload.postedAt);
+    const uniqueSlug = await generateUniqueJobSlug(
+      client,
+      payload.slug || payload.title || jobCode
+    );
     const allowedStatuses = new Set(["draft", "open", "closed"]);
     const normalizedStatus = allowedStatuses.has(payload.status) ? payload.status : "open";
     const result = await client.query(
@@ -449,7 +493,7 @@ export async function createJob(payload) {
         jobCode,
         payload.clientId || null,
         payload.recruiterId || null,
-        payload.slug,
+        uniqueSlug,
         payload.title,
         payload.location,
         payload.sector,
@@ -481,7 +525,15 @@ export async function createJob(payload) {
 }
 
 export async function updateJob(id, payload) {
-  const result = await query(
+  const client = await pool.connect();
+
+  try {
+    const uniqueSlug = await generateUniqueJobSlug(
+      client,
+      payload.slug || payload.title || id,
+      id
+    );
+    const result = await client.query(
     `update jobs set
       slug = $2,
       client_id = $3,
@@ -506,7 +558,7 @@ export async function updateJob(id, payload) {
     returning *`,
     [
       id,
-      payload.slug,
+      uniqueSlug,
       payload.clientId || null,
       payload.recruiterId || null,
       payload.title,
@@ -527,7 +579,10 @@ export async function updateJob(id, payload) {
     ]
   );
 
-  return result.rows[0] ? mapRow(result.rows[0]) : null;
+    return result.rows[0] ? mapRow(result.rows[0]) : null;
+  } finally {
+    client.release();
+  }
 }
 
 export async function getAdminJobById(id) {
