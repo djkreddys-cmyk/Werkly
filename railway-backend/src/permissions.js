@@ -27,6 +27,7 @@ const ROLE_PERMISSIONS = {
     "dashboard.view",
     "reports.view",
     "jobs.view",
+    "jobs.manage",
     "candidates.view",
     "candidates.manage",
     "clients.view",
