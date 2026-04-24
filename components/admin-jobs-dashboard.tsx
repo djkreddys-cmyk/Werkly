@@ -1632,9 +1632,9 @@ export function AdminJobsDashboard({
       ) : null}
 
       {applicationsJob ? (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/50 p-4">
-          <div className="w-full max-w-6xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
-            <div className="flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-slate-950/50 p-3 sm:p-4 lg:items-center">
+          <div className="my-3 flex max-h-[calc(100vh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)] sm:my-4 sm:max-h-[calc(100vh-2rem)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-4 py-5 sm:px-6">
               <div>
                 <p className="eyebrow">Applied Candidates</p>
                 <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
@@ -1659,7 +1659,7 @@ export function AdminJobsDashboard({
               </button>
             </div>
 
-            <div className="mt-6">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
               {isApplicationsLoading ? (
                 <p className="muted-copy text-sm">Loading applied candidates...</p>
               ) : applications.length === 0 ? (
@@ -1685,124 +1685,124 @@ export function AdminJobsDashboard({
                       </button>
                     </div>
                   </div>
-                  <div className="overflow-hidden rounded-2xl border border-[var(--color-line)]">
-                  <table className="w-full border-collapse bg-[rgba(255,252,247,0.7)]">
-                    <thead>
-                      <tr className="bg-[rgba(8,96,108,0.06)] text-left">
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                          Candidate Name
-                        </th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                          Mail ID
-                        </th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                          Source
-                        </th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                          Stage
-                        </th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                          Remarks
-                        </th>
-                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                          Applied Date
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {applications.map((application, index) => (
-                        <tr
-                          key={application.id}
-                          className={
-                            index === applications.length - 1
-                              ? "align-top"
-                              : "align-top border-b border-[var(--color-line)]"
-                          }
-                        >
-                          <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                            {application.candidateName}
-                          </td>
-                          <td className="px-4 py-4 text-sm">
-                            {application.candidateEmail ? (
-                              <a
-                                href={`mailto:${application.candidateEmail}`}
-                                className="font-medium text-[var(--color-accent-strong)]"
-                              >
-                                {application.candidateEmail}
-                              </a>
-                            ) : (
-                              <span className="text-[var(--color-muted)]">No email</span>
-                            )}
-                            {application.candidatePhone ? (
-                              <p className="mt-1 text-[var(--color-muted)]">
-                                {application.candidatePhone}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                            <p>{application.sourceType || "Website"}</p>
-                            {application.entryType ? (
-                              <p className="mt-1 text-xs uppercase tracking-[0.16em]">
-                                {application.entryType.replaceAll("_", " ")}
-                              </p>
-                            ) : null}
-                            {application.uploadedByEmployeeName ? (
-                              <p className="mt-1 text-xs">
-                                Added by {application.uploadedByEmployeeName}
-                              </p>
-                            ) : null}
-                            {application.resumeFileData && application.resumeFileName ? (
-                              <a
-                                href={application.resumeFileData}
-                                download={application.resumeFileName}
-                                className="mt-1 block font-medium text-[var(--color-accent-strong)]"
-                              >
-                                Resume
-                              </a>
-                            ) : null}
-                          </td>
-                          <td className="px-4 py-4 text-sm">
-                            <select
-                              value={application.stage ?? "applied"}
-                              disabled={isUpdatingStageId === application.id}
-                              onChange={(event) =>
-                                setStageDraft({
-                                  application,
-                                  stage: event.target.value as JobApplicationStage,
-                                  note: application.stageNote ?? "",
-                                  date:
-                                    application.stageDate ??
-                                    new Date().toISOString().slice(0, 10),
-                                })
-                              }
-                              className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-                            >
-                              {applicationStages.map((stage) => (
-                                <option key={stage} value={stage}>
-                                  {stage.charAt(0).toUpperCase() + stage.slice(1)}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                            <p>{application.stageNote || "No remark added"}</p>
-                            {application.stageDate ? (
-                              <p className="mt-1 text-xs font-medium text-[var(--color-accent-strong)]">
-                                {new Date(application.stageDate).toLocaleDateString("en-IN")}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                            {new Date(application.appliedAt).toLocaleString("en-IN", {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })}
-                          </td>
+                  <div className="overflow-auto rounded-2xl border border-[var(--color-line)]">
+                    <table className="w-full min-w-[980px] border-collapse bg-[rgba(255,252,247,0.7)]">
+                      <thead>
+                        <tr className="bg-[rgba(8,96,108,0.06)] text-left">
+                          <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Candidate Name
+                          </th>
+                          <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Mail ID
+                          </th>
+                          <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Source
+                          </th>
+                          <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Stage
+                          </th>
+                          <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Remarks
+                          </th>
+                          <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Applied Date
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {applications.map((application, index) => (
+                          <tr
+                            key={application.id}
+                            className={
+                              index === applications.length - 1
+                                ? "align-top"
+                                : "align-top border-b border-[var(--color-line)]"
+                            }
+                          >
+                            <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                              {application.candidateName}
+                            </td>
+                            <td className="px-4 py-4 text-sm">
+                              {application.candidateEmail ? (
+                                <a
+                                  href={`mailto:${application.candidateEmail}`}
+                                  className="font-medium text-[var(--color-accent-strong)]"
+                                >
+                                  {application.candidateEmail}
+                                </a>
+                              ) : (
+                                <span className="text-[var(--color-muted)]">No email</span>
+                              )}
+                              {application.candidatePhone ? (
+                                <p className="mt-1 text-[var(--color-muted)]">
+                                  {application.candidatePhone}
+                                </p>
+                              ) : null}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                              <p>{application.sourceType || "Website"}</p>
+                              {application.entryType ? (
+                                <p className="mt-1 text-xs uppercase tracking-[0.16em]">
+                                  {application.entryType.replaceAll("_", " ")}
+                                </p>
+                              ) : null}
+                              {application.uploadedByEmployeeName ? (
+                                <p className="mt-1 text-xs">
+                                  Added by {application.uploadedByEmployeeName}
+                                </p>
+                              ) : null}
+                              {application.resumeFileData && application.resumeFileName ? (
+                                <a
+                                  href={application.resumeFileData}
+                                  download={application.resumeFileName}
+                                  className="mt-1 block font-medium text-[var(--color-accent-strong)]"
+                                >
+                                  Resume
+                                </a>
+                              ) : null}
+                            </td>
+                            <td className="px-4 py-4 text-sm">
+                              <select
+                                value={application.stage ?? "applied"}
+                                disabled={isUpdatingStageId === application.id}
+                                onChange={(event) =>
+                                  setStageDraft({
+                                    application,
+                                    stage: event.target.value as JobApplicationStage,
+                                    note: application.stageNote ?? "",
+                                    date:
+                                      application.stageDate ??
+                                      new Date().toISOString().slice(0, 10),
+                                  })
+                                }
+                                className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                              >
+                                {applicationStages.map((stage) => (
+                                  <option key={stage} value={stage}>
+                                    {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                              <p>{application.stageNote || "No remark added"}</p>
+                              {application.stageDate ? (
+                                <p className="mt-1 text-xs font-medium text-[var(--color-accent-strong)]">
+                                  {new Date(application.stageDate).toLocaleDateString("en-IN")}
+                                </p>
+                              ) : null}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                              {new Date(application.appliedAt).toLocaleString("en-IN", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

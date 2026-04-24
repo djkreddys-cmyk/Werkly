@@ -1866,7 +1866,23 @@ export async function createNotificationLog(payload) {
       metadata,
       read_at,
       updated_at
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13::jsonb, $14, now())
+    ) values (
+      $1::text,
+      $2::text,
+      $3::text,
+      $4::text,
+      $5::text,
+      $6::text,
+      $7::uuid,
+      $8::jsonb,
+      $9::boolean,
+      $10::text,
+      $11::text,
+      $12::text,
+      $13::jsonb,
+      $14::timestamptz,
+      now()
+    )
     returning *`,
     [
       payload.notificationKey || null,
