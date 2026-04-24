@@ -182,6 +182,46 @@ export function AdminJobsDashboard({
   const isEditing = Boolean(form.id);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (stageDraft) {
+        setStageDraft(null);
+        return;
+      }
+
+      if (manualCandidateJob) {
+        setManualCandidateJob(null);
+        setManualCandidateForm(emptyManualCandidateForm);
+        return;
+      }
+
+      if (applicationsJob) {
+        setApplicationsJob(null);
+        return;
+      }
+
+      if (isEditing) {
+        setForm({
+          ...emptyForm,
+          recruiterId: shouldAutoAssignRecruiter ? currentEmployeeId : "",
+        });
+        setMessage("");
+        setError("");
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [applicationsJob, currentEmployeeId, isEditing, manualCandidateJob, shouldAutoAssignRecruiter, stageDraft]);
+
+  useEffect(() => {
     const savedToken = window.localStorage.getItem("werklyAdminToken") ?? "";
     const savedEmail = window.localStorage.getItem("werklyAdminEmail") ?? "";
     const savedAuthType = window.localStorage.getItem("werklyAuthType") ?? "admin";

@@ -686,6 +686,27 @@ export function AdminShell({
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setExpandedModuleKey(null);
+      setIsProfileMenuOpen(false);
+      setIsNotificationsOpen(false);
+      setIsSearchOpen(false);
+      setIsChangePasswordOpen(false);
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
+
+  useEffect(() => {
     if (!showMenu || typeof window === "undefined") {
       return;
     }
@@ -1249,17 +1270,6 @@ export function AdminShell({
                           </div>
                         )}
 
-                        {isAdminView ? (
-                          <div className="mt-4 border-t border-white/10 pt-4">
-                            <Link
-                              href="/admin/settings"
-                              onClick={() => setIsNotificationsOpen(false)}
-                              className="inline-flex items-center rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:border-[rgba(241,166,75,0.48)] hover:bg-[rgba(255,255,255,0.12)] hover:text-[var(--color-accent)]"
-                            >
-                              Open Settings
-                            </Link>
-                          </div>
-                        ) : null}
                       </div>
                     ) : null}
                   </div>

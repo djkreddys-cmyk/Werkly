@@ -118,6 +118,35 @@ export function AdminCandidatesPanel() {
   const isSuperAdmin = authType === "admin" || authRole === "super-admin";
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (timelineDraft) {
+        setTimelineDraft(null);
+        return;
+      }
+
+      if (assignmentDraft) {
+        setAssignmentDraft(null);
+        return;
+      }
+
+      if (stageDraft) {
+        setStageDraft(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [assignmentDraft, stageDraft, timelineDraft]);
+
+  useEffect(() => {
     if (!token) {
       return;
     }

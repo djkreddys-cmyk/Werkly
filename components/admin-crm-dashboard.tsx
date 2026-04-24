@@ -929,6 +929,21 @@ function CrmClientsList({
       return;
     }
 
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedClientJobs(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     window.localStorage.setItem("werklyClientsQuery", query);
     window.localStorage.setItem("werklyClientsStatus", statusFilter);
   }, [query, statusFilter]);
@@ -1514,6 +1529,35 @@ export function AdminEmployeesPanel({
   const isEditingEmployee = Boolean(employeeForm.id);
   const resettingEmployee = employees.find((employee) => employee.id === passwordReset.employeeId);
   const canManageEmployees = authRole === "super-admin";
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (inactiveEmployee) {
+        setInactiveEmployee(null);
+        return;
+      }
+
+      if (passwordReset.employeeId) {
+        setPasswordReset({ employeeId: "", password: "", mustChangePassword: true });
+        return;
+      }
+
+      if (isEditingEmployee) {
+        setEmployeeForm(emptyEmployeeForm);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [inactiveEmployee, isEditingEmployee, passwordReset.employeeId]);
 
   function updateEmployeeField(field: keyof EmployeeFormState, value: string) {
     setEmployeeForm((current) => ({ ...current, [field]: value }));
@@ -2285,6 +2329,30 @@ export function AdminClientsPanel({
         client.followUpEmployeeId === currentEmployeeId
     );
   }, [clients, currentEmployeeId, isSuperAdmin]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (selectedTransferClient) {
+        setSelectedTransferClient(null);
+        return;
+      }
+
+      if (selectedFollowUpClient) {
+        setSelectedFollowUpClient(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedFollowUpClient, selectedTransferClient]);
 
   const employeeOptions = useMemo(
     () => employees.filter((employee) => employee.status === "active"),
