@@ -11,6 +11,7 @@ import type {
   JobStatus,
 } from "@/lib/jobs";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
 import { TableActionMenu } from "@/components/table-action-menu";
 
 type JobEditorState = {
@@ -180,6 +181,7 @@ export function AdminJobsDashboard({
     date: string;
   } | null>(null);
   const [manualCandidateJob, setManualCandidateJob] = useState<JobSummary | null>(null);
+  const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
   const [manualCandidateForm, setManualCandidateForm] = useState<ManualCandidateState>(
     emptyManualCandidateForm
   );
@@ -250,6 +252,11 @@ export function AdminJobsDashboard({
         return;
       }
 
+      if (editingApplication) {
+        setEditingApplication(null);
+        return;
+      }
+
       if (applicationsJob) {
         setApplicationsJob(null);
         return;
@@ -270,6 +277,7 @@ export function AdminJobsDashboard({
   }, [
     applicationsJob,
     currentEmployeeId,
+    editingApplication,
     isEditing,
     manualCandidateJob,
     shouldAutoAssignRecruiter,
@@ -1221,8 +1229,17 @@ export function AdminJobsDashboard({
       return;
     }
 
+    const shortlistedApplications = applications.filter(
+      (application) => (application.stage ?? "applied") === "shortlisted"
+    );
+
+    if (shortlistedApplications.length === 0) {
+      setError("No shortlisted candidates are available to download for this job.");
+      return;
+    }
+
     const downloadedDate = formatExportDate(new Date().toISOString());
-    const tableRows = applications
+    const tableRows = shortlistedApplications
       .map(
         (application, index) => `
           <tr>
@@ -1236,7 +1253,7 @@ export function AdminJobsDashboard({
             <td>${escapeHtml(sanitizeExportCell(application.experience))}</td>
             <td>${escapeHtml(sanitizeExportCell(application.currentCtc))}</td>
             <td>${escapeHtml(sanitizeExportCell(application.expectedCtc))}</td>
-            <td>${escapeHtml("-")}</td>
+            <td>${escapeHtml("Shortlisted")}</td>
             <td>${escapeHtml(sanitizeExportCell(application.currentLocation || application.preferredLocation))}</td>
           </tr>
         `
@@ -1798,7 +1815,13 @@ export function AdminJobsDashboard({
                             }
                           >
                             <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                              {application.candidateName}
+                              <button
+                                type="button"
+                                onClick={() => setEditingApplication(application)}
+                                className="text-left transition hover:text-[var(--color-dark)]"
+                              >
+                                {application.candidateName}
+                              </button>
                             </td>
                             <td className="px-4 py-4 text-sm">
                               {application.candidateEmail ? (
@@ -2155,6 +2178,20 @@ export function AdminJobsDashboard({
           </div>
         </div>
       ) : null}
+
+      <AdminCandidateEditModal
+        token={token}
+        application={editingApplication}
+        canViewCompensation={roleAccess.fields["candidates.compensation"]}
+        onClose={() => setEditingApplication(null)}
+        onSaved={(updatedApplication) => {
+          setApplications((current) =>
+            current.map((application) =>
+              application.id === updatedApplication.id ? updatedApplication : application
+            )
+          );
+        }}
+      />
 
       {stageDraft ? (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">

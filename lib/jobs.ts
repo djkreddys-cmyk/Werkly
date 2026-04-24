@@ -260,6 +260,27 @@ export type JobApplicationAssignmentPayload = {
   note?: string;
 };
 
+export type JobApplicationUpdatePayload = {
+  candidateName: string;
+  candidateEmail?: string;
+  candidatePhone?: string;
+  experience?: string;
+  currentCompany?: string;
+  currentLocation?: string;
+  currentDesignation?: string;
+  preferredRole?: string;
+  currentCtc?: string;
+  expectedCtc?: string;
+  preferredLocation?: string;
+  preferredSector?: string;
+  sourceType?: string;
+  sourceNote?: string;
+  candidateMessage?: string;
+  resumeFileName?: string;
+  resumeFileType?: string;
+  resumeFileData?: string;
+};
+
 const demoJobs: JobDetail[] = [
   {
     id: "job-erp-manager",
@@ -686,6 +707,20 @@ export async function assignJobApplication(
   token: string
 ) {
   return readJson<JobApplication>(`/admin/jobs/applications/${id}/assignment`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function updateJobApplicationDetails(
+  id: string,
+  payload: JobApplicationUpdatePayload,
+  token: string
+) {
+  return readJson<JobApplication>(`/admin/jobs/applications/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
     headers: {

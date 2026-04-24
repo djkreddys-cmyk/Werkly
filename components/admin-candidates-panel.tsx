@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
 import {
@@ -11,6 +10,7 @@ import {
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobSummary } from "@/lib/jobs";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
 import { TableActionMenu } from "@/components/table-action-menu";
 
 const stageOptions: JobApplicationStage[] = [
@@ -79,6 +79,7 @@ export function AdminCandidatesPanel() {
   const [stageFilter, setStageFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [actionMenuApplicationId, setActionMenuApplicationId] = useState("");
+  const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
   const [stageDraft, setStageDraft] = useState<{
     application: JobApplication;
     stage: JobApplicationStage;
@@ -136,6 +137,11 @@ export function AdminCandidatesPanel() {
         return;
       }
 
+      if (editingApplication) {
+        setEditingApplication(null);
+        return;
+      }
+
       if (assignmentDraft) {
         setAssignmentDraft(null);
         return;
@@ -148,7 +154,7 @@ export function AdminCandidatesPanel() {
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [assignmentDraft, stageDraft, timelineDraft]);
+  }, [assignmentDraft, editingApplication, stageDraft, timelineDraft]);
 
   useEffect(() => {
     if (!token) {
@@ -863,12 +869,13 @@ export function AdminCandidatesPanel() {
                       }
                     >
                       <td className="px-4 py-4">
-                        <Link
-                          href={`/admin/candidates/${application.id}`}
+                        <button
+                          type="button"
+                          onClick={() => setEditingApplication(application)}
                           className="font-semibold text-[var(--color-ink)] transition hover:text-[var(--color-dark)]"
                         >
                           {application.candidateName}
-                        </Link>
+                        </button>
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
                           {application.experience || "Experience not added"}
                         </p>

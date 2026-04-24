@@ -1235,6 +1235,130 @@ export async function listCandidateEnquiries() {
   return result.rows.map(mapCandidateEnquiryRow);
 }
 
+export async function updateJobApplicationDetails(applicationId, payload, employeeId = null) {
+  const values = [applicationId];
+  const employeeScopeClause = employeeId
+    ? `and (
+         coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2
+         or (
+           clients.temporary_access_employee_id = $2
+           and clients.temporary_access_scope = 'full-access'
+           and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+           and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+         )
+         or job_applications.follow_up_employee_id = $2
+       )`
+    : "";
+
+  if (employeeId) {
+    values.push(employeeId);
+  }
+
+  const existingResult = await query(
+    `select job_applications.id
+     from job_applications
+     left join jobs on jobs.id = job_applications.job_id
+     left join clients on clients.id = jobs.client_id
+     where job_applications.id = $1
+       ${employeeScopeClause}
+     limit 1`,
+    values
+  );
+
+  if (!existingResult.rows[0]) {
+    return null;
+  }
+
+  const result = await query(
+    `update job_applications
+     set candidate_name = $2,
+         candidate_email = $3,
+         candidate_phone = $4,
+         experience = $5,
+         current_company = $6,
+         current_location = $7,
+         current_designation = $8,
+         preferred_role = $9,
+         current_ctc = $10,
+         expected_ctc = $11,
+         preferred_location = $12,
+         preferred_sector = $13,
+         source_type = $14,
+         source_note = $15,
+         candidate_message = $16,
+         resume_file_name = $17,
+         resume_file_type = $18,
+         resume_file_data = $19,
+         updated_at = now()
+     where id = $1
+     returning
+       id,
+       job_id,
+       assigned_employee_id,
+       stage,
+       stage_note,
+       stage_date,
+       stage_updated_at,
+       null::text as job_code,
+       null::text as client_name,
+       null::text as recruiter_name,
+       null::text as recruiter_email,
+       null::text as job_location,
+       null::text as sector,
+       candidate_name,
+       candidate_email,
+       candidate_phone,
+       experience,
+       current_company,
+       current_location,
+       current_designation,
+       preferred_role,
+       current_ctc,
+       expected_ctc,
+       preferred_location,
+       preferred_sector,
+       source_type,
+       source_note,
+       entry_type,
+       resume_file_name,
+       resume_file_type,
+       resume_file_data,
+       uploaded_by_employee_id,
+       follow_up_employee_id,
+       null::text as follow_up_employee_name,
+       follow_up_from_date,
+       follow_up_to_date,
+       follow_up_assignment_note,
+       null::text as uploaded_by_employee_name,
+       candidate_message,
+       job_title,
+       applied_at`,
+    [
+      applicationId,
+      payload.candidateName,
+      payload.candidateEmail || null,
+      payload.candidatePhone || null,
+      payload.experience || null,
+      payload.currentCompany || null,
+      payload.currentLocation || null,
+      payload.currentDesignation || null,
+      payload.preferredRole || null,
+      payload.currentCtc || null,
+      payload.expectedCtc || null,
+      payload.preferredLocation || null,
+      payload.preferredSector || null,
+      payload.sourceType || null,
+      payload.sourceNote || null,
+      payload.candidateMessage || null,
+      payload.resumeFileName || null,
+      payload.resumeFileType || null,
+      payload.resumeFileData || null,
+    ]
+  );
+
+  return result.rows[0] ? mapApplicationRow(result.rows[0]) : null;
+}
+
 export async function updateJobApplicationStage(
   applicationId,
   stage,

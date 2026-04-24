@@ -104,6 +104,7 @@ import {
   listJobs,
   recordJobApplication,
   assignJobApplication,
+  updateJobApplicationDetails,
   updateJobApplicationStage,
   updateJob,
 } from "./jobs.js";
@@ -1253,6 +1254,115 @@ app.post("/admin/jobs/:id/applications", requirePermission("candidates.manage"),
     });
   }
 });
+
+app.put(
+  "/admin/jobs/applications/:id",
+  requirePermission("candidates.manage"),
+  async (request, response) => {
+    try {
+      const {
+        candidateName,
+        candidateEmail,
+        candidatePhone,
+        experience,
+        currentCompany,
+        currentLocation,
+        currentDesignation,
+        preferredRole,
+        currentCtc,
+        expectedCtc,
+        preferredLocation,
+        preferredSector,
+        sourceType,
+        sourceNote,
+        candidateMessage,
+        resumeFileName,
+        resumeFileType,
+        resumeFileData,
+      } = request.body ?? {};
+
+      if (!String(candidateName ?? "").trim()) {
+        return response.status(400).json({ message: "Candidate name is required." });
+      }
+
+      if (!String(candidateEmail ?? "").trim() && !String(candidatePhone ?? "").trim()) {
+        return response.status(400).json({
+          message: "At least email or phone number is required.",
+        });
+      }
+
+      const previousApplication = await getApplicationById(request.params.id);
+      if (!previousApplication) {
+        return response.status(404).json({ message: "Candidate not found." });
+      }
+
+      const application = await updateJobApplicationDetails(
+        request.params.id,
+        {
+          candidateName: String(candidateName).trim(),
+          candidateEmail: String(candidateEmail ?? "").trim() || undefined,
+          candidatePhone: String(candidatePhone ?? "").trim() || undefined,
+          experience: String(experience ?? "").trim() || undefined,
+          currentCompany: String(currentCompany ?? "").trim() || undefined,
+          currentLocation: String(currentLocation ?? "").trim() || undefined,
+          currentDesignation: String(currentDesignation ?? "").trim() || undefined,
+          preferredRole: String(preferredRole ?? "").trim() || undefined,
+          currentCtc: String(currentCtc ?? "").trim() || undefined,
+          expectedCtc: String(expectedCtc ?? "").trim() || undefined,
+          preferredLocation: String(preferredLocation ?? "").trim() || undefined,
+          preferredSector: String(preferredSector ?? "").trim() || undefined,
+          sourceType: String(sourceType ?? "").trim() || undefined,
+          sourceNote: String(sourceNote ?? "").trim() || undefined,
+          candidateMessage: String(candidateMessage ?? "").trim() || undefined,
+          resumeFileName: String(resumeFileName ?? "").trim() || undefined,
+          resumeFileType: String(resumeFileType ?? "").trim() || undefined,
+          resumeFileData: String(resumeFileData ?? "").trim() || undefined,
+        },
+        request.user?.type === "employee" ? request.user.id : null
+      );
+
+      if (!application) {
+        return response.status(404).json({ message: "Candidate not found." });
+      }
+
+      await createAuditLog({
+        actionType: "candidate.updated",
+        entityType: "application",
+        entityId: application.id,
+        ...getActorDetails(request),
+        beforeData: previousApplication,
+        afterData: application,
+        metadata: {
+          candidateName: application.candidateName,
+          jobId: application.jobId,
+          jobCode: application.jobCode,
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "candidate",
+        entityId: application.id,
+        entityLabel: application.candidateName,
+        eventType: "candidate.updated",
+        title: "Candidate details updated",
+        summary: `${application.candidateName} details were updated.`,
+        beforeData: previousApplication,
+        afterData: application,
+        metadata: {
+          jobId: application.jobId,
+          jobCode: application.jobCode,
+        },
+      });
+
+      response.json(application);
+    } catch (error) {
+      response.status(500).json({
+        message:
+          error instanceof Error ? error.message : "Unable to update candidate details.",
+      });
+    }
+  }
+);
 
 app.put(
   "/admin/jobs/applications/:id/stage",
