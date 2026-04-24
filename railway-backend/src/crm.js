@@ -1212,11 +1212,6 @@ export async function listClients(employeeId = null) {
       clients.temporary_access_to_date,
       clients.temporary_access_scope,
       clients.temporary_access_note,
-      clients.temporary_access_employee_id,
-      clients.temporary_access_from_date,
-      clients.temporary_access_to_date,
-      clients.temporary_access_scope,
-      clients.temporary_access_note,
       clients.status,
       clients.onboarding_status,
       clients.follow_up_status,
@@ -1232,13 +1227,11 @@ export async function listClients(employeeId = null) {
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,
       temporary_access_employee.full_name as temporary_access_employee_name,
-      temporary_access_employee.full_name as temporary_access_employee_name,
       coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
       coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
      left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
-     left join employees temporary_access_employee on temporary_access_employee.id = clients.temporary_access_employee_id
      left join employees temporary_access_employee on temporary_access_employee.id = clients.temporary_access_employee_id
      left join lateral (
        select
