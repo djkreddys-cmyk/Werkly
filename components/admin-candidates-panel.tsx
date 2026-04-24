@@ -19,11 +19,15 @@ const stageOptions: JobApplicationStage[] = [
   "interview",
   "offered",
   "joined",
+  "screen-rejection",
   "rejected",
 ];
 
 function labelizeStage(stage: JobApplicationStage) {
-  return stage.charAt(0).toUpperCase() + stage.slice(1);
+  return stage
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function formatDateOnly(value: string) {

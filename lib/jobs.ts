@@ -148,6 +148,7 @@ export type JobApplicationStage =
   | "interview"
   | "offered"
   | "joined"
+  | "screen-rejection"
   | "rejected";
 
 export type JobsResponse = {

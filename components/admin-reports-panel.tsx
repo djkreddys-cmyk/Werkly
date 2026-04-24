@@ -420,7 +420,11 @@ function getCandidateSourceLabel(application: JobApplication) {
 
 function getStageLabel(stage?: string) {
   const safeStage = stage || "applied";
-  return safeStage.charAt(0).toUpperCase() + safeStage.slice(1);
+  return safeStage
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function getFollowUpStatusLabel(status?: string) {
@@ -1734,6 +1738,7 @@ export function AdminReportsPanel({
       interview: countByStage("interview"),
       offered: countByStage("offered"),
       joined: countByStage("joined"),
+      screenRejection: countByStage("screen-rejection"),
       rejected: countByStage("rejected"),
     };
   }, [filteredApplications]);
@@ -2327,12 +2332,13 @@ export function AdminReportsPanel({
           saveFeedback={viewMessage}
         />
 
-        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
           <MetricCard label="Applied" value={filteredApplicationTotals.applied} />
           <MetricCard label="Shortlisted" value={filteredApplicationTotals.shortlisted} />
           <MetricCard label="Interview" value={filteredApplicationTotals.interview} />
           <MetricCard label="Offered" value={filteredApplicationTotals.offered} />
           <MetricCard label="Joined" value={filteredApplicationTotals.joined} />
+          <MetricCard label="Screen Rejection" value={filteredApplicationTotals.screenRejection} />
           <MetricCard label="Rejected" value={filteredApplicationTotals.rejected} />
         </section>
 

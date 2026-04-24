@@ -208,7 +208,7 @@ function requiresStageOverrideApproval(currentStage, nextStage) {
     return false;
   }
 
-  if (safeCurrent === "joined" || safeCurrent === "rejected") {
+  if (safeCurrent === "joined" || safeCurrent === "screen-rejection" || safeCurrent === "rejected") {
     return true;
   }
 
@@ -1266,6 +1266,7 @@ app.put(
         "interview",
         "offered",
         "joined",
+        "screen-rejection",
         "rejected",
       ];
 

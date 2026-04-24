@@ -82,6 +82,7 @@ const applicationStages: JobApplicationStage[] = [
   "interview",
   "offered",
   "joined",
+  "screen-rejection",
   "rejected",
 ];
 
@@ -136,6 +137,13 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function formatStageLabel(stage: JobApplicationStage) {
+  return stage
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export function AdminJobsDashboard({
@@ -1849,7 +1857,7 @@ export function AdminJobsDashboard({
                               >
                                 {applicationStages.map((stage) => (
                                   <option key={stage} value={stage}>
-                                    {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                                    {formatStageLabel(stage)}
                                   </option>
                                 ))}
                               </select>
@@ -2077,7 +2085,7 @@ export function AdminJobsDashboard({
                   >
                     {applicationStages.map((stage) => (
                       <option key={stage} value={stage}>
-                        {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                        {formatStageLabel(stage)}
                       </option>
                     ))}
                   </select>
@@ -2176,7 +2184,7 @@ export function AdminJobsDashboard({
                   Current Stage
                 </span>
                 <input
-                  value={stageDraft.stage.charAt(0).toUpperCase() + stageDraft.stage.slice(1)}
+                  value={formatStageLabel(stageDraft.stage)}
                   readOnly
                   className="w-full rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]"
                 />
