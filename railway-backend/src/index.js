@@ -2850,7 +2850,11 @@ app.put("/admin/sla-rules", requireAdmin, async (request, response) => {
 
 app.get("/admin/notifications", requireInternalUser, async (request, response) => {
   try {
-    await runSlaEscalations();
+    try {
+      await runSlaEscalations();
+    } catch (workflowError) {
+      console.error("Notification SLA refresh failed:", workflowError);
+    }
     const notifications = await listNotificationLogs(
       request.user?.type === "employee" ? request.user.id : null,
       request.user?.type === "admin"

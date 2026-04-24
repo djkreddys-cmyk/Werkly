@@ -159,6 +159,7 @@ export function AdminJobsDashboard({
   const [isSaving, setIsSaving] = useState(false);
   const [applicationsJob, setApplicationsJob] = useState<JobSummary | null>(null);
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [applicationsSearch, setApplicationsSearch] = useState("");
   const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
   const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
   const [recruiterFilter, setRecruiterFilter] = useState("all");
@@ -246,6 +247,18 @@ export function AdminJobsDashboard({
         (job.clientId ? visibleClientIds.has(job.clientId) : false)
     );
   }, [adminEmail, currentEmployeeId, isEmployeeSession, jobs, visibleClientIds]);
+  const filteredApplications = useMemo(() => {
+    const searchTerm = applicationsSearch.trim().toLowerCase();
+    if (!searchTerm) {
+      return applications;
+    }
+
+    return applications.filter((application) =>
+      [application.candidateName, application.candidateEmail, application.candidatePhone].some(
+        (value) => String(value ?? "").toLowerCase().includes(searchTerm)
+      )
+    );
+  }, [applications, applicationsSearch]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !canManageJobs) {
@@ -916,6 +929,7 @@ export function AdminJobsDashboard({
 
     setApplicationsJob(job);
     setApplications([]);
+    setApplicationsSearch("");
     setIsApplicationsLoading(true);
     setError("");
 
@@ -1666,7 +1680,7 @@ export function AdminJobsDashboard({
                 <p className="muted-copy text-sm">No candidate details captured for this job yet.</p>
               ) : (
                 <div>
-                  <div className="mb-4 flex justify-end">
+                  <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-wrap gap-3">
                       <button
                         type="button"
@@ -1684,6 +1698,15 @@ export function AdminJobsDashboard({
                         Download Excel
                       </button>
                     </div>
+                    <label className="block w-full lg:max-w-sm">
+                      <span className="sr-only">Search candidates</span>
+                      <input
+                        className={fieldClassName}
+                        placeholder="Search candidate, mail ID, phone"
+                        value={applicationsSearch}
+                        onChange={(event) => setApplicationsSearch(event.target.value)}
+                      />
+                    </label>
                   </div>
                   <div className="overflow-auto rounded-2xl border border-[var(--color-line)]">
                     <table className="w-full min-w-[980px] border-collapse bg-[rgba(255,252,247,0.7)]">
@@ -1710,11 +1733,11 @@ export function AdminJobsDashboard({
                         </tr>
                       </thead>
                       <tbody>
-                        {applications.map((application, index) => (
+                        {filteredApplications.map((application, index) => (
                           <tr
                             key={application.id}
                             className={
-                              index === applications.length - 1
+                              index === filteredApplications.length - 1
                                 ? "align-top"
                                 : "align-top border-b border-[var(--color-line)]"
                             }
@@ -1803,6 +1826,11 @@ export function AdminJobsDashboard({
                       </tbody>
                     </table>
                   </div>
+                  {filteredApplications.length === 0 ? (
+                    <p className="mt-4 text-sm font-medium text-[var(--color-muted)]">
+                      No candidates matched the current search.
+                    </p>
+                  ) : null}
                 </div>
               )}
             </div>

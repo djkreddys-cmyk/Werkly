@@ -241,6 +241,20 @@ export function AdminShell({
   children,
   showMenu = true,
 }: AdminShellProps) {
+  const normalizeNotificationError = (message: string) => {
+    const trimmed = message.trim();
+    if (!trimmed.startsWith("{")) {
+      return trimmed;
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed) as { message?: string };
+      return parsed.message?.trim() || trimmed;
+    } catch {
+      return trimmed;
+    }
+  };
+
   const pathname = usePathname();
   const router = useRouter();
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -600,7 +614,9 @@ export function AdminShell({
       } catch (loadError) {
         if (isMounted) {
           setNotificationError(
-            loadError instanceof Error ? loadError.message : "Unable to load notifications."
+            normalizeNotificationError(
+              loadError instanceof Error ? loadError.message : "Unable to load notifications."
+            )
           );
         }
       } finally {
