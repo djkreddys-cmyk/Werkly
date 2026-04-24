@@ -97,6 +97,11 @@ export async function ensureCrmSchema() {
       follow_up_from_date date,
       follow_up_to_date date,
       follow_up_assignment_note text,
+      temporary_access_employee_id uuid references employees(id) on delete set null,
+      temporary_access_from_date date,
+      temporary_access_to_date date,
+      temporary_access_scope text,
+      temporary_access_note text,
       status text not null default 'active',
       onboarding_status text not null default 'new-lead',
       follow_up_status text not null default 'pending',
@@ -222,6 +227,11 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists follow_up_from_date date`);
   await query(`alter table clients add column if not exists follow_up_to_date date`);
   await query(`alter table clients add column if not exists follow_up_assignment_note text`);
+  await query(`alter table clients add column if not exists temporary_access_employee_id uuid references employees(id) on delete set null`);
+  await query(`alter table clients add column if not exists temporary_access_from_date date`);
+  await query(`alter table clients add column if not exists temporary_access_to_date date`);
+  await query(`alter table clients add column if not exists temporary_access_scope text`);
+  await query(`alter table clients add column if not exists temporary_access_note text`);
   await query(`alter table client_transfer_requests add column if not exists effective_from_date date`);
   await query(`alter table client_follow_up_history add column if not exists actor_employee_id uuid references employees(id) on delete set null`);
   await query(`alter table client_follow_up_history add column if not exists actor_name text`);
@@ -654,6 +664,12 @@ function mapClientRow(row) {
     followUpFromDate: row.follow_up_from_date,
     followUpToDate: row.follow_up_to_date,
     followUpAssignmentNote: row.follow_up_assignment_note,
+    temporaryAccessEmployeeId: row.temporary_access_employee_id,
+    temporaryAccessEmployeeName: row.temporary_access_employee_name,
+    temporaryAccessFromDate: row.temporary_access_from_date,
+    temporaryAccessToDate: row.temporary_access_to_date,
+    temporaryAccessScope: row.temporary_access_scope,
+    temporaryAccessNote: row.temporary_access_note,
     status: row.status,
     onboardingStatus: row.onboarding_status,
     followUpStatus: row.follow_up_status,
@@ -1161,7 +1177,17 @@ export async function listClients(employeeId = null) {
         values.push(employeeId);
         return `where (
           clients.assigned_employee_id = $${values.length}
-          or clients.follow_up_employee_id = $${values.length}
+          or (
+            clients.follow_up_employee_id = $${values.length}
+            and (clients.follow_up_from_date is null or clients.follow_up_from_date <= current_date)
+            and (clients.follow_up_to_date is null or clients.follow_up_to_date >= current_date)
+          )
+          or (
+            clients.temporary_access_employee_id = $${values.length}
+            and clients.temporary_access_scope = 'full-access'
+            and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+            and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+          )
         )`;
       })()
     : "";
@@ -1181,6 +1207,16 @@ export async function listClients(employeeId = null) {
       clients.follow_up_from_date,
       clients.follow_up_to_date,
       clients.follow_up_assignment_note,
+      clients.temporary_access_employee_id,
+      clients.temporary_access_from_date,
+      clients.temporary_access_to_date,
+      clients.temporary_access_scope,
+      clients.temporary_access_note,
+      clients.temporary_access_employee_id,
+      clients.temporary_access_from_date,
+      clients.temporary_access_to_date,
+      clients.temporary_access_scope,
+      clients.temporary_access_note,
       clients.status,
       clients.onboarding_status,
       clients.follow_up_status,
@@ -1195,11 +1231,15 @@ export async function listClients(employeeId = null) {
       clients.created_at,
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,
+      temporary_access_employee.full_name as temporary_access_employee_name,
+      temporary_access_employee.full_name as temporary_access_employee_name,
       coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
       coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
      left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
+     left join employees temporary_access_employee on temporary_access_employee.id = clients.temporary_access_employee_id
+     left join employees temporary_access_employee on temporary_access_employee.id = clients.temporary_access_employee_id
      left join lateral (
        select
          count(*)::int as linked_jobs_count,
@@ -1242,6 +1282,11 @@ export async function getClientById(clientId) {
       clients.follow_up_from_date,
       clients.follow_up_to_date,
       clients.follow_up_assignment_note,
+      clients.temporary_access_employee_id,
+      clients.temporary_access_from_date,
+      clients.temporary_access_to_date,
+      clients.temporary_access_scope,
+      clients.temporary_access_note,
       clients.status,
       clients.onboarding_status,
       clients.follow_up_status,
@@ -1256,11 +1301,13 @@ export async function getClientById(clientId) {
       clients.created_at,
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,
+      temporary_access_employee.full_name as temporary_access_employee_name,
       coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
       coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
      left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
+     left join employees temporary_access_employee on temporary_access_employee.id = clients.temporary_access_employee_id
      left join lateral (
        select
          count(*)::int as linked_jobs_count,
@@ -1361,6 +1408,11 @@ export async function reassignClient(clientId, payload) {
                   follow_up_from_date = $3::date,
                   follow_up_to_date = $4::date,
                   follow_up_assignment_note = $5,
+                  temporary_access_employee_id = null,
+                  temporary_access_from_date = null,
+                  temporary_access_to_date = null,
+                  temporary_access_scope = null,
+                  temporary_access_note = null,
                   updated_at = now()
             where id = $1
             returning id`,
@@ -1372,6 +1424,29 @@ export async function reassignClient(clientId, payload) {
             payload.reason || null,
           ]
         )
+      : assignmentType === "temporary-full-access"
+        ? await query(
+            `update clients
+                set temporary_access_employee_id = $2,
+                    temporary_access_from_date = $3::date,
+                    temporary_access_to_date = $4::date,
+                    temporary_access_scope = 'full-access',
+                    temporary_access_note = $5,
+                    follow_up_employee_id = null,
+                    follow_up_from_date = null,
+                    follow_up_to_date = null,
+                    follow_up_assignment_note = null,
+                    updated_at = now()
+              where id = $1
+              returning id`,
+            [
+              clientId,
+              payload.assignedEmployeeId || null,
+              payload.effectiveFromDate || null,
+              payload.effectiveToDate || null,
+              payload.reason || null,
+            ]
+          )
       : await query(
           `update clients
               set assigned_employee_id = $2,
@@ -1379,6 +1454,11 @@ export async function reassignClient(clientId, payload) {
                   follow_up_from_date = null,
                   follow_up_to_date = null,
                   follow_up_assignment_note = null,
+                  temporary_access_employee_id = null,
+                  temporary_access_from_date = null,
+                  temporary_access_to_date = null,
+                  temporary_access_scope = null,
+                  temporary_access_note = null,
                   updated_at = now()
             where id = $1
             returning id`,
@@ -1405,6 +1485,11 @@ export async function reassignClient(clientId, payload) {
       clients.follow_up_from_date,
       clients.follow_up_to_date,
       clients.follow_up_assignment_note,
+      clients.temporary_access_employee_id,
+      clients.temporary_access_from_date,
+      clients.temporary_access_to_date,
+      clients.temporary_access_scope,
+      clients.temporary_access_note,
       clients.status,
       clients.onboarding_status,
       clients.follow_up_status,
@@ -1419,11 +1504,13 @@ export async function reassignClient(clientId, payload) {
       clients.created_at,
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,
+      temporary_access_employee.full_name as temporary_access_employee_name,
       coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
       coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
      from clients
      left join employees on employees.id = clients.assigned_employee_id
      left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
+     left join employees temporary_access_employee on temporary_access_employee.id = clients.temporary_access_employee_id
      left join lateral (
        select
          count(*)::int as linked_jobs_count,

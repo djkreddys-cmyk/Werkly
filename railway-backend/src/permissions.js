@@ -38,6 +38,25 @@ const ROLE_PERMISSIONS = {
   ],
 };
 
+function getCurrentDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function isDateWindowActive(fromDate, toDate, today = getCurrentDateString()) {
+  const normalizedFrom = String(fromDate || "").slice(0, 10);
+  const normalizedTo = String(toDate || "").slice(0, 10);
+
+  if (normalizedFrom && normalizedFrom > today) {
+    return false;
+  }
+
+  if (normalizedTo && normalizedTo < today) {
+    return false;
+  }
+
+  return true;
+}
+
 export function normalizeRoleKey(role, userType = "employee") {
   if (userType === "admin") {
     return "super-admin";
@@ -107,13 +126,30 @@ export function canAccessEntity(user, entity) {
     return false;
   }
 
+  const activeFollowUpAccess =
+    entity.followUpEmployeeId === scope.employeeId &&
+    isDateWindowActive(entity.followUpFromDate, entity.followUpToDate);
+  const activeTemporaryFullAccess =
+    entity.temporaryAccessEmployeeId === scope.employeeId &&
+    entity.temporaryAccessScope === "full-access" &&
+    isDateWindowActive(entity.temporaryAccessFromDate, entity.temporaryAccessToDate);
+
   const ownerIds = [
     entity.assignedEmployeeId,
-    entity.followUpEmployeeId,
     entity.clientAssignedEmployeeId,
-    entity.clientFollowUpEmployeeId,
     entity.recruiterId,
     entity.uploadedByEmployeeId,
+    activeFollowUpAccess ? entity.followUpEmployeeId : null,
+    activeTemporaryFullAccess ? entity.temporaryAccessEmployeeId : null,
+    entity.clientFollowUpEmployeeId === scope.employeeId &&
+    isDateWindowActive(entity.clientFollowUpFromDate, entity.clientFollowUpToDate)
+      ? entity.clientFollowUpEmployeeId
+      : null,
+    entity.clientTemporaryAccessEmployeeId === scope.employeeId &&
+    entity.clientTemporaryAccessScope === "full-access" &&
+    isDateWindowActive(entity.clientTemporaryAccessFromDate, entity.clientTemporaryAccessToDate)
+      ? entity.clientTemporaryAccessEmployeeId
+      : null,
   ].filter(Boolean);
 
   const emailMatches =
@@ -123,4 +159,41 @@ export function canAccessEntity(user, entity) {
       .some((value) => String(value).toLowerCase() === String(scope.email).toLowerCase());
 
   return ownerIds.includes(scope.employeeId) || emailMatches;
+}
+
+export function canManageClientWork(user, client) {
+  const scope = buildEmployeeScope(user);
+
+  if (scope.isAdmin) {
+    return true;
+  }
+
+  if (!scope.employeeId || !client) {
+    return false;
+  }
+
+  return (
+    client.assignedEmployeeId === scope.employeeId ||
+    (client.temporaryAccessEmployeeId === scope.employeeId &&
+      client.temporaryAccessScope === "full-access" &&
+      isDateWindowActive(client.temporaryAccessFromDate, client.temporaryAccessToDate))
+  );
+}
+
+export function canUpdateClientFollowUp(user, client) {
+  const scope = buildEmployeeScope(user);
+
+  if (scope.isAdmin) {
+    return true;
+  }
+
+  if (!scope.employeeId || !client) {
+    return false;
+  }
+
+  return (
+    canManageClientWork(user, client) ||
+    (client.followUpEmployeeId === scope.employeeId &&
+      isDateWindowActive(client.followUpFromDate, client.followUpToDate))
+  );
 }

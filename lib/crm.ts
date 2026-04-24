@@ -72,6 +72,12 @@ export type ClientRecord = {
   followUpFromDate?: string;
   followUpToDate?: string;
   followUpAssignmentNote?: string;
+  temporaryAccessEmployeeId?: string;
+  temporaryAccessEmployeeName?: string;
+  temporaryAccessFromDate?: string;
+  temporaryAccessToDate?: string;
+  temporaryAccessScope?: "full-access";
+  temporaryAccessNote?: string;
   status: ClientStatus;
   onboardingStatus?: ClientOnboardingStatus;
   followUpStatus?: ClientFollowUpStatus;
@@ -194,6 +200,8 @@ export type ClientTransferRequestRecord = {
   requestedToEmployeeId: string;
   requestedToEmployeeName: string;
   effectiveFromDate?: string;
+  effectiveToDate?: string;
+  assignmentType?: "ownership-transfer" | "temporary-full-access" | "follow-up-support";
   reason?: string;
   status: ClientTransferRequestStatus;
   adminNote?: string;
@@ -251,7 +259,7 @@ export type ClientFormPayload = {
 export type ClientTransferRequestPayload = {
   clientId: string;
   requestedToEmployeeId: string;
-  assignmentType?: "ownership-transfer" | "follow-up-support";
+  assignmentType?: "ownership-transfer" | "temporary-full-access" | "follow-up-support";
   effectiveFromDate?: string;
   effectiveToDate?: string;
   reason?: string;
@@ -560,7 +568,7 @@ export async function reassignClient(
   id: string,
   payload: {
     assignedEmployeeId: string;
-    assignmentType?: "ownership-transfer" | "follow-up-support";
+    assignmentType?: "ownership-transfer" | "temporary-full-access" | "follow-up-support";
     effectiveFromDate?: string;
     effectiveToDate?: string;
     reason?: string;

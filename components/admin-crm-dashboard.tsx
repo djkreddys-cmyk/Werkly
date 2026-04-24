@@ -2285,7 +2285,9 @@ export function AdminClientsPanel({
   const [selectedTransferClient, setSelectedTransferClient] = useState<ClientRecord | null>(null);
   const [selectedFollowUpClient, setSelectedFollowUpClient] = useState<ClientRecord | null>(null);
   const [transferToEmployeeId, setTransferToEmployeeId] = useState("");
-  const [transferType, setTransferType] = useState<"ownership-transfer" | "follow-up-support">(
+  const [transferType, setTransferType] = useState<
+    "ownership-transfer" | "temporary-full-access" | "follow-up-support"
+  >(
     "ownership-transfer"
   );
   const [transferEffectiveFromDate, setTransferEffectiveFromDate] = useState("");
@@ -2558,8 +2560,11 @@ export function AdminClientsPanel({
       setError("Please select the effective from date.");
       return;
     }
-    if (isSuperAdmin && transferType === "follow-up-support" && !transferEffectiveToDate) {
-      setError("Please select the follow-up end date.");
+    if (
+      transferType !== "ownership-transfer" &&
+      !transferEffectiveToDate
+    ) {
+      setError("Please select the effective to date.");
       return;
     }
 
@@ -2585,13 +2590,16 @@ export function AdminClientsPanel({
                   assignmentType: transferType,
                   effectiveFromDate: transferEffectiveFromDate,
                   effectiveToDate:
-                    transferType === "follow-up-support" ? transferEffectiveToDate : undefined,
+                    transferType !== "ownership-transfer" ? transferEffectiveToDate : undefined,
                   reason: transferReason,
                 }
               : {
                   clientId: selectedTransferClient.id,
                   requestedToEmployeeId: transferToEmployeeId,
+                  assignmentType: transferType,
                   effectiveFromDate: transferEffectiveFromDate,
+                  effectiveToDate:
+                    transferType !== "ownership-transfer" ? transferEffectiveToDate : undefined,
                   reason: transferReason,
                 }),
           }),
@@ -2621,7 +2629,9 @@ export function AdminClientsPanel({
         isSuperAdmin
           ? transferType === "follow-up-support"
             ? "Client follow-up assignment saved successfully."
-            : "Client owner updated successfully."
+            : transferType === "temporary-full-access"
+              ? "Temporary full access saved successfully."
+              : "Client owner updated successfully."
           : "Client transfer request submitted for Super Admin approval."
       );
     } catch (requestError) {
@@ -3097,8 +3107,7 @@ export function AdminClientsPanel({
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {isSuperAdmin ? (
-                <label className="block sm:col-span-2">
+              <label className="block sm:col-span-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                     Assignment Type
                   </span>
@@ -3107,15 +3116,18 @@ export function AdminClientsPanel({
                     value={transferType}
                     onChange={(event) =>
                       setTransferType(
-                        event.target.value as "ownership-transfer" | "follow-up-support"
+                        event.target.value as
+                          | "ownership-transfer"
+                          | "temporary-full-access"
+                          | "follow-up-support"
                       )
                     }
                   >
                     <option value="ownership-transfer">Full Ownership Transfer</option>
+                    <option value="temporary-full-access">Temporary Full Access</option>
                     <option value="follow-up-support">Follow-Up Only</option>
                   </select>
                 </label>
-              ) : null}
 
               <label className="block sm:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
@@ -3150,7 +3162,7 @@ export function AdminClientsPanel({
                 />
               </label>
 
-              {isSuperAdmin && transferType === "follow-up-support" ? (
+              {transferType !== "ownership-transfer" ? (
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                     Effective To Date

@@ -107,7 +107,12 @@ import {
   updateJobApplicationStage,
   updateJob,
 } from "./jobs.js";
-import { buildEmployeeScope, canAccessEntity } from "./permissions.js";
+import {
+  buildEmployeeScope,
+  canAccessEntity,
+  canManageClientWork,
+  canUpdateClientFollowUp,
+} from "./permissions.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -2393,6 +2398,15 @@ app.put("/admin/clients/:id/onboarding", requirePermission("clients.manage"), as
     }
 
     const previousClient = await getClientById(request.params.id);
+    if (
+      previousClient &&
+      request.user?.type === "employee" &&
+      !canManageClientWork(request.user, { type: "client", ...previousClient })
+    ) {
+      return response.status(403).json({
+        message: "You only have follow-up access for this client.",
+      });
+    }
     const client = await updateClientOnboarding(request.params.id, {
       onboardingStatus,
       notes,
@@ -2524,6 +2538,15 @@ app.put("/admin/clients/:id/follow-up", requirePermission("clients.followup"), a
     }
 
     const previousClient = await getClientById(request.params.id);
+    if (
+      previousClient &&
+      request.user?.type === "employee" &&
+      !canUpdateClientFollowUp(request.user, { type: "client", ...previousClient })
+    ) {
+      return response.status(403).json({
+        message: "You do not have follow-up access to this client.",
+      });
+    }
     const client = await updateClientFollowUp(request.params.id, {
       followUpStatus,
       nextFollowUpDate,
@@ -2966,10 +2989,25 @@ app.post("/admin/client-transfer-requests", requireInternalUser, async (request,
       });
     }
 
-    const { clientId, requestedToEmployeeId, effectiveFromDate, reason } = request.body ?? {};
+    const {
+      clientId,
+      requestedToEmployeeId,
+      assignmentType,
+      effectiveFromDate,
+      effectiveToDate,
+      reason,
+    } = request.body ?? {};
     if (!clientId || !requestedToEmployeeId || !effectiveFromDate) {
       return response.status(400).json({
         message: "Client, target employee, and effective from date are required.",
+      });
+    }
+    if (
+      (assignmentType || "ownership-transfer") !== "ownership-transfer" &&
+      !effectiveToDate
+    ) {
+      return response.status(400).json({
+        message: "Effective to date is required for temporary client access.",
       });
     }
 
@@ -2992,9 +3030,14 @@ app.post("/admin/client-transfer-requests", requireInternalUser, async (request,
       beforeData: {},
       requestedData: {
         requestedToEmployeeId,
+        assignmentType: assignmentType || "ownership-transfer",
+        effectiveFromDate,
+        effectiveToDate,
       },
       metadata: {
         legacyTransferRequestId: transferRequest.id,
+        assignmentType: assignmentType || "ownership-transfer",
+        effectiveToDate: effectiveToDate || null,
       },
     });
 
@@ -3078,6 +3121,17 @@ app.put("/admin/client-transfer-requests/:id", requireAdmin, async (request, res
 
 app.post("/admin/jobs", requirePermission("jobs.manage"), async (request, response) => {
   try {
+    if (request.user?.type === "employee" && request.body?.clientId) {
+      const client = await getClientById(request.body.clientId);
+      if (
+        !client ||
+        !canManageClientWork(request.user, { type: "client", ...client })
+      ) {
+        return response.status(403).json({
+          message: "You do not have full access to create jobs for this client.",
+        });
+      }
+    }
     const job = await createJob(request.body);
 
     await createAuditLog({
@@ -3111,6 +3165,20 @@ app.post("/admin/jobs", requirePermission("jobs.manage"), async (request, respon
 app.put("/admin/jobs/:id", requirePermission("jobs.manage"), async (request, response) => {
   try {
     const previousJob = await getAdminJobById(request.params.id);
+    if (
+      request.user?.type === "employee" &&
+      previousJob?.clientId
+    ) {
+      const client = await getClientById(previousJob.clientId);
+      if (
+        !client ||
+        !canManageClientWork(request.user, { type: "client", ...client })
+      ) {
+        return response.status(403).json({
+          message: "You do not have full access to update jobs for this client.",
+        });
+      }
+    }
     const job = await updateJob(request.params.id, request.body);
 
     if (!job) {

@@ -176,7 +176,12 @@ export async function listAdminJobs(employeeId = null) {
         values.push(employeeId);
         return `where (
           coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}
-          or clients.follow_up_employee_id = $${values.length}
+          or (
+            clients.temporary_access_employee_id = $${values.length}
+            and clients.temporary_access_scope = 'full-access'
+            and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+            and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+          )
         )`;
       })()
     : "";
@@ -670,7 +675,12 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
     const employeeScopeClause = employeeId
       ? `and (
            coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2
-           or clients.follow_up_employee_id = $2
+           or (
+             clients.temporary_access_employee_id = $2
+             and clients.temporary_access_scope = 'full-access'
+             and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+             and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+           )
          )`
       : "";
 
@@ -837,7 +847,12 @@ export async function listJobApplications(jobId, employeeId = null) {
   const employeeScopeClause = employeeId
     ? `and (
          coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2
-         or clients.follow_up_employee_id = $2
+         or (
+           clients.temporary_access_employee_id = $2
+           and clients.temporary_access_scope = 'full-access'
+           and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+           and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+         )
          or job_applications.assigned_employee_id = $2
          or job_applications.follow_up_employee_id = $2
        )`
@@ -911,7 +926,12 @@ export async function listAdminApplications(employeeId = null) {
         values.push(employeeId);
         return `where (
           coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}
-          or clients.follow_up_employee_id = $${values.length}
+          or (
+            clients.temporary_access_employee_id = $${values.length}
+            and clients.temporary_access_scope = 'full-access'
+            and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+            and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+          )
           or job_applications.assigned_employee_id = $${values.length}
           or job_applications.follow_up_employee_id = $${values.length}
         )`;
@@ -1040,7 +1060,12 @@ export async function listApplicationStageHistory(employeeId = null) {
         values.push(employeeId);
         return `where (
           coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $${values.length}
-          or clients.follow_up_employee_id = $${values.length}
+          or (
+            clients.temporary_access_employee_id = $${values.length}
+            and clients.temporary_access_scope = 'full-access'
+            and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+            and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+          )
           or applications.assigned_employee_id = $${values.length}
           or applications.follow_up_employee_id = $${values.length}
         )`;
@@ -1171,7 +1196,12 @@ export async function updateJobApplicationStage(
     const employeeScopeClause = employeeId
       ? `and (
            coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2
-           or clients.follow_up_employee_id = $2
+           or (
+             clients.temporary_access_employee_id = $2
+             and clients.temporary_access_scope = 'full-access'
+             and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+             and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+           )
            or job_applications.follow_up_employee_id = $2
          )`
       : "";
@@ -1276,7 +1306,12 @@ export async function assignJobApplication(applicationId, payload, employeeId = 
   const employeeScopeClause = employeeId
     ? `and (
          coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id) = $2
-         or clients.follow_up_employee_id = $2
+         or (
+           clients.temporary_access_employee_id = $2
+           and clients.temporary_access_scope = 'full-access'
+           and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+           and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+         )
          or job_applications.follow_up_employee_id = $2
        )`
     : "";
