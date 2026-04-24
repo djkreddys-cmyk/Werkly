@@ -331,6 +331,9 @@ export async function ensureJobsSchema() {
   await query(
     `alter table job_applications add column if not exists entry_type text not null default 'website_apply'`
   );
+  await query(
+    `alter table job_applications add column if not exists updated_at timestamptz not null default now()`
+  );
   await query(`alter table job_applications add column if not exists resume_file_name text`);
   await query(`alter table job_applications add column if not exists resume_file_type text`);
   await query(`alter table job_applications add column if not exists resume_file_data text`);
