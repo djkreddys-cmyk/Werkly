@@ -136,7 +136,7 @@ const emptyClientForm: ClientFormState = {
   branch: "",
   assignedEmployeeId: "",
   status: "active",
-  onboardingStatus: "new-lead",
+  onboardingStatus: "onboarded",
   followUpStatus: "pending",
   nextFollowUpDate: "",
   lastFollowUpDate: "",
@@ -2874,7 +2874,10 @@ export function AdminClientsPanel({
       }
 
       await refreshCrm(token);
-      setClientForm(emptyClientForm);
+      setClientForm({
+        ...emptyClientForm,
+        onboardingStatus: viewMode === "leads" ? "new-lead" : "onboarded",
+      });
       setMessage("Client onboarding saved successfully.");
       router.push("/admin/clients/existing");
       router.refresh();
@@ -3505,7 +3508,10 @@ export function AdminClientsPanel({
                       (client.onboardingStatus || "new-lead") as ClientOnboardingStatus
                     )
                   )
-                : visibleClients
+                : visibleClients.filter(
+                    (client) =>
+                      (client.onboardingStatus || "onboarded") === "onboarded"
+                  )
             }
             viewMode={viewMode === "leads" ? "leads" : "existing"}
             canManageActions
