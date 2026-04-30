@@ -295,6 +295,18 @@ export async function ensureCrmSchema() {
     `create unique index if not exists employees_employee_code_key on employees(employee_code) where employee_code is not null`
   );
 
+  await query(`
+    update clients
+       set onboarding_status = 'onboarded',
+           updated_at = now()
+     where onboarding_status = 'new-lead'
+       and exists (
+         select 1
+           from jobs
+          where jobs.client_id = clients.id
+       )
+  `);
+
   await backfillMissingEmployeeCodes();
   await ensureCrmSettingsSeed();
 }
