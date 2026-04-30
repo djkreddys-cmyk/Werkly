@@ -175,6 +175,58 @@ function formatClientStageLabel(value?: string) {
     .join(" ");
 }
 
+function parseCsvRow(line: string) {
+  const cells: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (character === '"') {
+      if (inQuotes && line[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (character === "," && !inQuotes) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += character;
+  }
+
+  cells.push(current.trim());
+  return cells.map((cell) => cell.replace(/^"|"$/g, "").trim());
+}
+
+function parseCsvText(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) {
+    return [];
+  }
+
+  const headers = parseCsvRow(lines[0]).map((header) => header.toLowerCase());
+
+  return lines.slice(1).map((line) => {
+    const values = parseCsvRow(line);
+    return headers.reduce<Record<string, string>>((record, header, index) => {
+      record[header] = values[index] ?? "";
+      return record;
+    }, {});
+  });
+}
+
 function formatErrorMessage(message: string) {
   try {
     const parsed = JSON.parse(message) as { message?: string };
@@ -1172,7 +1224,7 @@ function CrmClientsList({
             <option value="contacted">Contacted</option>
             <option value="proposal-shared">Proposal Shared</option>
             <option value="negotiation">Negotiation</option>
-            <option value="onboarded">Onboarded</option>
+            {viewMode !== "leads" ? <option value="onboarded">Onboarded</option> : null}
             <option value="hold">Hold</option>
           </select>
           <select
@@ -2427,6 +2479,7 @@ export function AdminClientsPanel({
   const [adminTransferNote, setAdminTransferNote] = useState("");
   const [clientForm, setClientForm] = useState<ClientFormState>(emptyClientForm);
   const [isSavingClient, setIsSavingClient] = useState(false);
+  const [isImportingLeads, setIsImportingLeads] = useState(false);
   const [isSavingTransferRequest, setIsSavingTransferRequest] = useState(false);
   const [isSavingClientFollowUp, setIsSavingClientFollowUp] = useState(false);
   const [isReviewingTransferRequest, setIsReviewingTransferRequest] = useState(false);
@@ -2593,6 +2646,16 @@ export function AdminClientsPanel({
         },
         body: JSON.stringify({
           ...clientForm,
+          onboardingStatus:
+            viewMode === "leads" ? "new-lead" : clientForm.onboardingStatus,
+          onboardingSource:
+            viewMode === "leads" ? undefined : clientForm.onboardingSource,
+          agreementFileName:
+            viewMode === "leads" ? undefined : clientForm.agreementFileName,
+          agreementFileType:
+            viewMode === "leads" ? undefined : clientForm.agreementFileType,
+          agreementFileData:
+            viewMode === "leads" ? undefined : clientForm.agreementFileData,
           assignedEmployeeId: effectiveAssignedEmployeeId,
           assignedEmployeeName: assignedEmployee?.fullName,
         }),
@@ -2616,6 +2679,116 @@ export function AdminClientsPanel({
       );
     } finally {
       setIsSavingClient(false);
+    }
+  }
+
+  async function handleLeadImport(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !token) {
+      return;
+    }
+
+    setIsImportingLeads(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const text = await file.text();
+      const rows = parseCsvText(text);
+      if (rows.length === 0) {
+        throw new Error("Lead import file is empty or missing rows.");
+      }
+
+      let createdCount = 0;
+      const failedCompanies: string[] = [];
+
+      for (const row of rows) {
+        const companyName =
+          row["company name"] || row["client name"] || row["company"] || "";
+        const contactPerson =
+          row["contact person"] || row["contact name"] || row["contact"] || "";
+        const contactEmail = row["contact email"] || row["email"] || "";
+        const contactPhone = row["contact phone"] || row["phone"] || "";
+        const communicationAddress =
+          row["communication address"] || row["address"] || "";
+        const sector = row["sector"] || "";
+        const branch = row["branch"] || row["branch / region"] || row["region"] || "";
+        const notes = row["notes"] || row["lead notes"] || row["remarks"] || "";
+        const ownerLookup =
+          row["assigned employee"] ||
+          row["assigned employee code"] ||
+          row["employee code"] ||
+          row["assigned employee email"] ||
+          row["employee email"] ||
+          "";
+
+        if (!companyName.trim() || !contactPerson.trim()) {
+          failedCompanies.push(companyName || "Unnamed row");
+          continue;
+        }
+
+        const matchedEmployee = employees.find((employee) => {
+          const lookup = ownerLookup.trim().toLowerCase();
+          if (!lookup) {
+            return false;
+          }
+          return (
+            employee.employeeCode?.toLowerCase() === lookup ||
+            employee.email.toLowerCase() === lookup ||
+            employee.fullName.toLowerCase() === lookup
+          );
+        });
+
+        const effectiveAssignedEmployeeId = shouldAutoAssignClientOwner
+          ? currentEmployeeId
+          : matchedEmployee?.id || "";
+
+        const response = await fetch("/api/admin/clients", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            companyName: companyName.trim(),
+            contactPerson: contactPerson.trim(),
+            contactEmail: contactEmail.trim() || undefined,
+            contactPhone: contactPhone.trim() || undefined,
+            communicationAddress: communicationAddress.trim() || undefined,
+            sector: sector.trim() || undefined,
+            branch: branch.trim() || undefined,
+            assignedEmployeeId: effectiveAssignedEmployeeId || undefined,
+            assignedEmployeeName:
+              employees.find((employee) => employee.id === effectiveAssignedEmployeeId)?.fullName,
+            status: "active",
+            onboardingStatus: "new-lead",
+            notes: notes.trim() || undefined,
+          }),
+        });
+
+        if (!response.ok) {
+          failedCompanies.push(companyName.trim());
+          continue;
+        }
+
+        createdCount += 1;
+      }
+
+      await refreshCrm(token);
+      setMessage(
+        failedCompanies.length > 0
+          ? `${createdCount} leads imported. ${failedCompanies.length} rows could not be created.`
+          : `${createdCount} leads imported successfully.`
+      );
+    } catch (importError) {
+      setError(
+        formatErrorMessage(
+          importError instanceof Error ? importError.message : "Unable to import client leads."
+        )
+      );
+    } finally {
+      event.target.value = "";
+      setIsImportingLeads(false);
     }
   }
 
@@ -2883,18 +3056,46 @@ export function AdminClientsPanel({
       >
         <div className="max-w-3xl">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
-            Client Onboarding
+            {viewMode === "leads" ? "Client Leads" : "Client Onboarding"}
           </p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
-            Register client accounts and assign ownership clearly.
+            {viewMode === "leads"
+              ? "Capture client leads and assign lead ownership clearly."
+              : "Register client accounts and assign ownership clearly."}
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
-            Capture company details, the main client contact, and assign the right internal
-            employee before jobs and follow-ups are distributed.
+            {viewMode === "leads"
+              ? "Capture company details, lead contact information, and assign the right internal employee before onboarding is finalized."
+              : "Capture company details, the main client contact, and assign the right internal employee before jobs and follow-ups are distributed."}
           </p>
         </div>
 
         <CrmFeedback message={message} error={error} />
+
+        {viewMode === "leads" ? (
+          <div className="mt-6 rounded-[1.5rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.08)] p-5 backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[rgba(241,166,75,0.92)]">
+                  Bulk Lead Upload
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/72">
+                  Upload an Excel-compatible CSV file with columns like Company Name, Contact Person, Contact Email, Contact Phone, Communication Address, Sector, Branch, Assigned Employee Code, and Notes.
+                </p>
+              </div>
+              <label className="inline-flex cursor-pointer items-center rounded-2xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white">
+                {isImportingLeads ? "Importing..." : "Upload Leads CSV"}
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="sr-only"
+                  onChange={(event) => void handleLeadImport(event)}
+                  disabled={isImportingLeads}
+                />
+              </label>
+            </div>
+          </div>
+        ) : null}
 
         <form
           className="mt-8 rounded-[1.7rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.08)] p-6 backdrop-blur"
@@ -2986,59 +3187,67 @@ export function AdminClientsPanel({
                 </select>
               </label>
             ) : null}
-            <label className="block">
-              <span className={clientFormLabelClassName}>Onboarding Status</span>
-              <select
-                className={clientSelectClassName}
-                value={clientForm.onboardingStatus}
-                onChange={(event) =>
-                  updateClientField(
-                    "onboardingStatus",
-                    event.target.value as ClientOnboardingStatus
-                  )
-                }
-              >
-                <option value="new-lead" style={clientSelectOptionStyle}>New Lead</option>
-                <option value="contacted" style={clientSelectOptionStyle}>Contacted</option>
-                <option value="proposal-shared" style={clientSelectOptionStyle}>Proposal Shared</option>
-                <option value="negotiation" style={clientSelectOptionStyle}>Negotiation</option>
-                <option value="onboarded" style={clientSelectOptionStyle}>Onboarded</option>
-                <option value="hold" style={clientSelectOptionStyle}>Hold</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className={clientFormLabelClassName}>Onboarding Source</span>
-              <input
-                className={fieldClassName}
-                placeholder="Onboarding source"
-                value={clientForm.onboardingSource}
-                onChange={(event) => updateClientField("onboardingSource", event.target.value)}
-              />
-            </label>
-            <div className="sm:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-4">
-              <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/72">
-                Signed agreement (PDF)
-              </label>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <label className="inline-flex cursor-pointer items-center rounded-2xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white">
-                  Upload PDF
+            {viewMode !== "leads" ? (
+              <>
+                <label className="block">
+                  <span className={clientFormLabelClassName}>Onboarding Status</span>
+                  <select
+                    className={clientSelectClassName}
+                    value={clientForm.onboardingStatus}
+                    onChange={(event) =>
+                      updateClientField(
+                        "onboardingStatus",
+                        event.target.value as ClientOnboardingStatus
+                      )
+                    }
+                  >
+                    <option value="new-lead" style={clientSelectOptionStyle}>New Lead</option>
+                    <option value="contacted" style={clientSelectOptionStyle}>Contacted</option>
+                    <option value="proposal-shared" style={clientSelectOptionStyle}>Proposal Shared</option>
+                    <option value="negotiation" style={clientSelectOptionStyle}>Negotiation</option>
+                    <option value="onboarded" style={clientSelectOptionStyle}>Onboarded</option>
+                    <option value="hold" style={clientSelectOptionStyle}>Hold</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={clientFormLabelClassName}>Onboarding Source</span>
                   <input
-                    type="file"
-                    accept="application/pdf"
-                    className="sr-only"
-                    onChange={handleAgreementUpload}
+                    className={fieldClassName}
+                    placeholder="Onboarding source"
+                    value={clientForm.onboardingSource}
+                    onChange={(event) => updateClientField("onboardingSource", event.target.value)}
                   />
                 </label>
-                <span className="text-sm text-white/78">
-                  {clientForm.agreementFileName || "No file chosen"}
-                </span>
-              </div>
-            </div>
+                <div className="sm:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-4 py-4">
+                  <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/72">
+                    Signed agreement (PDF)
+                  </label>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <label className="inline-flex cursor-pointer items-center rounded-2xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white">
+                      Upload PDF
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        className="sr-only"
+                        onChange={handleAgreementUpload}
+                      />
+                    </label>
+                    <span className="text-sm text-white/78">
+                      {clientForm.agreementFileName || "No file chosen"}
+                    </span>
+                  </div>
+                </div>
+              </>
+            ) : null}
             <label className="block sm:col-span-2">
-              <span className={clientFormLabelClassName}>Onboarding Notes</span>
+              <span className={clientFormLabelClassName}>
+                {viewMode === "leads" ? "Lead Notes" : "Onboarding Notes"}
+              </span>
               <textarea
                 className={`${fieldClassName} min-h-[116px] resize-y`}
-                placeholder="Notes / onboarding context"
+                placeholder={
+                  viewMode === "leads" ? "Notes / lead context" : "Notes / onboarding context"
+                }
                 value={clientForm.notes}
                 onChange={(event) => updateClientField("notes", event.target.value)}
               />
@@ -3051,7 +3260,11 @@ export function AdminClientsPanel({
               disabled={isSavingClient || isLoading}
               className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSavingClient ? "Saving..." : "Onboard Client"}
+              {isSavingClient
+                ? "Saving..."
+                : viewMode === "leads"
+                  ? "Add Client Lead"
+                  : "Onboard Client"}
             </button>
           </div>
         </form>
