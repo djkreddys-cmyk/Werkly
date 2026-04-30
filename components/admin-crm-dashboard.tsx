@@ -64,6 +64,8 @@ type ClientFormState = {
   agreementFileData: string;
 };
 
+type ClientPanelViewMode = "all" | "new" | "existing" | "leads";
+
 function createEmptyEducationEntry(): EmployeeEducationEntry {
   return {
     qualification: "",
@@ -156,6 +158,22 @@ const clientSelectOptionStyle = {
   backgroundColor: "#0f5962",
   color: "#ffffff",
 };
+
+const clientLeadStatuses: ClientOnboardingStatus[] = [
+  "new-lead",
+  "contacted",
+  "proposal-shared",
+  "negotiation",
+  "hold",
+];
+
+function formatClientStageLabel(value?: string) {
+  return String(value || "")
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
 function formatErrorMessage(message: string) {
   try {
@@ -896,6 +914,7 @@ function CrmEmployeesList({
 
 function CrmClientsList({
   clients,
+  viewMode = "existing",
   canManageActions,
   canDelete,
   onTransfer,
@@ -903,6 +922,7 @@ function CrmClientsList({
   onDelete,
 }: {
   clients: ClientRecord[];
+  viewMode?: "existing" | "leads";
   canManageActions: boolean;
   canDelete: boolean;
   onTransfer: (client: ClientRecord) => void;
@@ -920,6 +940,19 @@ function CrmClientsList({
   const [statusFilter, setStatusFilter] = useState(() =>
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyClientsStatus") ?? "all"
+      : "all"
+  );
+  const [onboardingFilter, setOnboardingFilter] = useState(() =>
+    typeof window !== "undefined"
+      ? window.localStorage.getItem(`werklyClientsOnboarding-${viewMode}`) ??
+        (viewMode === "leads" ? "lead-only" : "all")
+      : viewMode === "leads"
+        ? "lead-only"
+        : "all"
+  );
+  const [followUpFilter, setFollowUpFilter] = useState(() =>
+    typeof window !== "undefined"
+      ? window.localStorage.getItem(`werklyClientsFollowUp-${viewMode}`) ?? "all"
       : "all"
   );
   const [page, setPage] = useState(1);
@@ -946,7 +979,9 @@ function CrmClientsList({
 
     window.localStorage.setItem("werklyClientsQuery", query);
     window.localStorage.setItem("werklyClientsStatus", statusFilter);
-  }, [query, statusFilter]);
+    window.localStorage.setItem(`werklyClientsOnboarding-${viewMode}`, onboardingFilter);
+    window.localStorage.setItem(`werklyClientsFollowUp-${viewMode}`, followUpFilter);
+  }, [followUpFilter, onboardingFilter, query, statusFilter, viewMode]);
 
   const filteredClients = useMemo(() => {
     return clients.filter((client) => {
@@ -965,9 +1000,21 @@ function CrmClientsList({
       const matchesStatus =
         statusFilter === "all" || (client.status || "active") === statusFilter;
 
-      return matchesQuery && matchesStatus;
+      const safeOnboardingStatus = (client.onboardingStatus || "new-lead") as ClientOnboardingStatus;
+      const matchesOnboarding =
+        onboardingFilter === "all"
+          ? true
+          : onboardingFilter === "lead-only"
+            ? clientLeadStatuses.includes(safeOnboardingStatus)
+            : safeOnboardingStatus === onboardingFilter;
+
+      const safeFollowUpStatus = client.followUpStatus || "pending";
+      const matchesFollowUp =
+        followUpFilter === "all" ? true : safeFollowUpStatus === followUpFilter;
+
+      return matchesQuery && matchesStatus && matchesOnboarding && matchesFollowUp;
     });
-  }, [clients, query, statusFilter]);
+  }, [clients, followUpFilter, onboardingFilter, query, statusFilter]);
 
   const pageSize = 8;
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / pageSize));
@@ -1058,6 +1105,8 @@ function CrmClientsList({
           filters: {
             query,
             statusFilter,
+            onboardingFilter,
+            followUpFilter,
           },
           columns: ["client", "contact", "owner", "onboarding", "followUp", "jobs", "status"],
         }),
@@ -1074,15 +1123,20 @@ function CrmClientsList({
           <div>
             <p className="eyebrow">Clients</p>
             <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-              Assigned client accounts
+              {viewMode === "leads" ? "Client leads and follow-up tracker" : "Assigned client accounts"}
             </h3>
+            <p className="muted-copy mt-2 text-sm">
+              {viewMode === "leads"
+                ? "Track lead-stage clients, next follow-up dates, and ownership before they become fully onboarded accounts."
+                : "Review onboarded clients, follow-up ownership, linked jobs, and agreement status in one table."}
+            </p>
           </div>
           <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
             {filteredClients.length} clients
           </span>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_220px_auto_auto] xl:items-end">
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_180px_220px_220px_auto_auto] xl:items-end">
           <input
             value={query}
             onChange={(event) => {
@@ -1104,6 +1158,38 @@ function CrmClientsList({
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
+          <select
+            value={onboardingFilter}
+            onChange={(event) => {
+              setOnboardingFilter(event.target.value);
+              setPage(1);
+            }}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+          >
+            <option value="all">All onboarding</option>
+            <option value="lead-only">Lead stages only</option>
+            <option value="new-lead">New Lead</option>
+            <option value="contacted">Contacted</option>
+            <option value="proposal-shared">Proposal Shared</option>
+            <option value="negotiation">Negotiation</option>
+            <option value="onboarded">Onboarded</option>
+            <option value="hold">Hold</option>
+          </select>
+          <select
+            value={followUpFilter}
+            onChange={(event) => {
+              setFollowUpFilter(event.target.value);
+              setPage(1);
+            }}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+          >
+            <option value="all">All follow-ups</option>
+            <option value="pending">Pending</option>
+            <option value="follow-up-due">Follow-Up Due</option>
+            <option value="in-progress">In Progress</option>
+            <option value="awaiting-client">Awaiting Client</option>
+            <option value="closed">Closed</option>
+          </select>
           <button
             type="button"
             onClick={exportCurrentView}
@@ -1121,9 +1207,50 @@ function CrmClientsList({
           </button>
         </div>
 
+        {viewMode === "leads" ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                label: "New Leads",
+                value: filteredClients.filter((client) => (client.onboardingStatus || "new-lead") === "new-lead").length,
+              },
+              {
+                label: "In Progress",
+                value: filteredClients.filter((client) =>
+                  ["contacted", "proposal-shared", "negotiation"].includes(
+                    client.onboardingStatus || "new-lead"
+                  )
+                ).length,
+              },
+              {
+                label: "Follow-Up Due",
+                value: filteredClients.filter((client) => (client.followUpStatus || "pending") === "follow-up-due").length,
+              },
+              {
+                label: "Awaiting Client",
+                value: filteredClients.filter((client) => (client.followUpStatus || "pending") === "awaiting-client").length,
+              },
+            ].map((metric) => (
+              <article
+                key={metric.label}
+                className="rounded-[1.35rem] border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                  {metric.label}
+                </p>
+                <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">{metric.value}</p>
+              </article>
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-5 rounded-[1.35rem] border border-[var(--color-line)] bg-white">
           {filteredClients.length === 0 ? (
-            <p className="muted-copy p-5 text-sm">No clients have been onboarded yet.</p>
+            <p className="muted-copy p-5 text-sm">
+              {viewMode === "leads"
+                ? "No client leads matched the current filters."
+                : "No clients have been onboarded yet."}
+            </p>
           ) : (
             <div className="overflow-x-auto pb-4">
               <table className="min-w-full border-collapse">
@@ -1173,7 +1300,7 @@ function CrmClientsList({
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <p className="font-semibold text-[var(--color-ink)]">
-                          {client.onboardingStatus || "new-lead"}
+                          {formatClientStageLabel(client.onboardingStatus || "new-lead")}
                         </p>
                         <p className="mt-1 text-xs">
                           {client.onboardingSource || "Source not added"}
@@ -1181,7 +1308,7 @@ function CrmClientsList({
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <p className="font-semibold text-[var(--color-ink)]">
-                          {client.followUpStatus || "pending"}
+                          {formatClientStageLabel(client.followUpStatus || "pending")}
                         </p>
                         <p className="mt-1 text-xs">
                           Next: {client.nextFollowUpDate || "Not scheduled"}
@@ -2247,7 +2374,7 @@ export function AdminEmployeesPanel({
 export function AdminClientsPanel({
   viewMode = "all",
 }: {
-  viewMode?: "all" | "new" | "existing";
+  viewMode?: ClientPanelViewMode;
 }) {
   const router = useRouter();
   const {
@@ -2934,7 +3061,16 @@ export function AdminClientsPanel({
       {viewMode !== "new" ? (
         <div id="existing-clients" className="scroll-mt-28">
           <CrmClientsList
-            clients={visibleClients}
+            clients={
+              viewMode === "leads"
+                ? visibleClients.filter((client) =>
+                    clientLeadStatuses.includes(
+                      (client.onboardingStatus || "new-lead") as ClientOnboardingStatus
+                    )
+                  )
+                : visibleClients
+            }
+            viewMode={viewMode === "leads" ? "leads" : "existing"}
             canManageActions
             canDelete={isSuperAdmin}
             onTransfer={(client) => {
