@@ -270,6 +270,12 @@ export type ClientTransferReviewPayload = {
   adminNote?: string;
 };
 
+export type ClientBulkAssignmentPayload = {
+  clientIds: string[];
+  assignedEmployeeId?: string;
+  action: "assign" | "unassign";
+};
+
 function getBaseUrl() {
   return (
     process.env.RAILWAY_API_BASE_URL ||
@@ -582,6 +588,22 @@ export async function reassignClient(
       Authorization: `Bearer ${token}`,
     },
   });
+}
+
+export async function bulkAssignClients(
+  payload: ClientBulkAssignmentPayload,
+  token: string
+) {
+  return readJson<{ clients: ClientRecord[]; updatedCount: number }>(
+    "/admin/clients/bulk-assignment",
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 }
 
 export async function reviewClientTransferRequest(

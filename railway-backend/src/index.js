@@ -30,6 +30,7 @@ import {
   consumeEmployeePasswordResetRequest,
   createEmployeePasswordResetRequest,
   createClient,
+  bulkAssignClients,
   createClientTransferRequest,
   createNotificationLog,
   deleteClient,
@@ -2629,6 +2630,73 @@ app.put("/admin/clients/:id/reassign", requireAdmin, async (request, response) =
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to reassign client.",
+    });
+  }
+});
+
+app.put("/admin/clients/bulk-assignment", requireAdmin, async (request, response) => {
+  try {
+    const { clientIds, assignedEmployeeId, action } = request.body ?? {};
+
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      return response.status(400).json({ message: "Please select at least one lead." });
+    }
+
+    if (action !== "assign" && action !== "unassign") {
+      return response.status(400).json({ message: "Invalid bulk action." });
+    }
+
+    if (action === "assign" && !assignedEmployeeId) {
+      return response.status(400).json({ message: "Target employee is required." });
+    }
+
+    const previousClients = await Promise.all(
+      clientIds.map((clientId) => getClientById(clientId))
+    );
+    const clients = await bulkAssignClients(clientIds, {
+      action,
+      assignedEmployeeId,
+    });
+
+    for (const client of clients) {
+      const previousClient = previousClients.find((item) => item?.id === client.id) || {};
+      await createAuditLog({
+        actionType: action === "assign" ? "client.bulk-assigned" : "client.bulk-unassigned",
+        entityType: "client",
+        entityId: client.id,
+        ...getActorDetails(request),
+        beforeData: previousClient,
+        afterData: client,
+        metadata: {
+          bulkAction: action,
+          assignedEmployeeId: assignedEmployeeId || null,
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "client",
+        entityId: client.id,
+        entityLabel: client.companyName,
+        eventType: action === "assign" ? "client.bulk-assigned" : "client.bulk-unassigned",
+        title: action === "assign" ? "Lead assigned" : "Lead unassigned",
+        summary:
+          action === "assign"
+            ? `${client.companyName} was assigned from the leads screen.`
+            : `${client.companyName} was unassigned from the leads screen.`,
+        beforeData: previousClient || {},
+        afterData: client,
+        metadata: {
+          bulkAction: action,
+          assignedEmployeeId: assignedEmployeeId || null,
+        },
+      });
+    }
+
+    response.json({ clients, updatedCount: clients.length });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to update lead assignment.",
     });
   }
 });

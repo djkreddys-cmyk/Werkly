@@ -1529,6 +1529,122 @@ export async function reassignClient(clientId, payload) {
   return hydratedResult.rows[0] ? mapClientRow(hydratedResult.rows[0]) : null;
 }
 
+export async function bulkAssignClients(clientIds, payload) {
+  const normalizedIds = Array.isArray(clientIds)
+    ? clientIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+
+  if (normalizedIds.length === 0) {
+    return [];
+  }
+
+  const result =
+    payload.action === "unassign"
+      ? await query(
+          `update clients
+              set assigned_employee_id = null,
+                  follow_up_employee_id = null,
+                  follow_up_from_date = null,
+                  follow_up_to_date = null,
+                  follow_up_assignment_note = null,
+                  temporary_access_employee_id = null,
+                  temporary_access_from_date = null,
+                  temporary_access_to_date = null,
+                  temporary_access_scope = null,
+                  temporary_access_note = null,
+                  updated_at = now()
+            where id = any($1::uuid[])
+            returning id`,
+          [normalizedIds]
+        )
+      : await query(
+          `update clients
+              set assigned_employee_id = $2,
+                  follow_up_employee_id = null,
+                  follow_up_from_date = null,
+                  follow_up_to_date = null,
+                  follow_up_assignment_note = null,
+                  temporary_access_employee_id = null,
+                  temporary_access_from_date = null,
+                  temporary_access_to_date = null,
+                  temporary_access_scope = null,
+                  temporary_access_note = null,
+                  updated_at = now()
+            where id = any($1::uuid[])
+            returning id`,
+          [normalizedIds, payload.assignedEmployeeId || null]
+        );
+
+  if (result.rows.length === 0) {
+    return [];
+  }
+
+  const hydratedResult = await query(
+    `select
+      clients.id,
+      clients.company_name,
+      clients.contact_person,
+      clients.contact_email,
+      clients.contact_phone,
+      clients.communication_address,
+      clients.sector,
+      clients.branch,
+      clients.assigned_employee_id,
+      clients.follow_up_employee_id,
+      clients.follow_up_from_date,
+      clients.follow_up_to_date,
+      clients.follow_up_assignment_note,
+      clients.temporary_access_employee_id,
+      clients.temporary_access_from_date,
+      clients.temporary_access_to_date,
+      clients.temporary_access_scope,
+      clients.temporary_access_note,
+      clients.status,
+      clients.onboarding_status,
+      clients.follow_up_status,
+      clients.next_follow_up_date,
+      clients.last_follow_up_date,
+      clients.onboarding_source,
+      clients.notes,
+      clients.follow_up_notes,
+      clients.agreement_file_name,
+      clients.agreement_file_type,
+      clients.agreement_file_data,
+      clients.created_at,
+      employees.full_name as assigned_employee_name,
+      follow_up_employee.full_name as follow_up_employee_name,
+      temporary_access_employee.full_name as temporary_access_employee_name,
+      coalesce(job_summary.linked_jobs_count, 0) as linked_jobs_count,
+      coalesce(job_summary.linked_jobs, '[]'::json) as linked_jobs
+     from clients
+     left join employees on employees.id = clients.assigned_employee_id
+     left join employees follow_up_employee on follow_up_employee.id = clients.follow_up_employee_id
+     left join employees temporary_access_employee on temporary_access_employee.id = clients.temporary_access_employee_id
+     left join lateral (
+       select
+         count(*)::int as linked_jobs_count,
+         coalesce(
+           json_agg(
+             json_build_object(
+               'id', jobs.id,
+               'jobCode', jobs.job_code,
+               'title', jobs.title,
+               'status', jobs.status
+             )
+             order by jobs.created_at desc
+           ),
+           '[]'::json
+         ) as linked_jobs
+       from jobs
+       where jobs.client_id = clients.id
+     ) job_summary on true
+     where clients.id = any($1::uuid[])`,
+    [normalizedIds]
+  );
+
+  return hydratedResult.rows.map(mapClientRow);
+}
+
 export async function updateClientFollowUp(clientId, payload) {
   const existingResult = await query(
     `select follow_up_status

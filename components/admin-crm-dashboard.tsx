@@ -969,17 +969,27 @@ function CrmClientsList({
   viewMode = "existing",
   canManageActions,
   canDelete,
+  isSuperAdmin,
+  employeeOptions = [],
   onTransfer,
   onFollowUp,
   onDelete,
+  onBulkAssignment,
 }: {
   clients: ClientRecord[];
   viewMode?: "existing" | "leads";
   canManageActions: boolean;
   canDelete: boolean;
+  isSuperAdmin: boolean;
+  employeeOptions?: EmployeeRecord[];
   onTransfer: (client: ClientRecord) => void;
   onFollowUp: (client: ClientRecord) => void;
   onDelete: (client: ClientRecord) => void;
+  onBulkAssignment?: (
+    clientIds: string[],
+    action: "assign" | "unassign",
+    assignedEmployeeId?: string
+  ) => Promise<void>;
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
   const [actionMenuClientId, setActionMenuClientId] = useState("");
@@ -1008,6 +1018,10 @@ function CrmClientsList({
       : "all"
   );
   const [page, setPage] = useState(1);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [showAssignPopup, setShowAssignPopup] = useState(false);
+  const [bulkAssignedEmployeeId, setBulkAssignedEmployeeId] = useState("");
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1017,6 +1031,7 @@ function CrmClientsList({
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setSelectedClientJobs(null);
+        setShowAssignPopup(false);
       }
     };
 
@@ -1075,6 +1090,16 @@ function CrmClientsList({
     () => filteredClients.slice((activePage - 1) * pageSize, activePage * pageSize),
     [activePage, filteredClients]
   );
+
+  const allVisibleLeadIds = useMemo(
+    () => (viewMode === "leads" ? filteredClients.map((client) => client.id) : []),
+    [filteredClients, viewMode]
+  );
+
+  const allVisibleLeadsSelected =
+    viewMode === "leads" &&
+    allVisibleLeadIds.length > 0 &&
+    allVisibleLeadIds.every((id) => selectedLeadIds.includes(id));
 
   function exportCurrentView() {
     const workbookMarkup = `<!DOCTYPE html>
@@ -1168,6 +1193,51 @@ function CrmClientsList({
     }
   }
 
+  function downloadLeadSample() {
+    const sampleCsv = [
+      ["Company Name", "Contact Person", "Contact Email", "Contact Phone", "Sector", "Branch"],
+      ["Acme Industries", "Ravi Kumar", "ravi@acme.com", "9876543210", "Manufacturing", "Hyderabad"],
+      ["BlueWave Tech", "Sneha Reddy", "sneha@bluewave.com", "9123456780", "Technology", "Bangalore"],
+    ]
+      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([sampleCsv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "client-leads-sample.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function submitBulkAssignment(action: "assign" | "unassign") {
+    if (!onBulkAssignment || selectedLeadIds.length === 0) {
+      return;
+    }
+
+    if (action === "assign" && !bulkAssignedEmployeeId) {
+      return;
+    }
+
+    setIsBulkUpdating(true);
+
+    try {
+      await onBulkAssignment(
+        selectedLeadIds,
+        action,
+        action === "assign" ? bulkAssignedEmployeeId : undefined
+      );
+      setSelectedLeadIds([]);
+      setShowAssignPopup(false);
+      setBulkAssignedEmployeeId("");
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  }
+
   return (
     <>
       <section className="accent-card p-6">
@@ -1187,6 +1257,38 @@ function CrmClientsList({
             {filteredClients.length} clients
           </span>
         </div>
+
+        {viewMode === "leads" ? (
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={downloadLeadSample}
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+            >
+              Download Sample CSV
+            </button>
+            {isSuperAdmin ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowAssignPopup(true)}
+                  disabled={selectedLeadIds.length === 0}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Assign
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void submitBulkAssignment("unassign")}
+                  disabled={selectedLeadIds.length === 0 || isBulkUpdating}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Unassign
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_180px_220px_220px_auto_auto] xl:items-end">
           <input
@@ -1308,12 +1410,34 @@ function CrmClientsList({
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                    {["Client", "Contact", "Owner", "Onboarding", "Follow-Up", "Jobs", "Status", "Agreement", "Actions"].map((heading) => (
+                    {[
+                      ...(viewMode === "leads" && isSuperAdmin ? ["Select"] : []),
+                      "Client",
+                      "Contact",
+                      "Owner",
+                      "Onboarding",
+                      "Follow-Up",
+                      "Jobs",
+                      "Status",
+                      "Agreement",
+                      "Actions",
+                    ].map((heading) => (
                       <th
                         key={heading}
                         className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
                       >
-                        {heading}
+                        {heading === "Select" ? (
+                          <input
+                            type="checkbox"
+                            checked={allVisibleLeadsSelected}
+                            onChange={(event) =>
+                              setSelectedLeadIds(event.target.checked ? allVisibleLeadIds : [])
+                            }
+                            aria-label="Select all visible leads"
+                          />
+                        ) : (
+                          heading
+                        )}
                       </th>
                     ))}
                   </tr>
@@ -1331,6 +1455,22 @@ function CrmClientsList({
                           : "align-top border-b border-[var(--color-line)]"
                       }
                     >
+                      {viewMode === "leads" && isSuperAdmin ? (
+                        <td className="px-4 py-4 align-top">
+                          <input
+                            type="checkbox"
+                            checked={selectedLeadIds.includes(client.id)}
+                            onChange={(event) =>
+                              setSelectedLeadIds((current) =>
+                                event.target.checked
+                                  ? [...new Set([...current, client.id])]
+                                  : current.filter((id) => id !== client.id)
+                              )
+                            }
+                            aria-label={`Select ${client.companyName}`}
+                          />
+                        </td>
+                      ) : null}
                       <td className="px-4 py-4">
                         <Link
                           href={`/admin/clients/${client.id}`}
@@ -1541,6 +1681,73 @@ function CrmClientsList({
                   </table>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showAssignPopup ? (
+        <div className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Assign Leads</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  Assign selected leads
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Choose the employee who should own follow-up on the selected lead records.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignPopup(false);
+                  setBulkAssignedEmployeeId("");
+                }}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <label className="mt-6 block">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Assign To
+              </span>
+              <select
+                className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                value={bulkAssignedEmployeeId}
+                onChange={(event) => setBulkAssignedEmployeeId(event.target.value)}
+              >
+                <option value="">Select employee</option>
+                {employeeOptions.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.fullName} - {employee.role}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void submitBulkAssignment("assign")}
+                disabled={!bulkAssignedEmployeeId || isBulkUpdating}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isBulkUpdating ? "Saving..." : "Assign Leads"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignPopup(false);
+                  setBulkAssignedEmployeeId("");
+                }}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -2709,39 +2916,17 @@ export function AdminClientsPanel({
           row["contact person"] || row["contact name"] || row["contact"] || "";
         const contactEmail = row["contact email"] || row["email"] || "";
         const contactPhone = row["contact phone"] || row["phone"] || "";
-        const communicationAddress =
-          row["communication address"] || row["address"] || "";
         const sector = row["sector"] || "";
         const branch = row["branch"] || row["branch / region"] || row["region"] || "";
-        const notes = row["notes"] || row["lead notes"] || row["remarks"] || "";
-        const ownerLookup =
-          row["assigned employee"] ||
-          row["assigned employee code"] ||
-          row["employee code"] ||
-          row["assigned employee email"] ||
-          row["employee email"] ||
-          "";
 
         if (!companyName.trim() || !contactPerson.trim()) {
           failedCompanies.push(companyName || "Unnamed row");
           continue;
         }
 
-        const matchedEmployee = employees.find((employee) => {
-          const lookup = ownerLookup.trim().toLowerCase();
-          if (!lookup) {
-            return false;
-          }
-          return (
-            employee.employeeCode?.toLowerCase() === lookup ||
-            employee.email.toLowerCase() === lookup ||
-            employee.fullName.toLowerCase() === lookup
-          );
-        });
-
         const effectiveAssignedEmployeeId = shouldAutoAssignClientOwner
           ? currentEmployeeId
-          : matchedEmployee?.id || "";
+          : "";
 
         const response = await fetch("/api/admin/clients", {
           method: "POST",
@@ -2754,7 +2939,6 @@ export function AdminClientsPanel({
             contactPerson: contactPerson.trim(),
             contactEmail: contactEmail.trim() || undefined,
             contactPhone: contactPhone.trim() || undefined,
-            communicationAddress: communicationAddress.trim() || undefined,
             sector: sector.trim() || undefined,
             branch: branch.trim() || undefined,
             assignedEmployeeId: effectiveAssignedEmployeeId || undefined,
@@ -2762,7 +2946,6 @@ export function AdminClientsPanel({
               employees.find((employee) => employee.id === effectiveAssignedEmployeeId)?.fullName,
             status: "active",
             onboardingStatus: "new-lead",
-            notes: notes.trim() || undefined,
           }),
         });
 
@@ -2824,6 +3007,60 @@ export function AdminClientsPanel({
       setMessage("Client deleted successfully.");
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Unable to delete client.");
+    }
+  }
+
+  async function handleBulkLeadAssignment(
+    clientIds: string[],
+    action: "assign" | "unassign",
+    assignedEmployeeId?: string
+  ) {
+    if (!token || !isSuperAdmin) {
+      setError("Only Super Admin can update lead assignment.");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/clients/bulk-assignment", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          clientIds,
+          action,
+          assignedEmployeeId: action === "assign" ? assignedEmployeeId : undefined,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        message?: string;
+        updatedCount?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to update lead assignment.");
+      }
+
+      await refreshCrm(token);
+      setMessage(
+        action === "assign"
+          ? `${result.updatedCount ?? clientIds.length} leads assigned successfully.`
+          : `${result.updatedCount ?? clientIds.length} leads unassigned successfully.`
+      );
+    } catch (assignmentError) {
+      setError(
+        formatErrorMessage(
+          assignmentError instanceof Error
+            ? assignmentError.message
+            : "Unable to update lead assignment."
+        )
+      );
+      throw assignmentError;
     }
   }
 
@@ -3080,7 +3317,7 @@ export function AdminClientsPanel({
                   Bulk Lead Upload
                 </p>
                 <p className="mt-2 text-sm leading-6 text-white/72">
-                  Upload an Excel-compatible CSV file with columns like Company Name, Contact Person, Contact Email, Contact Phone, Communication Address, Sector, Branch, Assigned Employee Code, and Notes.
+                  Upload an Excel-compatible CSV file with columns like Company Name, Contact Person, Contact Email, Contact Phone, Sector, and Branch.
                 </p>
               </div>
               <label className="inline-flex cursor-pointer items-center rounded-2xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white">
@@ -3141,17 +3378,6 @@ export function AdminClientsPanel({
                 onChange={(event) => updateClientField("contactPhone", event.target.value)}
               />
             </label>
-            <label className="block sm:col-span-2">
-              <span className={clientFormLabelClassName}>Communication Address</span>
-              <textarea
-                className={`${fieldClassName} min-h-[110px] resize-y`}
-                placeholder="Communication address"
-                value={clientForm.communicationAddress}
-                onChange={(event) =>
-                  updateClientField("communicationAddress", event.target.value)
-                }
-              />
-            </label>
             <label className="block">
               <span className={clientFormLabelClassName}>Sector</span>
               <input
@@ -3170,7 +3396,7 @@ export function AdminClientsPanel({
                 onChange={(event) => updateClientField("branch", event.target.value)}
               />
             </label>
-            {isSuperAdmin ? (
+            {isSuperAdmin && viewMode !== "leads" ? (
               <label className="block">
                 <span className={clientFormLabelClassName}>Assigned Employee</span>
                 <select
@@ -3239,19 +3465,17 @@ export function AdminClientsPanel({
                 </div>
               </>
             ) : null}
-            <label className="block sm:col-span-2">
-              <span className={clientFormLabelClassName}>
-                {viewMode === "leads" ? "Lead Notes" : "Onboarding Notes"}
-              </span>
-              <textarea
-                className={`${fieldClassName} min-h-[116px] resize-y`}
-                placeholder={
-                  viewMode === "leads" ? "Notes / lead context" : "Notes / onboarding context"
-                }
-                value={clientForm.notes}
-                onChange={(event) => updateClientField("notes", event.target.value)}
-              />
-            </label>
+            {viewMode !== "leads" ? (
+              <label className="block sm:col-span-2">
+                <span className={clientFormLabelClassName}>Onboarding Notes</span>
+                <textarea
+                  className={`${fieldClassName} min-h-[116px] resize-y`}
+                  placeholder="Notes / onboarding context"
+                  value={clientForm.notes}
+                  onChange={(event) => updateClientField("notes", event.target.value)}
+                />
+              </label>
+            ) : null}
           </div>
 
           <div className="mt-5 flex gap-3">
@@ -3308,6 +3532,11 @@ export function AdminClientsPanel({
             onDelete={(client) => {
               void handleDeleteClient(client);
             }}
+            isSuperAdmin={isSuperAdmin}
+            employeeOptions={employeeOptions}
+            onBulkAssignment={
+              viewMode === "leads" && isSuperAdmin ? handleBulkLeadAssignment : undefined
+            }
           />
         </div>
       ) : null}
