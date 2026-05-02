@@ -581,6 +581,7 @@ export function AdminLeavesPanel() {
                     {[
                       canManageLeaves ? "Employee" : "Leave Type",
                       canManageLeaves ? "Leave Type" : "Allocated",
+                      ...(canManageLeaves ? ["Allocated"] : []),
                       "Approved",
                       "Pending",
                       "Remaining",
@@ -625,6 +626,11 @@ export function AdminLeavesPanel() {
                           ? assignment.leaveTypeName
                           : formatLeaveDays(assignment.allocatedDays)}
                       </td>
+                      {canManageLeaves ? (
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {formatLeaveDays(assignment.allocatedDays)}
+                        </td>
+                      ) : null}
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {formatLeaveDays(assignment.approvedDays)}
                       </td>

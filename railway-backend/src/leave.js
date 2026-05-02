@@ -118,6 +118,17 @@ export async function ensureLeaveSchema() {
   `);
 
   await query(`
+    update leave_requests
+       set days_requested = case
+         when coalesce(leave_portion, 'full-day') = 'half-day' then 0.5
+         else greatest((end_date - start_date) + 1, 0)
+       end,
+           updated_at = now()
+     where days_requested is null
+        or days_requested <= 0
+  `);
+
+  await query(`
     alter table leave_requests
     add column if not exists leave_portion text not null default 'full-day'
   `);
