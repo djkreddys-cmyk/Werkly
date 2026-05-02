@@ -76,8 +76,21 @@ function formatLeavePortionLabel(
   return "Full Day";
 }
 
-function formatLeaveDays(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+function formatLeaveDays(value?: number | string | null) {
+  const normalizedValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : 0;
+
+  if (!Number.isFinite(normalizedValue)) {
+    return "0";
+  }
+
+  return Number.isInteger(normalizedValue)
+    ? String(normalizedValue)
+    : normalizedValue.toFixed(1);
 }
 
 export function AdminLeavesPanel() {
