@@ -892,16 +892,20 @@ export function AdminLeavesPanel() {
                         </td>
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                           {canManageLeaves ? (
-                            <textarea
-                              className={`${inputClassName} min-h-24 min-w-[220px] resize-y`}
-                              value={action.adminNote}
-                              onChange={(event) =>
-                                setRequestAction(request.id, {
-                                  adminNote: event.target.value,
-                                })
-                              }
-                              placeholder="Optional admin note"
-                            />
+                            request.status === "approved" ? (
+                              request.adminNote || "No note added"
+                            ) : (
+                              <textarea
+                                className={`${inputClassName} min-h-24 min-w-[220px] resize-y`}
+                                value={action.adminNote}
+                                onChange={(event) =>
+                                  setRequestAction(request.id, {
+                                    adminNote: event.target.value,
+                                  })
+                                }
+                                placeholder="Optional admin note"
+                              />
+                            )
                           ) : (
                             request.adminNote || "No note added"
                           )}
@@ -909,26 +913,30 @@ export function AdminLeavesPanel() {
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                           {canManageLeaves ? (
                             <div className="flex min-w-[220px] flex-col gap-3">
-                              <select
-                                className={inputClassName}
-                                value={action.status}
-                                onChange={(event) =>
-                                  setRequestAction(request.id, {
-                                    status: event.target.value as LeaveRequestStatus,
-                                  })
-                                }
-                              >
-                                <option value="pending">Pending</option>
-                                <option value="approved">Approved</option>
-                                <option value="rejected">Rejected</option>
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => void handleUpdateLeaveRequest(request.id)}
-                                className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-                              >
-                                Save Status
-                              </button>
+                              {request.status !== "approved" ? (
+                                <>
+                                  <select
+                                    className={inputClassName}
+                                    value={action.status}
+                                    onChange={(event) =>
+                                      setRequestAction(request.id, {
+                                        status: event.target.value as LeaveRequestStatus,
+                                      })
+                                    }
+                                  >
+                                    <option value="pending">Pending</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="rejected">Rejected</option>
+                                  </select>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleUpdateLeaveRequest(request.id)}
+                                    className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                                  >
+                                    Save Status
+                                  </button>
+                                </>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={() => openEditRequest(request)}
