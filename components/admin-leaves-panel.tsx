@@ -76,6 +76,30 @@ function formatLeavePortionLabel(
   return "Full Day";
 }
 
+function calculateDisplayedLeaveDays(
+  startDate?: string,
+  endDate?: string,
+  leavePortion: LeavePortion = "full-day"
+) {
+  if (!startDate || !endDate) {
+    return 0;
+  }
+
+  if (leavePortion === "half-day") {
+    return 0.5;
+  }
+
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const diffMs = end.getTime() - start.getTime();
+
+  if (!Number.isFinite(diffMs)) {
+    return 0;
+  }
+
+  return Math.max(Math.floor(diffMs / 86400000) + 1, 0);
+}
+
 function formatLeaveDays(value?: number | string | null) {
   const normalizedValue =
     typeof value === "number"
@@ -811,6 +835,14 @@ export function AdminLeavesPanel() {
                       status: request.status,
                       adminNote: request.adminNote ?? "",
                     };
+                    const displayDays =
+                      Number(request.daysRequested ?? 0) > 0
+                        ? request.daysRequested
+                        : calculateDisplayedLeaveDays(
+                            request.startDate,
+                            request.endDate,
+                            request.leavePortion || "full-day"
+                          );
 
                     return (
                       <tr
@@ -848,7 +880,7 @@ export function AdminLeavesPanel() {
                           </p>
                         </td>
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                          {formatLeaveDays(request.daysRequested)}
+                          {formatLeaveDays(displayDays)}
                         </td>
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                           {request.reason}
