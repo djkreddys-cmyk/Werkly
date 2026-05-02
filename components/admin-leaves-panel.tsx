@@ -88,9 +88,8 @@ function formatLeaveDays(value?: number | string | null) {
     return "0";
   }
 
-  return Number.isInteger(normalizedValue)
-    ? String(normalizedValue)
-    : normalizedValue.toFixed(1);
+  const roundedValue = Math.round(normalizedValue * 10) / 10;
+  return Number.isInteger(roundedValue) ? String(roundedValue) : String(roundedValue);
 }
 
 export function AdminLeavesPanel() {
