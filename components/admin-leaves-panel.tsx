@@ -93,28 +93,17 @@ function formatLeaveDays(value?: number | string | null) {
 }
 
 export function AdminLeavesPanel() {
-  const [token] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAdminToken") ?? ""
-      : ""
-  );
-  const [authType] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAuthType") ?? "admin"
-      : "admin"
-  );
-  const [authRole] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
-      : "super-admin"
-  );
+  const [token, setToken] = useState("");
+  const [authType, setAuthType] = useState("admin");
+  const [authRole, setAuthRole] = useState("super-admin");
+  const [isHydrated, setIsHydrated] = useState(false);
   const [state, setState] = useState<LeaveState>({
     leaveTypes: [],
     assignments: [],
     requests: [],
     employees: [],
   });
-  const [isLoading, setIsLoading] = useState(Boolean(token));
+  const [isLoading, setIsLoading] = useState(false);
   const [isSavingType, setIsSavingType] = useState(false);
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -138,6 +127,17 @@ export function AdminLeavesPanel() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const canManageLeaves = authType === "admin" || authRole === "super-admin";
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setToken(window.localStorage.getItem("werklyAdminToken") ?? "");
+    setAuthType(window.localStorage.getItem("werklyAuthType") ?? "admin");
+    setAuthRole(window.localStorage.getItem("werklyAuthRole") ?? "super-admin");
+    setIsHydrated(true);
+  }, []);
 
   const loadState = useCallback(async () => {
     if (!token) {
@@ -178,7 +178,7 @@ export function AdminLeavesPanel() {
   }, [canManageLeaves, token]);
 
   useEffect(() => {
-    if (!token) {
+    if (!isHydrated || !token) {
       return;
     }
 
@@ -188,7 +188,7 @@ export function AdminLeavesPanel() {
         setError(loadError instanceof Error ? loadError.message : "Unable to load leave data.");
       })
       .finally(() => setIsLoading(false));
-  }, [loadState, token]);
+  }, [isHydrated, loadState, token]);
 
   const availableLeaveTypes = useMemo(() => {
     if (canManageLeaves) {
