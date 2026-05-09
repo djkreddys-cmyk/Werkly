@@ -15,12 +15,16 @@ import type {
   EmployeeRecord,
 } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
+import type { LeaveRequestRecord } from "@/lib/leave";
+import type { ApprovalRequestRecord } from "@/lib/workflow";
 
 type DashboardState = {
   jobs: JobSummary[];
   clients: ClientRecord[];
   employees: EmployeeRecord[];
   applications: JobApplication[];
+  approvals: ApprovalRequestRecord[];
+  leaveRequests: LeaveRequestRecord[];
 };
 
 type FollowUpItem = {
@@ -305,6 +309,8 @@ export function AdminDashboardOverview() {
     clients: [],
     employees: [],
     applications: [],
+    approvals: [],
+    leaveRequests: [],
   });
   const [settings, setSettings] = useState<CrmKpiSettings>(defaultKpiSettings);
   const [isLoading, setIsLoading] = useState(Boolean(token));
@@ -345,6 +351,16 @@ export function AdminDashboardOverview() {
       return;
     }
 
+    const emptyAdminDataResponse = (payload: Record<string, unknown>) =>
+      Promise.resolve(
+        new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+      );
+
     Promise.all([
       fetch("/api/admin/jobs", {
         headers: { Authorization: `Bearer ${token}` },
@@ -361,6 +377,16 @@ export function AdminDashboardOverview() {
       fetch("/api/admin/settings", {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      isAdminView
+        ? fetch("/api/admin/approvals", {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        : emptyAdminDataResponse({ approvals: [] }),
+      isAdminView
+        ? fetch("/api/admin/leaves/requests", {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        : emptyAdminDataResponse({ requests: [] }),
     ])
       .then(
         async ([
@@ -369,6 +395,8 @@ export function AdminDashboardOverview() {
           employeesResponse,
           applicationsResponse,
           settingsResponse,
+          approvalsResponse,
+          leaveRequestsResponse,
         ]) => {
         const jobsResult = (await jobsResponse.json()) as {
           jobs?: JobSummary[];
@@ -389,6 +417,14 @@ export function AdminDashboardOverview() {
         const settingsResult = (await settingsResponse.json()) as Partial<CrmKpiSettings> & {
           message?: string;
         };
+        const approvalsResult = (await approvalsResponse.json()) as {
+          approvals?: ApprovalRequestRecord[];
+          message?: string;
+        };
+        const leaveRequestsResult = (await leaveRequestsResponse.json()) as {
+          requests?: LeaveRequestRecord[];
+          message?: string;
+        };
 
         if (!jobsResponse.ok) {
           throw new Error(jobsResult.message || "Unable to load jobs.");
@@ -405,12 +441,20 @@ export function AdminDashboardOverview() {
         if (!settingsResponse.ok) {
           throw new Error(settingsResult.message || "Unable to load CRM settings.");
         }
+        if (!approvalsResponse.ok) {
+          throw new Error(approvalsResult.message || "Unable to load approvals.");
+        }
+        if (!leaveRequestsResponse.ok) {
+          throw new Error(leaveRequestsResult.message || "Unable to load leave requests.");
+        }
 
         setState({
           jobs: jobsResult.jobs ?? [],
           clients: clientsResult.clients ?? [],
           employees: employeesResult.employees ?? [],
           applications: applicationsResult.applications ?? [],
+          approvals: approvalsResult.approvals ?? [],
+          leaveRequests: leaveRequestsResult.requests ?? [],
         });
         setSettings({
           ...defaultKpiSettings,
@@ -426,7 +470,7 @@ export function AdminDashboardOverview() {
         setError(loadError instanceof Error ? loadError.message : "Unable to load dashboard.");
       })
       .finally(() => setIsLoading(false));
-  }, [token]);
+  }, [isAdminView, token]);
 
   const visibleEmployees = useMemo(() => {
     if (!isEmployeeSession) {
@@ -562,8 +606,19 @@ export function AdminDashboardOverview() {
         value: filteredFollowUps.length,
         href: "/admin/clients/existing",
       },
+      {
+        label: "My Pending Approvals",
+        value: state.approvals.filter((approval) => approval.requestStatus === "pending").length,
+        href: "/admin/settings/workflow",
+      },
     ],
-    [filteredFollowUps.length, visibleApplications.length, visibleClients.length, visibleJobs.length]
+    [
+      filteredFollowUps.length,
+      state.approvals,
+      visibleApplications.length,
+      visibleClients.length,
+      visibleJobs.length,
+    ]
   );
 
   const recruiterAlerts = useMemo(() => {
@@ -574,6 +629,15 @@ export function AdminDashboardOverview() {
     }).length;
     const staleClients = visibleClients.filter(
       (client) => !normalizeDateKey(client.lastFollowUpDate) && normalizeDateKey(client.nextFollowUpDate)
+    ).length;
+    const tomorrowKey = formatLocalDateKey(
+      new Date(parseDateKey(todayKey).getTime() + 1000 * 60 * 60 * 24)
+    );
+    const tomorrowFollowUps = filteredFollowUps.filter(
+      (item) => item.nextFollowUpDate === tomorrowKey && item.followUpStatus !== "closed"
+    ).length;
+    const pendingApprovals = state.approvals.filter(
+      (approval) => approval.requestStatus === "pending"
     ).length;
 
     return [
@@ -592,8 +656,18 @@ export function AdminDashboardOverview() {
         value: staleClients,
         detail: "Accounts with follow-up dates but no last follow-up recorded yet.",
       },
+      {
+        label: "Tomorrow follow-ups",
+        value: tomorrowFollowUps,
+        detail: "Upcoming client reminders already scheduled for tomorrow.",
+      },
+      {
+        label: "Pending approvals",
+        value: pendingApprovals,
+        detail: "Sensitive workflow actions that still need admin review.",
+      },
     ];
-  }, [visibleApplications, visibleClients, visibleJobs]);
+  }, [filteredFollowUps, state.approvals, todayKey, visibleApplications, visibleClients, visibleJobs]);
 
   const followUpCountsByDate = useMemo(() => {
     return filteredFollowUps.reduce<Record<string, number>>((accumulator, item) => {
@@ -761,6 +835,40 @@ export function AdminDashboardOverview() {
         (1000 * 60 * 60 * 24);
       return diff >= 0 && diff <= 7;
     }).length;
+    const tomorrowKey = formatLocalDateKey(
+      new Date(parseDateKey(todayKey).getTime() + 1000 * 60 * 60 * 24)
+    );
+    const dueTomorrowFollowUps = filteredFollowUps.filter(
+      (item) => item.nextFollowUpDate === tomorrowKey && item.followUpStatus !== "closed"
+    ).length;
+    const pendingApprovalCount = state.approvals.filter(
+      (approval) => approval.requestStatus === "pending"
+    ).length;
+    const pendingClientTransfers = state.approvals.filter(
+      (approval) =>
+        approval.requestStatus === "pending" && approval.requestType === "client-transfer"
+    ).length;
+    const pendingCandidateTransfers = state.approvals.filter(
+      (approval) =>
+        approval.requestStatus === "pending" && approval.requestType === "candidate-transfer"
+    ).length;
+    const pendingLeaveApprovals = state.leaveRequests.filter(
+      (request) => request.status === "pending"
+    ).length;
+    const jobsWithoutApplications = liveJobs.filter(
+      (job) => Number(job.applicationsCount ?? 0) === 0
+    ).length;
+    const oldestOpenJobDays = liveJobs.reduce((maxDays, job) => {
+      const postedAt = new Date(job.postedAt);
+      if (Number.isNaN(postedAt.getTime())) {
+        return maxDays;
+      }
+      const ageDays = Math.max(
+        0,
+        Math.floor((parseDateKey(todayKey).getTime() - postedAt.getTime()) / (1000 * 60 * 60 * 24))
+      );
+      return Math.max(maxDays, ageDays);
+    }, 0);
 
     return {
       liveJobs: liveJobs.length,
@@ -769,19 +877,43 @@ export function AdminDashboardOverview() {
       activeEmployees: visibleEmployees.filter((employee) => employee.status === "active").length,
       dueTodayFollowUps,
       overdueFollowUps,
+      dueTomorrowFollowUps,
       upcomingSevenDays,
+      pendingApprovalCount,
+      pendingClientTransfers,
+      pendingCandidateTransfers,
+      pendingLeaveApprovals,
+      jobsWithoutApplications,
+      oldestOpenJobDays,
       recruiterSummary: visibleEmployees
         .filter((employee) => employee.status === "active")
         .map((employee) => {
-          const assignedClients = visibleClients.filter(
-            (client) => client.assignedEmployeeId === employee.id
+          const onboardedClients = visibleClients.filter(
+            (client) =>
+              client.assignedEmployeeId === employee.id &&
+              (client.onboardingStatus || "new-lead") === "onboarded"
           ).length;
+          const leadAssignments = visibleClients.filter(
+            (client) =>
+              client.assignedEmployeeId === employee.id &&
+              (client.onboardingStatus || "new-lead") !== "onboarded"
+          ).length;
+          const assignedJobs = visibleJobs.filter((job) => job.recruiterId === employee.id).length;
           const followUps = followUpItems.filter((item) => item.ownerId === employee.id);
+          const assignedCandidates = visibleApplications.filter(
+            (application) =>
+              application.assignedEmployeeId === employee.id ||
+              application.followUpEmployeeId === employee.id ||
+              application.recruiterEmail === employee.email
+          ).length;
 
           return {
             id: employee.id,
             fullName: employee.fullName,
-            assignedClients,
+            onboardedClients,
+            leadAssignments,
+            assignedJobs,
+            assignedCandidates,
             followUps: followUps.length,
             today: followUps.filter((item) => item.nextFollowUpDate === todayKey).length,
             overdue: followUps.filter(
@@ -795,6 +927,8 @@ export function AdminDashboardOverview() {
   }, [
     filteredFollowUps,
     followUpItems,
+    state.approvals,
+    state.leaveRequests,
     todayKey,
     visibleApplications,
     visibleClients,
@@ -822,12 +956,25 @@ export function AdminDashboardOverview() {
             : "No client follow-ups are due today.",
       },
       {
+        label: "Due Tomorrow",
+        value: metrics.dueTomorrowFollowUps,
+        detail:
+          metrics.dueTomorrowFollowUps > 0
+            ? "Tomorrow's client reminders are already lined up."
+            : "No client follow-ups are waiting for tomorrow yet.",
+      },
+      {
         label: "Closed This View",
         value: filteredFollowUps.filter((item) => item.followUpStatus === "closed").length,
         detail: "Completed follow-ups in the current dashboard view.",
       },
     ],
-    [filteredFollowUps, metrics.dueTodayFollowUps, metrics.overdueFollowUps]
+    [
+      filteredFollowUps,
+      metrics.dueTodayFollowUps,
+      metrics.dueTomorrowFollowUps,
+      metrics.overdueFollowUps,
+    ]
   );
   const employeeProductivity = useMemo(
     () =>
@@ -877,12 +1024,12 @@ export function AdminDashboardOverview() {
       typeof window === "undefined" ||
       !settings.enableBrowserNotifications ||
       notificationPermission !== "granted" ||
-      metrics.overdueFollowUps + metrics.dueTodayFollowUps === 0
+      metrics.overdueFollowUps + metrics.dueTodayFollowUps + metrics.dueTomorrowFollowUps === 0
     ) {
       return;
     }
 
-    const reminderKey = `werkly-followup-reminder-${todayKey}-${metrics.overdueFollowUps}-${metrics.dueTodayFollowUps}`;
+    const reminderKey = `werkly-followup-reminder-${todayKey}-${metrics.overdueFollowUps}-${metrics.dueTodayFollowUps}-${metrics.dueTomorrowFollowUps}`;
     if (window.localStorage.getItem(reminderKey)) {
       return;
     }
@@ -890,11 +1037,15 @@ export function AdminDashboardOverview() {
     const title =
       metrics.overdueFollowUps > 0
         ? "Werkly CRM: Overdue follow-ups need attention"
-        : "Werkly CRM: Follow-ups due today";
+        : metrics.dueTodayFollowUps > 0
+          ? "Werkly CRM: Follow-ups due today"
+          : "Werkly CRM: Follow-ups due tomorrow";
     const body =
       metrics.overdueFollowUps > 0
         ? `${metrics.overdueFollowUps} overdue and ${metrics.dueTodayFollowUps} due today in your current dashboard view.`
-        : `${metrics.dueTodayFollowUps} follow-ups are due today in your current dashboard view.`;
+        : metrics.dueTodayFollowUps > 0
+          ? `${metrics.dueTodayFollowUps} follow-ups are due today in your current dashboard view.`
+          : `${metrics.dueTomorrowFollowUps} follow-ups are scheduled for tomorrow in your current dashboard view.`;
 
     new window.Notification(title, { body });
 
@@ -928,6 +1079,7 @@ export function AdminDashboardOverview() {
     currentEmployeeId,
     isAdminView,
     metrics.dueTodayFollowUps,
+    metrics.dueTomorrowFollowUps,
     metrics.overdueFollowUps,
     notificationPermission,
     settings.enableBrowserNotifications,
@@ -1012,7 +1164,7 @@ export function AdminDashboardOverview() {
         </section>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
         {[
           {
             label: isAdminView ? "Live Jobs" : "My Live Jobs",
@@ -1041,6 +1193,24 @@ export function AdminDashboardOverview() {
               setIsDateModalOpen(false);
               scrollToSection(queueSectionRef);
             },
+          },
+          {
+            label: "Due Tomorrow",
+            value: metrics.dueTomorrowFollowUps,
+            onClick: () => {
+              setSelectedFollowUpStatus("all");
+              openDateDetails(
+                formatLocalDateKey(
+                  new Date(parseDateKey(todayKey).getTime() + 1000 * 60 * 60 * 24)
+                )
+              );
+              scrollToSection(calendarSectionRef);
+            },
+          },
+          {
+            label: "Pending Approvals",
+            value: metrics.pendingApprovalCount,
+            onClick: () => router.push("/admin/settings/workflow"),
           },
           {
             label: "Next 7 Days",
@@ -1116,6 +1286,113 @@ export function AdminDashboardOverview() {
                       {alert.value}
                     </span>
                   </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </section>
+      ) : null}
+
+      {isAdminView ? (
+        <section className="grid gap-5 xl:grid-cols-[0.94fr_1.06fr]">
+          <article className="accent-card p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="eyebrow">Approval Summary</p>
+                <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+                  Review sensitive actions waiting for a decision
+                </h2>
+              </div>
+              <Link
+                href="/admin/settings/workflow"
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+              >
+                Open Workflow
+              </Link>
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Pending Approvals",
+                  value: metrics.pendingApprovalCount,
+                  detail: "All workflow actions waiting for admin review.",
+                },
+                {
+                  label: "Client Transfers",
+                  value: metrics.pendingClientTransfers,
+                  detail: "Ownership and follow-up support requests for clients.",
+                },
+                {
+                  label: "Candidate Transfers",
+                  value: metrics.pendingCandidateTransfers,
+                  detail: "Candidate assignment moves awaiting approval.",
+                },
+                {
+                  label: "Leave Approvals",
+                  value: metrics.pendingLeaveApprovals,
+                  detail: "Employee leave requests still pending a decision.",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                    {card.label}
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
+                    {card.value}
+                  </p>
+                  <p className="muted-copy mt-2 text-sm">{card.detail}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="accent-card p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="eyebrow">Job Aging</p>
+                <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+                  Spot mandates that need pipeline attention
+                </h2>
+              </div>
+              <Link
+                href="/admin/reports/aging"
+                className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+              >
+                Open Aging Report
+              </Link>
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              {[
+                {
+                  label: "Open Jobs",
+                  value: metrics.liveJobs,
+                  detail: "Published mandates that are still active.",
+                },
+                {
+                  label: "No Applications",
+                  value: metrics.jobsWithoutApplications,
+                  detail: "Open roles still waiting for their first profile.",
+                },
+                {
+                  label: "Oldest Open Age",
+                  value: `${metrics.oldestOpenJobDays}d`,
+                  detail: "Longest-running live job age based on posted date.",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                    {card.label}
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
+                    {card.value}
+                  </p>
+                  <p className="muted-copy mt-2 text-sm">{card.detail}</p>
                 </div>
               ))}
             </div>
@@ -1440,7 +1717,7 @@ export function AdminDashboardOverview() {
             <div>
               <p className="eyebrow">{isAdminView ? "Team Snapshot" : "My Snapshot"}</p>
               <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
-                {isAdminView ? "Follow-up ownership across the team" : "Your daily CRM activity"}
+                {isAdminView ? "Employee ownership summary across the team" : "Your daily CRM activity"}
               </h2>
             </div>
             {isAdminView ? (
@@ -1463,7 +1740,7 @@ export function AdminDashboardOverview() {
                 <table className="w-full border-collapse bg-white">
                   <thead>
                     <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                      {["Recruiter", "Clients", "Follow-Ups", "Today", "Overdue"].map(
+                      {["Employee", "Onboarded", "Leads", "Jobs", "Candidates", "Follow-Ups", "Today", "Overdue"].map(
                         (heading) => (
                           <th
                             key={heading}
@@ -1489,7 +1766,16 @@ export function AdminDashboardOverview() {
                           {row.fullName}
                         </td>
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                          {row.assignedClients}
+                          {row.onboardedClients}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {row.leadAssignments}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {row.assignedJobs}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {row.assignedCandidates}
                         </td>
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                           {row.followUps}

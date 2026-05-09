@@ -161,6 +161,7 @@ export function AdminJobsDashboard({
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [allApplications, setAllApplications] = useState<JobApplication[]>([]);
   const [form, setForm] = useState<JobEditorState>(emptyForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -322,6 +323,23 @@ export function AdminJobsDashboard({
       )
     );
   }, [applications, applicationsSearch]);
+  const duplicateCandidateMatches = useMemo(() => {
+    const normalizedEmail = manualCandidateForm.candidateEmail.trim().toLowerCase();
+    const normalizedPhone = manualCandidateForm.candidatePhone.replace(/\D/g, "");
+
+    if (!normalizedEmail && !normalizedPhone) {
+      return [];
+    }
+
+    return allApplications.filter((application) => {
+      const applicationEmail = String(application.candidateEmail || "").trim().toLowerCase();
+      const applicationPhone = String(application.candidatePhone || "").replace(/\D/g, "");
+      return Boolean(
+        (normalizedEmail && applicationEmail === normalizedEmail) ||
+          (normalizedPhone && applicationPhone === normalizedPhone)
+      );
+    });
+  }, [allApplications, manualCandidateForm.candidateEmail, manualCandidateForm.candidatePhone]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !canManageJobs) {
@@ -369,8 +387,13 @@ export function AdminJobsDashboard({
           Authorization: `Bearer ${token}`,
         },
       }),
+      fetch("/api/admin/applications", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
     ])
-      .then(async ([jobsResponse, clientsResponse, employeesResponse]) => {
+      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse]) => {
         const jobsResult = (await jobsResponse.json()) as {
           jobs?: JobSummary[];
           message?: string;
@@ -387,16 +410,24 @@ export function AdminJobsDashboard({
           employees?: EmployeeRecord[];
           message?: string;
         };
+        const applicationsResult = (await applicationsResponse.json()) as {
+          applications?: JobApplication[];
+          message?: string;
+        };
         if (!clientsResponse.ok) {
           throw new Error(clientsResult.message || "Unable to load clients.");
         }
         if (!employeesResponse.ok) {
           throw new Error(employeesResult.message || "Unable to load employees.");
         }
+        if (!applicationsResponse.ok) {
+          throw new Error(applicationsResult.message || "Unable to load applications.");
+        }
 
         setJobs(jobsResult.jobs ?? []);
         setClients(clientsResult.clients ?? []);
         setEmployees(employeesResult.employees ?? []);
+        setAllApplications(applicationsResult.applications ?? []);
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load jobs.");
@@ -762,7 +793,7 @@ export function AdminJobsDashboard({
   }
 
   async function refreshJobs() {
-    const [jobsResponse, clientsResponse, employeesResponse] = await Promise.all([
+    const [jobsResponse, clientsResponse, employeesResponse, applicationsResponse] = await Promise.all([
       fetch("/api/admin/jobs", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -774,6 +805,11 @@ export function AdminJobsDashboard({
         },
       }),
       fetch("/api/admin/employees", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
+      fetch("/api/admin/applications", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -794,12 +830,20 @@ export function AdminJobsDashboard({
       employees?: EmployeeRecord[];
       message?: string;
     };
+    const applicationsResult = (await applicationsResponse.json()) as {
+      applications?: JobApplication[];
+      message?: string;
+    };
     if (!employeesResponse.ok) {
       throw new Error(employeesResult.message || "Unable to refresh employees.");
+    }
+    if (!applicationsResponse.ok) {
+      throw new Error(applicationsResult.message || "Unable to refresh applications.");
     }
     setJobs(jobsResult.jobs ?? []);
     setClients(clientsResult.clients ?? []);
     setEmployees(employeesResult.employees ?? []);
+    setAllApplications(applicationsResult.applications ?? []);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1940,6 +1984,23 @@ export function AdminJobsDashboard({
 
             <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleManualCandidateSubmit}>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+              {duplicateCandidateMatches.length > 0 ? (
+                <div className="mb-4 rounded-2xl border border-[rgba(190,72,26,0.24)] bg-[rgba(190,72,26,0.08)] px-4 py-3 text-sm text-[var(--color-accent-strong)]">
+                  Candidate already exists in the CRM with the same
+                  {manualCandidateForm.candidateEmail.trim() && manualCandidateForm.candidatePhone.trim()
+                    ? " email or phone"
+                    : manualCandidateForm.candidateEmail.trim()
+                      ? " email"
+                      : " phone"}
+                  . You can still continue if this application is meant for a different job.
+                  <div className="mt-2 text-xs text-[var(--color-ink)]">
+                    {duplicateCandidateMatches
+                      .slice(0, 3)
+                      .map((match) => `${match.candidateName} - ${match.jobTitle || match.jobCode || "Existing application"}`)
+                      .join(" | ")}
+                  </div>
+                </div>
+              ) : null}
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Candidate Name</span>

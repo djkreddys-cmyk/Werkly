@@ -973,6 +973,7 @@ function CrmClientsList({
   employeeOptions = [],
   onTransfer,
   onFollowUp,
+  onConvertLead,
   onDelete,
   onBulkAssignment,
 }: {
@@ -984,6 +985,7 @@ function CrmClientsList({
   employeeOptions?: EmployeeRecord[];
   onTransfer: (client: ClientRecord) => void;
   onFollowUp: (client: ClientRecord) => void;
+  onConvertLead?: (client: ClientRecord) => void;
   onDelete: (client: ClientRecord) => void;
   onBulkAssignment?: (
     clientIds: string[],
@@ -1563,6 +1565,14 @@ function CrmClientsList({
                                 label: "Transfer Client",
                                 onClick: () => onTransfer(client),
                               },
+                              ...(viewMode === "leads" && isSuperAdmin
+                                ? [
+                                    {
+                                      label: "Convert to Onboarded",
+                                      onClick: () => onConvertLead?.(client),
+                                    },
+                                  ]
+                                : []),
                               ...(canDelete
                                 ? [
                                     {
@@ -3013,6 +3023,49 @@ export function AdminClientsPanel({
     }
   }
 
+  async function handleConvertLead(client: ClientRecord) {
+    if (!token || !isSuperAdmin) {
+      setError("Only Super Admin can convert leads.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Convert "${client.companyName}" from lead stage to onboarded client?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/clients/${client.id}/onboarding`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          onboardingStatus: "onboarded",
+          notes: "Converted from Client Leads screen.",
+        }),
+      });
+      const result = (await response.json()) as ClientRecord & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to convert lead.");
+      }
+
+      await refreshCrm(token);
+      setMessage(`${client.companyName} was converted to an onboarded client.`);
+    } catch (conversionError) {
+      setError(
+        conversionError instanceof Error ? conversionError.message : "Unable to convert lead."
+      );
+    }
+  }
+
   async function handleBulkLeadAssignment(
     clientIds: string[],
     action: "assign" | "unassign",
@@ -3534,6 +3587,9 @@ export function AdminClientsPanel({
               setFollowUpNotes(client.followUpNotes || "");
               setError("");
               setMessage("");
+            }}
+            onConvertLead={(client) => {
+              void handleConvertLead(client);
             }}
             onDelete={(client) => {
               void handleDeleteClient(client);

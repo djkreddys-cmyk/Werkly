@@ -318,6 +318,23 @@ export function AdminCandidateEnquiriesPanel() {
         .some((value) => String(value).toLowerCase().includes(trimmed))
     );
   }, [enquiries, query]);
+  const duplicateEnquiryMatches = useMemo(() => {
+    const normalizedEmail = String(form.candidateEmail || "").trim().toLowerCase();
+    const normalizedPhone = String(form.candidatePhone || "").replace(/\D/g, "");
+
+    if (!normalizedEmail && !normalizedPhone) {
+      return [];
+    }
+
+    return enquiries.filter((enquiry) => {
+      const enquiryEmail = String(enquiry.candidateEmail || "").trim().toLowerCase();
+      const enquiryPhone = String(enquiry.candidatePhone || "").replace(/\D/g, "");
+      return Boolean(
+        (normalizedEmail && enquiryEmail === normalizedEmail) ||
+          (normalizedPhone && enquiryPhone === normalizedPhone)
+      );
+    });
+  }, [enquiries, form.candidateEmail, form.candidatePhone]);
 
   return (
     <section id="general-candidate-enquiries" className="accent-card scroll-mt-28 p-7">
@@ -492,6 +509,18 @@ export function AdminCandidateEnquiriesPanel() {
             </div>
             <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleManualSubmit}>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+                {duplicateEnquiryMatches.length > 0 ? (
+                  <div className="mb-4 rounded-2xl border border-[rgba(190,72,26,0.24)] bg-[rgba(190,72,26,0.08)] px-4 py-3 text-sm text-[var(--color-accent-strong)]">
+                    Candidate enquiry already exists with the same
+                    {String(form.candidateEmail || "").trim() &&
+                    String(form.candidatePhone || "").trim()
+                      ? " email or phone"
+                      : String(form.candidateEmail || "").trim()
+                        ? " email"
+                        : " phone"}
+                    . You can still save if this is intentionally a separate record.
+                  </div>
+                ) : null}
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {enquiryFormFields.map(({ field, label, required }) => (
                     <label key={field} className="block">
