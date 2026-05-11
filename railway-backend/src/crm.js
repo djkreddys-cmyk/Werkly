@@ -89,6 +89,9 @@ export async function ensureCrmSchema() {
       contact_person text not null,
       contact_email text,
       contact_phone text,
+      secondary_contact_person text,
+      secondary_contact_email text,
+      secondary_contact_phone text,
       communication_address text,
       sector text,
       branch text,
@@ -104,7 +107,7 @@ export async function ensureCrmSchema() {
       temporary_access_note text,
       status text not null default 'active',
       onboarding_status text not null default 'new-lead',
-      follow_up_status text not null default 'pending',
+      follow_up_status text not null default 'awaiting-response',
       next_follow_up_date date,
       last_follow_up_date date,
       onboarding_source text,
@@ -217,8 +220,12 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
   await query(`alter table clients add column if not exists communication_address text`);
+  await query(`alter table clients add column if not exists secondary_contact_person text`);
+  await query(`alter table clients add column if not exists secondary_contact_email text`);
+  await query(`alter table clients add column if not exists secondary_contact_phone text`);
   await query(`alter table clients add column if not exists onboarding_status text not null default 'new-lead'`);
-  await query(`alter table clients add column if not exists follow_up_status text not null default 'pending'`);
+  await query(`alter table clients add column if not exists follow_up_status text not null default 'awaiting-response'`);
+  await query(`alter table clients alter column follow_up_status set default 'awaiting-response'`);
   await query(`alter table clients add column if not exists next_follow_up_date date`);
   await query(`alter table clients add column if not exists last_follow_up_date date`);
   await query(`alter table clients add column if not exists onboarding_source text`);
@@ -666,6 +673,9 @@ function mapClientRow(row) {
     contactPerson: row.contact_person,
     contactEmail: row.contact_email,
     contactPhone: row.contact_phone,
+    secondaryContactPerson: row.secondary_contact_person,
+    secondaryContactEmail: row.secondary_contact_email,
+    secondaryContactPhone: row.secondary_contact_phone,
     communicationAddress: row.communication_address,
     sector: row.sector,
     branch: row.branch,
@@ -1211,6 +1221,9 @@ export async function listClients(employeeId = null) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.secondary_contact_person,
+      clients.secondary_contact_email,
+      clients.secondary_contact_phone,
       clients.communication_address,
       clients.sector,
       clients.branch,
@@ -1279,6 +1292,9 @@ export async function getClientById(clientId) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.secondary_contact_person,
+      clients.secondary_contact_email,
+      clients.secondary_contact_phone,
       clients.communication_address,
       clients.sector,
       clients.branch,
@@ -1350,6 +1366,9 @@ export async function createClient(payload) {
       contact_person,
       contact_email,
       contact_phone,
+      secondary_contact_person,
+      secondary_contact_email,
+      secondary_contact_phone,
       communication_address,
       sector,
       branch,
@@ -1369,20 +1388,23 @@ export async function createClient(payload) {
       agreement_file_name,
       agreement_file_type,
       agreement_file_data
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, null, null, null, null, $9, $10, $11, $12::date, $13::date, $14, $15, $16, $17, $18, $19)
-    returning id, company_name, contact_person, contact_email, contact_phone, communication_address, sector, branch, assigned_employee_id, follow_up_employee_id, follow_up_from_date, follow_up_to_date, follow_up_assignment_note, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, null, null, null, null, $12, $13, $14, $15::date, $16::date, $17, $18, $19, $20, $21, $22)
+    returning id, company_name, contact_person, contact_email, contact_phone, secondary_contact_person, secondary_contact_email, secondary_contact_phone, communication_address, sector, branch, assigned_employee_id, follow_up_employee_id, follow_up_from_date, follow_up_to_date, follow_up_assignment_note, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
     [
       payload.companyName,
       payload.contactPerson,
       payload.contactEmail || null,
       payload.contactPhone || null,
+      payload.secondaryContactPerson || null,
+      payload.secondaryContactEmail || null,
+      payload.secondaryContactPhone || null,
       payload.communicationAddress || null,
       payload.sector || null,
       payload.branch || null,
       payload.assignedEmployeeId || null,
       payload.status || "active",
       payload.onboardingStatus || "new-lead",
-      payload.followUpStatus || "pending",
+      payload.followUpStatus || "awaiting-response",
       payload.nextFollowUpDate || null,
       payload.lastFollowUpDate || null,
       payload.onboardingSource || null,
@@ -1482,6 +1504,9 @@ export async function reassignClient(clientId, payload) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.secondary_contact_person,
+      clients.secondary_contact_email,
+      clients.secondary_contact_phone,
       clients.communication_address,
       clients.sector,
       clients.branch,
@@ -1598,6 +1623,9 @@ export async function bulkAssignClients(clientIds, payload) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.secondary_contact_person,
+      clients.secondary_contact_email,
+      clients.secondary_contact_phone,
       clients.communication_address,
       clients.sector,
       clients.branch,
@@ -1681,7 +1709,7 @@ export async function updateClientFollowUp(clientId, payload) {
       returning id`,
     [
       clientId,
-      payload.followUpStatus || "pending",
+      payload.followUpStatus || "awaiting-response",
       payload.nextFollowUpDate || null,
       payload.lastFollowUpDate || null,
       payload.followUpNotes || null,
@@ -1711,7 +1739,7 @@ export async function updateClientFollowUp(clientId, payload) {
       payload.actorName || null,
       payload.actorRole || null,
       existing.follow_up_status || null,
-      payload.followUpStatus || "pending",
+      payload.followUpStatus || "awaiting-response",
       payload.lastFollowUpDate || null,
       payload.nextFollowUpDate || null,
       payload.followUpNotes || null,
@@ -1725,6 +1753,9 @@ export async function updateClientFollowUp(clientId, payload) {
       clients.contact_person,
       clients.contact_email,
       clients.contact_phone,
+      clients.secondary_contact_person,
+      clients.secondary_contact_email,
+      clients.secondary_contact_phone,
       clients.communication_address,
       clients.sector,
       clients.branch,

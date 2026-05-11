@@ -9,6 +9,7 @@ import type {
   ClientOnboardingStatus,
   ClientRecord,
 } from "@/lib/crm";
+import { normalizeClientFollowUpStatus } from "@/lib/crm";
 
 function formatDateLabel(value?: string) {
   if (!value) {
@@ -44,7 +45,7 @@ function formatDateTimeLabel(value?: string) {
 }
 
 function formatFollowUpStage(stage?: string) {
-  const safeStage = stage || "pending";
+  const safeStage = normalizeClientFollowUpStatus(stage);
   return safeStage
     .split(/[\s_-]+/)
     .filter(Boolean)
@@ -75,7 +76,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [message, setMessage] = useState("");
   const [onboardingStatus, setOnboardingStatus] = useState<ClientOnboardingStatus>("new-lead");
   const [onboardingNotes, setOnboardingNotes] = useState("");
-  const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("pending");
+  const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("awaiting-response");
   const [lastFollowUpDate, setLastFollowUpDate] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
@@ -112,7 +113,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
         setActivity(activityResult.activity ?? []);
         setOnboardingStatus(clientResult.onboardingStatus || "new-lead");
         setOnboardingNotes(clientResult.notes || "");
-        setFollowUpStatus(clientResult.followUpStatus || "pending");
+        setFollowUpStatus(normalizeClientFollowUpStatus(clientResult.followUpStatus));
         setLastFollowUpDate(clientResult.lastFollowUpDate || "");
         setNextFollowUpDate(clientResult.nextFollowUpDate || "");
         setFollowUpNotes(clientResult.followUpNotes || "");
@@ -126,8 +127,8 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const historySummary = useMemo(
     () => ({
       total: activity.length,
-      closed: activity.filter((item) => item.toStatus === "closed").length,
-      due: activity.filter((item) => item.toStatus === "follow-up-due").length,
+      closed: activity.filter((item) => normalizeClientFollowUpStatus(item.toStatus) === "on-boarded").length,
+      due: activity.filter((item) => normalizeClientFollowUpStatus(item.toStatus) === "positive-need-followup").length,
     }),
     [activity]
   );
@@ -331,6 +332,9 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
               ["Contact Person", client.contactPerson],
               ["Contact Email", client.contactEmail || "Not added"],
               ["Contact Phone", client.contactPhone || "Not added"],
+              ["Second Contact Person", client.secondaryContactPerson || "Not added"],
+              ["Second Contact Email", client.secondaryContactEmail || "Not added"],
+              ["Second Contact Phone", client.secondaryContactPhone || "Not added"],
               ["Communication Address", client.communicationAddress || "Not added"],
               ["Sector", client.sector || "Not added"],
               ["Branch", client.branch || "Not added"],
@@ -441,11 +445,13 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
                 }
                 className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               >
-                <option value="pending">Pending</option>
-                <option value="follow-up-due">Follow-Up Due</option>
-                <option value="in-progress">In Discussion</option>
-                <option value="awaiting-client">Awaiting Response</option>
-                <option value="closed">Closed</option>
+                <option value="not-responding">Not Responding</option>
+                <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
+                <option value="in-discussion">In Discussion</option>
+                <option value="no-vendor-support">No Vendor Support</option>
+                <option value="awaiting-response">Awaiting Response</option>
+                <option value="positive-need-followup">Positive Need Followup</option>
+                <option value="on-boarded">On-Boarded</option>
               </select>
             </label>
 

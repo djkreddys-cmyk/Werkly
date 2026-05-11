@@ -50,11 +50,44 @@ export type ClientOnboardingStatus =
   | "onboarded"
   | "hold";
 export type ClientFollowUpStatus =
+  | "not-responding"
+  | "business-proposal-email-sent"
+  | "in-discussion"
+  | "no-vendor-support"
+  | "awaiting-response"
+  | "positive-need-followup"
+  | "on-boarded"
   | "pending"
   | "follow-up-due"
   | "in-progress"
   | "awaiting-client"
   | "closed";
+
+export function normalizeClientFollowUpStatus(value?: string): ClientFollowUpStatus {
+  switch (String(value || "").toLowerCase()) {
+    case "not-responding":
+      return "not-responding";
+    case "business-proposal-email-sent":
+      return "business-proposal-email-sent";
+    case "in-discussion":
+    case "in-progress":
+      return "in-discussion";
+    case "no-vendor-support":
+      return "no-vendor-support";
+    case "awaiting-response":
+    case "awaiting-client":
+    case "pending":
+      return "awaiting-response";
+    case "positive-need-followup":
+    case "follow-up-due":
+      return "positive-need-followup";
+    case "on-boarded":
+    case "closed":
+      return "on-boarded";
+    default:
+      return "awaiting-response";
+  }
+}
 
 export type ClientRecord = {
   id: string;
@@ -62,6 +95,9 @@ export type ClientRecord = {
   contactPerson: string;
   contactEmail?: string;
   contactPhone?: string;
+  secondaryContactPerson?: string;
+  secondaryContactEmail?: string;
+  secondaryContactPhone?: string;
   communicationAddress?: string;
   sector?: string;
   branch?: string;
@@ -238,6 +274,9 @@ export type ClientFormPayload = {
   contactPerson: string;
   contactEmail?: string;
   contactPhone?: string;
+  secondaryContactPerson?: string;
+  secondaryContactEmail?: string;
+  secondaryContactPhone?: string;
   communicationAddress?: string;
   sector?: string;
   branch?: string;

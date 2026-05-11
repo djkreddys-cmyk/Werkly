@@ -14,6 +14,7 @@ import type {
   EmployeeRecord,
   EmployeeStatus,
 } from "@/lib/crm";
+import { normalizeClientFollowUpStatus } from "@/lib/crm";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
@@ -47,6 +48,9 @@ type ClientFormState = {
   contactPerson: string;
   contactEmail: string;
   contactPhone: string;
+  secondaryContactPerson: string;
+  secondaryContactEmail: string;
+  secondaryContactPhone: string;
   communicationAddress: string;
   sector: string;
   branch: string;
@@ -131,13 +135,16 @@ const emptyClientForm: ClientFormState = {
   contactPerson: "",
   contactEmail: "",
   contactPhone: "",
+  secondaryContactPerson: "",
+  secondaryContactEmail: "",
+  secondaryContactPhone: "",
   communicationAddress: "",
   sector: "",
   branch: "",
   assignedEmployeeId: "",
   status: "active",
   onboardingStatus: "onboarded",
-  followUpStatus: "pending",
+  followUpStatus: "awaiting-response",
   nextFollowUpDate: "",
   lastFollowUpDate: "",
   onboardingSource: "",
@@ -1060,6 +1067,9 @@ function CrmClientsList({
           client.companyName,
           client.contactPerson,
           client.contactEmail,
+          client.secondaryContactPerson,
+          client.secondaryContactEmail,
+          client.secondaryContactPhone,
           client.assignedEmployeeName,
           client.followUpEmployeeName,
         ]
@@ -1077,7 +1087,7 @@ function CrmClientsList({
             ? clientLeadStatuses.includes(safeOnboardingStatus)
             : safeOnboardingStatus === onboardingFilter;
 
-      const safeFollowUpStatus = client.followUpStatus || "pending";
+      const safeFollowUpStatus = normalizeClientFollowUpStatus(client.followUpStatus);
       const matchesFollowUp =
         followUpFilter === "all" ? true : safeFollowUpStatus === followUpFilter;
 
@@ -1133,10 +1143,12 @@ function CrmClientsList({
           .map(
             (client) => `<tr>
               <td>${client.companyName}</td>
-              <td>${client.contactPerson}</td>
+              <td>${[client.contactPerson, client.secondaryContactPerson].filter(Boolean).join(" / ")}</td>
               <td>${client.assignedEmployeeName || "Not assigned"}</td>
               <td>${client.onboardingStatus || "new-lead"}</td>
-              <td>${client.followUpStatus || "pending"}</td>
+              <td>${formatClientStageLabel(
+                normalizeClientFollowUpStatus(client.followUpStatus)
+              )}</td>
               <td>${client.linkedJobsCount}</td>
               <td>${client.status}</td>
             </tr>`
@@ -1197,9 +1209,39 @@ function CrmClientsList({
 
   function downloadLeadSample() {
     const sampleCsv = [
-      ["Company Name", "Contact Person", "Contact Email", "Contact Phone", "Sector", "Branch"],
-      ["Acme Industries", "Ravi Kumar", "ravi@acme.com", "9876543210", "Manufacturing", "Hyderabad"],
-      ["BlueWave Tech", "Sneha Reddy", "sneha@bluewave.com", "9123456780", "Technology", "Bangalore"],
+      [
+        "Company Name",
+        "Contact Person",
+        "Contact Email",
+        "Contact Phone",
+        "Second Contact Person",
+        "Second Contact Email",
+        "Second Contact Phone",
+        "Sector",
+        "Branch",
+      ],
+      [
+        "Acme Industries",
+        "Ravi Kumar",
+        "ravi@acme.com",
+        "9876543210",
+        "Anil Kumar",
+        "anil@acme.com",
+        "9876500000",
+        "Manufacturing",
+        "Hyderabad",
+      ],
+      [
+        "BlueWave Tech",
+        "Sneha Reddy",
+        "sneha@bluewave.com",
+        "9123456780",
+        "",
+        "",
+        "",
+        "Technology",
+        "Bangalore",
+      ],
     ]
       .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
       .join("\n");
@@ -1340,11 +1382,13 @@ function CrmClientsList({
             className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
           >
             <option value="all">All follow-ups</option>
-            <option value="pending">Pending</option>
-            <option value="follow-up-due">Follow-Up Due</option>
-            <option value="in-progress">In Progress</option>
-            <option value="awaiting-client">Awaiting Client</option>
-            <option value="closed">Closed</option>
+            <option value="not-responding">Not Responding</option>
+            <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
+            <option value="in-discussion">In Discussion</option>
+            <option value="no-vendor-support">No Vendor Support</option>
+            <option value="awaiting-response">Awaiting Response</option>
+            <option value="positive-need-followup">Positive Need Followup</option>
+            <option value="on-boarded">On-Boarded</option>
           </select>
           <button
             type="button"
@@ -1379,12 +1423,19 @@ function CrmClientsList({
                 ).length,
               },
               {
-                label: "Follow-Up Due",
-                value: filteredClients.filter((client) => (client.followUpStatus || "pending") === "follow-up-due").length,
+                label: "Positive Need Followup",
+                value: filteredClients.filter(
+                  (client) =>
+                    normalizeClientFollowUpStatus(client.followUpStatus) ===
+                    "positive-need-followup"
+                ).length,
               },
               {
-                label: "Awaiting Client",
-                value: filteredClients.filter((client) => (client.followUpStatus || "pending") === "awaiting-client").length,
+                label: "Awaiting Response",
+                value: filteredClients.filter(
+                  (client) =>
+                    normalizeClientFollowUpStatus(client.followUpStatus) === "awaiting-response"
+                ).length,
               },
             ].map((metric) => (
               <article
@@ -1488,6 +1539,18 @@ function CrmClientsList({
                         <p>{client.contactPerson}</p>
                         <p className="mt-1">{client.contactEmail || "No email"}</p>
                         <p className="mt-1">{client.contactPhone || "No phone"}</p>
+                        {client.secondaryContactPerson ||
+                        client.secondaryContactEmail ||
+                        client.secondaryContactPhone ? (
+                          <div className="mt-3 rounded-xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                              Second Contact
+                            </p>
+                            <p className="mt-1">{client.secondaryContactPerson || "Not added"}</p>
+                            <p className="mt-1">{client.secondaryContactEmail || "No email"}</p>
+                            <p className="mt-1">{client.secondaryContactPhone || "No phone"}</p>
+                          </div>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {client.assignedEmployeeName || "Not assigned"}
@@ -1502,7 +1565,9 @@ function CrmClientsList({
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <p className="font-semibold text-[var(--color-ink)]">
-                          {formatClientStageLabel(client.followUpStatus || "pending")}
+                          {formatClientStageLabel(
+                            normalizeClientFollowUpStatus(client.followUpStatus)
+                          )}
                         </p>
                         <p className="mt-1 text-xs">
                           Next: {client.nextFollowUpDate || "Not scheduled"}
@@ -2689,7 +2754,7 @@ export function AdminClientsPanel({
   const [transferEffectiveFromDate, setTransferEffectiveFromDate] = useState("");
   const [transferEffectiveToDate, setTransferEffectiveToDate] = useState("");
   const [transferReason, setTransferReason] = useState("");
-  const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("pending");
+  const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("awaiting-response");
   const [followUpNextDate, setFollowUpNextDate] = useState("");
   const [followUpLastDate, setFollowUpLastDate] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
@@ -2929,6 +2994,21 @@ export function AdminClientsPanel({
           row["contact person"] || row["contact name"] || row["contact"] || "";
         const contactEmail = row["contact email"] || row["email"] || "";
         const contactPhone = row["contact phone"] || row["phone"] || "";
+        const secondaryContactPerson =
+          row["second contact person"] ||
+          row["secondary contact person"] ||
+          row["alternate contact person"] ||
+          "";
+        const secondaryContactEmail =
+          row["second contact email"] ||
+          row["secondary contact email"] ||
+          row["alternate contact email"] ||
+          "";
+        const secondaryContactPhone =
+          row["second contact phone"] ||
+          row["secondary contact phone"] ||
+          row["alternate contact phone"] ||
+          "";
         const sector = row["sector"] || "";
         const branch = row["branch"] || row["branch / region"] || row["region"] || "";
 
@@ -2952,6 +3032,9 @@ export function AdminClientsPanel({
             contactPerson: contactPerson.trim(),
             contactEmail: contactEmail.trim() || undefined,
             contactPhone: contactPhone.trim() || undefined,
+            secondaryContactPerson: secondaryContactPerson.trim() || undefined,
+            secondaryContactEmail: secondaryContactEmail.trim() || undefined,
+            secondaryContactPhone: secondaryContactPhone.trim() || undefined,
             sector: sector.trim() || undefined,
             branch: branch.trim() || undefined,
             assignedEmployeeId: effectiveAssignedEmployeeId || undefined,
@@ -3278,7 +3361,7 @@ export function AdminClientsPanel({
 
       await refreshCrm(token);
       setSelectedFollowUpClient(null);
-      setFollowUpStatus("pending");
+      setFollowUpStatus("awaiting-response");
       setFollowUpNextDate("");
       setFollowUpLastDate("");
       setFollowUpNotes("");
@@ -3435,6 +3518,40 @@ export function AdminClientsPanel({
               />
             </label>
             <label className="block">
+              <span className={clientFormLabelClassName}>Second Contact Person</span>
+              <input
+                className={fieldClassName}
+                placeholder="Second contact person"
+                value={clientForm.secondaryContactPerson}
+                onChange={(event) =>
+                  updateClientField("secondaryContactPerson", event.target.value)
+                }
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Second Contact Email</span>
+              <input
+                className={fieldClassName}
+                type="email"
+                placeholder="Second contact email"
+                value={clientForm.secondaryContactEmail}
+                onChange={(event) =>
+                  updateClientField("secondaryContactEmail", event.target.value)
+                }
+              />
+            </label>
+            <label className="block">
+              <span className={clientFormLabelClassName}>Second Contact Phone</span>
+              <input
+                className={fieldClassName}
+                placeholder="Second contact phone"
+                value={clientForm.secondaryContactPhone}
+                onChange={(event) =>
+                  updateClientField("secondaryContactPhone", event.target.value)
+                }
+              />
+            </label>
+            <label className="block">
               <span className={clientFormLabelClassName}>Sector</span>
               <input
                 className={fieldClassName}
@@ -3579,7 +3696,7 @@ export function AdminClientsPanel({
             }}
             onFollowUp={(client) => {
               setSelectedFollowUpClient(client);
-              setFollowUpStatus(client.followUpStatus || "pending");
+              setFollowUpStatus(normalizeClientFollowUpStatus(client.followUpStatus));
               setFollowUpNextDate(client.nextFollowUpDate || "");
               setFollowUpLastDate(
                 client.lastFollowUpDate || new Date().toISOString().slice(0, 10)
@@ -3620,7 +3737,7 @@ export function AdminClientsPanel({
                 type="button"
                 onClick={() => {
                   setSelectedFollowUpClient(null);
-                  setFollowUpStatus("pending");
+                  setFollowUpStatus("awaiting-response");
                   setFollowUpNextDate("");
                   setFollowUpLastDate("");
                   setFollowUpNotes("");
@@ -3643,11 +3760,13 @@ export function AdminClientsPanel({
                     setFollowUpStatus(event.target.value as ClientFollowUpStatus)
                   }
                 >
-                  <option value="pending">Pending</option>
-                  <option value="follow-up-due">Follow-Up Due</option>
-                  <option value="in-progress">In Discussion</option>
-                  <option value="awaiting-client">Awaiting Response</option>
-                  <option value="closed">Closed</option>
+                  <option value="not-responding">Not Responding</option>
+                  <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
+                  <option value="in-discussion">In Discussion</option>
+                  <option value="no-vendor-support">No Vendor Support</option>
+                  <option value="awaiting-response">Awaiting Response</option>
+                  <option value="positive-need-followup">Positive Need Followup</option>
+                  <option value="on-boarded">On-Boarded</option>
                 </select>
               </label>
 
@@ -3701,7 +3820,7 @@ export function AdminClientsPanel({
                 type="button"
                 onClick={() => {
                   setSelectedFollowUpClient(null);
-                  setFollowUpStatus("pending");
+                  setFollowUpStatus("awaiting-response");
                   setFollowUpNextDate("");
                   setFollowUpLastDate("");
                   setFollowUpNotes("");

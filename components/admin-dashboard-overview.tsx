@@ -14,6 +14,7 @@ import type {
   CrmKpiSettings,
   EmployeeRecord,
 } from "@/lib/crm";
+import { normalizeClientFollowUpStatus } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 import type { LeaveRequestRecord } from "@/lib/leave";
 import type { ApprovalRequestRecord } from "@/lib/workflow";
@@ -243,28 +244,33 @@ function buildCalendarDays(monthDate: Date) {
 }
 
 function formatFollowUpStage(stage?: ClientFollowUpStatus) {
-  switch (stage) {
-    case "follow-up-due":
-      return "Follow-Up Due";
-    case "in-progress":
+  switch (normalizeClientFollowUpStatus(stage)) {
+    case "not-responding":
+      return "Not Responding";
+    case "business-proposal-email-sent":
+      return "Business Proposal Email Sent";
+    case "in-discussion":
       return "In Discussion";
-    case "awaiting-client":
-      return "Awaiting Response";
-    case "closed":
-      return "Closed";
-    case "pending":
+    case "no-vendor-support":
+      return "No Vendor Support";
+    case "positive-need-followup":
+      return "Positive Need Followup";
+    case "on-boarded":
+      return "On-Boarded";
+    case "awaiting-response":
     default:
-      return "Pending";
+      return "Awaiting Response";
   }
 }
 
 function FollowUpStatusPill({ status }: { status: ClientFollowUpStatus }) {
+  const safeStatus = normalizeClientFollowUpStatus(status);
   const className =
-    status === "closed"
+    safeStatus === "on-boarded"
       ? "bg-[rgba(8,96,108,0.1)] text-[var(--color-dark)]"
-      : status === "follow-up-due"
+      : safeStatus === "positive-need-followup"
         ? "bg-[rgba(190,72,26,0.12)] text-[var(--color-accent-strong)]"
-        : status === "awaiting-client"
+        : safeStatus === "awaiting-response"
           ? "bg-[rgba(241,166,75,0.14)] text-[var(--color-accent-strong)]"
           : "bg-[rgba(8,96,108,0.08)] text-[var(--color-dark)]";
 
@@ -272,7 +278,7 @@ function FollowUpStatusPill({ status }: { status: ClientFollowUpStatus }) {
     <span
       className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${className}`}
     >
-      {formatFollowUpStage(status)}
+      {formatFollowUpStage(safeStatus)}
     </span>
   );
 }
@@ -325,7 +331,7 @@ export function AdminDashboardOverview() {
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
   const [editingFollowUpId, setEditingFollowUpId] = useState("");
   const [quickFollowUpStatus, setQuickFollowUpStatus] =
-    useState<ClientFollowUpStatus>("pending");
+    useState<ClientFollowUpStatus>("awaiting-response");
   const [quickLastFollowUpDate, setQuickLastFollowUpDate] = useState("");
   const [quickNextFollowUpDate, setQuickNextFollowUpDate] = useState("");
   const [quickFollowUpNotes, setQuickFollowUpNotes] = useState("");
@@ -542,7 +548,7 @@ export function AdminDashboardOverview() {
         contactPhone: client.contactPhone,
         ownerId: client.assignedEmployeeId,
         ownerName: client.assignedEmployeeName || "Unassigned",
-        followUpStatus: client.followUpStatus || "pending",
+        followUpStatus: normalizeClientFollowUpStatus(client.followUpStatus),
         nextFollowUpDate: normalizeDateKey(client.nextFollowUpDate),
         lastFollowUpDate: normalizeDateKey(client.lastFollowUpDate),
         notes: client.followUpNotes,
@@ -634,7 +640,7 @@ export function AdminDashboardOverview() {
       new Date(parseDateKey(todayKey).getTime() + 1000 * 60 * 60 * 24)
     );
     const tomorrowFollowUps = filteredFollowUps.filter(
-      (item) => item.nextFollowUpDate === tomorrowKey && item.followUpStatus !== "closed"
+      (item) => item.nextFollowUpDate === tomorrowKey && normalizeClientFollowUpStatus(item.followUpStatus) !== "on-boarded"
     ).length;
     const pendingApprovals = state.approvals.filter(
       (approval) => approval.requestStatus === "pending"
@@ -824,10 +830,10 @@ export function AdminDashboardOverview() {
     });
 
     const overdueFollowUps = filteredFollowUps.filter(
-      (item) => item.nextFollowUpDate < todayKey && item.followUpStatus !== "closed"
+      (item) => item.nextFollowUpDate < todayKey && normalizeClientFollowUpStatus(item.followUpStatus) !== "on-boarded"
     ).length;
     const dueTodayFollowUps = filteredFollowUps.filter(
-      (item) => item.nextFollowUpDate === todayKey && item.followUpStatus !== "closed"
+      (item) => item.nextFollowUpDate === todayKey && normalizeClientFollowUpStatus(item.followUpStatus) !== "on-boarded"
     ).length;
     const upcomingSevenDays = filteredFollowUps.filter((item) => {
       const diff =
@@ -839,7 +845,7 @@ export function AdminDashboardOverview() {
       new Date(parseDateKey(todayKey).getTime() + 1000 * 60 * 60 * 24)
     );
     const dueTomorrowFollowUps = filteredFollowUps.filter(
-      (item) => item.nextFollowUpDate === tomorrowKey && item.followUpStatus !== "closed"
+      (item) => item.nextFollowUpDate === tomorrowKey && normalizeClientFollowUpStatus(item.followUpStatus) !== "on-boarded"
     ).length;
     const pendingApprovalCount = state.approvals.filter(
       (approval) => approval.requestStatus === "pending"
@@ -917,7 +923,9 @@ export function AdminDashboardOverview() {
             followUps: followUps.length,
             today: followUps.filter((item) => item.nextFollowUpDate === todayKey).length,
             overdue: followUps.filter(
-              (item) => item.nextFollowUpDate < todayKey && item.followUpStatus !== "closed"
+              (item) =>
+                item.nextFollowUpDate < todayKey &&
+                normalizeClientFollowUpStatus(item.followUpStatus) !== "on-boarded"
             ).length,
           };
         })
@@ -965,7 +973,9 @@ export function AdminDashboardOverview() {
       },
       {
         label: "Closed This View",
-        value: filteredFollowUps.filter((item) => item.followUpStatus === "closed").length,
+        value: filteredFollowUps.filter(
+          (item) => normalizeClientFollowUpStatus(item.followUpStatus) === "on-boarded"
+        ).length,
         detail: "Completed follow-ups in the current dashboard view.",
       },
     ],
@@ -1189,7 +1199,7 @@ export function AdminDashboardOverview() {
             label: "Overdue",
             value: metrics.overdueFollowUps,
             onClick: () => {
-              setSelectedFollowUpStatus("follow-up-due");
+              setSelectedFollowUpStatus("positive-need-followup");
               setIsDateModalOpen(false);
               scrollToSection(queueSectionRef);
             },
@@ -1532,11 +1542,13 @@ export function AdminDashboardOverview() {
                 className="min-w-[170px] rounded-2xl border border-[var(--color-line)] bg-white px-3.5 py-2 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               >
                 <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="follow-up-due">Follow-Up Due</option>
-                <option value="in-progress">In Discussion</option>
-                <option value="awaiting-client">Awaiting Response</option>
-                <option value="closed">Closed</option>
+                <option value="not-responding">Not Responding</option>
+                <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
+                <option value="in-discussion">In Discussion</option>
+                <option value="no-vendor-support">No Vendor Support</option>
+                <option value="awaiting-response">Awaiting Response</option>
+                <option value="positive-need-followup">Positive Need Followup</option>
+                <option value="on-boarded">On-Boarded</option>
               </select>
             </div>
           </div>
@@ -2040,7 +2052,7 @@ export function AdminDashboardOverview() {
                           type="button"
                           onClick={() => {
                           void handleQuickFollowUpSave(item.id, {
-                            status: "closed",
+                            status: "on-boarded",
                             lastFollowUpDate: activeDateKey,
                             nextFollowUpDate: "",
                             notes: item.notes || "",
@@ -2067,11 +2079,13 @@ export function AdminDashboardOverview() {
                             }
                             className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
                           >
-                            <option value="pending">Pending</option>
-                            <option value="follow-up-due">Follow-Up Due</option>
-                            <option value="in-progress">In Discussion</option>
-                            <option value="awaiting-client">Awaiting Response</option>
-                            <option value="closed">Closed</option>
+                            <option value="not-responding">Not Responding</option>
+                            <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
+                            <option value="in-discussion">In Discussion</option>
+                            <option value="no-vendor-support">No Vendor Support</option>
+                            <option value="awaiting-response">Awaiting Response</option>
+                            <option value="positive-need-followup">Positive Need Followup</option>
+                            <option value="on-boarded">On-Boarded</option>
                           </select>
                         </label>
                         <label className="block">

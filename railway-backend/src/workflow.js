@@ -759,7 +759,7 @@ export async function runSlaEscalations() {
         coalesce(clients.follow_up_employee_id, clients.assigned_employee_id) as owner_employee_id
        from clients
        where clients.next_follow_up_date is not null
-         and clients.follow_up_status <> 'closed'
+         and coalesce(clients.follow_up_status, 'awaiting-response') not in ('closed', 'on-boarded')
          and clients.next_follow_up_date < current_date - ($1::text || ' days')::interval`,
       [clientRule.thresholdDays]
     );
