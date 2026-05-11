@@ -107,7 +107,7 @@ export async function ensureCrmSchema() {
       temporary_access_note text,
       status text not null default 'active',
       onboarding_status text not null default 'new-lead',
-      follow_up_status text not null default 'awaiting-response',
+      follow_up_status text not null default 'pending',
       next_follow_up_date date,
       last_follow_up_date date,
       onboarding_source text,
@@ -224,8 +224,8 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists secondary_contact_email text`);
   await query(`alter table clients add column if not exists secondary_contact_phone text`);
   await query(`alter table clients add column if not exists onboarding_status text not null default 'new-lead'`);
-  await query(`alter table clients add column if not exists follow_up_status text not null default 'awaiting-response'`);
-  await query(`alter table clients alter column follow_up_status set default 'awaiting-response'`);
+  await query(`alter table clients add column if not exists follow_up_status text not null default 'pending'`);
+  await query(`alter table clients alter column follow_up_status set default 'pending'`);
   await query(`alter table clients add column if not exists next_follow_up_date date`);
   await query(`alter table clients add column if not exists last_follow_up_date date`);
   await query(`alter table clients add column if not exists onboarding_source text`);
@@ -1404,7 +1404,7 @@ export async function createClient(payload) {
       payload.assignedEmployeeId || null,
       payload.status || "active",
       payload.onboardingStatus || "new-lead",
-      payload.followUpStatus || "awaiting-response",
+      payload.followUpStatus || "pending",
       payload.nextFollowUpDate || null,
       payload.lastFollowUpDate || null,
       payload.onboardingSource || null,
@@ -1709,7 +1709,7 @@ export async function updateClientFollowUp(clientId, payload) {
       returning id`,
     [
       clientId,
-      payload.followUpStatus || "awaiting-response",
+      payload.followUpStatus || "pending",
       payload.nextFollowUpDate || null,
       payload.lastFollowUpDate || null,
       payload.followUpNotes || null,
@@ -1739,7 +1739,7 @@ export async function updateClientFollowUp(clientId, payload) {
       payload.actorName || null,
       payload.actorRole || null,
       existing.follow_up_status || null,
-      payload.followUpStatus || "awaiting-response",
+      payload.followUpStatus || "pending",
       payload.lastFollowUpDate || null,
       payload.nextFollowUpDate || null,
       payload.followUpNotes || null,

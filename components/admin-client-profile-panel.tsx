@@ -9,7 +9,11 @@ import type {
   ClientOnboardingStatus,
   ClientRecord,
 } from "@/lib/crm";
-import { normalizeClientFollowUpStatus } from "@/lib/crm";
+import {
+  isLeadOnboardingStatus,
+  normalizeClientFollowUpStatus,
+  normalizeGeneralClientFollowUpStatus,
+} from "@/lib/crm";
 
 function formatDateLabel(value?: string) {
   if (!value) {
@@ -44,8 +48,10 @@ function formatDateTimeLabel(value?: string) {
   });
 }
 
-function formatFollowUpStage(stage?: string) {
-  const safeStage = normalizeClientFollowUpStatus(stage);
+function formatFollowUpStage(stage?: string, isLeadFlow = false) {
+  const safeStage = isLeadFlow
+    ? normalizeClientFollowUpStatus(stage)
+    : normalizeGeneralClientFollowUpStatus(stage);
   return safeStage
     .split(/[\s_-]+/)
     .filter(Boolean)
@@ -76,7 +82,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [message, setMessage] = useState("");
   const [onboardingStatus, setOnboardingStatus] = useState<ClientOnboardingStatus>("new-lead");
   const [onboardingNotes, setOnboardingNotes] = useState("");
-  const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("awaiting-response");
+  const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("pending");
   const [lastFollowUpDate, setLastFollowUpDate] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
@@ -113,7 +119,11 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
         setActivity(activityResult.activity ?? []);
         setOnboardingStatus(clientResult.onboardingStatus || "new-lead");
         setOnboardingNotes(clientResult.notes || "");
-        setFollowUpStatus(normalizeClientFollowUpStatus(clientResult.followUpStatus));
+        setFollowUpStatus(
+          isLeadOnboardingStatus(clientResult.onboardingStatus)
+            ? normalizeClientFollowUpStatus(clientResult.followUpStatus)
+            : normalizeGeneralClientFollowUpStatus(clientResult.followUpStatus)
+        );
         setLastFollowUpDate(clientResult.lastFollowUpDate || "");
         setNextFollowUpDate(clientResult.nextFollowUpDate || "");
         setFollowUpNotes(clientResult.followUpNotes || "");
@@ -445,13 +455,25 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
                 }
                 className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               >
-                <option value="not-responding">Not Responding</option>
-                <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
-                <option value="in-discussion">In Discussion</option>
-                <option value="no-vendor-support">No Vendor Support</option>
-                <option value="awaiting-response">Awaiting Response</option>
-                <option value="positive-need-followup">Positive Need Followup</option>
-                <option value="on-boarded">On-Boarded</option>
+                {isLeadOnboardingStatus(client.onboardingStatus) ? (
+                  <>
+                    <option value="not-responding">Not Responding</option>
+                    <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
+                    <option value="in-discussion">In Discussion</option>
+                    <option value="no-vendor-support">No Vendor Support</option>
+                    <option value="awaiting-response">Awaiting Response</option>
+                    <option value="positive-need-followup">Positive Need Followup</option>
+                    <option value="on-boarded">On-Boarded</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="pending">Pending</option>
+                    <option value="follow-up-due">Follow-Up Due</option>
+                    <option value="in-progress">In Discussion</option>
+                    <option value="awaiting-client">Awaiting Response</option>
+                    <option value="closed">Closed</option>
+                  </>
+                )}
               </select>
             </label>
 

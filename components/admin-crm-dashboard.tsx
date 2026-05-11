@@ -14,7 +14,11 @@ import type {
   EmployeeRecord,
   EmployeeStatus,
 } from "@/lib/crm";
-import { normalizeClientFollowUpStatus } from "@/lib/crm";
+import {
+  isLeadOnboardingStatus,
+  normalizeClientFollowUpStatus,
+  normalizeGeneralClientFollowUpStatus,
+} from "@/lib/crm";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
@@ -144,7 +148,7 @@ const emptyClientForm: ClientFormState = {
   assignedEmployeeId: "",
   status: "active",
   onboardingStatus: "onboarded",
-  followUpStatus: "awaiting-response",
+  followUpStatus: "pending",
   nextFollowUpDate: "",
   lastFollowUpDate: "",
   onboardingSource: "",
@@ -180,6 +184,26 @@ function formatClientStageLabel(value?: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function getClientFollowUpOptions(isLeadFlow: boolean) {
+  return isLeadFlow
+    ? [
+        ["not-responding", "Not Responding"],
+        ["business-proposal-email-sent", "Business Proposal Email Sent"],
+        ["in-discussion", "In Discussion"],
+        ["no-vendor-support", "No Vendor Support"],
+        ["awaiting-response", "Awaiting Response"],
+        ["positive-need-followup", "Positive Need Followup"],
+        ["on-boarded", "On-Boarded"],
+      ]
+    : [
+        ["pending", "Pending"],
+        ["follow-up-due", "Follow-Up Due"],
+        ["in-progress", "In Progress"],
+        ["awaiting-client", "Awaiting Client"],
+        ["closed", "Closed"],
+      ];
 }
 
 function parseCsvRow(line: string) {
@@ -1382,13 +1406,11 @@ function CrmClientsList({
             className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
           >
             <option value="all">All follow-ups</option>
-            <option value="not-responding">Not Responding</option>
-            <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
-            <option value="in-discussion">In Discussion</option>
-            <option value="no-vendor-support">No Vendor Support</option>
-            <option value="awaiting-response">Awaiting Response</option>
-            <option value="positive-need-followup">Positive Need Followup</option>
-            <option value="on-boarded">On-Boarded</option>
+            {getClientFollowUpOptions(viewMode === "leads").map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
           <button
             type="button"
@@ -3361,7 +3383,7 @@ export function AdminClientsPanel({
 
       await refreshCrm(token);
       setSelectedFollowUpClient(null);
-      setFollowUpStatus("awaiting-response");
+      setFollowUpStatus("pending");
       setFollowUpNextDate("");
       setFollowUpLastDate("");
       setFollowUpNotes("");
@@ -3695,8 +3717,13 @@ export function AdminClientsPanel({
               setMessage("");
             }}
             onFollowUp={(client) => {
+              const isLeadFlow = isLeadOnboardingStatus(client.onboardingStatus);
               setSelectedFollowUpClient(client);
-              setFollowUpStatus(normalizeClientFollowUpStatus(client.followUpStatus));
+              setFollowUpStatus(
+                isLeadFlow
+                  ? normalizeClientFollowUpStatus(client.followUpStatus)
+                  : normalizeGeneralClientFollowUpStatus(client.followUpStatus)
+              );
               setFollowUpNextDate(client.nextFollowUpDate || "");
               setFollowUpLastDate(
                 client.lastFollowUpDate || new Date().toISOString().slice(0, 10)
@@ -3736,8 +3763,9 @@ export function AdminClientsPanel({
               <button
                 type="button"
                 onClick={() => {
+                  const isLeadFlow = isLeadOnboardingStatus(selectedFollowUpClient.onboardingStatus);
                   setSelectedFollowUpClient(null);
-                  setFollowUpStatus("awaiting-response");
+                  setFollowUpStatus(isLeadFlow ? "awaiting-response" : "pending");
                   setFollowUpNextDate("");
                   setFollowUpLastDate("");
                   setFollowUpNotes("");
@@ -3760,13 +3788,13 @@ export function AdminClientsPanel({
                     setFollowUpStatus(event.target.value as ClientFollowUpStatus)
                   }
                 >
-                  <option value="not-responding">Not Responding</option>
-                  <option value="business-proposal-email-sent">Business Proposal Email Sent</option>
-                  <option value="in-discussion">In Discussion</option>
-                  <option value="no-vendor-support">No Vendor Support</option>
-                  <option value="awaiting-response">Awaiting Response</option>
-                  <option value="positive-need-followup">Positive Need Followup</option>
-                  <option value="on-boarded">On-Boarded</option>
+                  {getClientFollowUpOptions(
+                    isLeadOnboardingStatus(selectedFollowUpClient.onboardingStatus)
+                  ).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -3819,8 +3847,9 @@ export function AdminClientsPanel({
               <button
                 type="button"
                 onClick={() => {
+                  const isLeadFlow = isLeadOnboardingStatus(selectedFollowUpClient.onboardingStatus);
                   setSelectedFollowUpClient(null);
-                  setFollowUpStatus("awaiting-response");
+                  setFollowUpStatus(isLeadFlow ? "awaiting-response" : "pending");
                   setFollowUpNextDate("");
                   setFollowUpLastDate("");
                   setFollowUpNotes("");

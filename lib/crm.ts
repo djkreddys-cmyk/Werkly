@@ -89,6 +89,35 @@ export function normalizeClientFollowUpStatus(value?: string): ClientFollowUpSta
   }
 }
 
+export function normalizeGeneralClientFollowUpStatus(value?: string): ClientFollowUpStatus {
+  switch (String(value || "").toLowerCase()) {
+    case "follow-up-due":
+    case "positive-need-followup":
+      return "follow-up-due";
+    case "in-progress":
+    case "in-discussion":
+    case "business-proposal-email-sent":
+      return "in-progress";
+    case "awaiting-client":
+    case "awaiting-response":
+      return "awaiting-client";
+    case "closed":
+    case "on-boarded":
+    case "no-vendor-support":
+      return "closed";
+    case "not-responding":
+    case "pending":
+    default:
+      return "pending";
+  }
+}
+
+export function isLeadOnboardingStatus(value?: string): boolean {
+  return ["new-lead", "contacted", "proposal-shared", "negotiation", "hold"].includes(
+    String(value || "").toLowerCase()
+  );
+}
+
 export type ClientRecord = {
   id: string;
   companyName: string;
