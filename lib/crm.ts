@@ -344,6 +344,14 @@ export type ClientBulkAssignmentPayload = {
   action: "assign" | "unassign";
 };
 
+export type ClientBulkFollowUpPayload = {
+  clientIds: string[];
+  followUpStatus: ClientFollowUpStatus;
+  nextFollowUpDate?: string;
+  lastFollowUpDate?: string;
+  followUpNotes?: string;
+};
+
 function getBaseUrl() {
   return (
     process.env.RAILWAY_API_BASE_URL ||
@@ -664,6 +672,22 @@ export async function bulkAssignClients(
 ) {
   return readJson<{ clients: ClientRecord[]; updatedCount: number }>(
     "/admin/clients/bulk-assignment",
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+}
+
+export async function bulkUpdateClientFollowUp(
+  payload: ClientBulkFollowUpPayload,
+  token: string
+) {
+  return readJson<{ clients: ClientRecord[]; updatedCount: number }>(
+    "/admin/clients/bulk-follow-up",
     {
       method: "PUT",
       body: JSON.stringify(payload),

@@ -41,6 +41,10 @@ type CandidateEditFormState = {
   resumeFileName: string;
   resumeFileType: string;
   resumeFileData: string;
+  interviewScheduledAt: string;
+  interviewMode: string;
+  interviewPanel: string;
+  interviewReminderAt: string;
 };
 
 function createFormState(application: JobApplication): CandidateEditFormState {
@@ -63,6 +67,14 @@ function createFormState(application: JobApplication): CandidateEditFormState {
     resumeFileName: application.resumeFileName || "",
     resumeFileType: application.resumeFileType || "",
     resumeFileData: application.resumeFileData || "",
+    interviewScheduledAt: application.interviewScheduledAt
+      ? application.interviewScheduledAt.slice(0, 16)
+      : "",
+    interviewMode: application.interviewMode || "",
+    interviewPanel: application.interviewPanel || "",
+    interviewReminderAt: application.interviewReminderAt
+      ? application.interviewReminderAt.slice(0, 16)
+      : "",
   };
 }
 
@@ -190,6 +202,10 @@ export function AdminCandidateEditModal({
         resumeFileName: form.resumeFileName || undefined,
         resumeFileType: form.resumeFileType || undefined,
         resumeFileData: form.resumeFileData || undefined,
+        interviewScheduledAt: form.interviewScheduledAt || undefined,
+        interviewMode: form.interviewMode.trim() || undefined,
+        interviewPanel: form.interviewPanel.trim() || undefined,
+        interviewReminderAt: form.interviewReminderAt || undefined,
       };
 
       const updatedApplication = await updateJobApplicationDetails(
@@ -397,6 +413,63 @@ export function AdminCandidateEditModal({
                   onChange={(event) => updateField("candidateMessage", event.target.value)}
                 />
               </label>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Interview Schedule
+              </p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Interview Time
+                  </span>
+                  <input
+                    className={fieldClassName}
+                    type="datetime-local"
+                    value={form.interviewScheduledAt}
+                    onChange={(event) => updateField("interviewScheduledAt", event.target.value)}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Mode
+                  </span>
+                  <select
+                    className={fieldClassName}
+                    value={form.interviewMode}
+                    onChange={(event) => updateField("interviewMode", event.target.value)}
+                  >
+                    <option value="">Select mode</option>
+                    <option value="Phone">Phone</option>
+                    <option value="Video">Video</option>
+                    <option value="In-person">In-person</option>
+                    <option value="Client round">Client round</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Panel
+                  </span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Panel or interviewer"
+                    value={form.interviewPanel}
+                    onChange={(event) => updateField("interviewPanel", event.target.value)}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Reminder
+                  </span>
+                  <input
+                    className={fieldClassName}
+                    type="datetime-local"
+                    value={form.interviewReminderAt}
+                    onChange={(event) => updateField("interviewReminderAt", event.target.value)}
+                  />
+                </label>
+              </div>
             </div>
 
             <div className="mt-4 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">

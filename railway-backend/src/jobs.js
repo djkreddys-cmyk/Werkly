@@ -78,6 +78,10 @@ export function mapApplicationRow(row) {
     followUpFromDate: row.follow_up_from_date,
     followUpToDate: row.follow_up_to_date,
     followUpAssignmentNote: row.follow_up_assignment_note,
+    interviewScheduledAt: row.interview_scheduled_at,
+    interviewMode: row.interview_mode,
+    interviewPanel: row.interview_panel,
+    interviewReminderAt: row.interview_reminder_at,
     candidateMessage: row.candidate_message,
     jobTitle: row.job_title,
     appliedAt: row.applied_at,
@@ -349,6 +353,10 @@ export async function ensureJobsSchema() {
   await query(`alter table job_applications add column if not exists follow_up_from_date date`);
   await query(`alter table job_applications add column if not exists follow_up_to_date date`);
   await query(`alter table job_applications add column if not exists follow_up_assignment_note text`);
+  await query(`alter table job_applications add column if not exists interview_scheduled_at timestamptz`);
+  await query(`alter table job_applications add column if not exists interview_mode text`);
+  await query(`alter table job_applications add column if not exists interview_panel text`);
+  await query(`alter table job_applications add column if not exists interview_reminder_at timestamptz`);
   await query(`alter table job_applications alter column candidate_email drop not null`);
   await query(`
     create table if not exists job_application_stage_history (
@@ -959,6 +967,10 @@ export async function listJobApplications(jobId, employeeId = null) {
       job_applications.follow_up_from_date,
       job_applications.follow_up_to_date,
       job_applications.follow_up_assignment_note,
+      job_applications.interview_scheduled_at,
+      job_applications.interview_mode,
+      job_applications.interview_panel,
+      job_applications.interview_reminder_at,
       uploader.full_name as uploaded_by_employee_name,
       job_applications.candidate_message,
       job_applications.job_title,
@@ -1035,6 +1047,10 @@ export async function listAdminApplications(employeeId = null) {
       job_applications.follow_up_from_date,
       job_applications.follow_up_to_date,
       job_applications.follow_up_assignment_note,
+      job_applications.interview_scheduled_at,
+      job_applications.interview_mode,
+      job_applications.interview_panel,
+      job_applications.interview_reminder_at,
       uploader.full_name as uploaded_by_employee_name,
       job_applications.candidate_message,
       coalesce(job_applications.job_title, jobs.title) as job_title,
@@ -1093,6 +1109,10 @@ export async function getAdminApplicationById(applicationId) {
       job_applications.follow_up_from_date,
       job_applications.follow_up_to_date,
       job_applications.follow_up_assignment_note,
+      job_applications.interview_scheduled_at,
+      job_applications.interview_mode,
+      job_applications.interview_panel,
+      job_applications.interview_reminder_at,
       uploader.full_name as uploaded_by_employee_name,
       job_applications.candidate_message,
       coalesce(job_applications.job_title, jobs.title) as job_title,
@@ -1292,6 +1312,10 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
          resume_file_name = $17,
          resume_file_type = $18,
          resume_file_data = $19,
+         interview_scheduled_at = $20,
+         interview_mode = $21,
+         interview_panel = $22,
+         interview_reminder_at = $23,
          updated_at = now()
      where id = $1
      returning
@@ -1332,6 +1356,10 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
        follow_up_from_date,
        follow_up_to_date,
        follow_up_assignment_note,
+       interview_scheduled_at,
+       interview_mode,
+       interview_panel,
+       interview_reminder_at,
        null::text as uploaded_by_employee_name,
        candidate_message,
        job_title,
@@ -1356,6 +1384,10 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
       payload.resumeFileName || null,
       payload.resumeFileType || null,
       payload.resumeFileData || null,
+      payload.interviewScheduledAt || null,
+      payload.interviewMode || null,
+      payload.interviewPanel || null,
+      payload.interviewReminderAt || null,
     ]
   );
 

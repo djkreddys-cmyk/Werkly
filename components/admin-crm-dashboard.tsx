@@ -178,6 +178,15 @@ const clientLeadStatuses: ClientOnboardingStatus[] = [
   "hold",
 ];
 
+const leadSourceOptions = [
+  "Referral",
+  "Website",
+  "Direct Outreach",
+  "Campaign",
+  "Consultancy",
+  "Other",
+] as const;
+
 function formatClientStageLabel(value?: string) {
   return String(value || "")
     .split(/[\s_-]+/)
@@ -1007,6 +1016,7 @@ function CrmClientsList({
   onConvertLead,
   onDelete,
   onBulkAssignment,
+  onBulkFollowUp,
 }: {
   clients: ClientRecord[];
   viewMode?: "existing" | "leads";
@@ -1022,6 +1032,15 @@ function CrmClientsList({
     clientIds: string[],
     action: "assign" | "unassign",
     assignedEmployeeId?: string
+  ) => Promise<void>;
+  onBulkFollowUp?: (
+    clientIds: string[],
+    payload: {
+      followUpStatus: ClientFollowUpStatus;
+      nextFollowUpDate?: string;
+      lastFollowUpDate?: string;
+      followUpNotes?: string;
+    }
   ) => Promise<void>;
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
@@ -1053,8 +1072,15 @@ function CrmClientsList({
   const [page, setPage] = useState(1);
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [showAssignPopup, setShowAssignPopup] = useState(false);
+  const [showBulkFollowUpPopup, setShowBulkFollowUpPopup] = useState(false);
   const [bulkAssignedEmployeeId, setBulkAssignedEmployeeId] = useState("");
+  const [bulkFollowUpStatus, setBulkFollowUpStatus] =
+    useState<ClientFollowUpStatus>("awaiting-response");
+  const [bulkFollowUpNextDate, setBulkFollowUpNextDate] = useState("");
+  const [bulkFollowUpLastDate, setBulkFollowUpLastDate] = useState("");
+  const [bulkFollowUpNotes, setBulkFollowUpNotes] = useState("");
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [isSavingBulkLeadFollowUp, setIsSavingBulkLeadFollowUp] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1065,6 +1091,7 @@ function CrmClientsList({
       if (event.key === "Escape") {
         setSelectedClientJobs(null);
         setShowAssignPopup(false);
+        setShowBulkFollowUpPopup(false);
       }
     };
 
@@ -1241,6 +1268,7 @@ function CrmClientsList({
         "Second Contact Person",
         "Second Contact Email",
         "Second Contact Phone",
+        "Lead Source",
         "Sector",
         "Branch",
       ],
@@ -1252,6 +1280,7 @@ function CrmClientsList({
         "Anil Kumar",
         "anil@acme.com",
         "9876500000",
+        "Referral",
         "Manufacturing",
         "Hyderabad",
       ],
@@ -1263,6 +1292,7 @@ function CrmClientsList({
         "",
         "",
         "",
+        "Website",
         "Technology",
         "Bangalore",
       ],
@@ -1303,6 +1333,31 @@ function CrmClientsList({
       setBulkAssignedEmployeeId("");
     } finally {
       setIsBulkUpdating(false);
+    }
+  }
+
+  async function submitBulkFollowUp() {
+    if (!onBulkFollowUp || selectedLeadIds.length === 0) {
+      return;
+    }
+
+    setIsSavingBulkLeadFollowUp(true);
+
+    try {
+      await onBulkFollowUp(selectedLeadIds, {
+        followUpStatus: bulkFollowUpStatus,
+        nextFollowUpDate: bulkFollowUpNextDate || undefined,
+        lastFollowUpDate: bulkFollowUpLastDate || undefined,
+        followUpNotes: bulkFollowUpNotes || undefined,
+      });
+      setSelectedLeadIds([]);
+      setShowBulkFollowUpPopup(false);
+      setBulkFollowUpStatus("awaiting-response");
+      setBulkFollowUpNextDate("");
+      setBulkFollowUpLastDate("");
+      setBulkFollowUpNotes("");
+    } finally {
+      setIsSavingBulkLeadFollowUp(false);
     }
   }
 
@@ -1352,6 +1407,14 @@ function CrmClientsList({
                   className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Unassign
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBulkFollowUpPopup(true)}
+                  disabled={selectedLeadIds.length === 0}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Update Follow-Up
                 </button>
               </>
             ) : null}
@@ -1433,30 +1496,29 @@ function CrmClientsList({
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
               {
-                label: "New Leads",
-                value: filteredClients.filter((client) => (client.onboardingStatus || "new-lead") === "new-lead").length,
+                label: "Unassigned Leads",
+                value: filteredClients.filter((client) => !client.assignedEmployeeId).length,
               },
               {
-                label: "In Progress",
-                value: filteredClients.filter((client) =>
-                  ["contacted", "proposal-shared", "negotiation"].includes(
-                    client.onboardingStatus || "new-lead"
-                  )
+                label: "Assigned Leads",
+                value: filteredClients.filter((client) => Boolean(client.assignedEmployeeId)).length,
+              },
+              {
+                label: "Overdue Follow-Ups",
+                value: filteredClients.filter(
+                  (client) =>
+                    Boolean(client.nextFollowUpDate) &&
+                    String(client.nextFollowUpDate) < new Date().toISOString().slice(0, 10)
                 ).length,
               },
               {
-                label: "Positive Need Followup",
+                label: "Conversion Ready",
                 value: filteredClients.filter(
                   (client) =>
-                    normalizeClientFollowUpStatus(client.followUpStatus) ===
-                    "positive-need-followup"
-                ).length,
-              },
-              {
-                label: "Awaiting Response",
-                value: filteredClients.filter(
-                  (client) =>
-                    normalizeClientFollowUpStatus(client.followUpStatus) === "awaiting-response"
+                    Boolean(client.assignedEmployeeId) &&
+                    Boolean(client.contactPerson?.trim()) &&
+                    Boolean(client.sector?.trim()) &&
+                    Boolean(client.branch?.trim())
                 ).length,
               },
             ].map((metric) => (
@@ -1841,6 +1903,106 @@ function CrmClientsList({
                   setShowAssignPopup(false);
                   setBulkAssignedEmployeeId("");
                 }}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showBulkFollowUpPopup ? (
+        <div className="fixed inset-0 z-[136] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Lead Follow-Up</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  Update selected lead follow-up
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Apply the same follow-up stage, dates, and remarks to the selected leads.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkFollowUpPopup(false)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Follow-Up Status
+                </span>
+                <select
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  value={bulkFollowUpStatus}
+                  onChange={(event) =>
+                    setBulkFollowUpStatus(event.target.value as ClientFollowUpStatus)
+                  }
+                >
+                  {getClientFollowUpOptions(true).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Next Follow-Up Date
+                </span>
+                <input
+                  type="date"
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  value={bulkFollowUpNextDate}
+                  onChange={(event) => setBulkFollowUpNextDate(event.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Last Follow-Up Date
+                </span>
+                <input
+                  type="date"
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  value={bulkFollowUpLastDate}
+                  onChange={(event) => setBulkFollowUpLastDate(event.target.value)}
+                />
+              </label>
+              <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-3 text-sm text-[var(--color-muted)]">
+                {selectedLeadIds.length} lead(s) selected
+              </div>
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Remarks
+                </span>
+                <textarea
+                  className="min-h-[120px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  placeholder="Add follow-up remarks for the selected leads"
+                  value={bulkFollowUpNotes}
+                  onChange={(event) => setBulkFollowUpNotes(event.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void submitBulkFollowUp()}
+                disabled={isSavingBulkLeadFollowUp}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSavingBulkLeadFollowUp ? "Saving..." : "Save Follow-Up"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBulkFollowUpPopup(false)}
                 className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
               >
                 Cancel
@@ -2833,6 +2995,7 @@ export function AdminClientsPanel({
 
       if (selectedFollowUpClient) {
         setSelectedFollowUpClient(null);
+        return;
       }
     };
 
@@ -2952,8 +3115,7 @@ export function AdminClientsPanel({
           ...clientForm,
           onboardingStatus:
             viewMode === "leads" ? "new-lead" : clientForm.onboardingStatus,
-          onboardingSource:
-            viewMode === "leads" ? undefined : clientForm.onboardingSource,
+          onboardingSource: clientForm.onboardingSource || undefined,
           agreementFileName:
             viewMode === "leads" ? undefined : clientForm.agreementFileName,
           agreementFileType:
@@ -2975,9 +3137,15 @@ export function AdminClientsPanel({
         ...emptyClientForm,
         onboardingStatus: viewMode === "leads" ? "new-lead" : "onboarded",
       });
-      setMessage("Client onboarding saved successfully.");
-      router.push("/admin/clients/existing");
-      router.refresh();
+      setMessage(
+        viewMode === "leads"
+          ? "Client lead added successfully."
+          : "Client onboarding saved successfully."
+      );
+      if (viewMode !== "leads") {
+        router.push("/admin/clients/existing");
+        router.refresh();
+      }
     } catch (saveError) {
       setError(
         formatErrorMessage(
@@ -3031,6 +3199,8 @@ export function AdminClientsPanel({
           row["secondary contact phone"] ||
           row["alternate contact phone"] ||
           "";
+        const onboardingSource =
+          row["lead source"] || row["source"] || row["onboarding source"] || "";
         const sector = row["sector"] || "";
         const branch = row["branch"] || row["branch / region"] || row["region"] || "";
 
@@ -3059,6 +3229,7 @@ export function AdminClientsPanel({
             secondaryContactPhone: secondaryContactPhone.trim() || undefined,
             sector: sector.trim() || undefined,
             branch: branch.trim() || undefined,
+            onboardingSource: onboardingSource.trim() || undefined,
             assignedEmployeeId: effectiveAssignedEmployeeId || undefined,
             assignedEmployeeName:
               employees.find((employee) => employee.id === effectiveAssignedEmployeeId)?.fullName,
@@ -3131,6 +3302,18 @@ export function AdminClientsPanel({
   async function handleConvertLead(client: ClientRecord) {
     if (!token || !isSuperAdmin) {
       setError("Only Super Admin can convert leads.");
+      return;
+    }
+
+    const missingFields = [
+      !client.contactPerson?.trim() ? "Contact Person" : "",
+      !client.sector?.trim() ? "Sector" : "",
+      !client.branch?.trim() ? "Branch / Region" : "",
+      !client.assignedEmployeeId ? "Assigned Employee" : "",
+    ].filter(Boolean);
+
+    if (missingFields.length > 0) {
+      setError(`Complete these fields before onboarding: ${missingFields.join(", ")}.`);
       return;
     }
 
@@ -3222,6 +3405,64 @@ export function AdminClientsPanel({
         )
       );
       throw assignmentError;
+    }
+  }
+
+  async function handleBulkLeadFollowUp(
+    clientIds: string[],
+    payload: {
+      followUpStatus: ClientFollowUpStatus;
+      nextFollowUpDate?: string;
+      lastFollowUpDate?: string;
+      followUpNotes?: string;
+    }
+  ) {
+    if (!token || !isSuperAdmin) {
+      setError("Only Super Admin can update lead follow-up in bulk.");
+      return;
+    }
+
+    if (!payload.followUpStatus) {
+      setError("Please select a follow-up status.");
+      return;
+    }
+
+    if (clientIds.length === 0) {
+      setError("Please select at least one lead.");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/clients/bulk-follow-up", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          clientIds,
+          ...payload,
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string; updatedCount?: number };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to update lead follow-up.");
+      }
+
+      await refreshCrm(token);
+      setMessage(`${result.updatedCount || clientIds.length} lead follow-up record(s) updated.`);
+    } catch (followUpError) {
+      setError(
+        formatErrorMessage(
+          followUpError instanceof Error
+            ? followUpError.message
+            : "Unable to update lead follow-up."
+        )
+      );
     }
   }
 
@@ -3478,7 +3719,7 @@ export function AdminClientsPanel({
                   Bulk Lead Upload
                 </p>
                 <p className="mt-2 text-sm leading-6 text-white/72">
-                  Upload an Excel-compatible CSV file with columns like Company Name, Contact Person, Contact Email, Contact Phone, Sector, and Branch.
+                  Upload an Excel-compatible CSV file with columns like Company Name, Contact Person, Contact Email, Contact Phone, Lead Source, Sector, and Branch.
                 </p>
               </div>
               <label className="inline-flex cursor-pointer items-center rounded-2xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white">
@@ -3591,6 +3832,23 @@ export function AdminClientsPanel({
                 onChange={(event) => updateClientField("branch", event.target.value)}
               />
             </label>
+            {viewMode === "leads" ? (
+              <label className="block">
+                <span className={clientFormLabelClassName}>Lead Source</span>
+                <select
+                  className={clientSelectClassName}
+                  value={clientForm.onboardingSource}
+                  onChange={(event) => updateClientField("onboardingSource", event.target.value)}
+                >
+                  <option value="" style={clientSelectOptionStyle}>Select lead source</option>
+                  {leadSourceOptions.map((source) => (
+                    <option key={source} value={source} style={clientSelectOptionStyle}>
+                      {source}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {isSuperAdmin && viewMode !== "leads" ? (
               <label className="block">
                 <span className={clientFormLabelClassName}>Assigned Employee</span>
@@ -3742,6 +4000,9 @@ export function AdminClientsPanel({
             employeeOptions={employeeOptions}
             onBulkAssignment={
               viewMode === "leads" && isSuperAdmin ? handleBulkLeadAssignment : undefined
+            }
+            onBulkFollowUp={
+              viewMode === "leads" && isSuperAdmin ? handleBulkLeadFollowUp : undefined
             }
           />
         </div>

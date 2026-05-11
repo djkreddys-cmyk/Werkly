@@ -48,6 +48,31 @@ export type LeaveRequestRecord = {
   updatedAt: string;
 };
 
+export type HolidayRecord = {
+  id: string;
+  holidayDate: string;
+  name: string;
+  holidayType: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AttendanceExceptionRecord = {
+  id: string;
+  employeeId: string;
+  employeeName?: string;
+  employeeEmail?: string;
+  employeeCode?: string;
+  exceptionDate: string;
+  exceptionType: string;
+  reason: string;
+  status: string;
+  adminNote?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function getBaseUrl() {
   return (
     process.env.RAILWAY_API_BASE_URL ||
@@ -179,6 +204,64 @@ export async function updateLeaveRequestStatus(
 ) {
   return readJson<LeaveRequestRecord>(`/admin/leaves/requests/${id}`, {
     method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getHolidays(token: string) {
+  const data = await readJson<{ holidays: HolidayRecord[] } | HolidayRecord[]>(
+    "/admin/leaves/holidays",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Array.isArray(data) ? data : data.holidays;
+}
+
+export async function createHoliday(
+  payload: { holidayDate: string; name: string; holidayType?: string; notes?: string },
+  token: string
+) {
+  return readJson<HolidayRecord>("/admin/leaves/holidays", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getAttendanceExceptions(token: string) {
+  const data = await readJson<
+    { exceptions: AttendanceExceptionRecord[] } | AttendanceExceptionRecord[]
+  >("/admin/leaves/attendance-exceptions", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return Array.isArray(data) ? data : data.exceptions;
+}
+
+export async function createAttendanceException(
+  payload: {
+    employeeId: string;
+    exceptionDate: string;
+    exceptionType?: string;
+    reason: string;
+    status?: string;
+    adminNote?: string;
+  },
+  token: string
+) {
+  return readJson<AttendanceExceptionRecord>("/admin/leaves/attendance-exceptions", {
+    method: "POST",
     body: JSON.stringify(payload),
     headers: {
       Authorization: `Bearer ${token}`,

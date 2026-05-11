@@ -58,6 +58,7 @@ const moduleSections: Array<{
     description: "Job applicants and website enquiries",
     items: [
       { href: "/admin/candidates", label: "Job Applicants" },
+      { href: "/admin/interviews", label: "Interview Scheduler" },
       { href: "/admin/candidate-enquiries", label: "Candidate Enquiries" },
       { href: "/admin/reports/candidates", label: "Reports" },
     ],
@@ -222,6 +223,7 @@ function getActiveModuleKey(pathname: string) {
 
   if (
     pathname.startsWith("/admin/candidates") ||
+    pathname.startsWith("/admin/interviews") ||
     pathname.startsWith("/admin/candidate-enquiries") ||
     pathname.startsWith("/admin/reports/candidates")
   ) {
@@ -310,6 +312,8 @@ export function AdminShell({
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState("");
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("unread");
+  const [notificationCategoryFilter, setNotificationCategoryFilter] = useState("all");
+  const [notificationSearch, setNotificationSearch] = useState("");
   const [expandedModuleKey, setExpandedModuleKey] = useState<string | null>(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [profileNewPassword, setProfileNewPassword] = useState("");
@@ -929,10 +933,25 @@ export function AdminShell({
       ].slice(0, 10)
     : [];
 
-  const visibleNotifications =
-    notificationFilter === "unread"
-      ? notifications.filter((item) => !item.isRead)
-      : notifications;
+  const notificationCategoryOptions = Array.from(
+    new Set(notifications.map((item) => item.category).filter(Boolean))
+  ).sort();
+  const visibleNotifications = notifications.filter((item) => {
+    if (notificationFilter === "unread" && item.isRead) {
+      return false;
+    }
+    if (notificationCategoryFilter !== "all" && item.category !== notificationCategoryFilter) {
+      return false;
+    }
+    if (!notificationSearch.trim()) {
+      return true;
+    }
+
+    const normalizedQuery = notificationSearch.trim().toLowerCase();
+    return [item.title, item.message, item.category, item.entityType, item.entityId]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+  });
 
   async function handleNotificationRead(id: string, actionUrl?: string) {
     if (!token) {
@@ -1215,6 +1234,26 @@ export function AdminShell({
                             </button>
                           ))}
                         </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_140px]">
+                          <input
+                            value={notificationSearch}
+                            onChange={(event) => setNotificationSearch(event.target.value)}
+                            placeholder="Search notifications"
+                            className="w-full rounded-2xl border border-white/10 bg-white/6 px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/45 focus:border-[rgba(241,166,75,0.48)]"
+                          />
+                          <select
+                            value={notificationCategoryFilter}
+                            onChange={(event) => setNotificationCategoryFilter(event.target.value)}
+                            className="w-full rounded-2xl border border-white/10 bg-white/6 px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(241,166,75,0.48)]"
+                          >
+                            <option value="all">All types</option>
+                            {notificationCategoryOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
                         {notificationError ? (
                           <p className="mt-4 rounded-xl border border-[rgba(241,166,75,0.18)] bg-[rgba(241,166,75,0.12)] px-3 py-2 text-sm text-white/90">
@@ -1248,11 +1287,24 @@ export function AdminShell({
                                       {item.category}
                                     </p>
                                   </div>
-                                  {!item.isRead ? (
-                                    <span className="rounded-full bg-[var(--color-accent)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink)]">
-                                      New
+                                  <div className="flex flex-wrap justify-end gap-2">
+                                    <span
+                                      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                                        item.severity === "critical"
+                                          ? "bg-[rgba(190,72,26,0.18)] text-[rgba(255,219,203,0.95)]"
+                                          : item.severity === "warning"
+                                            ? "bg-[rgba(241,166,75,0.18)] text-[rgba(255,239,206,0.95)]"
+                                            : "bg-white/10 text-white/80"
+                                      }`}
+                                    >
+                                      {item.severity}
                                     </span>
-                                  ) : null}
+                                    {!item.isRead ? (
+                                      <span className="rounded-full bg-[var(--color-accent)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink)]">
+                                        New
+                                      </span>
+                                    ) : null}
+                                  </div>
                                 </div>
                                 <p className="mt-2 text-sm leading-6">{item.message}</p>
                                 <p className="mt-2 text-xs text-white/55">
@@ -1277,7 +1329,16 @@ export function AdminShell({
                                       onClick={() => void handleNotificationRead(item.id, item.actionUrl)}
                                       className="rounded-xl bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:opacity-90"
                                     >
-                                      Open
+                                      {item.entityType === "client"
+                                        ? "Open Client"
+                                        : item.entityType === "job"
+                                          ? "Open Job"
+                                          : item.entityType === "candidate" ||
+                                              item.entityType === "application"
+                                            ? "Open Candidate"
+                                            : item.entityType === "approval-request"
+                                              ? "Open Approval"
+                                              : "Open"}
                                     </button>
                                   ) : null}
                                 </div>

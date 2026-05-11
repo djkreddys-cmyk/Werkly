@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { ApprovalRequestRecord, SlaRuleRecord } from "@/lib/workflow";
 
@@ -27,6 +28,21 @@ function labelize(value?: string) {
     .join(" ");
 }
 
+function getApprovalActionHref(approval: ApprovalRequestRecord) {
+  switch (approval.entityType) {
+    case "client":
+      return approval.entityId ? `/admin/clients/${approval.entityId}` : "";
+    case "candidate":
+    case "job-application":
+    case "application":
+      return "/admin/candidates/job-applicants";
+    case "leave-request":
+      return "/admin/leaves";
+    default:
+      return "";
+  }
+}
+
 export function AdminWorkflowSettings() {
   const [token] = useState(
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
@@ -38,6 +54,10 @@ export function AdminWorkflowSettings() {
   const [isRunningWorkflow, setIsRunningWorkflow] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | ApprovalRequestRecord["requestStatus"]>("all");
+  const [entityFilter, setEntityFilter] = useState("all");
+  const [requestTypeFilter, setRequestTypeFilter] = useState("all");
+  const [approvalQuery, setApprovalQuery] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -80,6 +100,42 @@ export function AdminWorkflowSettings() {
 
   const pendingApprovals = useMemo(
     () => approvals.filter((approval) => approval.requestStatus === "pending"),
+    [approvals]
+  );
+  const filteredApprovals = useMemo(() => {
+    const normalizedQuery = approvalQuery.trim().toLowerCase();
+    return approvals.filter((approval) => {
+      if (statusFilter !== "all" && approval.requestStatus !== statusFilter) {
+        return false;
+      }
+      if (entityFilter !== "all" && approval.entityType !== entityFilter) {
+        return false;
+      }
+      if (requestTypeFilter !== "all" && approval.requestType !== requestTypeFilter) {
+        return false;
+      }
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return [
+        approval.entityLabel,
+        approval.requestType,
+        approval.entityType,
+        approval.requestedByEmployeeName,
+        approval.reason,
+        approval.remarks,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+    });
+  }, [approvalQuery, approvals, entityFilter, requestTypeFilter, statusFilter]);
+  const entityOptions = useMemo(
+    () => Array.from(new Set(approvals.map((approval) => approval.entityType).filter(Boolean))).sort(),
+    [approvals]
+  );
+  const requestTypeOptions = useMemo(
+    () => Array.from(new Set(approvals.map((approval) => approval.requestType).filter(Boolean))).sort(),
     [approvals]
   );
 
@@ -208,8 +264,14 @@ export function AdminWorkflowSettings() {
       <section className="grid gap-4 md:grid-cols-3">
         {[
           { label: "Pending Approvals", value: pendingApprovals.length },
-          { label: "Configured SLA Rules", value: rules.length },
-          { label: "Active SLA Rules", value: rules.filter((rule) => rule.isActive).length },
+          {
+            label: "Approved Requests",
+            value: approvals.filter((approval) => approval.requestStatus === "approved").length,
+          },
+          {
+            label: "Rejected Requests",
+            value: approvals.filter((approval) => approval.requestStatus === "rejected").length,
+          },
         ].map((item) => (
           <article key={item.label} className="accent-card p-5">
             <p className="eyebrow">{item.label}</p>
@@ -235,16 +297,59 @@ export function AdminWorkflowSettings() {
             {isRunningWorkflow ? "Running..." : "Run Reminder Check"}
           </button>
         </div>
+        <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_180px_220px_220px]">
+          <input
+            value={approvalQuery}
+            onChange={(event) => setApprovalQuery(event.target.value)}
+            placeholder="Search request, employee, reason"
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+          >
+            <option value="all">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <select
+            value={entityFilter}
+            onChange={(event) => setEntityFilter(event.target.value)}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+          >
+            <option value="all">All entities</option>
+            {entityOptions.map((option) => (
+              <option key={option} value={option}>
+                {labelize(option)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={requestTypeFilter}
+            onChange={(event) => setRequestTypeFilter(event.target.value)}
+            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+          >
+            <option value="all">All request types</option>
+            {requestTypeOptions.map((option) => (
+              <option key={option} value={option}>
+                {labelize(option)}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading workflow settings...</p>
-        ) : pendingApprovals.length === 0 ? (
+        ) : filteredApprovals.length === 0 ? (
           <div className="mt-6 rounded-[1.25rem] border border-[var(--color-line)] bg-white p-5">
-            <p className="muted-copy text-sm">No pending approvals are waiting right now.</p>
+            <p className="muted-copy text-sm">No approval requests matched the current filters.</p>
           </div>
         ) : (
           <div className="mt-6 space-y-4">
-            {pendingApprovals.map((approval) => (
+            {filteredApprovals.map((approval) => (
               <article
                 key={approval.id}
                 className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-5"
@@ -302,20 +407,32 @@ export function AdminWorkflowSettings() {
                   </div>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => void handleApprovalAction(approval.id, "approved")}
-                    className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleApprovalAction(approval.id, "rejected")}
-                    className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                  >
-                    Reject
-                  </button>
+                  {approval.requestStatus === "pending" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void handleApprovalAction(approval.id, "approved")}
+                        className="rounded-2xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleApprovalAction(approval.id, "rejected")}
+                        className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : null}
+                  {getApprovalActionHref(approval) ? (
+                    <Link
+                      href={getApprovalActionHref(approval)}
+                      className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    >
+                      Open Record
+                    </Link>
+                  ) : null}
                 </div>
               </article>
             ))}

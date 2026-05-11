@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { EmployeeRecord } from "@/lib/crm";
+import type { AuditLogRecord, EmployeeRecord } from "@/lib/crm";
 import type {
+  AttendanceExceptionRecord,
   HalfDaySession,
+  HolidayRecord,
   LeaveAssignmentRecord,
   LeavePortion,
   LeaveRequestRecord,
@@ -16,6 +18,8 @@ type LeaveState = {
   assignments: LeaveAssignmentRecord[];
   requests: LeaveRequestRecord[];
   employees: EmployeeRecord[];
+  holidays: HolidayRecord[];
+  attendanceExceptions: AttendanceExceptionRecord[];
 };
 
 type PendingRequestAction = {
@@ -126,6 +130,8 @@ export function AdminLeavesPanel() {
     assignments: [],
     requests: [],
     employees: [],
+    holidays: [],
+    attendanceExceptions: [],
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingType, setIsSavingType] = useState(false);
@@ -138,6 +144,16 @@ export function AdminLeavesPanel() {
   const [assignmentEmployeeId, setAssignmentEmployeeId] = useState("");
   const [assignmentLeaveTypeId, setAssignmentLeaveTypeId] = useState("");
   const [assignmentDays, setAssignmentDays] = useState("0");
+  const [holidayDate, setHolidayDate] = useState("");
+  const [holidayName, setHolidayName] = useState("");
+  const [holidayType, setHolidayType] = useState("holiday");
+  const [holidayNotes, setHolidayNotes] = useState("");
+  const [exceptionEmployeeId, setExceptionEmployeeId] = useState("");
+  const [exceptionDate, setExceptionDate] = useState("");
+  const [exceptionType, setExceptionType] = useState("regularization");
+  const [exceptionReason, setExceptionReason] = useState("");
+  const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+  const [isSavingException, setIsSavingException] = useState(false);
   const [requestLeaveTypeId, setRequestLeaveTypeId] = useState("");
   const [requestStartDate, setRequestStartDate] = useState("");
   const [requestEndDate, setRequestEndDate] = useState("");
@@ -149,6 +165,7 @@ export function AdminLeavesPanel() {
   );
   const [editingRequest, setEditingRequest] = useState<LeaveRequestEditState | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [leaveAuditLogs, setLeaveAuditLogs] = useState<AuditLogRecord[]>([]);
 
   const canManageLeaves = authType === "admin" || authRole === "super-admin";
 
@@ -185,18 +202,29 @@ export function AdminLeavesPanel() {
       loadJson("/api/admin/leaves/types"),
       loadJson("/api/admin/leaves/assignments"),
       loadJson("/api/admin/leaves/requests"),
+      loadJson("/api/admin/leaves/holidays"),
+      loadJson("/api/admin/leaves/attendance-exceptions"),
     ];
 
     const results = canManageLeaves
       ? await Promise.all([...baseRequests, loadJson("/api/admin/employees")])
       : await Promise.all(baseRequests);
 
-    const [leaveTypesResult, assignmentsResult, requestsResult, employeesResult] = results;
+    const [
+      leaveTypesResult,
+      assignmentsResult,
+      requestsResult,
+      holidaysResult,
+      exceptionsResult,
+      employeesResult,
+    ] = results;
 
     setState({
       leaveTypes: leaveTypesResult.leaveTypes ?? [],
       assignments: assignmentsResult.assignments ?? [],
       requests: requestsResult.requests ?? [],
+      holidays: holidaysResult.holidays ?? [],
+      attendanceExceptions: exceptionsResult.exceptions ?? [],
       employees: employeesResult?.employees ?? [],
     });
   }, [canManageLeaves, token]);
@@ -214,6 +242,33 @@ export function AdminLeavesPanel() {
       .finally(() => setIsLoading(false));
   }, [isHydrated, loadState, token]);
 
+  useEffect(() => {
+    if (!isHydrated || !token || !canManageLeaves) {
+      return;
+    }
+
+    fetch("/api/admin/audit-logs?entityType=leave-request&limit=12", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          logs?: AuditLogRecord[];
+          message?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(result.message || "Unable to load leave audit trail.");
+        }
+
+        setLeaveAuditLogs(result.logs ?? []);
+      })
+      .catch(() => {
+        setLeaveAuditLogs([]);
+      });
+  }, [canManageLeaves, isHydrated, token, state.requests]);
+
   const availableLeaveTypes = useMemo(() => {
     if (canManageLeaves) {
       return state.leaveTypes.filter((type) => type.isActive);
@@ -222,6 +277,38 @@ export function AdminLeavesPanel() {
     const assignedIds = new Set(state.assignments.map((assignment) => assignment.leaveTypeId));
     return state.leaveTypes.filter((type) => type.isActive && assignedIds.has(type.id));
   }, [canManageLeaves, state.assignments, state.leaveTypes]);
+
+  const leaveSummary = useMemo(() => {
+    const totals = state.assignments.reduce(
+      (summary, assignment) => {
+        summary.allocated += Number(assignment.allocatedDays || 0);
+        summary.approved += Number(assignment.approvedDays || 0);
+        summary.pending += Number(assignment.pendingDays || 0);
+        summary.remaining += Number(assignment.remainingDays || 0);
+        if (Number(assignment.remainingDays || 0) <= 2) {
+          summary.lowBalanceEmployees.add(
+            assignment.employeeName || assignment.employeeCode || assignment.employeeId
+          );
+        }
+        return summary;
+      },
+      {
+        allocated: 0,
+        approved: 0,
+        pending: 0,
+        remaining: 0,
+        lowBalanceEmployees: new Set<string>(),
+      }
+    );
+
+    return {
+      allocated: totals.allocated,
+      approved: totals.approved,
+      pending: totals.pending,
+      remaining: totals.remaining,
+      lowBalanceEmployees: totals.lowBalanceEmployees.size,
+    };
+  }, [state.assignments]);
 
   async function handleCreateLeaveType(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -301,6 +388,89 @@ export function AdminLeavesPanel() {
       );
     } finally {
       setIsSavingAssignment(false);
+    }
+  }
+
+  async function handleCreateHoliday(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    setIsSavingHoliday(true);
+
+    try {
+      const response = await fetch("/api/admin/leaves/holidays", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          holidayDate,
+          name: holidayName,
+          holidayType,
+          notes: holidayNotes,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save holiday.");
+      }
+
+      setHolidayDate("");
+      setHolidayName("");
+      setHolidayType("holiday");
+      setHolidayNotes("");
+      setSuccess("Holiday calendar updated.");
+      await loadState();
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : "Unable to save holiday.");
+    } finally {
+      setIsSavingHoliday(false);
+    }
+  }
+
+  async function handleCreateAttendanceException(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    setIsSavingException(true);
+
+    try {
+      const response = await fetch("/api/admin/leaves/attendance-exceptions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          employeeId: exceptionEmployeeId,
+          exceptionDate,
+          exceptionType,
+          reason: exceptionReason,
+          status: "approved",
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save attendance exception.");
+      }
+
+      setExceptionEmployeeId("");
+      setExceptionDate("");
+      setExceptionType("regularization");
+      setExceptionReason("");
+      setSuccess("Attendance exception saved.");
+      await loadState();
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to save attendance exception."
+      );
+    } finally {
+      setIsSavingException(false);
     }
   }
 
@@ -484,6 +654,23 @@ export function AdminLeavesPanel() {
       ) : null}
 
       {canManageLeaves ? (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {[
+            { label: "Assigned", value: formatLeaveDays(leaveSummary.allocated) },
+            { label: "Approved", value: formatLeaveDays(leaveSummary.approved) },
+            { label: "Pending", value: formatLeaveDays(leaveSummary.pending) },
+            { label: "Remaining", value: formatLeaveDays(leaveSummary.remaining) },
+            { label: "Low Balance Employees", value: leaveSummary.lowBalanceEmployees },
+          ].map((item) => (
+            <article key={item.label} className="accent-card p-5">
+              <p className="eyebrow">{item.label}</p>
+              <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">{item.value}</p>
+            </article>
+          ))}
+        </section>
+      ) : null}
+
+      {canManageLeaves ? (
         <section className="grid gap-6 xl:grid-cols-2">
           <form className="accent-card p-7" onSubmit={handleCreateLeaveType}>
             <p className="eyebrow">Leave Types</p>
@@ -574,6 +761,178 @@ export function AdminLeavesPanel() {
           </form>
         </section>
       ) : null}
+
+      {canManageLeaves ? (
+        <section className="grid gap-6 xl:grid-cols-2">
+          <form className="accent-card p-7" onSubmit={handleCreateHoliday}>
+            <p className="eyebrow">Holiday Calendar</p>
+            <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+              Add holidays and non-working days.
+            </h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <input
+                className={inputClassName}
+                type="date"
+                value={holidayDate}
+                onChange={(event) => setHolidayDate(event.target.value)}
+                required
+              />
+              <select
+                className={inputClassName}
+                value={holidayType}
+                onChange={(event) => setHolidayType(event.target.value)}
+              >
+                <option value="holiday">Holiday</option>
+                <option value="optional">Optional Holiday</option>
+                <option value="company-off">Company Off</option>
+              </select>
+              <input
+                className={inputClassName}
+                value={holidayName}
+                onChange={(event) => setHolidayName(event.target.value)}
+                placeholder="Holiday name"
+                required
+              />
+              <input
+                className={inputClassName}
+                value={holidayNotes}
+                onChange={(event) => setHolidayNotes(event.target.value)}
+                placeholder="Notes"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingHoliday}
+              className="mt-6 rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSavingHoliday ? "Saving..." : "Save Holiday"}
+            </button>
+          </form>
+
+          <form className="accent-card p-7" onSubmit={handleCreateAttendanceException}>
+            <p className="eyebrow">Attendance Exceptions</p>
+            <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+              Approve manual attendance adjustments.
+            </h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <select
+                className={inputClassName}
+                value={exceptionEmployeeId}
+                onChange={(event) => setExceptionEmployeeId(event.target.value)}
+                required
+              >
+                <option value="">Select employee</option>
+                {state.employees
+                  .filter((employee) => employee.status === "active")
+                  .map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.fullName}
+                      {employee.employeeCode ? ` (${employee.employeeCode})` : ""}
+                    </option>
+                  ))}
+              </select>
+              <input
+                className={inputClassName}
+                type="date"
+                value={exceptionDate}
+                onChange={(event) => setExceptionDate(event.target.value)}
+                required
+              />
+              <select
+                className={inputClassName}
+                value={exceptionType}
+                onChange={(event) => setExceptionType(event.target.value)}
+              >
+                <option value="regularization">Regularization</option>
+                <option value="late-login-approved">Late Login Approved</option>
+                <option value="early-logout-approved">Early Logout Approved</option>
+                <option value="missed-punch">Missed Punch</option>
+              </select>
+              <input
+                className={inputClassName}
+                value={exceptionReason}
+                onChange={(event) => setExceptionReason(event.target.value)}
+                placeholder="Reason"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingException}
+              className="mt-6 rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSavingException ? "Saving..." : "Save Exception"}
+            </button>
+          </form>
+        </section>
+      ) : null}
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <section className="accent-card p-7">
+          <p className="eyebrow">Holiday Calendar</p>
+          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            Upcoming holidays and company off days.
+          </h2>
+          {state.holidays.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No holidays have been added yet.</p>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {state.holidays.slice(0, 8).map((holiday) => (
+                <div
+                  key={holiday.id}
+                  className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-[var(--color-ink)]">{holiday.name}</p>
+                    <p className="text-sm text-[var(--color-muted)]">
+                      {new Date(holiday.holidayDate).toLocaleDateString("en-IN", {
+                        dateStyle: "medium",
+                      })}
+                    </p>
+                  </div>
+                  <p className="mt-1 text-sm text-[var(--color-muted)]">
+                    {holiday.holidayType}
+                    {holiday.notes ? ` - ${holiday.notes}` : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="accent-card p-7">
+          <p className="eyebrow">Attendance Exceptions</p>
+          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            Approved exceptions for attendance review.
+          </h2>
+          {state.attendanceExceptions.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No attendance exceptions are available yet.</p>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {state.attendanceExceptions.slice(0, 8).map((exception) => (
+                <div
+                  key={exception.id}
+                  className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-[var(--color-ink)]">
+                      {exception.employeeName || exception.employeeEmail || "Employee"}
+                    </p>
+                    <p className="text-sm text-[var(--color-muted)]">
+                      {new Date(exception.exceptionDate).toLocaleDateString("en-IN", {
+                        dateStyle: "medium",
+                      })}
+                    </p>
+                  </div>
+                  <p className="mt-1 text-sm text-[var(--color-muted)]">
+                    {exception.exceptionType} - {exception.reason}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </section>
 
       <section className="accent-card p-7">
         <p className="eyebrow">{canManageLeaves ? "Assigned Leave" : "My Leave Balance"}</p>
@@ -961,6 +1320,74 @@ export function AdminLeavesPanel() {
           </div>
         )}
       </section>
+
+      {canManageLeaves ? (
+        <section className="accent-card p-7">
+          <p className="eyebrow">Leave Audit Trail</p>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+            Review leave edits, approvals, and post-approval corrections.
+          </h2>
+
+          {leaveAuditLogs.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No leave audit entries are available yet.</p>
+          ) : (
+            <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse">
+                  <thead>
+                    <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                      {["Action", "Employee", "Actor", "Changed On"].map((heading) => (
+                        <th
+                          key={heading}
+                          className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        >
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaveAuditLogs.map((log, index) => (
+                      <tr
+                        key={log.id}
+                        className={
+                          index === leaveAuditLogs.length - 1
+                            ? "align-top"
+                            : "align-top border-b border-[var(--color-line)]"
+                        }
+                      >
+                        <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                          {String(log.actionType || "")
+                            .split(/[._-]+/)
+                            .filter(Boolean)
+                            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                            .join(" ")}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {String(
+                            (log.afterData?.employeeName as string | undefined) ||
+                              (log.beforeData?.employeeName as string | undefined) ||
+                              "Leave Request"
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {log.actorName || log.actorIdentifier || "System"}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {new Date(log.createdAt).toLocaleString("en-IN", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {canManageLeaves && editingRequest ? (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">

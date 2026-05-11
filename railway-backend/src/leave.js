@@ -63,6 +63,35 @@ function mapLeaveRequestRow(row) {
   };
 }
 
+function mapHolidayRow(row) {
+  return {
+    id: row.id,
+    holidayDate: row.holiday_date,
+    name: row.name,
+    holidayType: row.holiday_type || "holiday",
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapAttendanceExceptionRow(row) {
+  return {
+    id: row.id,
+    employeeId: row.employee_id,
+    employeeName: row.employee_name,
+    employeeEmail: row.employee_email,
+    employeeCode: row.employee_code,
+    exceptionDate: row.exception_date,
+    exceptionType: row.exception_type || "regularization",
+    reason: row.reason,
+    status: row.status || "approved",
+    adminNote: row.admin_note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export async function ensureLeaveSchema() {
   await query(`
     create table if not exists leave_types (
@@ -99,6 +128,32 @@ export async function ensureLeaveSchema() {
       half_day_session text,
       reason text not null,
       status text not null default 'pending',
+      admin_note text,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+
+  await query(`
+    create table if not exists holiday_calendar (
+      id uuid primary key default gen_random_uuid(),
+      holiday_date date not null unique,
+      name text not null,
+      holiday_type text not null default 'holiday',
+      notes text,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+
+  await query(`
+    create table if not exists attendance_exceptions (
+      id uuid primary key default gen_random_uuid(),
+      employee_id uuid references employees(id) on delete cascade,
+      exception_date date not null,
+      exception_type text not null default 'regularization',
+      reason text not null,
+      status text not null default 'approved',
       admin_note text,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
@@ -493,4 +548,96 @@ export async function updateLeaveRequestStatus(id, payload) {
 
   const requests = await listLeaveRequests();
   return requests.find((request) => request.id === id) ?? null;
+}
+
+export async function listHolidays() {
+  const result = await query(
+    `select id, holiday_date, name, holiday_type, notes, created_at, updated_at
+     from holiday_calendar
+     order by holiday_date asc`
+  );
+
+  return result.rows.map(mapHolidayRow);
+}
+
+export async function createHoliday(payload) {
+  const result = await query(
+    `insert into holiday_calendar (holiday_date, name, holiday_type, notes, updated_at)
+     values ($1, $2, $3, $4, now())
+     on conflict (holiday_date)
+     do update set
+       name = excluded.name,
+       holiday_type = excluded.holiday_type,
+       notes = excluded.notes,
+       updated_at = now()
+     returning id, holiday_date, name, holiday_type, notes, created_at, updated_at`,
+    [
+      payload.holidayDate,
+      payload.name,
+      payload.holidayType || "holiday",
+      payload.notes || null,
+    ]
+  );
+
+  return mapHolidayRow(result.rows[0]);
+}
+
+export async function listAttendanceExceptions(employeeId = null) {
+  const values = [];
+  const employeeClause = employeeId
+    ? (() => {
+        values.push(employeeId);
+        return `where exceptions.employee_id = $${values.length}`;
+      })()
+    : "";
+
+  const result = await query(
+    `select
+       exceptions.id,
+       exceptions.employee_id,
+       employees.full_name as employee_name,
+       employees.email as employee_email,
+       employees.employee_code,
+       exceptions.exception_date,
+       exceptions.exception_type,
+       exceptions.reason,
+       exceptions.status,
+       exceptions.admin_note,
+       exceptions.created_at,
+       exceptions.updated_at
+     from attendance_exceptions exceptions
+     left join employees on employees.id = exceptions.employee_id
+     ${employeeClause}
+     order by exceptions.exception_date desc, exceptions.created_at desc`,
+    values
+  );
+
+  return result.rows.map(mapAttendanceExceptionRow);
+}
+
+export async function createAttendanceException(payload) {
+  const result = await query(
+    `insert into attendance_exceptions (
+       employee_id,
+       exception_date,
+       exception_type,
+       reason,
+       status,
+       admin_note,
+       updated_at
+     )
+     values ($1, $2, $3, $4, $5, $6, now())
+     returning id`,
+    [
+      payload.employeeId,
+      payload.exceptionDate,
+      payload.exceptionType || "regularization",
+      payload.reason,
+      payload.status || "approved",
+      payload.adminNote || null,
+    ]
+  );
+
+  const exceptions = await listAttendanceExceptions();
+  return exceptions.find((exception) => exception.id === result.rows[0]?.id) ?? exceptions[0];
 }

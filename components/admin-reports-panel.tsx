@@ -23,13 +23,18 @@ type ReportView =
   | "index"
   | "hr-attendance"
   | "hr-activity"
+  | "interview-scheduler"
   | "jobs-performance"
   | "jobs-stage-movement"
+  | "jobs-hiring-funnel"
+  | "jobs-recruiter-workload"
   | "candidates-pipeline"
   | "candidates-sources"
   | "candidates-enquiries"
+  | "candidates-recruiter-productivity"
   | "clients-coverage"
   | "clients-followups"
+  | "clients-lead-conversion"
   | "clients-transfers";
 
 type ReportState = {
@@ -162,6 +167,22 @@ const moduleReportScreens: Record<
   ],
   jobs: [
     {
+      key: "jobs-hiring-funnel",
+      href: "/admin/reports/jobs/hiring-funnel",
+      eyebrow: "Hiring Funnel",
+      title: "Stage conversion from applied to joined.",
+      description:
+        "Measure applied, shortlisted, interview, offer, joined, and rejection counts for the selected jobs, clients, and recruiters.",
+    },
+    {
+      key: "jobs-recruiter-workload",
+      href: "/admin/reports/jobs/recruiter-workload",
+      eyebrow: "Recruiter Workload",
+      title: "Open mandates and candidate load by recruiter.",
+      description:
+        "Compare recruiter ownership across active jobs, applications, interviews, offers, joined candidates, and pending follow-ups.",
+    },
+    {
       key: "jobs-performance",
       href: "/admin/reports/jobs/performance",
       eyebrow: "Job Performance",
@@ -180,6 +201,14 @@ const moduleReportScreens: Record<
   ],
   candidates: [
     {
+      key: "interview-scheduler",
+      href: "/admin/interviews",
+      eyebrow: "Interview Scheduler",
+      title: "Scheduled interviews by recruiter, client, and job.",
+      description:
+        "Review upcoming and past interview slots with candidate, mode, panel, reminder, and ownership details.",
+    },
+    {
       key: "candidates-pipeline",
       href: "/admin/reports/candidates/pipeline",
       eyebrow: "Candidate Pipeline",
@@ -194,6 +223,14 @@ const moduleReportScreens: Record<
       title: "Compare sourcing channels separately.",
       description:
         "Review source-wise candidate volume so the team can understand where quality applications are coming from.",
+    },
+    {
+      key: "candidates-recruiter-productivity",
+      href: "/admin/reports/candidates/recruiter-productivity",
+      eyebrow: "Recruiter Productivity",
+      title: "Candidate movement and outcomes by recruiter.",
+      description:
+        "Compare applications handled, shortlist movement, interviews, offers, joins, and rejection outcomes for each recruiter.",
     },
     {
       key: "candidates-enquiries",
@@ -220,6 +257,14 @@ const moduleReportScreens: Record<
       title: "Onboarding and relationship follow-up tracking.",
       description:
         "Filter client onboarding follow-ups by employee, client, related job, and date range on a separate follow-up report screen.",
+    },
+    {
+      key: "clients-lead-conversion",
+      href: "/admin/reports/clients/lead-conversion",
+      eyebrow: "Lead Conversion",
+      title: "Client lead progress from new lead to onboarded.",
+      description:
+        "Track lead source, onboarding stage, owner, linked jobs, and conversion outcomes across client acquisition.",
     },
     {
       key: "clients-transfers",
@@ -1743,6 +1788,139 @@ export function AdminReportsPanel({
     };
   }, [filteredApplications]);
 
+  const filteredInterviewRows = useMemo(
+    () =>
+      filteredApplications
+        .filter((application) => Boolean(application.interviewScheduledAt))
+        .sort(
+          (first, second) =>
+            new Date(first.interviewScheduledAt || "").getTime() -
+            new Date(second.interviewScheduledAt || "").getTime()
+        ),
+    [filteredApplications]
+  );
+
+  const funnelRows = useMemo(() => {
+    const stages = [
+      { key: "applied", label: "Applied" },
+      { key: "shortlisted", label: "Shortlisted" },
+      { key: "interview", label: "Interview" },
+      { key: "offered", label: "Offered" },
+      { key: "joined", label: "Joined" },
+      { key: "screen-rejection", label: "Screen Rejection" },
+      { key: "rejected", label: "Rejected" },
+    ];
+    const total = Math.max(filteredApplications.length, 1);
+
+    return stages.map((stage) => {
+      const count = filteredApplications.filter(
+        (application) => (application.stage ?? "applied") === stage.key
+      ).length;
+
+      return {
+        ...stage,
+        count,
+        share: Math.round((count / total) * 100),
+      };
+    });
+  }, [filteredApplications]);
+
+  const recruiterProductivityRows = useMemo(() => {
+    const rows = new Map<
+      string,
+      {
+        recruiterName: string;
+        recruiterEmail?: string;
+        jobs: Set<string>;
+        applications: number;
+        shortlisted: number;
+        interviews: number;
+        offers: number;
+        joined: number;
+        rejected: number;
+        scheduledInterviews: number;
+      }
+    >();
+
+    filteredApplications.forEach((application) => {
+      const key =
+        application.recruiterEmail ||
+        application.recruiterName ||
+        application.assignedEmployeeId ||
+        "Unassigned";
+      const row =
+        rows.get(key) ??
+        {
+          recruiterName: application.recruiterName || "Unassigned",
+          recruiterEmail: application.recruiterEmail,
+          jobs: new Set<string>(),
+          applications: 0,
+          shortlisted: 0,
+          interviews: 0,
+          offers: 0,
+          joined: 0,
+          rejected: 0,
+          scheduledInterviews: 0,
+        };
+      const stage = application.stage ?? "applied";
+
+      if (application.jobId) {
+        row.jobs.add(application.jobId);
+      }
+      row.applications += 1;
+      row.shortlisted += stage === "shortlisted" ? 1 : 0;
+      row.interviews += stage === "interview" ? 1 : 0;
+      row.offers += stage === "offered" ? 1 : 0;
+      row.joined += stage === "joined" ? 1 : 0;
+      row.rejected += stage === "rejected" || stage === "screen-rejection" ? 1 : 0;
+      row.scheduledInterviews += application.interviewScheduledAt ? 1 : 0;
+      rows.set(key, row);
+    });
+
+    filteredJobsReportRows.forEach((job) => {
+      const key = job.recruiterEmail || job.recruiterName || job.recruiterId || "Unassigned";
+      const row =
+        rows.get(key) ??
+        {
+          recruiterName: job.recruiterName || "Unassigned",
+          recruiterEmail: job.recruiterEmail,
+          jobs: new Set<string>(),
+          applications: 0,
+          shortlisted: 0,
+          interviews: 0,
+          offers: 0,
+          joined: 0,
+          rejected: 0,
+          scheduledInterviews: 0,
+        };
+      row.jobs.add(job.id);
+      rows.set(key, row);
+    });
+
+    return Array.from(rows.values())
+      .map((row) => ({
+        ...row,
+        jobsCount: row.jobs.size,
+        conversionRate:
+          row.applications > 0 ? Math.round((row.joined / row.applications) * 100) : 0,
+      }))
+      .sort((a, b) => b.applications - a.applications);
+  }, [filteredApplications, filteredJobsReportRows]);
+
+  const leadConversionRows = useMemo(
+    () =>
+      filteredClientReportRows
+        .map((row) => ({
+          ...row,
+          isConverted:
+            row.client.onboardingStatus === "onboarded" ||
+            row.client.followUpStatus === "on-boarded" ||
+            row.client.status === "active",
+        }))
+        .sort((a, b) => Number(b.isConverted) - Number(a.isConverted)),
+    [filteredClientReportRows]
+  );
+
   const overviewCards = reportModules.map((item) => (
     <ReportLinkCard
       key={item.key}
@@ -2275,6 +2453,97 @@ export function AdminReportsPanel({
           )}
         </section>
         )}
+
+        {report === "jobs-hiring-funnel" && (
+        <section className="accent-card p-7">
+          <p className="eyebrow">Hiring Funnel</p>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+            Measure candidate movement from applied to joined.
+          </h2>
+          <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+            Use this funnel to spot where applications are building up across the selected
+            recruiter, client, and date filters.
+          </p>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {funnelRows.map((row) => (
+              <article
+                key={row.key}
+                className="rounded-2xl border border-[var(--color-line)] bg-white p-5"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[var(--color-ink)]">{row.label}</p>
+                  <p className="text-xs font-semibold text-[var(--color-accent-strong)]">
+                    {row.share}%
+                  </p>
+                </div>
+                <p className="mt-4 text-3xl font-semibold text-[var(--color-ink)]">
+                  {row.count}
+                </p>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[rgba(8,96,108,0.08)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--color-accent)]"
+                    style={{ width: `${Math.min(row.share, 100)}%` }}
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+        )}
+
+        {report === "jobs-recruiter-workload" && (
+        <section className="accent-card p-7">
+          <p className="eyebrow">Recruiter Workload</p>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+            Compare active mandate and candidate load.
+          </h2>
+          <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+            This workload view combines jobs and candidate movement so leadership can see
+            where ownership is concentrated.
+          </p>
+          {recruiterProductivityRows.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No recruiter workload is available yet.</p>
+          ) : (
+            <ReportTable
+              headings={[
+                "Recruiter",
+                "Jobs",
+                "Applications",
+                "Shortlisted",
+                "Interviews",
+                "Offers",
+                "Joined",
+                "Scheduled",
+              ]}
+            >
+              {recruiterProductivityRows.map((row, index) => (
+                <tr
+                  key={`${row.recruiterName}-${row.recruiterEmail || "none"}`}
+                  className={
+                    index === recruiterProductivityRows.length - 1
+                      ? "align-top"
+                      : "align-top border-b border-[var(--color-line)]"
+                  }
+                >
+                  <td className="px-4 py-4">
+                    <p className="font-semibold text-[var(--color-ink)]">{row.recruiterName}</p>
+                    {row.recruiterEmail ? (
+                      <p className="mt-1 text-sm text-[var(--color-muted)]">{row.recruiterEmail}</p>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">{row.jobsCount}</td>
+                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">{row.applications}</td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.shortlisted}</td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.interviews}</td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.offers}</td>
+                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">{row.joined}</td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.scheduledInterviews}</td>
+                </tr>
+              ))}
+            </ReportTable>
+          )}
+        </section>
+        )}
       </div>
     );
   }
@@ -2363,6 +2632,84 @@ export function AdminReportsPanel({
           />
         </section>
 
+        {report === "interview-scheduler" && (
+        <section className="accent-card p-7">
+          <p className="eyebrow">Interview Scheduler</p>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+            Review scheduled interview slots.
+          </h2>
+          <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+            Interview slots are maintained from each candidate profile and can be filtered by
+            recruiter, client, source, stage, and date range.
+          </p>
+
+          {isLoading ? (
+            <p className="muted-copy mt-6 text-sm">Loading interview schedule...</p>
+          ) : filteredInterviewRows.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No interviews are scheduled for this filter.</p>
+          ) : (
+            <ReportTable
+              headings={[
+                "Interview",
+                "Candidate",
+                "Job",
+                "Client",
+                "Recruiter",
+                "Mode",
+                "Panel",
+                "Reminder",
+              ]}
+            >
+              {filteredInterviewRows.map((application, index) => (
+                <tr
+                  key={application.id}
+                  className={
+                    index === filteredInterviewRows.length - 1
+                      ? "align-top"
+                      : "align-top border-b border-[var(--color-line)]"
+                  }
+                >
+                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                    {formatDateTime(application.interviewScheduledAt)}
+                  </td>
+                  <td className="px-4 py-4">
+                    <p className="font-semibold text-[var(--color-ink)]">
+                      {application.candidateName}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--color-muted)]">
+                      {application.candidatePhone || application.candidateEmail}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    <p className="font-medium text-[var(--color-ink)]">
+                      {application.jobTitle || "Untitled job"}
+                    </p>
+                    <p className="mt-1">
+                      <AdminJobIdTrigger jobId={application.jobId} jobCode={application.jobCode} />
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {application.clientName || "Not assigned"}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {application.recruiterName || "Unassigned"}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {application.interviewMode || "Not added"}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {application.interviewPanel || "Not added"}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                    {formatDateTime(application.interviewReminderAt)}
+                  </td>
+                </tr>
+              ))}
+            </ReportTable>
+          )}
+        </section>
+        )}
+
         {report === "candidates-pipeline" && (
         <section className="accent-card p-7">
           <p className="eyebrow">Candidate Pipeline</p>
@@ -2436,6 +2783,60 @@ export function AdminReportsPanel({
                     </td>
                   </tr>
                 ))}
+            </ReportTable>
+          )}
+        </section>
+        )}
+
+        {report === "candidates-recruiter-productivity" && (
+        <section className="accent-card p-7">
+          <p className="eyebrow">Recruiter Productivity</p>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+            Compare candidate movement and outcomes.
+          </h2>
+          <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+            This report focuses on recruiter output across applications, shortlist movement,
+            interviews, offers, joining, and conversion rate.
+          </p>
+          {recruiterProductivityRows.length === 0 ? (
+            <p className="muted-copy mt-6 text-sm">No recruiter productivity rows are available yet.</p>
+          ) : (
+            <ReportTable
+              headings={[
+                "Recruiter",
+                "Applications",
+                "Shortlisted",
+                "Interview",
+                "Offered",
+                "Joined",
+                "Rejected",
+                "Conversion",
+              ]}
+            >
+              {recruiterProductivityRows.map((row, index) => (
+                <tr
+                  key={`${row.recruiterName}-${row.recruiterEmail || "none"}`}
+                  className={
+                    index === recruiterProductivityRows.length - 1
+                      ? "align-top"
+                      : "align-top border-b border-[var(--color-line)]"
+                  }
+                >
+                  <td className="px-4 py-4">
+                    <p className="font-semibold text-[var(--color-ink)]">{row.recruiterName}</p>
+                    {row.recruiterEmail ? (
+                      <p className="mt-1 text-sm text-[var(--color-muted)]">{row.recruiterEmail}</p>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">{row.applications}</td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.shortlisted}</td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.interviews}</td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.offers}</td>
+                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">{row.joined}</td>
+                  <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{row.rejected}</td>
+                  <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">{row.conversionRate}%</td>
+                </tr>
+              ))}
             </ReportTable>
           )}
         </section>
@@ -2857,6 +3258,105 @@ export function AdminReportsPanel({
             </ReportTable>
           )}
         </section>
+      </section>
+      )}
+
+      {report === "clients-lead-conversion" && (
+      <section className="accent-card p-7">
+        <p className="eyebrow">Lead Conversion</p>
+        <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+          Track lead progress from enquiry to onboarded client.
+        </h2>
+        <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+          This report separates lead conversion from general client coverage so acquisition
+          progress, owner follow-up, linked jobs, and hiring output stay visible.
+        </p>
+
+        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Lead Rows" value={leadConversionRows.length} />
+          <MetricCard
+            label="Converted"
+            value={leadConversionRows.filter((row) => row.isConverted).length}
+          />
+          <MetricCard
+            label="Conversion Rate"
+            value={`${
+              leadConversionRows.length > 0
+                ? Math.round(
+                    (leadConversionRows.filter((row) => row.isConverted).length /
+                      leadConversionRows.length) *
+                      100
+                  )
+                : 0
+            }%`}
+          />
+          <MetricCard
+            label="Linked Jobs"
+            value={leadConversionRows.reduce((sum, row) => sum + row.client.linkedJobsCount, 0)}
+          />
+        </section>
+
+        {isLoading ? (
+          <p className="muted-copy mt-6 text-sm">Loading lead conversion report...</p>
+        ) : leadConversionRows.length === 0 ? (
+          <p className="muted-copy mt-6 text-sm">No client leads are available yet.</p>
+        ) : (
+          <ReportTable
+            headings={[
+              "Client",
+              "Owner",
+              "Source",
+              "Onboarding Stage",
+              "Follow-Up",
+              "Linked Jobs",
+              "Applications",
+              "Joined",
+              "Outcome",
+            ]}
+          >
+            {leadConversionRows.map((row, index) => (
+              <tr
+                key={row.client.id}
+                className={
+                  index === leadConversionRows.length - 1
+                    ? "align-top"
+                    : "align-top border-b border-[var(--color-line)]"
+                }
+              >
+                <td className="px-4 py-4">
+                  <p className="font-semibold text-[var(--color-ink)]">{row.client.companyName}</p>
+                  <p className="mt-1 text-sm text-[var(--color-muted)]">
+                    {row.client.contactPerson}
+                  </p>
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                  {row.client.assignedEmployeeName || "Not assigned"}
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                  {row.client.onboardingSource || "Source not added"}
+                </td>
+                <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                  {getFollowUpStatusLabel(row.client.onboardingStatus || "new-lead")}
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                  {getFollowUpStatusLabel(row.client.followUpStatus)}
+                </td>
+                <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                  {row.client.linkedJobsCount}
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                  {row.applicationsCount}
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                  {row.joinedCount}
+                </td>
+                <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
+                  {row.isConverted ? "Converted" : "In progress"}
+                </td>
+              </tr>
+            ))}
+          </ReportTable>
+        )}
       </section>
       )}
 

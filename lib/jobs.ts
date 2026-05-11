@@ -77,6 +77,10 @@ export type JobApplication = {
   followUpFromDate?: string;
   followUpToDate?: string;
   followUpAssignmentNote?: string;
+  interviewScheduledAt?: string;
+  interviewMode?: string;
+  interviewPanel?: string;
+  interviewReminderAt?: string;
   candidateMessage?: string;
   jobTitle?: string;
   appliedAt: string;
@@ -279,6 +283,10 @@ export type JobApplicationUpdatePayload = {
   resumeFileName?: string;
   resumeFileType?: string;
   resumeFileData?: string;
+  interviewScheduledAt?: string;
+  interviewMode?: string;
+  interviewPanel?: string;
+  interviewReminderAt?: string;
 };
 
 const demoJobs: JobDetail[] = [

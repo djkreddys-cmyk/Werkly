@@ -73,7 +73,11 @@ import {
 import {
   createLeaveRequest,
   createLeaveType,
+  createAttendanceException,
+  createHoliday,
   ensureLeaveSchema,
+  listAttendanceExceptions,
+  listHolidays,
   listLeaveAssignments,
   listLeaveRequests,
   listLeaveTypes,
@@ -1280,6 +1284,10 @@ app.put(
         resumeFileName,
         resumeFileType,
         resumeFileData,
+        interviewScheduledAt,
+        interviewMode,
+        interviewPanel,
+        interviewReminderAt,
       } = request.body ?? {};
 
       if (!String(candidateName ?? "").trim()) {
@@ -1318,6 +1326,10 @@ app.put(
           resumeFileName: String(resumeFileName ?? "").trim() || undefined,
           resumeFileType: String(resumeFileType ?? "").trim() || undefined,
           resumeFileData: String(resumeFileData ?? "").trim() || undefined,
+          interviewScheduledAt: String(interviewScheduledAt ?? "").trim() || undefined,
+          interviewMode: String(interviewMode ?? "").trim() || undefined,
+          interviewPanel: String(interviewPanel ?? "").trim() || undefined,
+          interviewReminderAt: String(interviewReminderAt ?? "").trim() || undefined,
         },
         request.user?.type === "employee" ? request.user.id : null
       );
@@ -2131,6 +2143,16 @@ app.post("/admin/leaves/requests", requireInternalUser, async (request, response
       leavePortion,
       halfDaySession,
     });
+
+    await createAuditLog({
+      actionType: "leave.requested",
+      entityType: "leave-request",
+      entityId: leaveRequest.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: leaveRequest,
+    });
+
     response.status(201).json(leaveRequest);
   } catch (error) {
     response.status(500).json({
@@ -2155,6 +2177,10 @@ app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) =>
       return response.status(400).json({ message: "Invalid leave request status." });
     }
 
+    const previousRequests = await listLeaveRequests();
+    const previousLeaveRequest =
+      previousRequests.find((item) => item.id === request.params.id) || null;
+
     const leaveRequest = await updateLeaveRequestStatus(request.params.id, {
       status,
       adminNote,
@@ -2170,10 +2196,116 @@ app.put("/admin/leaves/requests/:id", requireAdmin, async (request, response) =>
       return response.status(404).json({ message: "Leave request not found." });
     }
 
+    await createAuditLog({
+      actionType: "leave.updated",
+      entityType: "leave-request",
+      entityId: leaveRequest.id,
+      ...getActorDetails(request),
+      beforeData: previousLeaveRequest || {},
+      afterData: leaveRequest,
+      metadata: {
+        leavePortion: leaveRequest.leavePortion,
+        halfDaySession: leaveRequest.halfDaySession,
+      },
+    });
+
     response.json(leaveRequest);
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update leave request.",
+    });
+  }
+});
+
+app.get("/admin/leaves/holidays", requireInternalUser, async (_request, response) => {
+  try {
+    const holidays = await listHolidays();
+    response.json({ holidays });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load holiday calendar.",
+    });
+  }
+});
+
+app.post("/admin/leaves/holidays", requireAdmin, async (request, response) => {
+  try {
+    const { holidayDate, name, holidayType, notes } = request.body ?? {};
+    if (!holidayDate || !String(name ?? "").trim()) {
+      return response.status(400).json({ message: "Holiday date and name are required." });
+    }
+
+    const holiday = await createHoliday({
+      holidayDate,
+      name: String(name).trim(),
+      holidayType,
+      notes,
+    });
+
+    await createAuditLog({
+      actionType: "holiday.upserted",
+      entityType: "holiday",
+      entityId: holiday.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: holiday,
+    });
+
+    response.status(201).json(holiday);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to save holiday.",
+    });
+  }
+});
+
+app.get("/admin/leaves/attendance-exceptions", requireInternalUser, async (request, response) => {
+  try {
+    const exceptions = await listAttendanceExceptions(
+      request.user?.type === "employee" ? request.user.id : null
+    );
+    response.json({ exceptions });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load attendance exceptions.",
+    });
+  }
+});
+
+app.post("/admin/leaves/attendance-exceptions", requireAdmin, async (request, response) => {
+  try {
+    const { employeeId, exceptionDate, exceptionType, reason, status, adminNote } =
+      request.body ?? {};
+    if (!employeeId || !exceptionDate || !String(reason ?? "").trim()) {
+      return response.status(400).json({
+        message: "Employee, exception date, and reason are required.",
+      });
+    }
+
+    const exception = await createAttendanceException({
+      employeeId,
+      exceptionDate,
+      exceptionType,
+      reason: String(reason).trim(),
+      status,
+      adminNote,
+    });
+
+    await createAuditLog({
+      actionType: "attendance-exception.created",
+      entityType: "attendance-exception",
+      entityId: exception.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: exception,
+    });
+
+    response.status(201).json(exception);
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to save attendance exception.",
     });
   }
 });
@@ -2782,6 +2914,79 @@ app.put("/admin/clients/:id/follow-up", requirePermission("clients.followup"), a
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update client follow-up.",
+    });
+  }
+});
+
+app.put("/admin/clients/bulk-follow-up", requireAdmin, async (request, response) => {
+  try {
+    const { clientIds, followUpStatus, nextFollowUpDate, lastFollowUpDate, followUpNotes } =
+      request.body ?? {};
+
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      return response.status(400).json({ message: "Please select at least one lead." });
+    }
+
+    if (!followUpStatus) {
+      return response.status(400).json({ message: "Follow-up status is required." });
+    }
+
+    const updatedClients = [];
+
+    for (const clientId of clientIds) {
+      const previousClient = await getClientById(clientId);
+      if (!previousClient) {
+        continue;
+      }
+
+      const client = await updateClientFollowUp(clientId, {
+        followUpStatus,
+        nextFollowUpDate,
+        lastFollowUpDate,
+        followUpNotes,
+        actorEmployeeId: null,
+        actorName: request.user?.name || "Werkly User",
+        actorRole: request.user?.role || request.user?.type || "internal-user",
+      });
+
+      if (!client) {
+        continue;
+      }
+
+      await createAuditLog({
+        actionType: "client.bulk-followup-updated",
+        entityType: "client",
+        entityId: client.id,
+        ...getActorDetails(request),
+        beforeData: previousClient,
+        afterData: client,
+        metadata: {
+          bulkAction: "follow-up",
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "client",
+        entityId: client.id,
+        entityLabel: client.companyName,
+        eventType: "client.bulk-follow-up-updated",
+        title: "Lead follow-up updated",
+        summary: followUpNotes || `Lead follow-up moved to ${followUpStatus}.`,
+        beforeData: previousClient,
+        afterData: client,
+        metadata: {
+          bulkAction: "follow-up",
+        },
+      });
+
+      updatedClients.push(client);
+    }
+
+    response.json({ clients: updatedClients, updatedCount: updatedClients.length });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to update lead follow-up details.",
     });
   }
 });
