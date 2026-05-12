@@ -42,8 +42,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ message: "Admin token is required." }, { status: 401 });
     }
 
-    const senderEmail = process.env.RESEND_FROM_EMAIL;
-    const senderName = process.env.RESEND_FROM_NAME || "Werkly Consulting";
+    const senderEmail = process.env.PROPOSAL_FROM_EMAIL || process.env.RESEND_FROM_EMAIL;
+    const senderName = process.env.PROPOSAL_FROM_NAME || "Werkly Consulting";
     const apiKey = process.env.RESEND_API_KEY;
     const replyToEmail = process.env.PROPOSAL_REPLY_TO_EMAIL || "hr@werkly.in";
     const defaultCcEmails = String(process.env.PROPOSAL_DEFAULT_CC_EMAILS || "")
