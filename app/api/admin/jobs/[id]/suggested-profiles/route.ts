@@ -35,6 +35,11 @@ type CandidateSuggestion = CrmProfile & {
   matchScore: number;
   matchLevel: "Strong" | "Good" | "Possible";
   matchReasons: string[];
+  aiMatchScore?: number;
+  aiMatchLevel?: "Strong" | "Good" | "Possible";
+  aiSummary?: string;
+  aiStrengths?: string[];
+  aiConcerns?: string[];
 };
 
 function normalizeText(value?: string) {
@@ -287,6 +292,203 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
   };
 }
 
+function extractResponseText(response: Record<string, unknown>) {
+  if (typeof response.output_text === "string") {
+    return response.output_text;
+  }
+
+  const output = Array.isArray(response.output) ? response.output : [];
+  return output
+    .flatMap((item) => {
+      const content = item && typeof item === "object" && "content" in item ? item.content : [];
+      return Array.isArray(content) ? content : [];
+    })
+    .map((item) => {
+      if (item && typeof item === "object" && "text" in item) {
+        return String(item.text || "");
+      }
+      return "";
+    })
+    .join("");
+}
+
+async function applyAiMatching(job: JobDetail, suggestions: CandidateSuggestion[]) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const model =
+    process.env.OPENAI_PROFILE_MATCHING_MODEL ||
+    process.env.OPENAI_MODEL ||
+    "gpt-4o-mini";
+
+  if (!apiKey || suggestions.length === 0) {
+    return {
+      suggestions,
+      matchingMode: "rule-based" as const,
+      aiModel: "",
+      aiError: "",
+    };
+  }
+
+  try {
+    const candidates = suggestions.slice(0, 40).map((profile) => ({
+      candidateId: profile.id,
+      source: profile.source,
+      candidateName: profile.candidateName,
+      currentDesignation: profile.currentDesignation,
+      preferredRole: profile.preferredRole,
+      experience: profile.experience,
+      currentLocation: profile.currentLocation,
+      preferredLocation: profile.preferredLocation,
+      preferredSector: profile.preferredSector,
+      skills: profile.skills,
+      ruleScore: profile.matchScore,
+      ruleReasons: profile.matchReasons,
+      hasResume: Boolean(profile.resumeFileData),
+      profileText: profile.profileText.slice(0, 1500),
+    }));
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        input: [
+          {
+            role: "system",
+            content:
+              "You rank CRM candidate profiles for recruiter job matching. Return JSON only. Use the candidateId exactly as provided. Score fit for the specific job, not general quality.",
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              job: {
+                id: job.id,
+                title: job.title,
+                location: job.location,
+                sector: job.sector,
+                experience: job.experience,
+                employmentType: job.employmentType,
+                salary: job.salary || job.packagePerAnnum,
+                summary: job.summary,
+                description: job.description,
+                responsibilities: job.responsibilities,
+                requirements: job.requirements,
+                skills: job.skills,
+              },
+              candidates,
+              instructions:
+                "Rank candidates by practical recruiter fit. Consider title/role intent, domain, skills, location preference, experience, and missing data. Use concise recruiter-facing summaries.",
+            }),
+          },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "crm_profile_matches",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["rankings"],
+              properties: {
+                rankings: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: [
+                      "candidateId",
+                      "aiScore",
+                      "aiLevel",
+                      "aiSummary",
+                      "strengths",
+                      "concerns",
+                    ],
+                    properties: {
+                      candidateId: { type: "string" },
+                      aiScore: { type: "integer" },
+                      aiLevel: { type: "string", enum: ["Strong", "Good", "Possible"] },
+                      aiSummary: { type: "string" },
+                      strengths: {
+                        type: "array",
+                        items: { type: "string" },
+                      },
+                      concerns: {
+                        type: "array",
+                        items: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    const data = (await response.json()) as Record<string, unknown>;
+    const parsed = JSON.parse(extractResponseText(data)) as {
+      rankings?: Array<{
+        candidateId: string;
+        aiScore: number;
+        aiLevel: "Strong" | "Good" | "Possible";
+        aiSummary: string;
+        strengths: string[];
+        concerns: string[];
+      }>;
+    };
+
+    const rankings = new Map(
+      (parsed.rankings ?? []).map((item) => [String(item.candidateId), item])
+    );
+    const aiSuggestions = suggestions
+      .map((profile) => {
+        const ranking = rankings.get(profile.id);
+        if (!ranking) {
+          return profile;
+        }
+
+        return {
+          ...profile,
+          aiMatchScore: Math.max(0, Math.min(100, Math.round(Number(ranking.aiScore) || 0))),
+          aiMatchLevel: ranking.aiLevel,
+          aiSummary: ranking.aiSummary,
+          aiStrengths: ranking.strengths ?? [],
+          aiConcerns: ranking.concerns ?? [],
+        };
+      })
+      .sort((a, b) => {
+        const aiDifference = (b.aiMatchScore ?? -1) - (a.aiMatchScore ?? -1);
+        if (aiDifference !== 0) {
+          return aiDifference;
+        }
+        return b.matchScore - a.matchScore;
+      });
+
+    return {
+      suggestions: aiSuggestions,
+      matchingMode: "ai" as const,
+      aiModel: model,
+      aiError: "",
+    };
+  } catch (error) {
+    return {
+      suggestions,
+      matchingMode: "rule-based" as const,
+      aiModel: model,
+      aiError: error instanceof Error ? error.message : "AI matching failed.",
+    };
+  }
+}
+
 async function safeLoad<T>(loader: () => Promise<T>, fallback: T) {
   try {
     return await loader();
@@ -333,7 +535,7 @@ export async function GET(
     enquiries.map(enquiryToProfile).forEach(addProfile);
     resumeSubmissions.map(resumeBuilderToProfile).forEach(addProfile);
 
-    const suggestions = Array.from(profiles.values())
+    const ruleBasedSuggestions = Array.from(profiles.values())
       .map((profile) => scoreProfile(job, profile))
       .filter((profile) => profile.matchScore >= 25)
       .sort((a, b) => {
@@ -343,11 +545,15 @@ export async function GET(
         return new Date(b.lastActivityAt || 0).getTime() - new Date(a.lastActivityAt || 0).getTime();
       })
       .slice(0, 25);
+    const matchingResult = await applyAiMatching(job, ruleBasedSuggestions);
 
     return NextResponse.json({
       jobId: job.id,
-      suggestions,
+      suggestions: matchingResult.suggestions,
       totalProfilesReviewed: profiles.size,
+      matchingMode: matchingResult.matchingMode,
+      aiModel: matchingResult.aiModel,
+      aiError: matchingResult.aiError,
     });
   } catch (error) {
     const message =

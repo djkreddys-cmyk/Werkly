@@ -66,6 +66,11 @@ type CandidateSuggestion = {
   matchScore: number;
   matchLevel: "Strong" | "Good" | "Possible";
   matchReasons: string[];
+  aiMatchScore?: number;
+  aiMatchLevel?: "Strong" | "Good" | "Possible";
+  aiSummary?: string;
+  aiStrengths?: string[];
+  aiConcerns?: string[];
 };
 
 export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
@@ -76,6 +81,9 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
   const [timeline, setTimeline] = useState<TimelineEventRecord[]>([]);
   const [suggestions, setSuggestions] = useState<CandidateSuggestion[]>([]);
   const [totalProfilesReviewed, setTotalProfilesReviewed] = useState(0);
+  const [matchingMode, setMatchingMode] = useState<"ai" | "rule-based">("rule-based");
+  const [aiModel, setAiModel] = useState("");
+  const [aiError, setAiError] = useState("");
   const [suggestionsError, setSuggestionsError] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
@@ -105,6 +113,9 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
         const suggestionsResult = (await suggestionsResponse.json()) as {
           suggestions?: CandidateSuggestion[];
           totalProfilesReviewed?: number;
+          matchingMode?: "ai" | "rule-based";
+          aiModel?: string;
+          aiError?: string;
           message?: string;
         };
 
@@ -120,10 +131,16 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
         if (suggestionsResponse.ok) {
           setSuggestions(suggestionsResult.suggestions ?? []);
           setTotalProfilesReviewed(suggestionsResult.totalProfilesReviewed ?? 0);
+          setMatchingMode(suggestionsResult.matchingMode ?? "rule-based");
+          setAiModel(suggestionsResult.aiModel ?? "");
+          setAiError(suggestionsResult.aiError ?? "");
           setSuggestionsError("");
         } else {
           setSuggestions([]);
           setTotalProfilesReviewed(0);
+          setMatchingMode("rule-based");
+          setAiModel("");
+          setAiError("");
           setSuggestionsError(
             suggestionsResult.message || "Unable to load suggested CRM profiles."
           );
@@ -218,17 +235,27 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
           <div>
             <p className="eyebrow">Suggested CRM Profiles</p>
             <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-              Rule-based candidate matches
+              {matchingMode === "ai" ? "AI-ranked candidate matches" : "Rule-based candidate matches"}
             </h3>
             <p className="muted-copy mt-3 max-w-3xl text-sm leading-6">
-              Ranked from job applicants on other jobs, candidate enquiries, and resume-builder
-              submissions using role, skills, sector, location, experience, resume availability, and
-              recent CRM activity.
+              {matchingMode === "ai"
+                ? `AI Matching is ranking pre-filtered CRM profiles${aiModel ? ` with ${aiModel}` : ""}.`
+                : "Ranked from job applicants on other jobs, candidate enquiries, and resume-builder submissions using role, skills, sector, location, experience, resume availability, and recent CRM activity."}
             </p>
+            {aiError ? (
+              <p className="mt-2 text-xs font-medium text-[var(--color-accent-strong)]">
+                AI Matching fallback active: rule-based ranking is shown.
+              </p>
+            ) : null}
           </div>
-          <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
-            {totalProfilesReviewed} reviewed
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+              {totalProfilesReviewed} reviewed
+            </span>
+            <span className="rounded-full bg-[rgba(251,133,0,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+              {matchingMode === "ai" ? "AI Matching" : "Rule Matching"}
+            </span>
+          </div>
         </div>
 
         {suggestionsError ? (
@@ -262,11 +289,16 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-semibold text-[var(--color-dark)]">
-                      {profile.matchScore}
+                      {profile.aiMatchScore ?? profile.matchScore}
                     </p>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
-                      {profile.matchLevel}
+                      {profile.aiMatchLevel ?? profile.matchLevel}
                     </p>
+                    {profile.aiMatchScore !== undefined ? (
+                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-muted)]">
+                        Rule {profile.matchScore}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -286,9 +318,20 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                   ))}
                 </div>
 
+                {profile.aiSummary ? (
+                  <div className="mt-4 rounded-[1rem] border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-dark)]">
+                      AI Recruiter Note
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
+                      {profile.aiSummary}
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {profile.matchReasons.length ? (
-                    profile.matchReasons.map((reason) => (
+                  {(profile.aiStrengths?.length ? profile.aiStrengths : profile.matchReasons).length ? (
+                    (profile.aiStrengths?.length ? profile.aiStrengths : profile.matchReasons).map((reason) => (
                       <span
                         key={reason}
                         className="rounded-full bg-[rgba(251,133,0,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-accent-strong)]"
@@ -302,6 +345,19 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                     </span>
                   )}
                 </div>
+
+                {profile.aiConcerns?.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {profile.aiConcerns.map((concern) => (
+                      <span
+                        key={concern}
+                        className="rounded-full bg-[rgba(128,128,128,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]"
+                      >
+                        {concern}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
 
                 {profile.resumeFileData && profile.resumeFileName ? (
                   <div className="mt-5 flex flex-wrap gap-3">
