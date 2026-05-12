@@ -1382,7 +1382,15 @@ app.put(
   requirePermission("candidates.manage"),
   async (request, response) => {
     try {
-      const { stage, stageNote, stageDate } = request.body ?? {};
+      const {
+        stage,
+        stageNote,
+        stageDate,
+        interviewScheduledAt,
+        interviewMode,
+        interviewPanel,
+        interviewReminderAt,
+      } = request.body ?? {};
       const allowedStages = [
         "applied",
         "shortlisted",
@@ -1424,6 +1432,10 @@ app.put(
             stage,
             stageNote,
             stageDate,
+            interviewScheduledAt,
+            interviewMode,
+            interviewPanel,
+            interviewReminderAt,
           },
           metadata: {
             jobId: currentApplication.jobId,
@@ -1460,7 +1472,7 @@ app.put(
         });
       }
 
-      const application = await updateJobApplicationStage(
+      let application = await updateJobApplicationStage(
         request.params.id,
         stage,
         stageNote,
@@ -1470,6 +1482,53 @@ app.put(
 
       if (!application) {
         return response.status(404).json({ message: "Application not found." });
+      }
+
+      const hasInterviewScheduleUpdate =
+        stage === "interview" &&
+        [interviewScheduledAt, interviewMode, interviewPanel, interviewReminderAt].some((value) =>
+          String(value ?? "").trim()
+        );
+
+      if (hasInterviewScheduleUpdate) {
+        const scheduledApplication = await updateJobApplicationDetails(
+          request.params.id,
+          {
+            candidateName: currentApplication.candidateName,
+            candidateEmail: currentApplication.candidateEmail || undefined,
+            candidatePhone: currentApplication.candidatePhone || undefined,
+            experience: currentApplication.experience || undefined,
+            currentCompany: currentApplication.currentCompany || undefined,
+            currentLocation: currentApplication.currentLocation || undefined,
+            currentDesignation: currentApplication.currentDesignation || undefined,
+            preferredRole: currentApplication.preferredRole || undefined,
+            currentCtc: currentApplication.currentCtc || undefined,
+            expectedCtc: currentApplication.expectedCtc || undefined,
+            preferredLocation: currentApplication.preferredLocation || undefined,
+            preferredSector: currentApplication.preferredSector || undefined,
+            sourceType: currentApplication.sourceType || undefined,
+            sourceNote: currentApplication.sourceNote || undefined,
+            candidateMessage: currentApplication.candidateMessage || undefined,
+            resumeFileName: currentApplication.resumeFileName || undefined,
+            resumeFileType: currentApplication.resumeFileType || undefined,
+            resumeFileData: currentApplication.resumeFileData || undefined,
+            interviewScheduledAt: String(interviewScheduledAt ?? "").trim() || undefined,
+            interviewMode: String(interviewMode ?? "").trim() || undefined,
+            interviewPanel: String(interviewPanel ?? "").trim() || undefined,
+            interviewReminderAt: String(interviewReminderAt ?? "").trim() || undefined,
+          },
+          request.user?.type === "employee" ? request.user.id : null
+        );
+
+        if (scheduledApplication) {
+          application = {
+            ...application,
+            interviewScheduledAt: scheduledApplication.interviewScheduledAt,
+            interviewMode: scheduledApplication.interviewMode,
+            interviewPanel: scheduledApplication.interviewPanel,
+            interviewReminderAt: scheduledApplication.interviewReminderAt,
+          };
+        }
       }
 
       await createAuditLog({
@@ -1482,6 +1541,10 @@ app.put(
           stage: application.stage,
           stageNote: application.stageNote,
           stageDate: application.stageDate,
+          interviewScheduledAt: application.interviewScheduledAt,
+          interviewMode: application.interviewMode,
+          interviewPanel: application.interviewPanel,
+          interviewReminderAt: application.interviewReminderAt,
         },
         metadata: {
           jobId: application.jobId,
@@ -1501,6 +1564,10 @@ app.put(
           stage: application.stage,
           stageNote: application.stageNote,
           stageDate: application.stageDate,
+          interviewScheduledAt: application.interviewScheduledAt,
+          interviewMode: application.interviewMode,
+          interviewPanel: application.interviewPanel,
+          interviewReminderAt: application.interviewReminderAt,
         },
         metadata: {
           jobId: application.jobId,

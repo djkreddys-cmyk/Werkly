@@ -1791,11 +1791,17 @@ export function AdminReportsPanel({
   const filteredInterviewRows = useMemo(
     () =>
       filteredApplications
-        .filter((application) => Boolean(application.interviewScheduledAt))
+        .filter(
+          (application) =>
+            Boolean(application.interviewScheduledAt) ||
+            (application.stage ?? "applied") === "interview"
+        )
         .sort(
-          (first, second) =>
-            new Date(first.interviewScheduledAt || "").getTime() -
-            new Date(second.interviewScheduledAt || "").getTime()
+          (first, second) => {
+            const firstDate = first.interviewScheduledAt || first.stageDate || first.appliedAt;
+            const secondDate = second.interviewScheduledAt || second.stageDate || second.appliedAt;
+            return new Date(firstDate).getTime() - new Date(secondDate).getTime();
+          }
         ),
     [filteredApplications]
   );
@@ -2670,7 +2676,11 @@ export function AdminReportsPanel({
                   }
                 >
                   <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
-                    {formatDateTime(application.interviewScheduledAt)}
+                    {application.interviewScheduledAt
+                      ? formatDateTime(application.interviewScheduledAt)
+                      : application.stageDate
+                        ? `Stage moved ${formatDate(application.stageDate)}`
+                        : "Interview stage"}
                   </td>
                   <td className="px-4 py-4">
                     <p className="font-semibold text-[var(--color-ink)]">

@@ -85,6 +85,10 @@ export function AdminCandidatesPanel() {
     stage: JobApplicationStage;
     note: string;
     date: string;
+    interviewScheduledAt: string;
+    interviewMode: string;
+    interviewPanel: string;
+    interviewReminderAt: string;
   } | null>(null);
   const [assignmentDraft, setAssignmentDraft] = useState<{
     application: JobApplication;
@@ -352,7 +356,13 @@ export function AdminCandidatesPanel() {
     id: string,
     stage: JobApplicationStage,
     stageNote: string,
-    stageDate: string
+    stageDate: string,
+    interviewSchedule?: {
+      interviewScheduledAt?: string;
+      interviewMode?: string;
+      interviewPanel?: string;
+      interviewReminderAt?: string;
+    }
   ) {
     if (!token) {
       setError("Please sign in again. Admin token is missing.");
@@ -368,7 +378,7 @@ export function AdminCandidatesPanel() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ stage, stageNote, stageDate }),
+        body: JSON.stringify({ stage, stageNote, stageDate, ...interviewSchedule }),
       });
 
       const updated = (await response.json()) as JobApplication & { message?: string };
@@ -390,6 +400,10 @@ export function AdminCandidatesPanel() {
                 stageNote: updated.stageNote,
                 stageDate: updated.stageDate,
                 stageUpdatedAt: updated.stageUpdatedAt,
+                interviewScheduledAt: updated.interviewScheduledAt,
+                interviewMode: updated.interviewMode,
+                interviewPanel: updated.interviewPanel,
+                interviewReminderAt: updated.interviewReminderAt,
               }
             : application
         )
@@ -415,6 +429,14 @@ export function AdminCandidatesPanel() {
       stage: nextStage,
       note: application.stageNote ?? "",
       date: application.stageDate ?? new Date().toISOString().slice(0, 10),
+      interviewScheduledAt: application.interviewScheduledAt
+        ? application.interviewScheduledAt.slice(0, 16)
+        : "",
+      interviewMode: application.interviewMode ?? "",
+      interviewPanel: application.interviewPanel ?? "",
+      interviewReminderAt: application.interviewReminderAt
+        ? application.interviewReminderAt.slice(0, 16)
+        : "",
     });
     setError("");
   }
@@ -1153,6 +1175,85 @@ export function AdminCandidatesPanel() {
               />
             </label>
 
+            {stageDraft.stage === "interview" ? (
+              <div className="mt-4 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Interview Scheduler
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Interview Time
+                    </span>
+                    <input
+                      type="datetime-local"
+                      value={stageDraft.interviewScheduledAt}
+                      onChange={(event) =>
+                        setStageDraft((current) =>
+                          current
+                            ? { ...current, interviewScheduledAt: event.target.value }
+                            : current
+                        )
+                      }
+                      className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Mode
+                    </span>
+                    <select
+                      value={stageDraft.interviewMode}
+                      onChange={(event) =>
+                        setStageDraft((current) =>
+                          current ? { ...current, interviewMode: event.target.value } : current
+                        )
+                      }
+                      className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+                    >
+                      <option value="">Select mode</option>
+                      <option value="Phone">Phone</option>
+                      <option value="Video">Video</option>
+                      <option value="In-person">In-person</option>
+                      <option value="Client round">Client round</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Panel
+                    </span>
+                    <input
+                      value={stageDraft.interviewPanel}
+                      onChange={(event) =>
+                        setStageDraft((current) =>
+                          current ? { ...current, interviewPanel: event.target.value } : current
+                        )
+                      }
+                      placeholder="Panel or interviewer"
+                      className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Reminder
+                    </span>
+                    <input
+                      type="datetime-local"
+                      value={stageDraft.interviewReminderAt}
+                      onChange={(event) =>
+                        setStageDraft((current) =>
+                          current
+                            ? { ...current, interviewReminderAt: event.target.value }
+                            : current
+                        )
+                      }
+                      className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
@@ -1166,7 +1267,15 @@ export function AdminCandidatesPanel() {
                     stageDraft.application.id,
                     stageDraft.stage,
                     stageDraft.note.trim(),
-                    stageDraft.date
+                    stageDraft.date,
+                    stageDraft.stage === "interview"
+                      ? {
+                          interviewScheduledAt: stageDraft.interviewScheduledAt || undefined,
+                          interviewMode: stageDraft.interviewMode.trim() || undefined,
+                          interviewPanel: stageDraft.interviewPanel.trim() || undefined,
+                          interviewReminderAt: stageDraft.interviewReminderAt || undefined,
+                        }
+                      : undefined
                   );
                   setStageDraft(null);
                 }}

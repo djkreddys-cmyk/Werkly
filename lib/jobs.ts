@@ -698,11 +698,17 @@ export async function updateJobApplicationStage(
   stage: JobApplicationStage,
   stageNote: string,
   stageDate: string,
-  token: string
+  token: string,
+  interviewSchedule?: {
+    interviewScheduledAt?: string;
+    interviewMode?: string;
+    interviewPanel?: string;
+    interviewReminderAt?: string;
+  }
 ) {
   return readJson<JobApplication>(`/admin/jobs/applications/${id}/stage`, {
     method: "PUT",
-    body: JSON.stringify({ stage, stageNote, stageDate }),
+    body: JSON.stringify({ stage, stageNote, stageDate, ...interviewSchedule }),
     headers: {
       Authorization: `Bearer ${token}`,
     },

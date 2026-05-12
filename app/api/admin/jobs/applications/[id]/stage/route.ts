@@ -21,13 +21,23 @@ export async function PUT(
       stage?: JobApplicationStage;
       stageNote?: string;
       stageDate?: string;
+      interviewScheduledAt?: string;
+      interviewMode?: string;
+      interviewPanel?: string;
+      interviewReminderAt?: string;
     };
     const application = await updateJobApplicationStage(
       id,
       body.stage ?? "applied",
       body.stageNote ?? "",
       body.stageDate ?? "",
-      token
+      token,
+      {
+        interviewScheduledAt: body.interviewScheduledAt,
+        interviewMode: body.interviewMode,
+        interviewPanel: body.interviewPanel,
+        interviewReminderAt: body.interviewReminderAt,
+      }
     );
     return NextResponse.json(application);
   } catch (error) {
