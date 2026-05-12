@@ -2784,9 +2784,9 @@ export function AdminEmployeesPanel({
       ) : null}
 
       {employeeForm.id && viewMode === "existing" ? (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="w-full max-w-3xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
-            <div className="flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 sm:p-5">
+          <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] p-5 sm:p-6">
               <div>
                 <p className="eyebrow">Edit Employee</p>
                 <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
@@ -2802,7 +2802,8 @@ export function AdminEmployeesPanel({
               </button>
             </div>
 
-            <form className="mt-6" onSubmit={handleEmployeeSubmit}>
+            <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleEmployeeSubmit}>
+              <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Full name" value={employeeForm.fullName} onChange={(event) => updateEmployeeField("fullName", event.target.value)} required />
                 <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" type="email" placeholder="Email" value={employeeForm.email} onChange={(event) => updateEmployeeField("email", event.target.value)} required />
@@ -2854,8 +2855,9 @@ export function AdminEmployeesPanel({
                   secondaryButtonClassName="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]"
                 />
               </div>
+              </div>
 
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div className="flex shrink-0 flex-wrap gap-3 border-t border-[var(--color-line)] bg-white p-5 sm:p-6">
                 <button type="submit" disabled={isSavingEmployee} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70">
                   {isSavingEmployee ? "Updating..." : "Update Employee"}
                 </button>
