@@ -17,6 +17,9 @@ const emptyEnquiryForm: CandidateEnquiryPayload = {
   preferredLocation: "",
   preferredSector: "",
   candidateMessage: "",
+  resumeFileName: "",
+  resumeFileType: "",
+  resumeFileData: "",
   sourceType: "manual_candidate_enquiry",
 };
 
@@ -182,6 +185,29 @@ export function AdminCandidateEnquiriesPanel() {
 
   function updateForm(field: keyof CandidateEnquiryPayload, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleResumeUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const fileData = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Unable to read the selected resume."));
+      reader.readAsDataURL(file);
+    });
+
+    setForm((current) => ({
+      ...current,
+      resumeFileName: file.name,
+      resumeFileType: file.type,
+      resumeFileData: fileData,
+    }));
   }
 
   async function saveCandidateEnquiry(payload: CandidateEnquiryPayload) {
@@ -548,6 +574,42 @@ export function AdminCandidateEnquiriesPanel() {
                       placeholder="Old database note, reference details, or migration remarks"
                     />
                   </label>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex cursor-pointer items-center rounded-2xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]">
+                      Upload Resume
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        className="sr-only"
+                        onChange={handleResumeUpload}
+                      />
+                    </label>
+                    <span className="text-sm text-[var(--color-muted)]">
+                      {form.resumeFileName || "No file chosen"}
+                    </span>
+                    {form.resumeFileData && form.resumeFileName ? (
+                      <>
+                        <a
+                          href={form.resumeFileData}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-semibold text-[var(--color-accent-strong)]"
+                        >
+                          View Resume
+                        </a>
+                        <a
+                          href={form.resumeFileData}
+                          download={form.resumeFileName}
+                          className="text-sm font-semibold text-[var(--color-muted)] transition hover:text-[var(--color-ink)]"
+                        >
+                          Download
+                        </a>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               </div>
               <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--color-line)] bg-white px-4 py-4 sm:flex-row sm:px-6">

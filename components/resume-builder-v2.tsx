@@ -183,6 +183,11 @@ function downloadBlob(filename: string, content: BlobPart, type: string) {
   URL.revokeObjectURL(url);
 }
 
+function buildDataUrl(content: string, mimeType: string) {
+  const encoded = btoa(unescape(encodeURIComponent(content)));
+  return `data:${mimeType};base64,${encoded}`;
+}
+
 function buildWordMarkup(resume: ResumeData, template: TemplateStyle, photoDataUrl?: string) {
   return buildPdfMarkup(resume, template, photoDataUrl);
 }
@@ -371,7 +376,31 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.message || "Resume generation failed.");
-        setResume(payload.resume as ResumeData);
+        const generatedResume = payload.resume as ResumeData;
+        const resumeFileName = `${generatedResume.fullName.replace(/\s+/g, "-").toLowerCase()}-resume.doc`;
+        const resumeMarkup = buildWordMarkup(generatedResume, template, form.photoDataUrl);
+        const saveResponse = await fetch("/api/resume-builder/submissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            candidateName: form.fullName,
+            candidateEmail: form.email,
+            candidatePhone: form.phone,
+            targetRole: generatedResume.targetRole,
+            location: form.location,
+            yearsExperience: form.yearsExperience,
+            skills: form.skills,
+            resumeFileName,
+            resumeFileType: "application/msword",
+            resumeFileData: buildDataUrl(resumeMarkup, "application/msword"),
+            resumePayload: generatedResume,
+          }),
+        });
+        if (!saveResponse.ok) {
+          const savePayload = await saveResponse.json().catch(() => ({}));
+          throw new Error(savePayload.message || "Resume was generated but could not be saved.");
+        }
+        setResume(generatedResume);
         setIsFormOpen(false);
       } catch (generationError) {
         setResume(null);

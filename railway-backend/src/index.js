@@ -95,6 +95,7 @@ import {
 import {
   createManualJobApplication,
   createCandidateEnquiry,
+  createResumeBuilderSubmission,
   createJob,
   deleteJob,
   deleteJobApplication,
@@ -103,6 +104,7 @@ import {
   getJobBySlug,
   listAdminApplications,
   listCandidateEnquiries,
+  listResumeBuilderSubmissions,
   listApplicationStageHistory,
   listJobApplications,
   listAdminJobs,
@@ -1138,6 +1140,63 @@ app.post("/candidate-enquiries", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to save candidate enquiry.",
+    });
+  }
+});
+
+app.post("/resume-builder-submissions", async (request, response) => {
+  try {
+    const {
+      candidateName,
+      candidateEmail,
+      candidatePhone,
+      targetRole,
+      location,
+      yearsExperience,
+      skills,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+      resumePayload,
+    } = request.body ?? {};
+
+    if (!String(candidateName ?? "").trim() || !String(candidateEmail ?? "").trim()) {
+      return response.status(400).json({
+        message: "Candidate name and email are required.",
+      });
+    }
+
+    const submission = await createResumeBuilderSubmission({
+      candidateName: String(candidateName).trim(),
+      candidateEmail: String(candidateEmail).trim(),
+      candidatePhone: String(candidatePhone ?? "").trim() || undefined,
+      targetRole: String(targetRole ?? "").trim() || undefined,
+      location: String(location ?? "").trim() || undefined,
+      yearsExperience: String(yearsExperience ?? "").trim() || undefined,
+      skills: String(skills ?? "").trim() || undefined,
+      resumeFileName: String(resumeFileName ?? "").trim() || undefined,
+      resumeFileType: String(resumeFileType ?? "").trim() || undefined,
+      resumeFileData: String(resumeFileData ?? "").trim() || undefined,
+      resumePayload: resumePayload || {},
+    });
+
+    response.status(201).json(submission);
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to save resume builder submission.",
+    });
+  }
+});
+
+app.get("/admin/resume-builder-submissions", requireInternalUser, async (_request, response) => {
+  try {
+    const submissions = await listResumeBuilderSubmissions();
+    response.json({ submissions });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load resume builder submissions.",
     });
   }
 });

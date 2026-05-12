@@ -132,6 +132,26 @@ export function mapCandidateEnquiryRow(row) {
   };
 }
 
+export function mapResumeBuilderSubmissionRow(row) {
+  return {
+    id: row.id,
+    candidateName: row.candidate_name,
+    candidateEmail: row.candidate_email || "",
+    candidatePhone: row.candidate_phone,
+    targetRole: row.target_role,
+    location: row.location,
+    yearsExperience: row.years_experience,
+    skills: row.skills,
+    resumeFileName: row.resume_file_name,
+    resumeFileType: row.resume_file_type,
+    resumeFileData: row.resume_file_data,
+    resumePayload: row.resume_payload,
+    sourceType: row.source_type,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export async function listJobs() {
   const result = await query(
     `select
@@ -393,6 +413,26 @@ export async function ensureJobsSchema() {
       resume_file_type text,
       resume_file_data text,
       source_type text not null default 'website_candidate_enquiry',
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+
+  await query(`
+    create table if not exists resume_builder_submissions (
+      id uuid primary key default gen_random_uuid(),
+      candidate_name text not null,
+      candidate_email text not null,
+      candidate_phone text,
+      target_role text,
+      location text,
+      years_experience text,
+      skills text,
+      resume_file_name text,
+      resume_file_type text,
+      resume_file_data text,
+      resume_payload jsonb,
+      source_type text not null default 'resume_builder',
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     )
@@ -1256,6 +1296,83 @@ export async function listCandidateEnquiries() {
   );
 
   return result.rows.map(mapCandidateEnquiryRow);
+}
+
+export async function createResumeBuilderSubmission(payload) {
+  const result = await query(
+    `insert into resume_builder_submissions (
+       candidate_name,
+       candidate_email,
+       candidate_phone,
+       target_role,
+       location,
+       years_experience,
+       skills,
+       resume_file_name,
+       resume_file_type,
+       resume_file_data,
+       resume_payload,
+       source_type,
+       updated_at
+     )
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, 'resume_builder', now())
+     returning
+       id,
+       candidate_name,
+       candidate_email,
+       candidate_phone,
+       target_role,
+       location,
+       years_experience,
+       skills,
+       resume_file_name,
+       resume_file_type,
+       resume_file_data,
+       resume_payload,
+       source_type,
+       created_at,
+       updated_at`,
+    [
+      payload.candidateName,
+      payload.candidateEmail,
+      payload.candidatePhone || null,
+      payload.targetRole || null,
+      payload.location || null,
+      payload.yearsExperience || null,
+      payload.skills || null,
+      payload.resumeFileName || null,
+      payload.resumeFileType || null,
+      payload.resumeFileData || null,
+      JSON.stringify(payload.resumePayload || {}),
+    ]
+  );
+
+  return mapResumeBuilderSubmissionRow(result.rows[0]);
+}
+
+export async function listResumeBuilderSubmissions() {
+  const result = await query(
+    `select
+       id,
+       candidate_name,
+       candidate_email,
+       candidate_phone,
+       target_role,
+       location,
+       years_experience,
+       skills,
+       resume_file_name,
+       resume_file_type,
+       resume_file_data,
+       resume_payload,
+       source_type,
+       created_at,
+       updated_at
+     from resume_builder_submissions
+     order by created_at desc`
+  );
+
+  return result.rows.map(mapResumeBuilderSubmissionRow);
 }
 
 export async function updateJobApplicationDetails(applicationId, payload, employeeId = null) {

@@ -59,6 +59,7 @@ const moduleSections: Array<{
     items: [
       { href: "/admin/candidates", label: "Job Applicants" },
       { href: "/admin/interviews", label: "Interview Scheduler" },
+      { href: "/admin/candidates/resume-builders", label: "Resume Builders" },
       { href: "/admin/candidate-enquiries", label: "Candidate Enquiries" },
       { href: "/admin/reports/candidates", label: "Reports" },
     ],

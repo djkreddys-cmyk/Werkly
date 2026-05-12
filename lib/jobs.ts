@@ -126,6 +126,24 @@ export type CandidateEnquiry = {
   createdAt: string;
 };
 
+export type ResumeBuilderSubmission = {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone?: string;
+  targetRole?: string;
+  location?: string;
+  yearsExperience?: string;
+  skills?: string;
+  resumeFileName?: string;
+  resumeFileType?: string;
+  resumeFileData?: string;
+  resumePayload?: unknown;
+  sourceType?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CandidateEnquiryPayload = {
   candidateName: string;
   candidateEmail?: string;
@@ -209,6 +227,10 @@ export type AdminApplicationHistoryResponse = {
 
 export type CandidateEnquiriesResponse = {
   enquiries: CandidateEnquiry[];
+};
+
+export type ResumeBuilderSubmissionsResponse = {
+  submissions: ResumeBuilderSubmission[];
 };
 
 export type JobFormPayload = {
@@ -690,6 +712,38 @@ export async function createAdminCandidateEnquiry(
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  });
+}
+
+export async function getResumeBuilderSubmissions(token: string) {
+  const data = await readJson<ResumeBuilderSubmissionsResponse | ResumeBuilderSubmission[]>(
+    "/admin/resume-builder-submissions",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Array.isArray(data) ? data : data.submissions;
+}
+
+export async function createResumeBuilderSubmission(payload: {
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone?: string;
+  targetRole?: string;
+  location?: string;
+  yearsExperience?: string;
+  skills?: string;
+  resumeFileName?: string;
+  resumeFileType?: string;
+  resumeFileData?: string;
+  resumePayload?: unknown;
+}) {
+  return readJson<ResumeBuilderSubmission>("/resume-builder-submissions", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 
