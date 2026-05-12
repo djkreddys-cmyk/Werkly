@@ -42,6 +42,32 @@ type CandidateSuggestion = CrmProfile & {
   aiConcerns?: string[];
 };
 
+const ignoredMatchTokens = new Set([
+  "and",
+  "are",
+  "for",
+  "from",
+  "job",
+  "role",
+  "the",
+  "this",
+  "with",
+  "work",
+  "years",
+  "year",
+  "experience",
+  "experienced",
+  "strong",
+  "good",
+  "ability",
+  "team",
+  "teams",
+  "support",
+  "manage",
+  "manager",
+  "management",
+]);
+
 function normalizeText(value?: string) {
   return String(value || "")
     .toLowerCase()
@@ -52,7 +78,7 @@ function normalizeText(value?: string) {
 function tokenize(value?: string) {
   return normalizeText(value)
     .split(/\s+/)
-    .filter((token) => token.length > 2);
+    .filter((token) => token.length > 2 && !ignoredMatchTokens.has(token));
 }
 
 function uniqueTokens(values: Array<string | undefined>) {
@@ -216,6 +242,7 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
   const reasons: string[] = [];
   const jobRoleText = [job.title, job.summary, job.description, ...(job.requirements ?? [])].join(" ");
   const jobSkillTokens = uniqueTokens([...(job.skills ?? []), ...(job.requirements ?? [])]);
+  const jobTitleTokens = uniqueTokens([job.title]);
   const jobLocationTokens = uniqueTokens([job.location]);
   const jobSectorTokens = uniqueTokens([job.sector]);
   const profileRoleText = [profile.preferredRole, profile.currentDesignation, profile.profileText].join(" ");
@@ -223,10 +250,13 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
 
   let score = 0;
 
-  const roleMatches = countTokenMatches(profileRoleText, uniqueTokens([job.title]));
+  const roleMatches = countTokenMatches(profileRoleText, jobTitleTokens);
   if (roleMatches > 0) {
-    score += 25;
-    reasons.push(`Role matches ${job.title}`);
+    const roleCoverage = jobTitleTokens.length ? roleMatches / jobTitleTokens.length : 0;
+    score += roleCoverage >= 0.65 ? 25 : Math.min(16, roleMatches * 7);
+    reasons.push(
+      roleCoverage >= 0.65 ? `Role matches ${job.title}` : `Partial role fit for ${job.title}`
+    );
   }
 
   const skillMatches = countTokenMatches([profile.skills, profile.profileText].join(" "), jobSkillTokens);

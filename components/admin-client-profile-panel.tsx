@@ -67,6 +67,53 @@ function FollowUpStatusPill({ status }: { status?: string }) {
   );
 }
 
+const defaultProposalMessage = `Dear Sir,
+
+Greetings from Werkly Consulting!
+
+It was nice talking to you over the phone last Friday. As discussed, please find the details below.
+
+As a legacy-driven, diversity-powered recruitment partner, we are writing to express our keen interest in building a long-term, impactful partnership with your organization. We are confident that we can support you in meeting your hiring goals across all levels and functions.
+
+Werkly Consulting is a recruitment solution provider with a pan-India presence, 2 branch offices in Hyderabad and Vijayawada, and a team of trained recruiters and HR professionals. We specialize in both technical and non-technical hiring, supporting some of the country's most respected brands.
+
+Our Key Strengths:
+
+Legacy of Trusted Performance: We bring strong credibility to the table, serving top clients across Non-IT and IT sectors.
+Diversity Hiring Champions: We are proud to be a 100% diversity-driven organization with deep experience in supporting inclusive hiring across industries.
+Industry-Specific Expertise: From Automobile, Pharma, Manufacturing, ITES, Healthcare, FMCG, Oil & Gas, Defense, and Aerospace, we understand the nuances of hiring in each sector.
+Tech-Driven, Human-Led Recruitment: Our sourcing is powered by trained recruiters with technical knowledge and domain understanding, ensuring precision shortlisting and fast turnaround times.
+Strong Offer-to-Join Ratio: 95%+ for Non-IT hires.
+Deep Understanding of Business Needs: We take time to understand your business requirements, job specifications, and expectations from the hiring manager before initiating any search.
+Partnership Approach: We believe in working as a recruitment partner, not just a vendor, fostering collaboration, open discussions, and shared success.
+
+We take pride in delivering an exceptional candidate experience and consultative partnership with our clients. Our team works closely with C-suite leaders, providing market insights, identifying top talent, and structuring high-performing teams to meet organizational goals.
+
+Why Partner with Werkly?
+
+Trusted by Top Indian Brands
+Proven Track Record Across Functions
+Customizable Hiring Models
+Agile & Transparent Process
+
+Professional Charges for Permanent Employment - Non-IT Commercials:
+
+Junior Management (Executive to Asst. Manager): 8.33%
+Middle Management (Deputy Manager to DGM): 8.33%
+Senior Management (GM / AVP / VP & Above): 10%
+CXO Positions: 15%
+
+Payment Schedule: Payment should be made within 30 days after the candidate joins your organization.
+
+Replacement Guarantee: We provide a one-time free replacement guarantee at no additional cost in the event a candidate sourced, selected, and engaged by us leaves your organization within 90 working days from their date of joining.
+
+Please feel free to reach out if you have any queries or would like to discuss further. We look forward to the opportunity to work together.
+
+Awaiting a positive revert from your end.
+
+Regards,
+Werkly Consulting`;
+
 export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [token] = useState(
     typeof window !== "undefined"
@@ -86,6 +133,12 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [lastFollowUpDate, setLastFollowUpDate] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
+  const [proposalToEmails, setProposalToEmails] = useState("");
+  const [proposalSubject, setProposalSubject] = useState(
+    "Recruitment Partnership Proposal - Werkly Consulting"
+  );
+  const [proposalMessage, setProposalMessage] = useState(defaultProposalMessage);
+  const [isSendingProposal, setIsSendingProposal] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -127,6 +180,11 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
         setLastFollowUpDate(clientResult.lastFollowUpDate || "");
         setNextFollowUpDate(clientResult.nextFollowUpDate || "");
         setFollowUpNotes(clientResult.followUpNotes || "");
+        setProposalToEmails(
+          [clientResult.contactEmail, clientResult.secondaryContactEmail]
+            .filter(Boolean)
+            .join(", ")
+        );
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load client profile.");
@@ -238,6 +296,64 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save follow-up.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleSendProposal() {
+    if (!token || !client) {
+      return;
+    }
+
+    const toEmails = proposalToEmails
+      .split(",")
+      .map((email) => email.trim())
+      .filter(Boolean);
+
+    if (!toEmails.length) {
+      setError("Please add at least one client email before sending proposal mail.");
+      return;
+    }
+
+    setIsSendingProposal(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/clients/${client.id}/proposal-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          toEmails,
+          subject: proposalSubject,
+          message: proposalMessage,
+        }),
+      });
+      const result = (await response.json()) as {
+        client?: ClientRecord;
+        sentTo?: string[];
+        message?: string;
+      };
+
+      if (!response.ok || !result.client) {
+        throw new Error(result.message || "Unable to send proposal mail.");
+      }
+
+      setClient(result.client);
+      setOnboardingStatus(result.client.onboardingStatus || "proposal-shared");
+      setOnboardingNotes(result.client.notes || "");
+      setFollowUpStatus(normalizeClientFollowUpStatus(result.client.followUpStatus));
+      setLastFollowUpDate(result.client.lastFollowUpDate || "");
+      setNextFollowUpDate(result.client.nextFollowUpDate || "");
+      setFollowUpNotes(result.client.followUpNotes || "");
+      setMessage(result.message || "Proposal email sent successfully.");
+      await refreshActivity(result.client);
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "Unable to send proposal mail.");
+    } finally {
+      setIsSendingProposal(false);
     }
   }
 
@@ -525,6 +641,69 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
             </button>
             {message ? <p className="self-center text-sm text-[var(--color-dark)]">{message}</p> : null}
             {error ? <p className="self-center text-sm text-red-700">{error}</p> : null}
+          </div>
+        </article>
+
+        <article className="accent-card p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow">Proposal Mail</p>
+              <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+                Send business proposal to client
+              </h3>
+              <p className="muted-copy mt-3 text-sm leading-6">
+                Review the proposal content, send it to the saved client email, and update CRM
+                follow-up status automatically.
+              </p>
+            </div>
+            <FollowUpStatusPill status="business-proposal-email-sent" />
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                To
+              </span>
+              <input
+                value={proposalToEmails}
+                onChange={(event) => setProposalToEmails(event.target.value)}
+                placeholder="client@example.com, second@example.com"
+                className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Subject
+              </span>
+              <input
+                value={proposalSubject}
+                onChange={(event) => setProposalSubject(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Proposal Message
+              </span>
+              <textarea
+                value={proposalMessage}
+                onChange={(event) => setProposalMessage(event.target.value)}
+                className="mt-2 min-h-[320px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm leading-6 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </label>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => void handleSendProposal()}
+              disabled={isSendingProposal}
+              className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSendingProposal ? "Sending..." : "Send Proposal Mail"}
+            </button>
           </div>
         </article>
       </section>
