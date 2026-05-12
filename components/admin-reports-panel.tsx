@@ -34,6 +34,7 @@ type ReportView =
   | "candidates-recruiter-productivity"
   | "clients-coverage"
   | "clients-followups"
+  | "clients-team-followups"
   | "clients-lead-conversion"
   | "clients-transfers";
 
@@ -257,6 +258,14 @@ const moduleReportScreens: Record<
       title: "Onboarding and relationship follow-up tracking.",
       description:
         "Filter client onboarding follow-ups by employee, client, related job, and date range on a separate follow-up report screen.",
+    },
+    {
+      key: "clients-team-followups",
+      href: "/admin/reports/clients/my-team-followups",
+      eyebrow: "My Team Follow-Ups",
+      title: "Client follow-ups for reporting managers.",
+      description:
+        "Review client follow-up ownership for your direct reporting team, with the same employee, client, job, and date filters.",
     },
     {
       key: "clients-lead-conversion",
@@ -1137,6 +1146,83 @@ export function AdminReportsPanel({
     );
   }, [currentEmployeeId, isEmployeeSession, state.transferRequests]);
 
+  const teamEmployees = useMemo(() => {
+    if (!isEmployeeSession) {
+      return state.employees;
+    }
+
+    if (!currentEmployeeId) {
+      return visibleEmployees;
+    }
+
+    return state.employees.filter(
+      (employee) =>
+        employee.id === currentEmployeeId || employee.reportingManagerId === currentEmployeeId
+    );
+  }, [currentEmployeeId, isEmployeeSession, state.employees, visibleEmployees]);
+
+  const teamEmployeeIds = useMemo(
+    () => new Set(teamEmployees.map((employee) => employee.id).filter(Boolean)),
+    [teamEmployees]
+  );
+
+  const teamEmployeeEmails = useMemo(
+    () => new Set(teamEmployees.map((employee) => employee.email).filter(Boolean)),
+    [teamEmployees]
+  );
+
+  const teamClients = useMemo(() => {
+    if (!isEmployeeSession) {
+      return state.clients;
+    }
+
+    return state.clients.filter(
+      (client) =>
+        (client.assignedEmployeeId ? teamEmployeeIds.has(client.assignedEmployeeId) : false) ||
+        (client.followUpEmployeeId ? teamEmployeeIds.has(client.followUpEmployeeId) : false)
+    );
+  }, [isEmployeeSession, state.clients, teamEmployeeIds]);
+
+  const teamJobs = useMemo(() => {
+    if (!isEmployeeSession) {
+      return state.jobs;
+    }
+
+    const teamClientIds = new Set(teamClients.map((client) => client.id));
+    const teamClientNames = new Set(
+      teamClients.map((client) => client.companyName.trim().toLowerCase())
+    );
+
+    return state.jobs.filter(
+      (job) =>
+        (job.recruiterId ? teamEmployeeIds.has(job.recruiterId) : false) ||
+        (job.recruiterEmail ? teamEmployeeEmails.has(job.recruiterEmail) : false) ||
+        (job.clientFollowUpEmployeeId
+          ? teamEmployeeIds.has(job.clientFollowUpEmployeeId)
+          : false) ||
+        (job.clientId ? teamClientIds.has(job.clientId) : false) ||
+        teamClientNames.has((job.clientName || "").trim().toLowerCase())
+    );
+  }, [isEmployeeSession, state.jobs, teamClients, teamEmployeeEmails, teamEmployeeIds]);
+
+  const teamApplications = useMemo(() => {
+    if (!isEmployeeSession) {
+      return state.applications;
+    }
+
+    const teamJobIds = new Set(teamJobs.map((job) => job.id));
+    const teamClientNames = new Set(
+      teamClients.map((client) => client.companyName.trim().toLowerCase())
+    );
+
+    return state.applications.filter(
+      (application) =>
+        (application.recruiterEmail ? teamEmployeeEmails.has(application.recruiterEmail) : false) ||
+        teamJobIds.has(application.jobId) ||
+        teamClientNames.has((application.clientName || "").trim().toLowerCase())
+    );
+  }, [isEmployeeSession, state.applications, teamClients, teamEmployeeEmails, teamJobs]);
+
   const recruiterOptions = useMemo(
     () =>
       Array.from(
@@ -1174,6 +1260,45 @@ export function AdminReportsPanel({
         )
       ),
     [visibleJobs]
+  );
+
+  const teamRecruiterOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          teamEmployees
+            .map((employee) => employee.fullName)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+        )
+      ),
+    [teamEmployees]
+  );
+
+  const teamClientOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          teamClients
+            .map((client) => client.companyName)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+        )
+      ),
+    [teamClients]
+  );
+
+  const teamJobOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          teamJobs
+            .filter((job) => job.title)
+            .map((job) => getJobFilterLabel(job))
+            .sort((a, b) => a.localeCompare(b))
+        )
+      ),
+    [teamJobs]
   );
 
   const attendanceSummary = useMemo(() => {
@@ -1595,7 +1720,7 @@ export function AdminReportsPanel({
           client,
           linkedJobs,
           linkedJobLabels,
-          recruiterName: client.assignedEmployeeName || "Not assigned",
+          recruiterName: client.followUpEmployeeName || client.assignedEmployeeName || "Not assigned",
           applicationsCount: applicationsForClient.length,
           joinedCount: applicationsForClient.filter(
             (application) => (application.stage ?? "applied") === "joined"
@@ -1615,6 +1740,50 @@ export function AdminReportsPanel({
         return bDate.localeCompare(aDate);
       });
   }, [visibleApplications, visibleClients, visibleJobs]);
+
+  const teamFollowUpReportRows = useMemo(() => {
+    return teamClients
+      .map((client) => {
+        const linkedJobs = teamJobs.filter(
+          (job) =>
+            job.clientId === client.id ||
+            (job.clientName || "").trim().toLowerCase() ===
+              client.companyName.trim().toLowerCase()
+        );
+
+        const linkedJobLabels =
+          linkedJobs.length > 0
+            ? linkedJobs.map((job) => getJobFilterLabel(job))
+            : client.linkedJobs.map((job) => `${job.jobCode || "Pending ID"} - ${job.title}`);
+
+        const applicationsForClient = teamApplications.filter(
+          (application) => application.clientName === client.companyName
+        );
+
+        return {
+          client,
+          linkedJobs,
+          linkedJobLabels,
+          recruiterName: client.followUpEmployeeName || client.assignedEmployeeName || "Not assigned",
+          applicationsCount: applicationsForClient.length,
+          joinedCount: applicationsForClient.filter(
+            (application) => (application.stage ?? "applied") === "joined"
+          ).length,
+        };
+      })
+      .filter(
+        (row) =>
+          row.client.followUpStatus ||
+          row.client.nextFollowUpDate ||
+          row.client.lastFollowUpDate ||
+          row.client.followUpNotes
+      )
+      .sort((a, b) => {
+        const aDate = getDateKey(a.client.nextFollowUpDate || a.client.lastFollowUpDate);
+        const bDate = getDateKey(b.client.nextFollowUpDate || b.client.lastFollowUpDate);
+        return bDate.localeCompare(aDate);
+      });
+  }, [teamApplications, teamClients, teamJobs]);
 
   const filteredAttendanceSummary = useMemo(
     () =>
@@ -1742,7 +1911,7 @@ export function AdminReportsPanel({
           row.client.nextFollowUpDate || row.client.lastFollowUpDate || row.client.createdAt;
 
         return (
-          (!selectedRecruiter || row.client.assignedEmployeeName === selectedRecruiter) &&
+          (!selectedRecruiter || row.recruiterName === selectedRecruiter) &&
           (!selectedClient || row.client.companyName === selectedClient) &&
           (!selectedJob || row.linkedJobLabels.includes(selectedJob)) &&
           isWithinDateRange(followUpDate, startDate, endDate)
@@ -1757,6 +1926,33 @@ export function AdminReportsPanel({
       startDate,
     ]
   );
+
+  const filteredTeamFollowUpReportRows = useMemo(
+    () =>
+      teamFollowUpReportRows.filter((row) => {
+        const followUpDate =
+          row.client.nextFollowUpDate || row.client.lastFollowUpDate || row.client.createdAt;
+
+        return (
+          (!selectedRecruiter || row.recruiterName === selectedRecruiter) &&
+          (!selectedClient || row.client.companyName === selectedClient) &&
+          (!selectedJob || row.linkedJobLabels.includes(selectedJob)) &&
+          isWithinDateRange(followUpDate, startDate, endDate)
+        );
+      }),
+    [
+      endDate,
+      selectedClient,
+      selectedJob,
+      selectedRecruiter,
+      startDate,
+      teamFollowUpReportRows,
+    ]
+  );
+
+  const activeFollowUpReportRows =
+    report === "clients-team-followups" ? filteredTeamFollowUpReportRows : filteredFollowUpReportRows;
+  const isTeamFollowUpReport = report === "clients-team-followups";
 
   const filteredTransferRequests = useMemo(
     () =>
@@ -2285,7 +2481,7 @@ export function AdminReportsPanel({
                 "Job",
                 "Job ID",
                 "Client",
-                "Recruiter",
+                "Follow-Up Owner",
                 "Location",
                 "Status",
                 "Applications",
@@ -3097,26 +3293,26 @@ export function AdminReportsPanel({
       </section>
       )}
 
-      {report === "clients-followups" && (
+      {(report === "clients-followups" || report === "clients-team-followups") && (
       <section className="space-y-4">
         <ReportFilterBar
           startDate={startDate}
           endDate={endDate}
           onStartDateChange={setStartDate}
           onEndDateChange={setEndDate}
-          recruiterOptions={recruiterOptions}
+          recruiterOptions={isTeamFollowUpReport ? teamRecruiterOptions : recruiterOptions}
           selectedRecruiter={selectedRecruiter}
           onRecruiterChange={setSelectedRecruiter}
-          clientOptions={clientOptions}
+          clientOptions={isTeamFollowUpReport ? teamClientOptions : clientOptions}
           selectedClient={selectedClient}
           onClientChange={setSelectedClient}
-          jobOptions={jobOptions}
+          jobOptions={isTeamFollowUpReport ? teamJobOptions : jobOptions}
           selectedJob={selectedJob}
           onJobChange={setSelectedJob}
           onExport={() =>
             downloadExcelReport(
-              "followup-report.xls",
-              "Follow-Up Report",
+              isTeamFollowUpReport ? "my-team-followup-report.xls" : "followup-report.xls",
+              isTeamFollowUpReport ? "My Team Follow-Up Report" : "Follow-Up Report",
               [
                 "Client",
                 "Recruiter",
@@ -3130,7 +3326,7 @@ export function AdminReportsPanel({
                 "Joined",
                 "Notes",
               ],
-              filteredFollowUpReportRows.map((row) => [
+              activeFollowUpReportRows.map((row) => [
                 row.client.companyName,
                 row.recruiterName,
                 getFollowUpStatusLabel(row.client.onboardingStatus || "new-lead"),
@@ -3151,11 +3347,14 @@ export function AdminReportsPanel({
         />
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Follow-Up Rows" value={filteredFollowUpReportRows.length} />
+          <MetricCard
+            label={isTeamFollowUpReport ? "Team Follow-Ups" : "Follow-Up Rows"}
+            value={activeFollowUpReportRows.length}
+          />
           <MetricCard
             label="Onboarding Follow-Ups"
             value={
-              filteredFollowUpReportRows.filter(
+              activeFollowUpReportRows.filter(
                 (row) => row.client.onboardingStatus && row.client.onboardingStatus !== "onboarded"
               ).length
             }
@@ -3163,7 +3362,7 @@ export function AdminReportsPanel({
           <MetricCard
             label="Follow-Up Due"
             value={
-              filteredFollowUpReportRows.filter(
+              activeFollowUpReportRows.filter(
                 (row) => row.client.followUpStatus === "follow-up-due"
               ).length
             }
@@ -3171,7 +3370,7 @@ export function AdminReportsPanel({
           <MetricCard
             label="In Discussion"
             value={
-              filteredFollowUpReportRows.filter(
+              activeFollowUpReportRows.filter(
                 (row) => row.client.followUpStatus === "in-progress"
               ).length
             }
@@ -3179,7 +3378,7 @@ export function AdminReportsPanel({
           <MetricCard
             label="Awaiting Response"
             value={
-              filteredFollowUpReportRows.filter(
+              activeFollowUpReportRows.filter(
                 (row) => row.client.followUpStatus === "awaiting-client"
               ).length
             }
@@ -3187,25 +3386,29 @@ export function AdminReportsPanel({
         </section>
 
         <section className="accent-card p-7">
-          <p className="eyebrow">Follow-Up Report</p>
+          <p className="eyebrow">
+            {isTeamFollowUpReport ? "My Team Follow-Ups" : "Follow-Up Report"}
+          </p>
           <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
-            Review client onboarding and follow-up status by employee, client, and date.
+            {isTeamFollowUpReport
+              ? "Review client follow-up status for your reporting team."
+              : "Review client onboarding and follow-up status by employee, client, and date."}
           </h2>
           <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
-            This report is built for onboarding and client relationship follow-ups first.
-            Admin users can filter by employee, client, optional related job, and date
-            range. Employee logins will only see their own follow-up report rows here.
+            {isTeamFollowUpReport
+              ? "Reporting managers can see follow-ups owned by themselves and direct reports. Admin users can use this screen as a full team follow-up view."
+              : "This report is built for onboarding and client relationship follow-ups first. Admin users can filter by employee, client, optional related job, and date range. Employee logins will only see their own follow-up report rows here."}
           </p>
 
           {isLoading ? (
             <p className="muted-copy mt-6 text-sm">Loading follow-up report...</p>
-          ) : filteredFollowUpReportRows.length === 0 ? (
+          ) : activeFollowUpReportRows.length === 0 ? (
             <p className="muted-copy mt-6 text-sm">No follow-up report rows are available yet.</p>
           ) : (
             <ReportTable
               headings={[
                 "Client",
-                "Recruiter",
+                "Follow-Up Owner",
                 "Onboarding",
                 "Related Job",
                 "Follow-Up Status",
@@ -3214,11 +3417,11 @@ export function AdminReportsPanel({
                 "Notes",
               ]}
             >
-              {filteredFollowUpReportRows.map((row, index) => (
+              {activeFollowUpReportRows.map((row, index) => (
                 <tr
                   key={row.client.id}
                   className={
-                    index === filteredFollowUpReportRows.length - 1
+                    index === activeFollowUpReportRows.length - 1
                       ? "align-top"
                       : "align-top border-b border-[var(--color-line)]"
                   }
