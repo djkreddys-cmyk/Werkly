@@ -299,6 +299,9 @@ export async function ensureCrmSchema() {
   await query(`alter table employees add column if not exists inactive_date date`);
   await query(`alter table employees add column if not exists inactive_remarks text`);
   await query(
+    `alter table employees add column if not exists reporting_manager_id uuid references employees(id) on delete set null`
+  );
+  await query(
     `create unique index if not exists employees_employee_code_key on employees(employee_code) where employee_code is not null`
   );
 
@@ -326,6 +329,9 @@ function mapEmployeeRow(row) {
     employeeCode: row.employee_code,
     phone: row.phone,
     role: row.role,
+    reportingManagerId: row.reporting_manager_id,
+    reportingManagerName: row.reporting_manager_name,
+    reportingManagerEmail: row.reporting_manager_email,
     dateOfBirth: row.date_of_birth,
     dateOfJoining: row.date_of_joining,
     educationQualification: row.education_qualification,
@@ -731,9 +737,29 @@ function mapClientTransferRequestRow(row) {
 
 export async function listEmployees() {
   const result = await query(
-    `select id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at
+    `select employees.id,
+            employees.full_name,
+            employees.email,
+            employees.employee_code,
+            employees.phone,
+            employees.role,
+            employees.reporting_manager_id,
+            manager.full_name as reporting_manager_name,
+            manager.email as reporting_manager_email,
+            employees.date_of_birth,
+            employees.date_of_joining,
+            employees.education_qualification,
+            employees.previous_experience,
+            employees.education_details,
+            employees.experience_details,
+            employees.status,
+            employees.must_change_password,
+            employees.inactive_date,
+            employees.inactive_remarks,
+            employees.created_at
      from employees
-     order by created_at desc`
+     left join employees manager on manager.id = employees.reporting_manager_id
+     order by employees.created_at desc`
   );
 
   return result.rows.map(mapEmployeeRow);
@@ -741,9 +767,29 @@ export async function listEmployees() {
 
 export async function getEmployeeById(id) {
   const result = await query(
-    `select id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at
+    `select employees.id,
+            employees.full_name,
+            employees.email,
+            employees.employee_code,
+            employees.phone,
+            employees.role,
+            employees.reporting_manager_id,
+            manager.full_name as reporting_manager_name,
+            manager.email as reporting_manager_email,
+            employees.date_of_birth,
+            employees.date_of_joining,
+            employees.education_qualification,
+            employees.previous_experience,
+            employees.education_details,
+            employees.experience_details,
+            employees.status,
+            employees.must_change_password,
+            employees.inactive_date,
+            employees.inactive_remarks,
+            employees.created_at
      from employees
-     where id = $1
+     left join employees manager on manager.id = employees.reporting_manager_id
+     where employees.id = $1
      limit 1`,
     [id]
   );
@@ -770,6 +816,7 @@ export async function createEmployee(payload) {
         employee_code,
         phone,
         role,
+        reporting_manager_id,
         date_of_birth,
         date_of_joining,
         education_qualification,
@@ -781,14 +828,15 @@ export async function createEmployee(payload) {
         must_change_password,
         inactive_date,
         inactive_remarks
-      ) values ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9, $10::jsonb, $11::jsonb, $12, $13, true, $14, $15)
-      returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+      ) values ($1, $2, $3, $4, $5, $6::uuid, $7::date, $8::date, $9, $10, $11::jsonb, $12::jsonb, $13, $14, true, $15, $16)
+      returning id, full_name, email, employee_code, phone, role, reporting_manager_id, null::text as reporting_manager_name, null::text as reporting_manager_email, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at`,
       [
         payload.fullName,
         payload.email,
         employeeCode,
         payload.phone || null,
         payload.role,
+        payload.reportingManagerId || null,
         payload.dateOfBirth || null,
         payload.dateOfJoining || null,
         payload.educationQualification || null,
@@ -821,6 +869,7 @@ export async function updateEmployee(id, payload) {
     payload.email,
     payload.phone || null,
     payload.role,
+    payload.reportingManagerId || null,
     payload.dateOfBirth || null,
     payload.dateOfJoining || null,
     payload.educationQualification || null,
@@ -838,7 +887,7 @@ export async function updateEmployee(id, payload) {
     const passwordHash = await bcrypt.hash(payload.password, 12);
     values.push(passwordHash);
     passwordClause =
-      `, password_hash = $14, must_change_password = true, password_changed_at = null`;
+      `, password_hash = $15, must_change_password = true, password_changed_at = null`;
   }
 
   values.push(id);
@@ -849,19 +898,20 @@ export async function updateEmployee(id, payload) {
          email = $2,
          phone = $3,
          role = $4,
-         date_of_birth = $5::date,
-         date_of_joining = $6::date,
-         education_qualification = $7,
-         previous_experience = $8,
-         education_details = $9::jsonb,
-         experience_details = $10::jsonb,
-         status = $11,
-         inactive_date = $12,
-         inactive_remarks = $13
+         reporting_manager_id = $5::uuid,
+         date_of_birth = $6::date,
+         date_of_joining = $7::date,
+         education_qualification = $8,
+         previous_experience = $9,
+         education_details = $10::jsonb,
+         experience_details = $11::jsonb,
+         status = $12,
+         inactive_date = $13,
+         inactive_remarks = $14
          ${passwordClause},
          updated_at = now()
      where id = $${values.length}
-     returning id, full_name, email, employee_code, phone, role, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at`,
+     returning id, full_name, email, employee_code, phone, role, reporting_manager_id, null::text as reporting_manager_name, null::text as reporting_manager_email, date_of_birth, date_of_joining, education_qualification, previous_experience, education_details, experience_details, status, must_change_password, inactive_date, inactive_remarks, created_at`,
     values
   );
 

@@ -165,8 +165,8 @@ export function AdminEmployeeProfilePanel({ employeeId }: { employeeId: string }
         {[
           ["Employee Code", employee.employeeCode || "Not added"],
           ["Role", employee.role],
+          ["Reporting Manager", employee.reportingManagerName || "Not mapped"],
           ["Status", formatLabel(employee.status)],
-          ["Created On", formatDateLabel(employee.createdAt)],
         ].map(([label, value]) => (
           <article key={label} className="accent-card p-5">
             <p className="eyebrow">{label}</p>
@@ -182,6 +182,7 @@ export function AdminEmployeeProfilePanel({ employeeId }: { employeeId: string }
             {[
               ["Email", employee.email],
               ["Phone", employee.phone || "Not added"],
+              ["Manager Email", employee.reportingManagerEmail || "Not added"],
               ["DOB", formatDateLabel(employee.dateOfBirth)],
               ["DOJ", formatDateLabel(employee.dateOfJoining)],
               ["Qualification", employee.educationQualification || "Not added"],

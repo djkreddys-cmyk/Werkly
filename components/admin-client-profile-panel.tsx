@@ -67,68 +67,65 @@ function FollowUpStatusPill({ status }: { status?: string }) {
   );
 }
 
-const defaultProposalMessage = `Dear Sir,
+const defaultProposalHtml = `
+<div style="font-family:Arial, Helvetica, sans-serif;font-size:13px;line-height:1.45;color:#111827;">
+  <p style="margin:0 0 22px;">Dear Madam,</p>
+  <p style="margin:0 0 22px;">Greetings from Werkly Consulting!</p>
+  <p style="margin:0 0 22px;">It was nice talking to you over the phone! As discussed please find the details below</p>
 
-Greetings from Werkly Consulting!
+  <p style="margin:0;">
+    As a legacy-driven, diversity-powered recruitment We are writing to express our keen interest in building a long-term, impactful partnership with your organization.
+    We are confident we can support you in meeting your hiring goals across all levels and functions.
+  </p>
+  <p style="margin:0;">
+    Werkly consulting is a recruitment solution provider with a pan-India presence, 2 branch offices (Hyderabad and Vijayawada), and a team of trained recruiters and HR professionals.
+    We specialize in both technical and non-technical hiring, supporting some of the country's most respected brands.
+  </p>
 
-It was nice talking to you over the phone last Friday. As discussed, please find the details below.
+  <p style="margin:0 0 8px;"><strong>Our Key Strengths:</strong></p>
+  <ul style="margin:0 0 10px 28px;padding:0;">
+    <li><strong>Legacy of Trusted Performance:</strong> We bring unmatched credibility to the table, serving top clients of Non-IT &amp; IT Sector</li>
+    <li><strong>Diversity Hiring Champions:</strong> We are proud to be a 100% diversity-driven organization with deep experience in supporting inclusive hiring across industries.</li>
+    <li><strong>Industry-Specific Expertise:</strong> From Automobile, Pharma, Real Estate, Manufacturing, ITES, Healthcare, FMCG, Oil &amp; Gas, Defense and Aerospace, we understand the nuances of hiring in each sector.</li>
+    <li><strong>Tech-Driven, Human-Led Recruitment:</strong> Our sourcing isn't just keyword-based; it's powered by trained recruiters with technical knowledge and domain understanding, ensuring precision shortlisting and fast turnaround times.</li>
+    <li><strong>Strong Offer-to-Join Ratio:</strong>
+      <ul style="margin:0 0 0 28px;padding:0;">
+        <li>95%+ for Non-IT hires</li>
+      </ul>
+    </li>
+    <li><strong>Deep Understanding of Business Needs</strong><br />We take time to understand your business requirements, job specifications, and expectations from the hiring manager before initiating any search.</li>
+    <li><strong>Partnership Approach</strong><br />We believe in working as a recruitment partner, not just a vendor &mdash; fostering collaboration, open discussions, and shared success.</li>
+  </ul>
 
-As a legacy-driven, diversity-powered recruitment partner, we are writing to express our keen interest in building a long-term, impactful partnership with your organization. We are confident that we can support you in meeting your hiring goals across all levels and functions.
+  <p style="margin:0 0 22px;">
+    We take pride in delivering an exceptional candidate experience and consultative partnership with our clients. Our team works closely with C-suite leaders,
+    providing market insights, identifying top talent, and structuring high-performing teams to meet organizational goals.
+  </p>
 
-Werkly Consulting is a recruitment solution provider with a pan-India presence, 2 branch offices in Hyderabad and Vijayawada, and a team of trained recruiters and HR professionals. We specialize in both technical and non-technical hiring, supporting some of the country's most respected brands.
+  <p style="margin:0 0 8px;"><strong>Why Partner with Werkly?</strong></p>
+  <ul style="margin:0 0 18px 28px;padding:0;list-style:none;">
+    <li>&#10004; Trusted by Top Indian Brands</li>
+    <li>&#10004; Proven Track Record Across Functions</li>
+    <li>&#10004; Customizable Hiring Models</li>
+    <li>&#10004; Agile &amp; Transparent Process</li>
+  </ul>
 
-Our Key Strengths:
+  <p style="margin:0 0 14px;">We look forward to an opportunity to collaborate and support your hiring initiatives.</p>
 
-Legacy of Trusted Performance: We bring strong credibility to the table, serving top clients across Non-IT and IT sectors.
-Diversity Hiring Champions: We are proud to be a 100% diversity-driven organization with deep experience in supporting inclusive hiring across industries.
-Industry-Specific Expertise: From Automobile, Pharma, Manufacturing, ITES, Healthcare, FMCG, Oil & Gas, Defense, and Aerospace, we understand the nuances of hiring in each sector.
-Tech-Driven, Human-Led Recruitment: Our sourcing is powered by trained recruiters with technical knowledge and domain understanding, ensuring precision shortlisting and fast turnaround times.
-Strong Offer-to-Join Ratio: 95%+ for Non-IT hires.
-Deep Understanding of Business Needs: We take time to understand your business requirements, job specifications, and expectations from the hiring manager before initiating any search.
-Partnership Approach: We believe in working as a recruitment partner, not just a vendor, fostering collaboration, open discussions, and shared success.
+  <p style="margin:0 0 8px;"><strong>Professional Charges for Permanent Employment NOT IT&nbsp;&nbsp; Commercials</strong></p>
+  <ul style="margin:0 0 24px 28px;padding:0;">
+    <li><strong>Junior Management (Executive to Asst. Manager):</strong> 8.33%</li>
+    <li><strong>Middle Management (Deputy Manager to DGM):</strong> 8.33%</li>
+    <li><strong>Senior Management (GM / AVP / VP &amp; Above):</strong> 10%</li>
+    <li><strong>CXO Positions:</strong> 15%</li>
+  </ul>
 
-We take pride in delivering an exceptional candidate experience and consultative partnership with our clients. Our team works closely with C-suite leaders, providing market insights, identifying top talent, and structuring high-performing teams to meet organizational goals.
+  <p style="margin:0;"><strong>Payment Schedule:</strong> Payment should be made within 30 days after the candidate joins your organization.</p>
+  <p style="margin:0;"><strong>Replacement Guarantee:</strong> We provide a one-time free replacement guarantee at no additional cost in the event a candidate sourced, selected, and engaged by us leaves your organization within 90 working days from their date of joining.</p>
+  <p style="margin:0 0 22px;">Please feel free to reach out if you have any queries or would like to discuss further. We look forward to the opportunity to work together.</p>
 
-Why Partner with Werkly?
-
-Trusted by Top Indian Brands
-Proven Track Record Across Functions
-Customizable Hiring Models
-Agile & Transparent Process
-
-Professional Charges for Permanent Employment - Non-IT Commercials:
-
-Junior Management (Executive to Asst. Manager): 8.33%
-Middle Management (Deputy Manager to DGM): 8.33%
-Senior Management (GM / AVP / VP & Above): 10%
-CXO Positions: 15%
-
-Payment Schedule: Payment should be made within 30 days after the candidate joins your organization.
-
-Replacement Guarantee: We provide a one-time free replacement guarantee at no additional cost in the event a candidate sourced, selected, and engaged by us leaves your organization within 90 working days from their date of joining.
-
-Please feel free to reach out if you have any queries or would like to discuss further. We look forward to the opportunity to work together.
-
-Awaiting a positive revert from your end.
-
-Regards,
-Werkly Consulting`;
-
-function formatProposalHtml(value: string) {
-  return value
-    .split(/\n{2,}/)
-    .map((paragraph) => {
-      const escaped = paragraph
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;")
-        .replace(/\n/g, "<br />");
-      return `<p>${escaped}</p>`;
-    })
-    .join("");
-}
+  <p style="margin:0;">Awaiting a positive revert from your end</p>
+</div>`;
 
 type ProposalAttachment = {
   filename: string;
@@ -160,7 +157,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [proposalSubject, setProposalSubject] = useState(
     "Recruitment Partnership Proposal - Werkly Consulting"
   );
-  const [proposalMessage, setProposalMessage] = useState(formatProposalHtml(defaultProposalMessage));
+  const [proposalMessage, setProposalMessage] = useState(defaultProposalHtml);
   const [proposalAttachments, setProposalAttachments] = useState<ProposalAttachment[]>([]);
   const [isSendingProposal, setIsSendingProposal] = useState(false);
   const proposalEditorRef = useRef<HTMLDivElement | null>(null);
@@ -210,7 +207,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
             .filter(Boolean)
             .join(", ")
         );
-        setProposalMessage(formatProposalHtml(defaultProposalMessage));
+        setProposalMessage(defaultProposalHtml);
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load client profile.");

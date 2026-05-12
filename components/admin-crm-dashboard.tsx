@@ -31,6 +31,7 @@ type EmployeeFormState = {
   email: string;
   phone: string;
   role: string;
+  reportingManagerId: string;
   dateOfBirth: string;
   dateOfJoining: string;
   educationDetails: EmployeeEducationEntry[];
@@ -124,6 +125,7 @@ const emptyEmployeeForm: EmployeeFormState = {
   email: "",
   phone: "",
   role: "",
+  reportingManagerId: "",
   dateOfBirth: "",
   dateOfJoining: "",
   educationDetails: [createEmptyEducationEntry()],
@@ -133,6 +135,8 @@ const emptyEmployeeForm: EmployeeFormState = {
   inactiveDate: "",
   inactiveRemarks: "",
 };
+
+const defaultEmployeeDesignations = ["Executive", "Delivery Manager", "Delivery Head"];
 
 const emptyClientForm: ClientFormState = {
   companyName: "",
@@ -898,6 +902,9 @@ function CrmEmployeesList({
                       <td className="px-4 py-4">
                         <p className="font-semibold text-[var(--color-ink)]">{employee.fullName}</p>
                         <p className="mt-1 text-sm text-[var(--color-muted)]">{employee.role}</p>
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          Reports to: {employee.reportingManagerName || "Not mapped"}
+                        </p>
                         {employee.status === "inactive" && employee.inactiveRemarks ? (
                           <p className="mt-1 text-xs text-[var(--color-muted)]">
                             {employee.inactiveRemarks}
@@ -2176,9 +2183,27 @@ export function AdminEmployeesPanel({
   const [inactiveDate, setInactiveDate] = useState("");
   const [inactiveRemarks, setInactiveRemarks] = useState("");
   const [isSavingInactive, setIsSavingInactive] = useState(false);
+  const [newDesignation, setNewDesignation] = useState("");
   const isEditingEmployee = Boolean(employeeForm.id);
   const resettingEmployee = employees.find((employee) => employee.id === passwordReset.employeeId);
   const canManageEmployees = authRole === "super-admin";
+  const employeeDesignationOptions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...defaultEmployeeDesignations,
+          ...employees.map((employee) => employee.role).filter(Boolean),
+        ])
+      ),
+    [employees]
+  );
+  const reportingManagerOptions = useMemo(
+    () =>
+      employees.filter(
+        (employee) => employee.status === "active" && employee.id !== employeeForm.id
+      ),
+    [employeeForm.id, employees]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -2280,6 +2305,7 @@ export function AdminEmployeesPanel({
       email: employee.email,
       phone: employee.phone ?? "",
       role: employee.role,
+      reportingManagerId: employee.reportingManagerId ?? "",
       dateOfBirth: employee.dateOfBirth ?? "",
       dateOfJoining: employee.dateOfJoining ?? "",
       educationDetails:
@@ -2437,6 +2463,7 @@ export function AdminEmployeesPanel({
           email: inactiveEmployee.email,
           phone: inactiveEmployee.phone ?? "",
           role: inactiveEmployee.role,
+          reportingManagerId: inactiveEmployee.reportingManagerId ?? "",
           dateOfBirth: inactiveEmployee.dateOfBirth ?? "",
           dateOfJoining: inactiveEmployee.dateOfJoining ?? "",
           educationQualification: buildEducationSummary(
@@ -2601,13 +2628,60 @@ export function AdminEmployeesPanel({
                 value={employeeForm.phone}
                 onChange={(event) => updateEmployeeField("phone", event.target.value)}
               />
-              <input
-                className={fieldClassName}
-                placeholder="Role"
-                value={employeeForm.role}
-                onChange={(event) => updateEmployeeField("role", event.target.value)}
-                required
-              />
+              <div className="grid gap-3">
+                <select
+                  className={fieldClassName}
+                  value={employeeForm.role}
+                  onChange={(event) => updateEmployeeField("role", event.target.value)}
+                  required
+                >
+                  <option value="">Select designation</option>
+                  {employeeDesignationOptions.map((designation) => (
+                    <option key={designation} value={designation}>
+                      {designation}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <input
+                    className={fieldClassName}
+                    placeholder="Add new designation"
+                    value={newDesignation}
+                    onChange={(event) => setNewDesignation(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const designation = newDesignation.trim();
+                      if (!designation) {
+                        return;
+                      }
+                      updateEmployeeField("role", designation);
+                      setNewDesignation("");
+                    }}
+                    className="rounded-2xl border border-[rgba(255,255,255,0.14)] px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+              <label className="block">
+                <span className={clientFormLabelClassName}>Reporting Manager</span>
+                <select
+                  className={fieldClassName}
+                  value={employeeForm.reportingManagerId}
+                  onChange={(event) =>
+                    updateEmployeeField("reportingManagerId", event.target.value)
+                  }
+                >
+                  <option value="">No reporting manager</option>
+                  {reportingManagerOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.fullName} - {employee.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="block">
                 <span className={clientFormLabelClassName}>Date of Birth (DOB)</span>
                 <input
@@ -2733,7 +2807,27 @@ export function AdminEmployeesPanel({
                 <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Full name" value={employeeForm.fullName} onChange={(event) => updateEmployeeField("fullName", event.target.value)} required />
                 <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" type="email" placeholder="Email" value={employeeForm.email} onChange={(event) => updateEmployeeField("email", event.target.value)} required />
                 <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Phone" value={employeeForm.phone} onChange={(event) => updateEmployeeField("phone", event.target.value)} />
-                <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Role" value={employeeForm.role} onChange={(event) => updateEmployeeField("role", event.target.value)} required />
+                <div className="grid gap-3">
+                  <select className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" value={employeeForm.role} onChange={(event) => updateEmployeeField("role", event.target.value)} required>
+                    <option value="">Select designation</option>
+                    {employeeDesignationOptions.map((designation) => (
+                      <option key={designation} value={designation}>{designation}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" placeholder="Add new designation" value={newDesignation} onChange={(event) => setNewDesignation(event.target.value)} />
+                    <button type="button" onClick={() => { const designation = newDesignation.trim(); if (!designation) return; updateEmployeeField("role", designation); setNewDesignation(""); }} className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]">Add</button>
+                  </div>
+                </div>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Reporting Manager</span>
+                  <select className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" value={employeeForm.reportingManagerId} onChange={(event) => updateEmployeeField("reportingManagerId", event.target.value)}>
+                    <option value="">No reporting manager</option>
+                    {reportingManagerOptions.map((employee) => (
+                      <option key={employee.id} value={employee.id}>{employee.fullName} - {employee.role}</option>
+                    ))}
+                  </select>
+                </label>
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Date of Birth (DOB)</span>
                   <input className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]" type="date" value={employeeForm.dateOfBirth} onChange={(event) => updateEmployeeField("dateOfBirth", event.target.value)} />

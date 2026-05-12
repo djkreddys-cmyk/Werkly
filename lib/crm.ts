@@ -28,6 +28,9 @@ export type EmployeeRecord = {
   employeeCode?: string;
   phone?: string;
   role: string;
+  reportingManagerId?: string;
+  reportingManagerName?: string;
+  reportingManagerEmail?: string;
   dateOfBirth?: string;
   dateOfJoining?: string;
   educationQualification?: string;
@@ -281,6 +284,7 @@ export type EmployeeFormPayload = {
   email: string;
   phone?: string;
   role: string;
+  reportingManagerId?: string;
   dateOfBirth?: string;
   dateOfJoining?: string;
   educationQualification?: string;
