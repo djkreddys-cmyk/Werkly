@@ -45,6 +45,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const senderEmail = process.env.RESEND_FROM_EMAIL;
     const senderName = process.env.RESEND_FROM_NAME || "Werkly Consulting";
     const apiKey = process.env.RESEND_API_KEY;
+    const replyToEmail = process.env.PROPOSAL_REPLY_TO_EMAIL || "hr@werkly.in";
+    const defaultCcEmails = String(process.env.PROPOSAL_DEFAULT_CC_EMAILS || "")
+      .split(",")
+      .map((email) => email.trim())
+      .filter(Boolean);
 
     if (!apiKey || !senderEmail) {
       return NextResponse.json(
@@ -82,6 +87,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const ccEmails = Array.from(
       new Set(
         [
+          ...defaultCcEmails,
           ...(body.ccEmails ?? []),
           ...(body.copySender && senderEmail ? [senderEmail] : []),
         ]
@@ -118,6 +124,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         from: `${senderName} <${senderEmail}>`,
         to: toEmails,
         cc: ccEmails.length ? ccEmails : undefined,
+        reply_to: replyToEmail || undefined,
         subject,
         html: htmlMessage
           ? sanitizeHtml(htmlMessage)

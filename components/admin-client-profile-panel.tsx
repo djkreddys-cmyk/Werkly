@@ -155,8 +155,8 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [proposalToEmails, setProposalToEmails] = useState("");
-  const [proposalCcEmails, setProposalCcEmails] = useState("");
-  const [copySender, setCopySender] = useState(true);
+  const [proposalCcEmails, setProposalCcEmails] = useState("hr@werkly.in");
+  const [copySender, setCopySender] = useState(false);
   const [proposalSubject, setProposalSubject] = useState(
     "Recruitment Partnership Proposal - Werkly Consulting"
   );
