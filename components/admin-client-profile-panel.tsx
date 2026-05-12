@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import type {
   ClientActivityRecord,
@@ -114,6 +114,27 @@ Awaiting a positive revert from your end.
 Regards,
 Werkly Consulting`;
 
+function formatProposalHtml(value: string) {
+  return value
+    .split(/\n{2,}/)
+    .map((paragraph) => {
+      const escaped = paragraph
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;")
+        .replace(/\n/g, "<br />");
+      return `<p>${escaped}</p>`;
+    })
+    .join("");
+}
+
+type ProposalAttachment = {
+  filename: string;
+  content: string;
+};
+
 export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [token] = useState(
     typeof window !== "undefined"
@@ -134,11 +155,15 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [proposalToEmails, setProposalToEmails] = useState("");
+  const [proposalCcEmails, setProposalCcEmails] = useState("");
+  const [copySender, setCopySender] = useState(true);
   const [proposalSubject, setProposalSubject] = useState(
     "Recruitment Partnership Proposal - Werkly Consulting"
   );
-  const [proposalMessage, setProposalMessage] = useState(defaultProposalMessage);
+  const [proposalMessage, setProposalMessage] = useState(formatProposalHtml(defaultProposalMessage));
+  const [proposalAttachments, setProposalAttachments] = useState<ProposalAttachment[]>([]);
   const [isSendingProposal, setIsSendingProposal] = useState(false);
+  const proposalEditorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -185,6 +210,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
             .filter(Boolean)
             .join(", ")
         );
+        setProposalMessage(formatProposalHtml(defaultProposalMessage));
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load client profile.");
@@ -308,6 +334,10 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
       .split(",")
       .map((email) => email.trim())
       .filter(Boolean);
+    const ccEmails = proposalCcEmails
+      .split(",")
+      .map((email) => email.trim())
+      .filter(Boolean);
 
     if (!toEmails.length) {
       setError("Please add at least one client email before sending proposal mail.");
@@ -327,8 +357,12 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
         },
         body: JSON.stringify({
           toEmails,
+          ccEmails,
+          copySender,
           subject: proposalSubject,
-          message: proposalMessage,
+          message: proposalEditorRef.current?.innerText || "",
+          htmlMessage: proposalEditorRef.current?.innerHTML || proposalMessage,
+          attachments: proposalAttachments,
         }),
       });
       const result = (await response.json()) as {
@@ -355,6 +389,48 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
     } finally {
       setIsSendingProposal(false);
     }
+  }
+
+  function applyProposalFormat(command: string, value?: string) {
+    proposalEditorRef.current?.focus();
+    document.execCommand(command, false, value);
+    setProposalMessage(proposalEditorRef.current?.innerHTML || "");
+  }
+
+  async function handleProposalAttachmentUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) {
+      return;
+    }
+
+    const maxSize = 8 * 1024 * 1024;
+    const oversized = files.find((file) => file.size > maxSize);
+    if (oversized) {
+      setError("Each proposal attachment must be 8 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    const attachments = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<ProposalAttachment>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = String(reader.result || "");
+              resolve({
+                filename: file.name,
+                content: dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl,
+              });
+            };
+            reader.onerror = () => reject(new Error("Unable to read proposal attachment."));
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+
+    setProposalAttachments((current) => [...current, ...attachments]);
+    event.target.value = "";
   }
 
   if (!token) {
@@ -451,7 +527,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.02fr_0.98fr]">
-        <article className="accent-card p-6">
+        <article id="proposal-mail" className="accent-card p-6">
           <p className="eyebrow">Account Details</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {[
@@ -674,6 +750,28 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
 
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                CC
+              </span>
+              <input
+                value={proposalCcEmails}
+                onChange={(event) => setProposalCcEmails(event.target.value)}
+                placeholder="manager@example.com, team@example.com"
+                className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </label>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
+              <input
+                type="checkbox"
+                checked={copySender}
+                onChange={(event) => setCopySender(event.target.checked)}
+                className="h-4 w-4 accent-[var(--color-dark)]"
+              />
+              Send copy to Werkly sender email
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                 Subject
               </span>
               <input
@@ -687,12 +785,104 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
               <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                 Proposal Message
               </span>
-              <textarea
-                value={proposalMessage}
-                onChange={(event) => setProposalMessage(event.target.value)}
-                className="mt-2 min-h-[320px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm leading-6 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              <div className="mt-2 flex flex-wrap gap-2 rounded-t-2xl border border-b-0 border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] p-2">
+                {[
+                  ["Bold", "bold"],
+                  ["Italic", "italic"],
+                  ["Underline", "underline"],
+                  ["Bullets", "insertUnorderedList"],
+                  ["Numbers", "insertOrderedList"],
+                ].map(([label, command]) => (
+                  <button
+                    key={command}
+                    type="button"
+                    onClick={() => applyProposalFormat(command)}
+                    className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)]"
+                  >
+                    {label}
+                  </button>
+                ))}
+                <select
+                  onChange={(event) => {
+                    if (event.target.value) {
+                      applyProposalFormat("fontName", event.target.value);
+                    }
+                    event.target.value = "";
+                  }}
+                  className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)]"
+                  defaultValue=""
+                >
+                  <option value="">Font</option>
+                  <option value="Arial">Arial</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Times New Roman">Times</option>
+                  <option value="Verdana">Verdana</option>
+                </select>
+                <select
+                  onChange={(event) => {
+                    if (event.target.value) {
+                      applyProposalFormat("fontSize", event.target.value);
+                    }
+                    event.target.value = "";
+                  }}
+                  className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)]"
+                  defaultValue=""
+                >
+                  <option value="">Size</option>
+                  <option value="2">Small</option>
+                  <option value="3">Normal</option>
+                  <option value="4">Large</option>
+                </select>
+              </div>
+              <div
+                ref={proposalEditorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={() => setProposalMessage(proposalEditorRef.current?.innerHTML || "")}
+                dangerouslySetInnerHTML={{ __html: proposalMessage }}
+                className="min-h-[320px] w-full overflow-y-auto rounded-b-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm leading-6 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               />
             </label>
+
+            <div className="rounded-2xl border border-[var(--color-line)] bg-white p-4">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Attachment
+              </span>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className="cursor-pointer rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]">
+                  Upload File
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(event) => void handleProposalAttachmentUpload(event)}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-sm text-[var(--color-muted)]">
+                  {proposalAttachments.length
+                    ? `${proposalAttachments.length} file(s) selected`
+                    : "No attachment selected"}
+                </p>
+              </div>
+              {proposalAttachments.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {proposalAttachments.map((attachment) => (
+                    <button
+                      key={attachment.filename}
+                      type="button"
+                      onClick={() =>
+                        setProposalAttachments((current) =>
+                          current.filter((item) => item.filename !== attachment.filename)
+                        )
+                      }
+                      className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]"
+                    >
+                      {attachment.filename} x
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">

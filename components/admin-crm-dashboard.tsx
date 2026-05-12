@@ -1707,6 +1707,11 @@ function CrmClientsList({
                                 href: `/admin/clients/${client.id}`,
                               },
                               {
+                                label: "Send Proposal Mail",
+                                href: `/admin/clients/${client.id}#proposal-mail`,
+                                tone: "accent" as const,
+                              },
+                              {
                                 label: "Follow-Up",
                                 onClick: () => onFollowUp(client),
                               },

@@ -26,6 +26,14 @@ function formatEmailBody(value: string) {
     .join("");
 }
 
+function sanitizeHtml(value: string) {
+  return value
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, "")
+    .replace(/\sjavascript:/gi, "");
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "").trim();
@@ -49,8 +57,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const client = await getClientById(id, token);
     const body = (await request.json()) as {
       toEmails?: string[];
+      ccEmails?: string[];
+      copySender?: boolean;
       subject?: string;
       message?: string;
+      htmlMessage?: string;
+      attachments?: Array<{
+        filename?: string;
+        content?: string;
+      }>;
     };
     const toEmails = Array.from(
       new Set(
@@ -63,6 +78,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
       String(body.subject || "").trim() ||
       `Recruitment Partnership Proposal - Werkly Consulting`;
     const message = String(body.message || "").trim();
+    const htmlMessage = String(body.htmlMessage || "").trim();
+    const ccEmails = Array.from(
+      new Set(
+        [
+          ...(body.ccEmails ?? []),
+          ...(body.copySender && senderEmail ? [senderEmail] : []),
+        ]
+          .map((email) => String(email || "").trim())
+          .filter(Boolean)
+      )
+    );
+    const attachments = (body.attachments ?? [])
+      .map((attachment) => ({
+        filename: String(attachment.filename || "").trim(),
+        content: String(attachment.content || "").trim(),
+      }))
+      .filter((attachment) => attachment.filename && attachment.content);
 
     if (!toEmails.length) {
       return NextResponse.json(
@@ -85,12 +117,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       body: JSON.stringify({
         from: `${senderName} <${senderEmail}>`,
         to: toEmails,
+        cc: ccEmails.length ? ccEmails : undefined,
         subject,
-        html: `
+        html: htmlMessage
+          ? sanitizeHtml(htmlMessage)
+          : `
           <div style="font-family:Arial,sans-serif;color:#18343a;line-height:1.65;font-size:15px;">
             ${formatEmailBody(message)}
           </div>
         `,
+        attachments: attachments.length ? attachments : undefined,
       }),
     });
 
@@ -100,7 +136,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     let updatedClient = client;
-    const sentNote = `Business proposal email sent to ${toEmails.join(", ")}.`;
+    const sentNote = `Business proposal email sent to ${toEmails.join(", ")}${
+      ccEmails.length ? ` with CC to ${ccEmails.join(", ")}` : ""
+    }${attachments.length ? ` with ${attachments.length} attachment(s)` : ""}.`;
 
     if (isLeadOnboardingStatus(client.onboardingStatus)) {
       updatedClient = await updateClientOnboarding(
