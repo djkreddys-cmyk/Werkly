@@ -46,12 +46,37 @@ function formatLabel(value?: string) {
     .join(" ");
 }
 
+type CandidateSuggestion = {
+  id: string;
+  source: string;
+  candidateName: string;
+  candidateEmail?: string;
+  candidatePhone?: string;
+  currentDesignation?: string;
+  preferredRole?: string;
+  currentCompany?: string;
+  experience?: string;
+  currentLocation?: string;
+  preferredLocation?: string;
+  preferredSector?: string;
+  skills?: string;
+  resumeFileName?: string;
+  resumeFileData?: string;
+  lastActivityAt?: string;
+  matchScore: number;
+  matchLevel: "Strong" | "Good" | "Possible";
+  matchReasons: string[];
+};
+
 export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
   const [token] = useState(
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
   );
   const [job, setJob] = useState<JobDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineEventRecord[]>([]);
+  const [suggestions, setSuggestions] = useState<CandidateSuggestion[]>([]);
+  const [totalProfilesReviewed, setTotalProfilesReviewed] = useState(0);
+  const [suggestionsError, setSuggestionsError] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
 
@@ -67,11 +92,19 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
       fetch(`/api/admin/timeline?entityType=job&entityId=${jobId}&limit=40`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch(`/api/admin/jobs/${jobId}/suggested-profiles`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([jobResponse, timelineResponse]) => {
+      .then(async ([jobResponse, timelineResponse, suggestionsResponse]) => {
         const jobResult = (await jobResponse.json()) as JobDetail & { message?: string };
         const timelineResult = (await timelineResponse.json()) as {
           timeline?: TimelineEventRecord[];
+          message?: string;
+        };
+        const suggestionsResult = (await suggestionsResponse.json()) as {
+          suggestions?: CandidateSuggestion[];
+          totalProfilesReviewed?: number;
           message?: string;
         };
 
@@ -84,6 +117,17 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
 
         setJob(jobResult);
         setTimeline(timelineResult.timeline ?? []);
+        if (suggestionsResponse.ok) {
+          setSuggestions(suggestionsResult.suggestions ?? []);
+          setTotalProfilesReviewed(suggestionsResult.totalProfilesReviewed ?? 0);
+          setSuggestionsError("");
+        } else {
+          setSuggestions([]);
+          setTotalProfilesReviewed(0);
+          setSuggestionsError(
+            suggestionsResult.message || "Unable to load suggested CRM profiles."
+          );
+        }
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load job details.");
@@ -167,6 +211,121 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             <p className="mt-3 text-xl font-semibold text-[var(--color-ink)]">{value}</p>
           </article>
         ))}
+      </section>
+
+      <section className="accent-card p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow">Suggested CRM Profiles</p>
+            <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+              Rule-based candidate matches
+            </h3>
+            <p className="muted-copy mt-3 max-w-3xl text-sm leading-6">
+              Ranked from job applicants on other jobs, candidate enquiries, and resume-builder
+              submissions using role, skills, sector, location, experience, resume availability, and
+              recent CRM activity.
+            </p>
+          </div>
+          <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
+            {totalProfilesReviewed} reviewed
+          </span>
+        </div>
+
+        {suggestionsError ? (
+          <div className="mt-6 rounded-[1.25rem] border border-red-200 bg-red-50 p-5">
+            <p className="text-sm font-medium text-red-700">{suggestionsError}</p>
+          </div>
+        ) : suggestions.length === 0 ? (
+          <div className="mt-6 rounded-[1.25rem] border border-[var(--color-line)] bg-white p-5">
+            <p className="muted-copy text-sm">
+              No suggested CRM profiles yet. Add candidate preferences, resumes, or resume-builder
+              submissions to improve matching.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-4 xl:grid-cols-2">
+            {suggestions.map((profile) => (
+              <article
+                key={`${profile.source}-${profile.id}`}
+                className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-[var(--color-ink)]">
+                      {profile.candidateName}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--color-muted)]">
+                      {profile.preferredRole ||
+                        profile.currentDesignation ||
+                        "Role preference not added"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-semibold text-[var(--color-dark)]">
+                      {profile.matchScore}
+                    </p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
+                      {profile.matchLevel}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["Contact", profile.candidateEmail || profile.candidatePhone || "Not added"],
+                    ["Location", profile.preferredLocation || profile.currentLocation || "Not added"],
+                    ["Experience", profile.experience || "Not added"],
+                    ["Source", profile.source],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                        {label}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-[var(--color-ink)]">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {profile.matchReasons.length ? (
+                    profile.matchReasons.map((reason) => (
+                      <span
+                        key={reason}
+                        className="rounded-full bg-[rgba(251,133,0,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-accent-strong)]"
+                      >
+                        {reason}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
+                      Partial CRM match
+                    </span>
+                  )}
+                </div>
+
+                {profile.resumeFileData && profile.resumeFileName ? (
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <a
+                      href={profile.resumeFileData}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                    >
+                      View Resume
+                    </a>
+                    <a
+                      href={profile.resumeFileData}
+                      download={profile.resumeFileName}
+                      className="rounded-2xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                    >
+                      Download Resume
+                    </a>
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[0.98fr_1.02fr]">
