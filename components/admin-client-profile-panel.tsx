@@ -333,7 +333,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
         </article>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.02fr_0.98fr]">
+      <section className="grid gap-5 xl:grid-cols-3">
         <article className="accent-card p-6">
           <p className="eyebrow">Account Details</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -526,9 +526,6 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
             {error ? <p className="self-center text-sm text-red-700">{error}</p> : null}
           </div>
         </article>
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-[0.96fr_1.04fr]">
         <article className="accent-card p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -626,64 +623,66 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
               <p className="muted-copy text-sm">No client activity is available yet.</p>
             </div>
           ) : (
-            <div className="mt-6 space-y-4">
-              {activity.map((entry) => (
-                <article
-                  key={entry.id}
-                  className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-[var(--color-ink)]">
-                        {entry.actorName || "Werkly User"}
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--color-muted)]">
-                        {entry.actorRole ? formatFollowUpStage(entry.actorRole) : "Internal user"}
-                      </p>
-                    </div>
-                    <FollowUpStatusPill status={entry.toStatus} />
-                  </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                        Activity
-                        </p>
-                        <p className="mt-1 text-sm text-[var(--color-ink)]">
-                        {entry.title}
-                        </p>
-                      </div>
-                      <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                        Updated On
-                      </p>
-                        <p className="mt-1 text-sm text-[var(--color-ink)]">
-                          {formatDateTimeLabel(entry.createdAt)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                        Stage / Change
-                        </p>
-                        <p className="mt-1 text-sm text-[var(--color-ink)]">
-                        {entry.fromStatus
-                          ? `${formatFollowUpStage(entry.fromStatus)} -> ${formatFollowUpStage(entry.toStatus)}`
-                          : formatFollowUpStage(entry.toStatus)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                        Effective Date
-                        </p>
-                        <p className="mt-1 text-sm text-[var(--color-ink)]">
-                        {formatDateLabel(entry.effectiveDate)}
-                        </p>
-                      </div>
-                    </div>
-                  <div className="mt-4 rounded-2xl bg-[rgba(8,96,108,0.03)] px-4 py-3 text-sm leading-6 text-[var(--color-muted)]">
-                    {entry.summary || "No remarks added for this activity."}
-                  </div>
-                </article>
-              ))}
+            <div className="mt-6 overflow-hidden rounded-[1.35rem] border border-[var(--color-line)] bg-white">
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse">
+                  <thead>
+                    <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                      {["User", "Activity", "Stage / Change", "Date", "Remarks"].map((heading) => (
+                        <th
+                          key={heading}
+                          className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        >
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activity.map((entry, index) => (
+                      <tr
+                        key={entry.id}
+                        className={
+                          index === activity.length - 1
+                            ? "align-top"
+                            : "align-top border-b border-[var(--color-line)]"
+                        }
+                      >
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          <p className="font-semibold text-[var(--color-ink)]">
+                            {entry.actorName || "Werkly User"}
+                          </p>
+                          <p className="mt-1 text-xs">
+                            {entry.actorRole ? formatFollowUpStage(entry.actorRole) : "Internal user"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-ink)]">
+                          {entry.title}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          <p className="font-semibold text-[var(--color-ink)]">
+                            {entry.fromStatus
+                              ? `${formatFollowUpStage(entry.fromStatus)} -> ${formatFollowUpStage(entry.toStatus)}`
+                              : formatFollowUpStage(entry.toStatus)}
+                          </p>
+                          <p className="mt-2">
+                            <FollowUpStatusPill status={entry.toStatus} />
+                          </p>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          <p>{formatDateTimeLabel(entry.createdAt)}</p>
+                          <p className="mt-1 text-xs">
+                            Effective: {formatDateLabel(entry.effectiveDate)}
+                          </p>
+                        </td>
+                        <td className="min-w-[220px] px-4 py-4 text-sm leading-6 text-[var(--color-muted)]">
+                          {entry.summary || "No remarks added for this activity."}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </article>
