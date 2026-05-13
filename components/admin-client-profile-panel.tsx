@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import type {
   ClientActivityRecord,
@@ -67,71 +67,6 @@ function FollowUpStatusPill({ status }: { status?: string }) {
   );
 }
 
-const defaultProposalHtml = `
-<div style="font-family:Arial, Helvetica, sans-serif;font-size:13px;line-height:1.45;color:#111827;">
-  <p style="margin:0 0 22px;">Dear Madam,</p>
-  <p style="margin:0 0 22px;">Greetings from Werkly Consulting!</p>
-  <p style="margin:0 0 22px;">It was nice talking to you over the phone! As discussed please find the details below</p>
-
-  <p style="margin:0;">
-    As a legacy-driven, diversity-powered recruitment We are writing to express our keen interest in building a long-term, impactful partnership with your organization.
-    We are confident we can support you in meeting your hiring goals across all levels and functions.
-  </p>
-  <p style="margin:0;">
-    Werkly consulting is a recruitment solution provider with a pan-India presence, 2 branch offices (Hyderabad and Vijayawada), and a team of trained recruiters and HR professionals.
-    We specialize in both technical and non-technical hiring, supporting some of the country's most respected brands.
-  </p>
-
-  <p style="margin:0 0 8px;"><strong>Our Key Strengths:</strong></p>
-  <ul style="margin:0 0 10px 28px;padding:0;">
-    <li><strong>Legacy of Trusted Performance:</strong> We bring unmatched credibility to the table, serving top clients of Non-IT &amp; IT Sector</li>
-    <li><strong>Diversity Hiring Champions:</strong> We are proud to be a 100% diversity-driven organization with deep experience in supporting inclusive hiring across industries.</li>
-    <li><strong>Industry-Specific Expertise:</strong> From Automobile, Pharma, Real Estate, Manufacturing, ITES, Healthcare, FMCG, Oil &amp; Gas, Defense and Aerospace, we understand the nuances of hiring in each sector.</li>
-    <li><strong>Tech-Driven, Human-Led Recruitment:</strong> Our sourcing isn't just keyword-based; it's powered by trained recruiters with technical knowledge and domain understanding, ensuring precision shortlisting and fast turnaround times.</li>
-    <li><strong>Strong Offer-to-Join Ratio:</strong>
-      <ul style="margin:0 0 0 28px;padding:0;">
-        <li>95%+ for Non-IT hires</li>
-      </ul>
-    </li>
-    <li><strong>Deep Understanding of Business Needs</strong><br />We take time to understand your business requirements, job specifications, and expectations from the hiring manager before initiating any search.</li>
-    <li><strong>Partnership Approach</strong><br />We believe in working as a recruitment partner, not just a vendor &mdash; fostering collaboration, open discussions, and shared success.</li>
-  </ul>
-
-  <p style="margin:0 0 22px;">
-    We take pride in delivering an exceptional candidate experience and consultative partnership with our clients. Our team works closely with C-suite leaders,
-    providing market insights, identifying top talent, and structuring high-performing teams to meet organizational goals.
-  </p>
-
-  <p style="margin:0 0 8px;"><strong>Why Partner with Werkly?</strong></p>
-  <ul style="margin:0 0 18px 28px;padding:0;list-style:none;">
-    <li>&#10004; Trusted by Top Indian Brands</li>
-    <li>&#10004; Proven Track Record Across Functions</li>
-    <li>&#10004; Customizable Hiring Models</li>
-    <li>&#10004; Agile &amp; Transparent Process</li>
-  </ul>
-
-  <p style="margin:0 0 14px;">We look forward to an opportunity to collaborate and support your hiring initiatives.</p>
-
-  <p style="margin:0 0 8px;"><strong>Professional Charges for Permanent Employment NOT IT&nbsp;&nbsp; Commercials</strong></p>
-  <ul style="margin:0 0 24px 28px;padding:0;">
-    <li><strong>Junior Management (Executive to Asst. Manager):</strong> 8.33%</li>
-    <li><strong>Middle Management (Deputy Manager to DGM):</strong> 8.33%</li>
-    <li><strong>Senior Management (GM / AVP / VP &amp; Above):</strong> 10%</li>
-    <li><strong>CXO Positions:</strong> 15%</li>
-  </ul>
-
-  <p style="margin:0;"><strong>Payment Schedule:</strong> Payment should be made within 30 days after the candidate joins your organization.</p>
-  <p style="margin:0;"><strong>Replacement Guarantee:</strong> We provide a one-time free replacement guarantee at no additional cost in the event a candidate sourced, selected, and engaged by us leaves your organization within 90 working days from their date of joining.</p>
-  <p style="margin:0 0 22px;">Please feel free to reach out if you have any queries or would like to discuss further. We look forward to the opportunity to work together.</p>
-
-  <p style="margin:0;">Awaiting a positive revert from your end</p>
-</div>`;
-
-type ProposalAttachment = {
-  filename: string;
-  content: string;
-};
-
 export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [token] = useState(
     typeof window !== "undefined"
@@ -151,17 +86,6 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
   const [lastFollowUpDate, setLastFollowUpDate] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
-  const [proposalToEmails, setProposalToEmails] = useState("");
-  const [proposalCcEmails, setProposalCcEmails] = useState("hr@werkly.in");
-  const [copySender, setCopySender] = useState(false);
-  const [proposalSubject, setProposalSubject] = useState(
-    "Recruitment Partnership Proposal - Werkly Consulting"
-  );
-  const [proposalMessage, setProposalMessage] = useState(defaultProposalHtml);
-  const [proposalAttachments, setProposalAttachments] = useState<ProposalAttachment[]>([]);
-  const [isSendingProposal, setIsSendingProposal] = useState(false);
-  const proposalEditorRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     if (!token) {
       return;
@@ -202,12 +126,6 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
         setLastFollowUpDate(clientResult.lastFollowUpDate || "");
         setNextFollowUpDate(clientResult.nextFollowUpDate || "");
         setFollowUpNotes(clientResult.followUpNotes || "");
-        setProposalToEmails(
-          [clientResult.contactEmail, clientResult.secondaryContactEmail]
-            .filter(Boolean)
-            .join(", ")
-        );
-        setProposalMessage(defaultProposalHtml);
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load client profile.");
@@ -322,114 +240,6 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
     }
   }
 
-  async function handleSendProposal() {
-    if (!token || !client) {
-      return;
-    }
-
-    const toEmails = proposalToEmails
-      .split(",")
-      .map((email) => email.trim())
-      .filter(Boolean);
-    const ccEmails = proposalCcEmails
-      .split(",")
-      .map((email) => email.trim())
-      .filter(Boolean);
-
-    if (!toEmails.length) {
-      setError("Please add at least one client email before sending proposal mail.");
-      return;
-    }
-
-    setIsSendingProposal(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await fetch(`/api/admin/clients/${client.id}/proposal-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          toEmails,
-          ccEmails,
-          copySender,
-          subject: proposalSubject,
-          message: proposalEditorRef.current?.innerText || "",
-          htmlMessage: proposalEditorRef.current?.innerHTML || proposalMessage,
-          attachments: proposalAttachments,
-        }),
-      });
-      const result = (await response.json()) as {
-        client?: ClientRecord;
-        sentTo?: string[];
-        message?: string;
-      };
-
-      if (!response.ok || !result.client) {
-        throw new Error(result.message || "Unable to send proposal mail.");
-      }
-
-      setClient(result.client);
-      setOnboardingStatus(result.client.onboardingStatus || "proposal-shared");
-      setOnboardingNotes(result.client.notes || "");
-      setFollowUpStatus(normalizeClientFollowUpStatus(result.client.followUpStatus));
-      setLastFollowUpDate(result.client.lastFollowUpDate || "");
-      setNextFollowUpDate(result.client.nextFollowUpDate || "");
-      setFollowUpNotes(result.client.followUpNotes || "");
-      setMessage(result.message || "Proposal email sent successfully.");
-      await refreshActivity(result.client);
-    } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : "Unable to send proposal mail.");
-    } finally {
-      setIsSendingProposal(false);
-    }
-  }
-
-  function applyProposalFormat(command: string, value?: string) {
-    proposalEditorRef.current?.focus();
-    document.execCommand(command, false, value);
-    setProposalMessage(proposalEditorRef.current?.innerHTML || "");
-  }
-
-  async function handleProposalAttachmentUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    if (!files.length) {
-      return;
-    }
-
-    const maxSize = 8 * 1024 * 1024;
-    const oversized = files.find((file) => file.size > maxSize);
-    if (oversized) {
-      setError("Each proposal attachment must be 8 MB or smaller.");
-      event.target.value = "";
-      return;
-    }
-
-    const attachments = await Promise.all(
-      files.map(
-        (file) =>
-          new Promise<ProposalAttachment>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const dataUrl = String(reader.result || "");
-              resolve({
-                filename: file.name,
-                content: dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl,
-              });
-            };
-            reader.onerror = () => reject(new Error("Unable to read proposal attachment."));
-            reader.readAsDataURL(file);
-          })
-      )
-    );
-
-    setProposalAttachments((current) => [...current, ...attachments]);
-    event.target.value = "";
-  }
-
   if (!token) {
     return (
       <section className="accent-card p-6">
@@ -524,7 +334,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.02fr_0.98fr]">
-        <article id="proposal-mail" className="accent-card p-6">
+        <article className="accent-card p-6">
           <p className="eyebrow">Account Details</p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {[
@@ -714,183 +524,6 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
             </button>
             {message ? <p className="self-center text-sm text-[var(--color-dark)]">{message}</p> : null}
             {error ? <p className="self-center text-sm text-red-700">{error}</p> : null}
-          </div>
-        </article>
-
-        <article className="accent-card p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="eyebrow">Proposal Mail</p>
-              <h3 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
-                Send business proposal to client
-              </h3>
-              <p className="muted-copy mt-3 text-sm leading-6">
-                Review the proposal content, send it to the saved client email, and update CRM
-                follow-up status automatically.
-              </p>
-            </div>
-            <FollowUpStatusPill status="business-proposal-email-sent" />
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                To
-              </span>
-              <input
-                value={proposalToEmails}
-                onChange={(event) => setProposalToEmails(event.target.value)}
-                placeholder="client@example.com, second@example.com"
-                className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                CC
-              </span>
-              <input
-                value={proposalCcEmails}
-                onChange={(event) => setProposalCcEmails(event.target.value)}
-                placeholder="manager@example.com, team@example.com"
-                className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              />
-            </label>
-
-            <label className="flex items-center gap-3 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
-              <input
-                type="checkbox"
-                checked={copySender}
-                onChange={(event) => setCopySender(event.target.checked)}
-                className="h-4 w-4 accent-[var(--color-dark)]"
-              />
-              Send copy to Werkly sender email
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                Subject
-              </span>
-              <input
-                value={proposalSubject}
-                onChange={(event) => setProposalSubject(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                Proposal Message
-              </span>
-              <div className="mt-2 flex flex-wrap gap-2 rounded-t-2xl border border-b-0 border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] p-2">
-                {[
-                  ["Bold", "bold"],
-                  ["Italic", "italic"],
-                  ["Underline", "underline"],
-                  ["Bullets", "insertUnorderedList"],
-                  ["Numbers", "insertOrderedList"],
-                ].map(([label, command]) => (
-                  <button
-                    key={command}
-                    type="button"
-                    onClick={() => applyProposalFormat(command)}
-                    className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)]"
-                  >
-                    {label}
-                  </button>
-                ))}
-                <select
-                  onChange={(event) => {
-                    if (event.target.value) {
-                      applyProposalFormat("fontName", event.target.value);
-                    }
-                    event.target.value = "";
-                  }}
-                  className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)]"
-                  defaultValue=""
-                >
-                  <option value="">Font</option>
-                  <option value="Arial">Arial</option>
-                  <option value="Georgia">Georgia</option>
-                  <option value="Times New Roman">Times</option>
-                  <option value="Verdana">Verdana</option>
-                </select>
-                <select
-                  onChange={(event) => {
-                    if (event.target.value) {
-                      applyProposalFormat("fontSize", event.target.value);
-                    }
-                    event.target.value = "";
-                  }}
-                  className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-ink)]"
-                  defaultValue=""
-                >
-                  <option value="">Size</option>
-                  <option value="2">Small</option>
-                  <option value="3">Normal</option>
-                  <option value="4">Large</option>
-                </select>
-              </div>
-              <div
-                ref={proposalEditorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={() => setProposalMessage(proposalEditorRef.current?.innerHTML || "")}
-                dangerouslySetInnerHTML={{ __html: proposalMessage }}
-                className="min-h-[320px] w-full overflow-y-auto rounded-b-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm leading-6 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              />
-            </label>
-
-            <div className="rounded-2xl border border-[var(--color-line)] bg-white p-4">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                Attachment
-              </span>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <label className="cursor-pointer rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]">
-                  Upload File
-                  <input
-                    type="file"
-                    multiple
-                    onChange={(event) => void handleProposalAttachmentUpload(event)}
-                    className="hidden"
-                  />
-                </label>
-                <p className="text-sm text-[var(--color-muted)]">
-                  {proposalAttachments.length
-                    ? `${proposalAttachments.length} file(s) selected`
-                    : "No attachment selected"}
-                </p>
-              </div>
-              {proposalAttachments.length ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {proposalAttachments.map((attachment) => (
-                    <button
-                      key={attachment.filename}
-                      type="button"
-                      onClick={() =>
-                        setProposalAttachments((current) =>
-                          current.filter((item) => item.filename !== attachment.filename)
-                        )
-                      }
-                      className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]"
-                    >
-                      {attachment.filename} x
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => void handleSendProposal()}
-              disabled={isSendingProposal}
-              className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isSendingProposal ? "Sending..." : "Send Proposal Mail"}
-            </button>
           </div>
         </article>
       </section>

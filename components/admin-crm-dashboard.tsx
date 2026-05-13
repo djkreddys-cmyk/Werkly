@@ -22,6 +22,7 @@ import {
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+import { ProposalMailModal } from "@/components/proposal-mail-modal";
 import { TableActionMenu } from "@/components/table-action-menu";
 import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
 
@@ -1024,6 +1025,7 @@ function CrmClientsList({
   onDelete,
   onBulkAssignment,
   onBulkFollowUp,
+  onProposalSent,
 }: {
   clients: ClientRecord[];
   viewMode?: "existing" | "leads";
@@ -1049,8 +1051,10 @@ function CrmClientsList({
       followUpNotes?: string;
     }
   ) => Promise<void>;
+  onProposalSent?: () => void | Promise<void>;
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
+  const [proposalClient, setProposalClient] = useState<ClientRecord | null>(null);
   const [actionMenuClientId, setActionMenuClientId] = useState("");
   const [token] = useState(
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
@@ -1715,7 +1719,10 @@ function CrmClientsList({
                               },
                               {
                                 label: "Send Proposal Mail",
-                                href: `/admin/clients/${client.id}#proposal-mail`,
+                                onClick: () => {
+                                  setProposalClient(client);
+                                  setActionMenuClientId("");
+                                },
                                 tone: "accent" as const,
                               },
                               {
@@ -1855,6 +1862,17 @@ function CrmClientsList({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {proposalClient ? (
+        <ProposalMailModal
+          client={proposalClient}
+          token={token}
+          onClose={() => setProposalClient(null)}
+          onSent={async () => {
+            await onProposalSent?.();
+          }}
+        />
       ) : null}
 
       {showAssignPopup ? (
@@ -4105,6 +4123,9 @@ export function AdminClientsPanel({
             onBulkFollowUp={
               viewMode === "leads" && isSuperAdmin ? handleBulkLeadFollowUp : undefined
             }
+            onProposalSent={async () => {
+              await refreshCrm(token);
+            }}
           />
         </div>
       ) : null}
