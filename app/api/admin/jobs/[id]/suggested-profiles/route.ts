@@ -75,21 +75,63 @@ const ignoredMatchTokens = new Set([
 const tokenAliases: Record<string, string[]> = {
   bd: ["business", "development", "sales"],
   bde: ["business", "development", "sales"],
+  business: ["bd", "bde", "sales"],
+  development: ["bd", "bde", "sales"],
   hr: ["human", "resources", "recruiter", "recruitment", "talent"],
   recruiter: ["recruitment", "talent", "acquisition", "sourcing"],
   recruitment: ["recruiter", "talent", "acquisition", "sourcing"],
-  civil: ["construction", "site", "project"],
-  construction: ["civil", "site", "project"],
-  accounts: ["accounting", "finance"],
-  finance: ["accounts", "accounting"],
+  talent: ["recruiter", "recruitment", "sourcing"],
+  civil: ["construction", "site", "project", "infra", "infrastructure"],
+  construction: ["civil", "site", "project", "infra", "infrastructure"],
+  infrastructure: ["construction", "civil", "project"],
+  real: ["estate", "property"],
+  estate: ["real", "property"],
+  accounts: ["accounting", "finance", "accountant"],
+  accountant: ["accounts", "accounting", "finance"],
+  finance: ["accounts", "accounting", "accountant"],
   sales: ["business", "development", "bd"],
-  marketing: ["brand", "digital"],
-  production: ["manufacturing", "operations"],
+  marketing: ["brand", "digital", "growth"],
+  production: ["manufacturing", "plant", "operations"],
   manufacturing: ["production", "plant", "operations"],
+  plant: ["manufacturing", "production"],
+  operations: ["manufacturing", "production", "plant"],
   qa: ["quality", "assurance"],
   qc: ["quality", "control"],
   quality: ["qa", "qc"],
+  purchase: ["procurement", "sourcing", "vendor"],
+  procurement: ["purchase", "sourcing", "vendor"],
+  admin: ["administration", "facility", "facilities"],
+  administration: ["admin", "facility", "facilities"],
 };
+
+const genericRoleTokens = new Set([
+  "assistant",
+  "associate",
+  "deputy",
+  "executive",
+  "head",
+  "lead",
+  "leader",
+  "manager",
+  "management",
+  "officer",
+  "senior",
+  "sr",
+  "junior",
+  "jr",
+  "trainee",
+]);
+
+const genericOverlapTokens = new Set([
+  ...genericRoleTokens,
+  "department",
+  "division",
+  "experience",
+  "function",
+  "industry",
+  "profile",
+  "team",
+]);
 
 function normalizeText(value?: string) {
   return String(value || "")
@@ -113,6 +155,15 @@ function uniqueTokens(values: Array<string | undefined>) {
 function countTokenMatches(source: string | undefined, tokens: string[]) {
   const normalized = ` ${normalizeText(source)} `;
   return tokens.filter((token) => normalized.includes(` ${token} `)).length;
+}
+
+function matchedTokens(source: string | undefined, tokens: string[]) {
+  const normalized = ` ${normalizeText(source)} `;
+  return tokens.filter((token) => normalized.includes(` ${token} `));
+}
+
+function removeGenericTokens(tokens: string[]) {
+  return tokens.filter((token) => !genericRoleTokens.has(token) && !genericOverlapTokens.has(token));
 }
 
 function extractImportantPhrases(values: Array<string | undefined>) {
@@ -319,7 +370,9 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
   const reasons: string[] = [];
   const jobRoleText = [job.title, job.summary, job.description, ...(job.requirements ?? [])].join(" ");
   const jobSkillTokens = uniqueTokens([...(job.skills ?? []), ...(job.requirements ?? [])]);
-  const jobTitleTokens = uniqueTokens([job.title]);
+  const baseJobTitleTokens = removeGenericTokens(tokenize(job.title));
+  const jobTitleTokens = removeGenericTokens(uniqueTokens([job.title]));
+  const jobRoleIntentTokens = removeGenericTokens(uniqueTokens([job.title, job.sector, ...(job.skills ?? [])]));
   const jobLocationTokens = uniqueTokens([job.location]);
   const jobSectorTokens = uniqueTokens([job.sector]);
   const importantPhrases = extractImportantPhrases([
@@ -333,13 +386,31 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
 
   let score = 0;
 
-  const roleMatches = countTokenMatches(profileRoleText, jobTitleTokens);
-  if (roleMatches > 0) {
+  const directRoleMatches = matchedTokens(profileRoleText, baseJobTitleTokens);
+  const roleMatchTokens = matchedTokens(profileRoleText, jobTitleTokens);
+  const roleMatches = roleMatchTokens.length;
+  if (roleMatches > 0 || directRoleMatches.length > 0) {
+    const directCoverage = baseJobTitleTokens.length
+      ? directRoleMatches.length / baseJobTitleTokens.length
+      : 0;
     const roleCoverage = jobTitleTokens.length ? roleMatches / jobTitleTokens.length : 0;
-    score += roleCoverage >= 0.65 ? 25 : Math.min(16, roleMatches * 7);
+    score +=
+      directCoverage >= 0.65
+        ? 32
+        : roleCoverage >= 0.5
+          ? 24
+          : Math.min(20, roleMatches * 8);
     reasons.push(
-      roleCoverage >= 0.65 ? `Role matches ${job.title}` : `Partial role fit for ${job.title}`
+      directCoverage >= 0.65 || roleCoverage >= 0.5
+        ? `Role intent matches ${job.title}`
+        : `Partial role intent: ${roleMatchTokens.slice(0, 3).join(", ")}`
     );
+  }
+
+  const roleIntentMatches = matchedTokens([profileRoleText, fullProfileText].join(" "), jobRoleIntentTokens);
+  if (roleIntentMatches.length > roleMatches) {
+    score += Math.min(14, (roleIntentMatches.length - roleMatches) * 4);
+    reasons.push(`Domain keywords: ${roleIntentMatches.slice(0, 3).join(", ")}`);
   }
 
   const phraseMatches = countPhraseMatches(fullProfileText, importantPhrases);
@@ -348,14 +419,14 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
     reasons.push(`${phraseMatches} exact job phrase match${phraseMatches === 1 ? "" : "es"}`);
   }
 
-  const skillMatches = countTokenMatches(fullProfileText, jobSkillTokens);
+  const skillMatches = countTokenMatches(fullProfileText, removeGenericTokens(jobSkillTokens));
   if (skillMatches > 0) {
     const skillScore = Math.min(25, skillMatches * 6);
     score += skillScore;
     reasons.push(`${skillMatches} skill/requirement match${skillMatches === 1 ? "" : "es"}`);
   }
 
-  const sectorMatches = countTokenMatches([profile.preferredSector, profile.profileText].join(" "), jobSectorTokens);
+  const sectorMatches = countTokenMatches([profile.preferredSector, profile.profileText].join(" "), removeGenericTokens(jobSectorTokens));
   if (sectorMatches > 0) {
     score += 15;
     reasons.push(`Sector fit: ${job.sector}`);
@@ -376,7 +447,7 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
     const lowerBound = Math.max(0, requiredYears.min - 1);
     const upperBound = requiredYears.max;
     if (candidateYears >= lowerBound && (upperBound === undefined || candidateYears <= upperBound + 3)) {
-      score += 12;
+      score += 14;
       reasons.push(`Experience fit: ${profile.experience}`);
     } else if (candidateYears >= lowerBound) {
       score += 8;
@@ -391,9 +462,9 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
     reasons.push(`Experience available: ${profile.experience}`);
   }
 
-  const broadMatches = countTokenMatches(profile.profileText, uniqueTokens([jobRoleText]));
+  const broadMatches = countTokenMatches(profile.profileText, removeGenericTokens(uniqueTokens([jobRoleText])));
   if (broadMatches > 1 && roleMatches === 0) {
-    score += Math.min(10, broadMatches * 2);
+    score += Math.min(8, broadMatches * 2);
     reasons.push("Profile text overlaps with job details");
   }
 
@@ -418,12 +489,24 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
     }
   }
 
-  const matchScore = Math.min(100, Math.round(score));
+  const hasCoreRoleIntent = roleMatches > 0 || roleIntentMatches.length >= 2 || phraseMatches > 0 || skillMatches >= 2;
+  if (!hasCoreRoleIntent && jobRoleIntentTokens.length > 0) {
+    score = Math.min(score, 39);
+    if (score > 0) {
+      reasons.unshift("Role/domain intent needs recruiter review");
+    }
+  }
+
+  if (roleMatches === 0 && roleIntentMatches.length === 0 && sectorMatches === 0) {
+    score -= 8;
+  }
+
+  const matchScore = Math.max(0, Math.min(100, Math.round(score)));
   return {
     ...profile,
     matchScore,
-    matchLevel: matchScore >= 70 ? "Strong" : matchScore >= 45 ? "Good" : "Possible",
-    matchReasons: reasons.slice(0, 4),
+    matchLevel: matchScore >= 75 ? "Strong" : matchScore >= 55 ? "Good" : "Possible",
+    matchReasons: Array.from(new Set(reasons)).slice(0, 5),
   };
 }
 
