@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JobDetail } from "@/lib/jobs";
 import type { TimelineEventRecord } from "@/lib/workflow";
 
@@ -87,6 +87,11 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
   const [suggestionsError, setSuggestionsError] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
+  const [profileSearch, setProfileSearch] = useState("");
+  const [profileSourceFilter, setProfileSourceFilter] = useState("all");
+  const [profileLevelFilter, setProfileLevelFilter] = useState("all");
+  const [profileResumeFilter, setProfileResumeFilter] = useState("all");
+  const [minimumScore, setMinimumScore] = useState(0);
 
   useEffect(() => {
     if (!token) {
@@ -151,6 +156,62 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
       })
       .finally(() => setIsLoading(false));
   }, [jobId, token]);
+
+  const suggestionSources = useMemo(
+    () => Array.from(new Set(suggestions.map((profile) => profile.source))).sort(),
+    [suggestions]
+  );
+
+  const filteredSuggestions = useMemo(() => {
+    const query = profileSearch.trim().toLowerCase();
+
+    return suggestions.filter((profile) => {
+      const score = profile.aiMatchScore ?? profile.matchScore;
+      const level = profile.aiMatchLevel ?? profile.matchLevel;
+      const hasResume = Boolean(profile.resumeFileData && profile.resumeFileName);
+      const searchableText = [
+        profile.candidateName,
+        profile.candidateEmail,
+        profile.candidatePhone,
+        profile.currentDesignation,
+        profile.preferredRole,
+        profile.currentCompany,
+        profile.experience,
+        profile.currentLocation,
+        profile.preferredLocation,
+        profile.preferredSector,
+        profile.skills,
+        profile.source,
+        ...(profile.aiStrengths?.length ? profile.aiStrengths : profile.matchReasons),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        (!query || searchableText.includes(query)) &&
+        (profileSourceFilter === "all" || profile.source === profileSourceFilter) &&
+        (profileLevelFilter === "all" || level === profileLevelFilter) &&
+        (profileResumeFilter === "all" ||
+          (profileResumeFilter === "with-resume" ? hasResume : !hasResume)) &&
+        score >= minimumScore
+      );
+    });
+  }, [
+    minimumScore,
+    profileLevelFilter,
+    profileResumeFilter,
+    profileSearch,
+    profileSourceFilter,
+    suggestions,
+  ]);
+
+  const resetProfileFilters = () => {
+    setProfileSearch("");
+    setProfileSourceFilter("all");
+    setProfileLevelFilter("all");
+    setProfileResumeFilter("all");
+    setMinimumScore(0);
+  };
 
   if (!token) {
     return (
@@ -270,116 +331,201 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             </p>
           </div>
         ) : (
-          <div className="mt-6 grid gap-4 xl:grid-cols-2">
-            {suggestions.map((profile) => (
-              <article
-                key={`${profile.source}-${profile.id}`}
-                className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-[var(--color-ink)]">
-                      {profile.candidateName}
-                    </p>
-                    <p className="mt-1 text-sm text-[var(--color-muted)]">
-                      {profile.preferredRole ||
-                        profile.currentDesignation ||
-                        "Role preference not added"}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-semibold text-[var(--color-dark)]">
-                      {profile.aiMatchScore ?? profile.matchScore}
-                    </p>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
-                      {profile.aiMatchLevel ?? profile.matchLevel}
-                    </p>
-                    {profile.aiMatchScore !== undefined ? (
-                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-muted)]">
-                        Rule {profile.matchScore}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {[
-                    ["Contact", profile.candidateEmail || profile.candidatePhone || "Not added"],
-                    ["Location", profile.preferredLocation || profile.currentLocation || "Not added"],
-                    ["Experience", profile.experience || "Not added"],
-                    ["Source", profile.source],
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
-                        {label}
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-[var(--color-ink)]">{value}</p>
-                    </div>
+          <div className="mt-6 space-y-4">
+            <div className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4">
+              <div className="grid gap-3 lg:grid-cols-[1.3fr_0.8fr_0.8fr_0.8fr_0.7fr_auto]">
+                <input
+                  value={profileSearch}
+                  onChange={(event) => setProfileSearch(event.target.value)}
+                  placeholder="Search name, role, location, source, skill"
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                />
+                <select
+                  value={profileSourceFilter}
+                  onChange={(event) => setProfileSourceFilter(event.target.value)}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value="all">All sources</option>
+                  {suggestionSources.map((source) => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
                   ))}
-                </div>
+                </select>
+                <select
+                  value={profileLevelFilter}
+                  onChange={(event) => setProfileLevelFilter(event.target.value)}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value="all">All levels</option>
+                  <option value="Strong">Strong</option>
+                  <option value="Good">Good</option>
+                  <option value="Possible">Possible</option>
+                </select>
+                <select
+                  value={profileResumeFilter}
+                  onChange={(event) => setProfileResumeFilter(event.target.value)}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value="all">All resumes</option>
+                  <option value="with-resume">Resume available</option>
+                  <option value="without-resume">No resume</option>
+                </select>
+                <select
+                  value={minimumScore}
+                  onChange={(event) => setMinimumScore(Number(event.target.value))}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value={0}>Any score</option>
+                  <option value={35}>35+</option>
+                  <option value={45}>45+</option>
+                  <option value={55}>55+</option>
+                  <option value={75}>75+</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={resetProfileFilters}
+                  className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                >
+                  Clear
+                </button>
+              </div>
+              <p className="muted-copy mt-3 text-xs">
+                Showing {filteredSuggestions.length} of {suggestions.length} suggested profiles.
+              </p>
+            </div>
 
-                {profile.aiSummary ? (
-                  <div className="mt-4 rounded-[1rem] border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] p-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-dark)]">
-                      AI Recruiter Note
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
-                      {profile.aiSummary}
-                    </p>
-                  </div>
-                ) : null}
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {(profile.aiStrengths?.length ? profile.aiStrengths : profile.matchReasons).length ? (
-                    (profile.aiStrengths?.length ? profile.aiStrengths : profile.matchReasons).map((reason) => (
-                      <span
-                        key={reason}
-                        className="rounded-full bg-[rgba(251,133,0,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-accent-strong)]"
+            <div className="overflow-x-auto rounded-[1.25rem] border border-[var(--color-line)] bg-white">
+              <table className="min-w-[1180px] w-full border-collapse text-left text-sm">
+                <thead className="bg-[rgba(8,96,108,0.06)]">
+                  <tr>
+                    {[
+                      "Score",
+                      "Candidate",
+                      "Role",
+                      "Contact",
+                      "Location",
+                      "Experience",
+                      "Source",
+                      "Match Reasons",
+                      "Resume",
+                    ].map((heading) => (
+                      <th
+                        key={heading}
+                        className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]"
                       >
-                        {reason}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
-                      Partial CRM match
-                    </span>
-                  )}
-                </div>
-
-                {profile.aiConcerns?.length ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {profile.aiConcerns.map((concern) => (
-                      <span
-                        key={concern}
-                        className="rounded-full bg-[rgba(128,128,128,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]"
-                      >
-                        {concern}
-                      </span>
+                        {heading}
+                      </th>
                     ))}
-                  </div>
-                ) : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSuggestions.length ? (
+                    filteredSuggestions.map((profile) => {
+                      const reasons = profile.aiStrengths?.length
+                        ? profile.aiStrengths
+                        : profile.matchReasons;
+                      const score = profile.aiMatchScore ?? profile.matchScore;
+                      const level = profile.aiMatchLevel ?? profile.matchLevel;
 
-                {profile.resumeFileData && profile.resumeFileName ? (
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <a
-                      href={profile.resumeFileData}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                    >
-                      View Resume
-                    </a>
-                    <a
-                      href={profile.resumeFileData}
-                      download={profile.resumeFileName}
-                      className="rounded-2xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-                    >
-                      Download Resume
-                    </a>
-                  </div>
-                ) : null}
-              </article>
-            ))}
+                      return (
+                        <tr
+                          key={`${profile.source}-${profile.id}`}
+                          className="border-t border-[var(--color-line)] align-top"
+                        >
+                          <td className="px-4 py-4">
+                            <p className="text-2xl font-semibold text-[var(--color-dark)]">{score}</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
+                              {level}
+                            </p>
+                          </td>
+                          <td className="px-4 py-4">
+                            <p className="font-semibold text-[var(--color-ink)]">
+                              {profile.candidateName}
+                            </p>
+                            <p className="mt-1 text-xs text-[var(--color-muted)]">
+                              {profile.currentCompany || "Company not added"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-4">
+                            <p className="font-medium text-[var(--color-ink)]">
+                              {profile.preferredRole ||
+                                profile.currentDesignation ||
+                                "Role preference not added"}
+                            </p>
+                            {profile.preferredSector ? (
+                              <p className="mt-1 text-xs text-[var(--color-muted)]">
+                                {profile.preferredSector}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className="px-4 py-4">
+                            <p className="font-medium text-[var(--color-ink)]">
+                              {profile.candidateEmail || "Email not added"}
+                            </p>
+                            <p className="mt-1 text-xs text-[var(--color-muted)]">
+                              {profile.candidatePhone || "Phone not added"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-4">
+                            {profile.preferredLocation || profile.currentLocation || "Not added"}
+                          </td>
+                          <td className="px-4 py-4">{profile.experience || "Not added"}</td>
+                          <td className="px-4 py-4">{profile.source}</td>
+                          <td className="px-4 py-4">
+                            <div className="flex max-w-[360px] flex-wrap gap-2">
+                              {reasons.length ? (
+                                reasons.slice(0, 4).map((reason) => (
+                                  <span
+                                    key={reason}
+                                    className="rounded-full bg-[rgba(251,133,0,0.08)] px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-strong)]"
+                                  >
+                                    {reason}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-2.5 py-1 text-xs font-semibold text-[var(--color-dark)]">
+                                  Partial CRM match
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            {profile.resumeFileData && profile.resumeFileName ? (
+                              <div className="flex flex-col gap-2">
+                                <a
+                                  href={profile.resumeFileData}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-center text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                                >
+                                  View
+                                </a>
+                                <a
+                                  href={profile.resumeFileData}
+                                  download={profile.resumeFileName}
+                                  className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                                >
+                                  Download
+                                </a>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-[var(--color-muted)]">No resume</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-6 text-sm text-[var(--color-muted)]">
+                        No profiles match the current filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>
