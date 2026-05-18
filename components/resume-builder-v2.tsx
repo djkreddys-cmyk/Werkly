@@ -100,8 +100,8 @@ const templateCards: Array<{ key: TemplateStyle; title: string; description: str
   { key: "timeline", title: "Timeline", description: "An experience-first layout that emphasizes chronology." }
 ];
 
-const createExperience = (): ExperienceInput => ({
-  id: crypto.randomUUID(),
+const createExperience = (id = crypto.randomUUID()): ExperienceInput => ({
+  id,
   company: "",
   title: "",
   location: "",
@@ -112,8 +112,8 @@ const createExperience = (): ExperienceInput => ({
   highlights: ""
 });
 
-const createEducation = (): EducationInput => ({
-  id: crypto.randomUUID(),
+const createEducation = (id = crypto.randomUUID()): EducationInput => ({
+  id,
   institution: "",
   degree: "",
   year: ""
@@ -137,8 +137,8 @@ const initialForm = (): FormState => ({
   certifications: "",
   photoDataUrl: "",
   photoName: "",
-  experiences: [createExperience()],
-  education: [createEducation()]
+  experiences: [createExperience("initial-experience")],
+  education: [createEducation("initial-education")]
 });
 
 function escapeHtml(value: string) {
