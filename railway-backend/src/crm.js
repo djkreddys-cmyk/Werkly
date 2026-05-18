@@ -1242,20 +1242,28 @@ export async function adminResetEmployeePassword(
   return result.rows[0] ? mapEmployeeRow(result.rows[0]) : null;
 }
 
-export async function listClients(employeeId = null) {
+export async function listClients(employeeId = null, options = {}) {
   const values = [];
   const employeeScopeClause = employeeId
     ? (() => {
         values.push(employeeId);
+        const employeeParam = `$${values.length}`;
+        const employeeScope = options.includeDirectReports
+          ? `(
+              select ${employeeParam}::uuid
+              union
+              select id from employees where reporting_manager_id = ${employeeParam}
+            )`
+          : `(${employeeParam})`;
         return `where (
-          clients.assigned_employee_id = $${values.length}
+          clients.assigned_employee_id in ${employeeScope}
           or (
-            clients.follow_up_employee_id = $${values.length}
+            clients.follow_up_employee_id in ${employeeScope}
             and (clients.follow_up_from_date is null or clients.follow_up_from_date <= current_date)
             and (clients.follow_up_to_date is null or clients.follow_up_to_date >= current_date)
           )
           or (
-            clients.temporary_access_employee_id = $${values.length}
+            clients.temporary_access_employee_id in ${employeeScope}
             and clients.temporary_access_scope = 'full-access'
             and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
             and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)

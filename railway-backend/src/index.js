@@ -2155,8 +2155,10 @@ app.post("/admin/employees/:id/reset-password", requirePermission("employees.man
 
 app.get("/admin/clients", requireInternalUser, async (_request, response) => {
   try {
+    const includeDirectReports = _request.query?.scope === "team";
     const clients = await listClients(
-      _request.user?.type === "employee" ? _request.user.id : null
+      _request.user?.type === "employee" ? _request.user.id : null,
+      { includeDirectReports }
     );
     response.json({ clients });
   } catch (error) {

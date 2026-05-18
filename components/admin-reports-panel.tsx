@@ -946,7 +946,9 @@ export function AdminReportsPanel({
     Promise.all([
       loadJson("/api/admin/applications"),
       loadJson("/api/admin/applications/history"),
-      loadJson("/api/admin/clients"),
+      loadJson(
+        report === "clients-team-followups" ? "/api/admin/clients?scope=team" : "/api/admin/clients"
+      ),
       loadJson("/api/admin/employees"),
       loadJson("/api/admin/attendance"),
       loadJson("/api/admin/activity"),
@@ -986,7 +988,7 @@ export function AdminReportsPanel({
         setError(loadError instanceof Error ? loadError.message : "Unable to load reports.");
       })
       .finally(() => setIsLoading(false));
-  }, [token]);
+  }, [report, token]);
 
   const saveCurrentReportView = async () => {
     if (!token || report === "index") {
@@ -1176,12 +1178,16 @@ export function AdminReportsPanel({
       return state.clients;
     }
 
+    if (report === "clients-team-followups") {
+      return state.clients;
+    }
+
     return state.clients.filter(
       (client) =>
         (client.assignedEmployeeId ? teamEmployeeIds.has(client.assignedEmployeeId) : false) ||
         (client.followUpEmployeeId ? teamEmployeeIds.has(client.followUpEmployeeId) : false)
     );
-  }, [isEmployeeSession, state.clients, teamEmployeeIds]);
+  }, [isEmployeeSession, report, state.clients, teamEmployeeIds]);
 
   const teamJobs = useMemo(() => {
     if (!isEmployeeSession) {
@@ -1771,13 +1777,6 @@ export function AdminReportsPanel({
           ).length,
         };
       })
-      .filter(
-        (row) =>
-          row.client.followUpStatus ||
-          row.client.nextFollowUpDate ||
-          row.client.lastFollowUpDate ||
-          row.client.followUpNotes
-      )
       .sort((a, b) => {
         const aDate = getDateKey(a.client.nextFollowUpDate || a.client.lastFollowUpDate);
         const bDate = getDateKey(b.client.nextFollowUpDate || b.client.lastFollowUpDate);

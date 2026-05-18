@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Admin token is required." }, { status: 401 });
     }
 
-    const clients = await getClients(token);
+    const scope = request.nextUrl.searchParams.get("scope") === "team" ? "team" : undefined;
+    const clients = await getClients(token, scope);
     return NextResponse.json({ clients });
   } catch (error) {
     const message =

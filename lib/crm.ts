@@ -442,9 +442,9 @@ export async function resetEmployeePassword(
   });
 }
 
-export async function getClients(token: string) {
+export async function getClients(token: string, scope?: "team") {
   const data = await readJson<{ clients: ClientRecord[] } | ClientRecord[]>(
-    "/admin/clients",
+    scope === "team" ? "/admin/clients?scope=team" : "/admin/clients",
     {
       headers: {
         Authorization: `Bearer ${token}`,
