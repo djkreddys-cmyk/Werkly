@@ -66,7 +66,30 @@ const ignoredMatchTokens = new Set([
   "manage",
   "manager",
   "management",
+  "required",
+  "preferred",
+  "candidate",
+  "profile",
 ]);
+
+const tokenAliases: Record<string, string[]> = {
+  bd: ["business", "development", "sales"],
+  bde: ["business", "development", "sales"],
+  hr: ["human", "resources", "recruiter", "recruitment", "talent"],
+  recruiter: ["recruitment", "talent", "acquisition", "sourcing"],
+  recruitment: ["recruiter", "talent", "acquisition", "sourcing"],
+  civil: ["construction", "site", "project"],
+  construction: ["civil", "site", "project"],
+  accounts: ["accounting", "finance"],
+  finance: ["accounts", "accounting"],
+  sales: ["business", "development", "bd"],
+  marketing: ["brand", "digital"],
+  production: ["manufacturing", "operations"],
+  manufacturing: ["production", "plant", "operations"],
+  qa: ["quality", "assurance"],
+  qc: ["quality", "control"],
+  quality: ["qa", "qc"],
+};
 
 function normalizeText(value?: string) {
   return String(value || "")
@@ -82,12 +105,37 @@ function tokenize(value?: string) {
 }
 
 function uniqueTokens(values: Array<string | undefined>) {
-  return Array.from(new Set(values.flatMap((value) => tokenize(value))));
+  const baseTokens = values.flatMap((value) => tokenize(value));
+  const expandedTokens = baseTokens.flatMap((token) => [token, ...(tokenAliases[token] ?? [])]);
+  return Array.from(new Set(expandedTokens));
 }
 
 function countTokenMatches(source: string | undefined, tokens: string[]) {
   const normalized = ` ${normalizeText(source)} `;
   return tokens.filter((token) => normalized.includes(` ${token} `)).length;
+}
+
+function extractImportantPhrases(values: Array<string | undefined>) {
+  const phrases = new Set<string>();
+
+  values.forEach((value) => {
+    const tokens = tokenize(value);
+    for (let size = 2; size <= 4; size += 1) {
+      for (let index = 0; index <= tokens.length - size; index += 1) {
+        const phrase = tokens.slice(index, index + size).join(" ");
+        if (phrase.length >= 8) {
+          phrases.add(phrase);
+        }
+      }
+    }
+  });
+
+  return Array.from(phrases).slice(0, 30);
+}
+
+function countPhraseMatches(source: string | undefined, phrases: string[]) {
+  const normalized = normalizeText(source);
+  return phrases.filter((phrase) => normalized.includes(phrase)).length;
 }
 
 function extractExperienceYears(value?: string) {
@@ -97,6 +145,35 @@ function extractExperienceYears(value?: string) {
   }
 
   return Math.max(...numbers.map(Number).filter((item) => Number.isFinite(item)));
+}
+
+function extractExperienceRange(value?: string) {
+  const numbers = String(value || "")
+    .match(/\d+(?:\.\d+)?/g)
+    ?.map(Number)
+    .filter((item) => Number.isFinite(item));
+
+  if (!numbers?.length) {
+    return {};
+  }
+
+  return {
+    min: Math.min(...numbers),
+    max: Math.max(...numbers),
+  };
+}
+
+function isFlexibleLocation(value?: string) {
+  const normalized = normalizeText(value);
+  return [
+    "remote",
+    "hybrid",
+    "pan india",
+    "anywhere",
+    "any location",
+    "multiple location",
+    "multiple locations",
+  ].some((token) => normalized.includes(token));
 }
 
 function mergeProfile(existing: CrmProfile, next: CrmProfile): CrmProfile {
@@ -245,8 +322,14 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
   const jobTitleTokens = uniqueTokens([job.title]);
   const jobLocationTokens = uniqueTokens([job.location]);
   const jobSectorTokens = uniqueTokens([job.sector]);
+  const importantPhrases = extractImportantPhrases([
+    job.title,
+    ...(job.skills ?? []),
+    ...(job.requirements ?? []),
+  ]);
   const profileRoleText = [profile.preferredRole, profile.currentDesignation, profile.profileText].join(" ");
   const profileLocationText = [profile.preferredLocation, profile.currentLocation].join(" ");
+  const fullProfileText = [profile.skills, profile.profileText].join(" ");
 
   let score = 0;
 
@@ -259,7 +342,13 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
     );
   }
 
-  const skillMatches = countTokenMatches([profile.skills, profile.profileText].join(" "), jobSkillTokens);
+  const phraseMatches = countPhraseMatches(fullProfileText, importantPhrases);
+  if (phraseMatches > 0) {
+    score += Math.min(18, phraseMatches * 6);
+    reasons.push(`${phraseMatches} exact job phrase match${phraseMatches === 1 ? "" : "es"}`);
+  }
+
+  const skillMatches = countTokenMatches(fullProfileText, jobSkillTokens);
   if (skillMatches > 0) {
     const skillScore = Math.min(25, skillMatches * 6);
     score += skillScore;
@@ -276,17 +365,26 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
   if (locationMatches > 0) {
     score += 15;
     reasons.push(`Location fit: ${job.location}`);
+  } else if (isFlexibleLocation(job.location) || isFlexibleLocation(profileLocationText)) {
+    score += 8;
+    reasons.push("Flexible location fit");
   }
 
-  const requiredYears = extractExperienceYears(job.experience);
+  const requiredYears = extractExperienceRange(job.experience);
   const candidateYears = extractExperienceYears(profile.experience);
-  if (candidateYears !== undefined && requiredYears !== undefined) {
-    if (candidateYears >= Math.max(0, requiredYears - 1)) {
-      score += 10;
+  if (candidateYears !== undefined && requiredYears.min !== undefined) {
+    const lowerBound = Math.max(0, requiredYears.min - 1);
+    const upperBound = requiredYears.max;
+    if (candidateYears >= lowerBound && (upperBound === undefined || candidateYears <= upperBound + 3)) {
+      score += 12;
       reasons.push(`Experience fit: ${profile.experience}`);
+    } else if (candidateYears >= lowerBound) {
+      score += 8;
+      reasons.push(`Senior experience available: ${profile.experience}`);
     } else if (candidateYears > 0) {
-      score += 4;
-      reasons.push(`Some experience: ${profile.experience}`);
+      score += 3;
+      reasons.push(`Below target experience: ${profile.experience}`);
+      score -= 4;
     }
   } else if (profile.experience) {
     score += 5;
@@ -302,6 +400,13 @@ function scoreProfile(job: JobDetail, profile: CrmProfile): CandidateSuggestion 
   if (profile.resumeFileData) {
     score += 5;
     reasons.push("Resume available");
+  }
+
+  const hasContact = Boolean(profile.candidateEmail || profile.candidatePhone);
+  const hasRole = Boolean(profile.preferredRole || profile.currentDesignation);
+  if (hasContact && hasRole) {
+    score += 4;
+    reasons.push("Profile has contact and role details");
   }
 
   if (profile.lastActivityAt) {
@@ -359,7 +464,7 @@ async function applyAiMatching(job: JobDetail, suggestions: CandidateSuggestion[
   }
 
   try {
-    const candidates = suggestions.slice(0, 40).map((profile) => ({
+    const candidates = suggestions.slice(0, 60).map((profile) => ({
       candidateId: profile.id,
       source: profile.source,
       candidateName: profile.candidateName,
@@ -388,7 +493,7 @@ async function applyAiMatching(job: JobDetail, suggestions: CandidateSuggestion[
           {
             role: "system",
             content:
-              "You rank CRM candidate profiles for recruiter job matching. Return JSON only. Use the candidateId exactly as provided. Score fit for the specific job, not general quality.",
+              "You rank CRM candidate profiles for recruiter job matching. Return JSON only. Use the candidateId exactly as provided. Score fit for the specific job, not general quality. Be strict about must-have role, domain, experience, and location gaps.",
           },
           {
             role: "user",
@@ -409,7 +514,7 @@ async function applyAiMatching(job: JobDetail, suggestions: CandidateSuggestion[
               },
               candidates,
               instructions:
-                "Rank candidates by practical recruiter fit. Consider title/role intent, domain, skills, location preference, experience, and missing data. Use concise recruiter-facing summaries.",
+                "Rank candidates by practical recruiter fit. Consider title/role intent, domain, skills, location preference, experience range, resume availability, recency, and missing data. Do not over-score candidates with weak role intent just because they share generic words. Use concise recruiter-facing summaries and include concerns when critical data is missing.",
             }),
           },
         ],
@@ -567,14 +672,14 @@ export async function GET(
 
     const ruleBasedSuggestions = Array.from(profiles.values())
       .map((profile) => scoreProfile(job, profile))
-      .filter((profile) => profile.matchScore >= 25)
+      .filter((profile) => profile.matchScore >= 15)
       .sort((a, b) => {
         if (b.matchScore !== a.matchScore) {
           return b.matchScore - a.matchScore;
         }
         return new Date(b.lastActivityAt || 0).getTime() - new Date(a.lastActivityAt || 0).getTime();
       })
-      .slice(0, 25);
+      .slice(0, 35);
     const matchingResult = await applyAiMatching(job, ruleBasedSuggestions);
 
     return NextResponse.json({
