@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { loadEnvConfig } from "@next/env";
 import {
   getAdminApplications,
   getAdminCandidateEnquiries,
@@ -41,6 +42,23 @@ type CandidateSuggestion = CrmProfile & {
   aiStrengths?: string[];
   aiConcerns?: string[];
 };
+
+let hasLoadedLocalEnv = false;
+
+function getOpenAiMatchingConfig() {
+  if (!process.env.OPENAI_API_KEY && !hasLoadedLocalEnv) {
+    loadEnvConfig(process.cwd());
+    hasLoadedLocalEnv = true;
+  }
+
+  return {
+    apiKey: process.env.OPENAI_API_KEY,
+    model:
+      process.env.OPENAI_PROFILE_MATCHING_MODEL ||
+      process.env.OPENAI_MODEL ||
+      "gpt-4o-mini",
+  };
+}
 
 const ignoredMatchTokens = new Set([
   "and",
@@ -448,11 +466,7 @@ function extractResponseText(response: Record<string, unknown>) {
 }
 
 async function applyAiMatching(job: JobDetail, suggestions: CandidateSuggestion[]) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model =
-    process.env.OPENAI_PROFILE_MATCHING_MODEL ||
-    process.env.OPENAI_MODEL ||
-    "gpt-4o-mini";
+  const { apiKey, model } = getOpenAiMatchingConfig();
 
   if (!apiKey || suggestions.length === 0) {
     return {

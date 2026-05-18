@@ -1,7 +1,7 @@
 import Image from "next/image";
 import qrCode from "../qr-1775155944413.png";
 import { RevealSection } from "@/components/reveal-section";
-import { ResumeBuilder } from "@/components/resume-builder-v2";
+import { ResumeBuilderClient } from "@/components/resume-builder-client";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -288,7 +288,7 @@ export default function Home() {
 
         <section id="resume-builder" className="anchor-section">
           <RevealSection delay={160}>
-            <ResumeBuilder mode="compact" />
+            <ResumeBuilderClient mode="compact" />
           </RevealSection>
         </section>
 
