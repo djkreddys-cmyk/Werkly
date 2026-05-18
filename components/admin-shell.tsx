@@ -1245,11 +1245,13 @@ export function AdminShell({
                           <select
                             value={notificationCategoryFilter}
                             onChange={(event) => setNotificationCategoryFilter(event.target.value)}
-                            className="w-full rounded-2xl border border-white/10 bg-white/6 px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(241,166,75,0.48)]"
+                            className="w-full rounded-2xl border border-white/10 bg-[#0f5961] px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(241,166,75,0.48)]"
                           >
-                            <option value="all">All types</option>
+                            <option className="bg-[#0f5961] text-white" value="all">
+                              All types
+                            </option>
                             {notificationCategoryOptions.map((option) => (
-                              <option key={option} value={option}>
+                              <option className="bg-[#0f5961] text-white" key={option} value={option}>
                                 {option}
                               </option>
                             ))}
