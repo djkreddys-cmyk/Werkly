@@ -244,7 +244,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             </p>
             {aiError ? (
               <p className="mt-2 max-w-3xl text-xs font-medium text-[var(--color-accent-strong)]">
-                AI Matching fallback active: rule-based ranking is shown. {aiError}
+                Matching note: {aiError}
               </p>
             ) : null}
           </div>
