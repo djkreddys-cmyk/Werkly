@@ -6,6 +6,7 @@ import {
   type JobApplicationUpdatePayload,
   updateJobApplicationDetails,
 } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 
 const fieldClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
@@ -220,7 +221,7 @@ export function AdminCandidateEditModal({
           <div className="min-w-0">
             <p className="eyebrow">Edit Candidate</p>
             <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)] sm:text-2xl">
-              {currentApplication.candidateName}
+              {formatPersonName(currentApplication.candidateName)}
             </h3>
             <p className="muted-copy mt-2 text-sm">
               Update missing candidate details, contact info, profile summary fields, and resume.

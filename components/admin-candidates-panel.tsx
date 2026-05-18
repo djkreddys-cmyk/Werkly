@@ -9,6 +9,7 @@ import {
 } from "@/lib/jobs";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobSummary } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
 import { TableActionMenu } from "@/components/table-action-menu";
@@ -896,7 +897,7 @@ export function AdminCandidatesPanel() {
                           onClick={() => setEditingApplication(application)}
                           className="font-semibold text-[var(--color-ink)] transition hover:text-[var(--color-dark)]"
                         >
-                          {application.candidateName}
+                          {formatPersonName(application.candidateName)}
                         </button>
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
                           {application.experience || "Experience not added"}
@@ -1101,7 +1102,7 @@ export function AdminCandidatesPanel() {
               <div>
                 <p className="eyebrow">Stage Update</p>
                 <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-                  {stageDraft.application.candidateName}
+                  {formatPersonName(stageDraft.application.candidateName)}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
                   Update the candidate stage, remarks, and effective date whenever the pipeline status changes.
@@ -1302,7 +1303,7 @@ export function AdminCandidatesPanel() {
               <div>
                 <p className="eyebrow">Transfer Candidate</p>
                 <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-                  {assignmentDraft.application.candidateName}
+                  {formatPersonName(assignmentDraft.application.candidateName)}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
                   Choose full ownership transfer or date-based follow-up assignment for this candidate.
@@ -1460,7 +1461,7 @@ export function AdminCandidatesPanel() {
               <div>
                 <p className="eyebrow">Candidate Timeline</p>
                 <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-                  {timelineDraft.application.candidateName}
+                  {formatPersonName(timelineDraft.application.candidateName)}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
                   View stage movement, transfers, and manual CRM actions for this profile.

@@ -16,6 +16,7 @@ import type {
   JobSummary,
 } from "@/lib/jobs";
 import type { ShiftAssignmentRecord } from "@/lib/shifts";
+import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 type ReportModule = "overview" | "hr" | "jobs" | "candidates" | "clients";
@@ -2624,7 +2625,9 @@ export function AdminReportsPanel({
                   }
                 >
                   <td className="px-4 py-4">
-                    <p className="font-semibold text-[var(--color-ink)]">{item.candidateName}</p>
+                    <p className="font-semibold text-[var(--color-ink)]">
+                      {formatPersonName(item.candidateName)}
+                    </p>
                     <p className="mt-1 text-sm text-[var(--color-muted)]">{item.candidateEmail}</p>
                   </td>
                   <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
@@ -2879,7 +2882,7 @@ export function AdminReportsPanel({
                   </td>
                   <td className="px-4 py-4">
                     <p className="font-semibold text-[var(--color-ink)]">
-                      {application.candidateName}
+                      {formatPersonName(application.candidateName)}
                     </p>
                     <p className="mt-1 text-sm text-[var(--color-muted)]">
                       {application.candidatePhone || application.candidateEmail}
@@ -2955,7 +2958,7 @@ export function AdminReportsPanel({
                   >
                     <td className="px-4 py-4">
                       <p className="font-semibold text-[var(--color-ink)]">
-                        {application.candidateName}
+                        {formatPersonName(application.candidateName)}
                       </p>
                       <p className="mt-1 text-sm text-[var(--color-muted)]">
                         {application.candidateEmail}
@@ -3095,7 +3098,7 @@ export function AdminReportsPanel({
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <p className="font-semibold text-[var(--color-ink)]">
-                          {enquiry.candidateName}
+                          {formatPersonName(enquiry.candidateName)}
                         </p>
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
                           {enquiry.candidateEmail}

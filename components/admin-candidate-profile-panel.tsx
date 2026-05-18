@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AuditLogRecord } from "@/lib/crm";
 import type { JobApplication } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 function formatDateTime(value?: string) {
@@ -160,7 +161,7 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
       <section className="accent-card p-6">
         <p className="eyebrow">Candidate 360</p>
         <h2 className="mt-4 text-3xl font-semibold text-[var(--color-ink)]">
-          {application.candidateName}
+          {formatPersonName(application.candidateName)}
         </h2>
         <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
           Review current pipeline stage, linked job, recruiter ownership, resume visibility, and

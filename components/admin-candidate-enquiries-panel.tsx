@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CandidateEnquiry, CandidateEnquiryPayload } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 
 const emptyEnquiryForm: CandidateEnquiryPayload = {
   candidateName: "",
@@ -469,7 +470,7 @@ export function AdminCandidateEnquiriesPanel() {
                   >
                     <td className="px-4 py-4">
                       <p className="font-semibold text-[var(--color-ink)]">
-                        {enquiry.candidateName}
+                        {formatPersonName(enquiry.candidateName)}
                       </p>
                       <p className="mt-1 text-sm text-[var(--color-muted)]">
                         {enquiry.candidateMessage || "No additional note"}

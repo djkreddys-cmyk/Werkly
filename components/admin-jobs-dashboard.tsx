@@ -10,6 +10,7 @@ import type {
   JobSummary,
   JobStatus,
 } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
 import { TableActionMenu } from "@/components/table-action-menu";
@@ -1876,7 +1877,7 @@ export function AdminJobsDashboard({
                                 onClick={() => setEditingApplication(application)}
                                 className="text-left transition hover:text-[var(--color-dark)]"
                               >
-                                {application.candidateName}
+                                {formatPersonName(application.candidateName)}
                               </button>
                             </td>
                             <td className="px-4 py-4 text-sm">
@@ -2276,7 +2277,7 @@ export function AdminJobsDashboard({
               <div>
                 <p className="eyebrow">Candidate Stage</p>
                 <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-                  {stageDraft.application.candidateName}
+                  {formatPersonName(stageDraft.application.candidateName)}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
                   Save a remark and date for the {stageDraft.stage} stage so reporting stays accurate.

@@ -9,6 +9,7 @@ import type {
   NotificationLogRecord,
 } from "@/lib/crm";
 import type { JobApplicationStageHistory } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 
 type ActivityCenterState = {
   auditLogs: AuditLogRecord[];
@@ -187,7 +188,7 @@ export function AdminActivityCenter() {
     const historyItems = state.history.map((item) => ({
       id: `history-${item.id}`,
       category: "candidate-history",
-      title: `${item.candidateName} moved to ${formatActionLabel(item.toStage)}`,
+      title: `${formatPersonName(item.candidateName)} moved to ${formatActionLabel(item.toStage)}`,
       summary: item.stageNote || item.jobTitle || "Candidate stage updated.",
       actorName: item.recruiterName,
       actorRole: "Recruiter",

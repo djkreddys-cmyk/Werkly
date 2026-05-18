@@ -8,6 +8,7 @@ import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
 import type { CrmModuleAccessKey } from "@/lib/access-control";
 import type { ClientRecord, EmployeeRecord, NotificationLogRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 
 type AdminShellProps = {
   eyebrow: string;
@@ -911,7 +912,7 @@ export function AdminShell({
           .slice(0, 4)
           .map((application) => ({
             id: `application-${application.id}`,
-            label: application.candidateName,
+            label: formatPersonName(application.candidateName),
             sublabel: `${application.jobTitle || "No job"} • ${application.recruiterName || "Unassigned"}`,
             href: `/admin/candidates/${application.id}`,
             type: "Candidate",

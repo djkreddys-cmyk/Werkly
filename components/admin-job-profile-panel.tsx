@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { JobDetail } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 import type { TimelineEventRecord } from "@/lib/workflow";
 
 function formatDateLabel(value?: string) {
@@ -441,7 +442,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                           </td>
                           <td className="px-4 py-4">
                             <p className="font-semibold text-[var(--color-ink)]">
-                              {profile.candidateName}
+                              {formatPersonName(profile.candidateName)}
                             </p>
                             <p className="mt-1 text-xs text-[var(--color-muted)]">
                               {profile.currentCompany || "Company not added"}

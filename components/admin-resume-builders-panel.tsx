@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ResumeBuilderSubmission } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
 
 function formatDateTime(value?: string) {
   if (!value) {
@@ -157,7 +158,7 @@ export function AdminResumeBuildersPanel() {
                     >
                       <td className="px-4 py-4">
                         <p className="font-semibold text-[var(--color-ink)]">
-                          {item.candidateName}
+                          {formatPersonName(item.candidateName)}
                         </p>
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
                           {item.yearsExperience || "Experience not added"}
