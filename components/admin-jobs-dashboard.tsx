@@ -153,11 +153,23 @@ export function AdminJobsDashboard({
   viewMode?: "all" | "new" | "existing";
 }) {
   const formRef = useRef<HTMLFormElement | null>(null);
-  const [token, setToken] = useState("");
-  const [adminEmail, setAdminEmail] = useState("");
-  const [authType, setAuthType] = useState("admin");
-  const [authRole, setAuthRole] = useState("super-admin");
-  const [authEmployeeCode, setAuthEmployeeCode] = useState("");
+  const [token, setToken] = useState(() =>
+    typeof window === "undefined" ? "" : window.localStorage.getItem("werklyAdminToken") ?? ""
+  );
+  const [adminEmail, setAdminEmail] = useState(() =>
+    typeof window === "undefined" ? "" : window.localStorage.getItem("werklyAdminEmail") ?? ""
+  );
+  const [authType, setAuthType] = useState(() =>
+    typeof window === "undefined" ? "admin" : window.localStorage.getItem("werklyAuthType") ?? "admin"
+  );
+  const [authRole, setAuthRole] = useState(() =>
+    typeof window === "undefined"
+      ? "super-admin"
+      : window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
+  );
+  const [authEmployeeCode, setAuthEmployeeCode] = useState(() =>
+    typeof window === "undefined" ? "" : window.localStorage.getItem("werklyEmployeeCode") ?? ""
+  );
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);

@@ -458,8 +458,10 @@ async function applyAiMatching(job: JobDetail, suggestions: CandidateSuggestion[
     return {
       suggestions,
       matchingMode: "rule-based" as const,
-      aiModel: "",
-      aiError: "",
+      aiModel: apiKey ? model : "",
+      aiError: apiKey
+        ? "No candidate suggestions qualified for AI reranking."
+        : "OPENAI_API_KEY is not loaded in the running server environment. Restart the server or configure the deployment environment variable.",
     };
   }
 
