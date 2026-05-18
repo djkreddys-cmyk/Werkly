@@ -92,6 +92,7 @@ import {
   listShifts,
   updateShiftAssignment,
 } from "./shifts.js";
+import { processResumeUpload } from "./resume.js";
 import {
   createManualJobApplication,
   createCandidateEnquiry,
@@ -976,6 +977,14 @@ app.post("/admin/candidate-enquiries", requirePermission("candidates.manage"), a
       });
     }
 
+    const resumeUpload = await processResumeUpload({
+      candidateName,
+      currentDesignation,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+    });
+
     const enquiry = await createCandidateEnquiry({
       candidateName,
       candidateEmail: candidateEmail || "",
@@ -990,9 +999,7 @@ app.post("/admin/candidate-enquiries", requirePermission("candidates.manage"), a
       preferredLocation,
       preferredSector,
       candidateMessage,
-      resumeFileName,
-      resumeFileType,
-      resumeFileData,
+      ...resumeUpload,
       sourceType: sourceType || "manual_candidate_enquiry",
     });
 
@@ -1050,6 +1057,9 @@ app.post("/jobs/:slug/applications", async (request, response) => {
       preferredLocation,
       preferredSector,
       candidateMessage,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
       jobTitle,
     } = request.body ?? {};
 
@@ -1058,6 +1068,14 @@ app.post("/jobs/:slug/applications", async (request, response) => {
         message: "Candidate name and email are required.",
       });
     }
+
+    const resumeUpload = await processResumeUpload({
+      candidateName,
+      currentDesignation,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+    });
 
     const job = await recordJobApplication(request.params.slug, {
       candidateName,
@@ -1073,6 +1091,7 @@ app.post("/jobs/:slug/applications", async (request, response) => {
       preferredLocation,
       preferredSector,
       candidateMessage,
+      ...resumeUpload,
       jobTitle,
     });
 
@@ -1116,6 +1135,14 @@ app.post("/candidate-enquiries", async (request, response) => {
       });
     }
 
+    const resumeUpload = await processResumeUpload({
+      candidateName,
+      currentDesignation,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+    });
+
     const enquiry = await createCandidateEnquiry({
       candidateName,
       candidateEmail,
@@ -1130,9 +1157,7 @@ app.post("/candidate-enquiries", async (request, response) => {
       preferredLocation,
       preferredSector,
       candidateMessage,
-      resumeFileName,
-      resumeFileType,
-      resumeFileData,
+      ...resumeUpload,
       sourceType,
     });
 
@@ -1166,6 +1191,14 @@ app.post("/resume-builder-submissions", async (request, response) => {
       });
     }
 
+    const resumeUpload = await processResumeUpload({
+      candidateName,
+      currentDesignation: "",
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+    });
+
     const submission = await createResumeBuilderSubmission({
       candidateName: String(candidateName).trim(),
       candidateEmail: String(candidateEmail).trim(),
@@ -1174,9 +1207,7 @@ app.post("/resume-builder-submissions", async (request, response) => {
       location: String(location ?? "").trim() || undefined,
       yearsExperience: String(yearsExperience ?? "").trim() || undefined,
       skills: String(skills ?? "").trim() || undefined,
-      resumeFileName: String(resumeFileName ?? "").trim() || undefined,
-      resumeFileType: String(resumeFileType ?? "").trim() || undefined,
-      resumeFileData: String(resumeFileData ?? "").trim() || undefined,
+      ...resumeUpload,
       resumePayload: resumePayload || {},
     });
 
@@ -1248,6 +1279,14 @@ app.post("/admin/jobs/:id/applications", requirePermission("candidates.manage"),
       });
     }
 
+    const resumeUpload = await processResumeUpload({
+      candidateName,
+      currentDesignation,
+      resumeFileName,
+      resumeFileType,
+      resumeFileData,
+    });
+
     const application = await createManualJobApplication(
       request.params.id,
       {
@@ -1269,9 +1308,7 @@ app.post("/admin/jobs/:id/applications", requirePermission("candidates.manage"),
         initialStage,
         stageNote,
         stageDate,
-        resumeFileName,
-        resumeFileType,
-        resumeFileData,
+        ...resumeUpload,
         jobTitle,
       },
       request.user?.type === "employee" ? request.user.id : null
@@ -1359,6 +1396,14 @@ app.put(
         });
       }
 
+      const resumeUpload = await processResumeUpload({
+        candidateName,
+        currentDesignation,
+        resumeFileName,
+        resumeFileType,
+        resumeFileData,
+      });
+
       const previousApplication = await getApplicationById(request.params.id);
       if (!previousApplication) {
         return response.status(404).json({ message: "Candidate not found." });
@@ -1382,9 +1427,7 @@ app.put(
           sourceType: String(sourceType ?? "").trim() || undefined,
           sourceNote: String(sourceNote ?? "").trim() || undefined,
           candidateMessage: String(candidateMessage ?? "").trim() || undefined,
-          resumeFileName: String(resumeFileName ?? "").trim() || undefined,
-          resumeFileType: String(resumeFileType ?? "").trim() || undefined,
-          resumeFileData: String(resumeFileData ?? "").trim() || undefined,
+          ...resumeUpload,
           interviewScheduledAt: String(interviewScheduledAt ?? "").trim() || undefined,
           interviewMode: String(interviewMode ?? "").trim() || undefined,
           interviewPanel: String(interviewPanel ?? "").trim() || undefined,

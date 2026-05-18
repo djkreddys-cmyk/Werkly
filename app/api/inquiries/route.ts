@@ -278,6 +278,11 @@ export async function POST(request: Request) {
         preferredLocation: asString(formData.get('preferredLocation')),
         preferredSector: asString(formData.get('preferredSector')),
         candidateMessage: asString(formData.get('candidateMessage')),
+        resumeFileName: attachment?.filename || '',
+        resumeFileType: attachment?.content_type || '',
+        resumeFileData: attachment
+          ? `data:${attachment.content_type || 'application/octet-stream'};base64,${attachment.content}`
+          : '',
         jobTitle: asString(formData.get('jobTitle')),
       })
     }

@@ -132,6 +132,11 @@ export function AdminCandidateEditModal({
       return;
     }
 
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Resume file must be 5 MB or smaller.");
+      return;
+    }
+
     const fileData = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ""));
@@ -412,6 +417,9 @@ export function AdminCandidateEditModal({
                 </label>
                 <span className="text-sm text-[var(--color-muted)]">
                   {form.resumeFileName || "No file chosen"}
+                </span>
+                <span className="text-xs font-medium text-[var(--color-muted)]">
+                  Will be saved as compressed PDF
                 </span>
                 {form.resumeFileData && form.resumeFileName ? (
                   <>

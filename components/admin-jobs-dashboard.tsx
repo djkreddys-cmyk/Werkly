@@ -1128,8 +1128,8 @@ export function AdminJobsDashboard({
       return;
     }
 
-    if (file.size > 4 * 1024 * 1024) {
-      setError("Resume file must be 4 MB or smaller.");
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Resume file must be 5 MB or smaller.");
       event.target.value = "";
       return;
     }
@@ -2226,6 +2226,9 @@ export function AdminJobsDashboard({
                   </label>
                   <span className="text-sm text-[var(--color-muted)]">
                     {manualCandidateForm.resumeFileName || "No file chosen"}
+                  </span>
+                  <span className="text-xs font-medium text-[var(--color-muted)]">
+                    Will be saved as compressed PDF
                   </span>
                 </div>
               </div>

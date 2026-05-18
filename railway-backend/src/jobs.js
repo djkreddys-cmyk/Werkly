@@ -725,9 +725,12 @@ export async function recordJobApplication(slug, payload) {
         source_type,
         source_note,
         entry_type,
+        resume_file_name,
+        resume_file_type,
+        resume_file_data,
         candidate_message,
         job_title
-      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)` ,
+      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)` ,
       [
         jobId,
         "applied",
@@ -747,6 +750,9 @@ export async function recordJobApplication(slug, payload) {
         "Website",
         payload.sourceNote || null,
         "website_apply",
+        payload.resumeFileName || null,
+        payload.resumeFileType || null,
+        payload.resumeFileData || null,
         payload.candidateMessage || null,
         payload.jobTitle || null,
       ]
