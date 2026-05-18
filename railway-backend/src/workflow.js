@@ -127,6 +127,7 @@ async function upsertNotification(payload) {
               target_type = $6,
               target_employee_id = $7,
               delivery_channels = $8::jsonb,
+              is_read = $9::boolean,
               action_url = $10,
               entity_type = $11,
               entity_id = $12,
