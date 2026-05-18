@@ -305,12 +305,17 @@ function ResumePreview({ resume, template, photoDataUrl }: { resume: ResumeData;
   return <PreviewShell className="p-8"><header className="flex flex-wrap items-start justify-between gap-5 border-b border-[var(--color-line)] pb-6"><div className="flex items-start gap-4"><PhotoBadge photoDataUrl={photoDataUrl} size="md" /><div><h2 className="text-4xl font-semibold leading-none text-[var(--color-ink)]">{resume.fullName}</h2><p className="mt-3 text-xl font-semibold text-[var(--color-dark)]">{resume.targetRole}</p><p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">{resume.contactLine}</p></div></div></header><section className="mt-7"><SectionTitle>Professional Summary</SectionTitle><p className="mt-3 text-[15px] leading-7 text-[var(--color-ink)]">{resume.summary}</p></section><section className="mt-7 grid gap-7 md:grid-cols-[0.8fr_1.2fr]"><div className="space-y-7"><div><SectionTitle>Core Skills</SectionTitle><div className="mt-3 flex flex-wrap gap-2">{resume.coreSkills.map((skill) => <span key={skill} className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-sm font-medium text-[var(--color-dark)]">{skill}</span>)}</div></div>{resume.certifications.length > 0 && <div><SectionTitle>Certifications</SectionTitle><ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-ink)]">{resume.certifications.map((item) => <li key={item}>{item}</li>)}</ul></div>}<div><SectionTitle>Strengths</SectionTitle><ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-ink)]">{resume.strengths.map((item) => <li key={item}>{item}</li>)}</ul></div></div><div className="space-y-7"><div><SectionTitle>Professional Experience</SectionTitle><div className="mt-4 space-y-5">{resume.experience.map((item) => <div key={`${item.company}-${item.period}`} className="border-l-2 border-[rgba(8,96,108,0.14)] pl-5"><div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="text-xl font-semibold text-[var(--color-ink)]">{item.title}</h3><p className="text-sm font-medium text-[var(--color-muted)]">{item.period}</p></div><p className="mt-1 text-sm font-medium text-[var(--color-dark)]">{[item.company, item.location].filter(Boolean).join(" | ")}</p><ul className="mt-3 space-y-2 pl-5 text-sm leading-6 text-[var(--color-ink)]">{item.bullets.map((bullet) => <li key={bullet} className="list-disc">{bullet}</li>)}</ul></div>)}</div></div><div><SectionTitle>Education</SectionTitle><div className="mt-3 space-y-3">{resume.education.map((item) => <div key={`${item.institution}-${item.year}`}><p className="text-base font-semibold text-[var(--color-ink)]">{item.degree || item.institution}</p><p className="text-sm text-[var(--color-muted)]">{[item.institution, item.year].filter(Boolean).join(" | ")}</p></div>)}</div></div><div><PersonalInfoPanel items={resume.personalInfo} /></div></div></section></PreviewShell>;
 }
 export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "modalOnly" }) {
+  const [isMounted, setIsMounted] = useState(false);
   const [form, setForm] = useState<FormState>(initialForm);
   const [resume, setResume] = useState<ResumeData | null>(null);
   const [template, setTemplate] = useState<TemplateStyle>("executive");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const openBuilder = () => setIsFormOpen(true);
@@ -533,11 +538,10 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
     </div>
   ) : null;
 
-  const modalPortal =
-    modalContent && typeof document !== "undefined" ? createPortal(modalContent, document.body) : null;
+  const modalPortal = isMounted && modalContent ? createPortal(modalContent, document.body) : null;
 
   const launcherContent =
-    typeof document !== "undefined" ? (
+    isMounted ? (
       <div className="motion-float fixed right-5 top-1/2 z-[60] hidden w-[260px] -translate-y-1/2 rounded-[1.5rem] border border-[var(--color-line)] bg-white/95 p-4 shadow-[0_24px_60px_rgba(15,47,54,0.16)] backdrop-blur-md lg:block no-print">
         <p className="eyebrow">Resume Builder</p>
         <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">
@@ -585,7 +589,7 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
     ) : null;
 
   const launcherPortal =
-    launcherContent && typeof document !== "undefined" ? createPortal(launcherContent, document.body) : null;
+    launcherContent ? createPortal(launcherContent, document.body) : null;
 
   if (mode === "modalOnly") {
     return (
