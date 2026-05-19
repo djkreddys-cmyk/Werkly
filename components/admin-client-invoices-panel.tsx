@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
-import type { JobApplication } from "@/lib/jobs";
+import type { JobApplication, JobSummary } from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
 
 type InvoiceLine = {
@@ -103,6 +103,138 @@ function escapeHtml(value: string) {
 
 function amountInWords(amount: number) {
   return `${formatCurrency(Math.round(amount)).replace("₹", "INR ")} Only`;
+}
+
+function escapePdfText(value: string) {
+  return String(value || "")
+    .replace(/[₹]/g, "INR")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function safePdfCurrency(value: number) {
+  return formatCurrency(value).replace("â‚¹", "INR ");
+}
+
+function formatInrText(value: number) {
+  return `INR ${new Intl.NumberFormat("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(value) ? value : 0)}`;
+}
+
+function buildInvoicePdfBytes(params: {
+  invoiceNo: string;
+  invoiceDate: string;
+  dueDate: string;
+  selectedClient: ClientRecord;
+  lines: InvoiceLine[];
+  notes: string;
+}) {
+  const selectedLines = params.lines.filter((line) => line.selected);
+  const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
+  const cgst = (taxable * gstRate) / 100;
+  const sgst = (taxable * gstRate) / 100;
+  const total = Math.round(taxable + cgst + sgst);
+  const content: string[] = [];
+
+  function text(x: number, y: number, size: number, value: string, font = "F1") {
+    content.push(`BT /${font} ${size} Tf ${x} ${y} Td (${escapePdfText(value)}) Tj ET`);
+  }
+
+  function line(x1: number, y1: number, x2: number, y2: number) {
+    content.push(`${x1} ${y1} m ${x2} ${y2} l S`);
+  }
+
+  text(40, 800, 18, "WERKLY CONSULTING", "F2");
+  text(40, 782, 9, "Hyderabad & Vijayawada, India | hr@werkly.in");
+  text(390, 800, 10, `Invoice #: ${params.invoiceNo}`, "F2");
+  text(390, 784, 10, `Date: ${formatDate(params.invoiceDate)}`);
+  text(390, 768, 10, `Due Date: ${formatDate(params.dueDate)}`);
+  line(40, 755, 555, 755);
+  text(235, 735, 16, "TAX INVOICE", "F2");
+  text(40, 710, 10, "Customer Details", "F2");
+  text(40, 694, 11, params.selectedClient.companyName, "F2");
+  text(40, 678, 9, params.selectedClient.communicationAddress || params.selectedClient.branch || "Billing address not added");
+  text(40, 662, 9, params.selectedClient.contactEmail || "");
+  text(40, 646, 9, params.selectedClient.contactPhone || "");
+
+  let y = 610;
+  text(40, y, 8, "#", "F2");
+  text(62, y, 8, "Candidate", "F2");
+  text(170, y, 8, "CTC", "F2");
+  text(245, y, 8, "DOJ", "F2");
+  text(310, y, 8, "Dept", "F2");
+  text(385, y, 8, "Rate", "F2");
+  text(455, y, 8, "GST", "F2");
+  text(510, y, 8, "Amount", "F2");
+  line(40, y - 8, 555, y - 8);
+  y -= 26;
+
+  selectedLines.slice(0, 16).forEach((item, index) => {
+    const rowTaxable = lineTaxableValue(item);
+    const rowGst = (rowTaxable * gstRate * 2) / 100;
+    const rowAmount = rowTaxable + rowGst;
+    text(40, y, 8, String(index + 1));
+    text(62, y, 8, item.candidateName.slice(0, 24));
+    text(170, y, 8, formatInrText(parseMoney(item.ctc)));
+    text(245, y, 8, formatDate(item.doj));
+    text(310, y, 8, item.department.slice(0, 15));
+    text(385, y, 8, formatInrText(rowTaxable));
+    text(455, y, 8, formatInrText(rowGst));
+    text(510, y, 8, formatInrText(rowAmount));
+    y -= 22;
+  });
+
+  line(40, y, 555, y);
+  y -= 24;
+  text(40, y, 9, `Total Items / Qty: ${selectedLines.length} / ${selectedLines.length}`, "F2");
+  y -= 18;
+  text(40, y, 9, `Amount in words: ${amountInWords(total)}`);
+  y -= 32;
+  text(350, y, 10, `Taxable Amount: ${formatInrText(taxable)}`, "F2");
+  y -= 18;
+  text(350, y, 10, `CGST 9%: ${formatInrText(cgst)}`);
+  y -= 18;
+  text(350, y, 10, `SGST 9%: ${formatInrText(sgst)}`);
+  y -= 18;
+  text(350, y, 11, `Amount Payable: ${formatInrText(total)}`, "F2");
+  y -= 40;
+  text(40, y, 9, params.notes.slice(0, 110));
+  text(400, 90, 10, "For Werkly Consulting", "F2");
+  text(420, 60, 9, "Authorized Signatory");
+
+  const stream = `q\n${content.join("\n")}\nQ`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+  ];
+  const parts = ["%PDF-1.4\n"];
+  const offsets = [0];
+
+  objects.forEach((object, index) => {
+    offsets.push(parts.join("").length);
+    parts.push(`${index + 1} 0 obj\n${object}\nendobj\n`);
+  });
+
+  const xrefOffset = parts.join("").length;
+  parts.push(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`);
+  offsets.slice(1).forEach((offset) => {
+    parts.push(`${String(offset).padStart(10, "0")} 00000 n \n`);
+  });
+  parts.push(
+    `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+  );
+
+  return new TextEncoder().encode(parts.join(""));
 }
 
 function defaultLine(application: JobApplication): InvoiceLine {
@@ -266,6 +398,7 @@ export function AdminClientInvoicesPanel() {
   const [token, setToken] = useState("");
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [clientType, setClientType] = useState("onboarded");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState(invoiceNumber);
@@ -297,14 +430,21 @@ export function AdminClientInvoicesPanel() {
       fetch("/api/admin/applications", {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch("/api/admin/jobs", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([clientsResponse, applicationsResponse]) => {
+      .then(async ([clientsResponse, applicationsResponse, jobsResponse]) => {
         const clientsResult = (await clientsResponse.json()) as {
           clients?: ClientRecord[];
           message?: string;
         };
         const applicationsResult = (await applicationsResponse.json()) as {
           applications?: JobApplication[];
+          message?: string;
+        };
+        const jobsResult = (await jobsResponse.json()) as {
+          jobs?: JobSummary[];
           message?: string;
         };
 
@@ -316,8 +456,13 @@ export function AdminClientInvoicesPanel() {
           throw new Error(applicationsResult.message || "Unable to load applications.");
         }
 
+        if (!jobsResponse.ok) {
+          throw new Error(jobsResult.message || "Unable to load jobs.");
+        }
+
         setClients(clientsResult.clients ?? []);
         setApplications(applicationsResult.applications ?? []);
+        setJobs(jobsResult.jobs ?? []);
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load invoice data.");
@@ -361,12 +506,19 @@ export function AdminClientInvoicesPanel() {
       return [];
     }
 
-    return joinedApplications.filter(
-      (application) =>
-        String(application.clientName || "").trim().toLowerCase() ===
-        selectedClient.companyName.trim().toLowerCase()
+    const selectedClientName = selectedClient.companyName.trim().toLowerCase();
+    const selectedClientJobs = new Set(
+      jobs.filter((job) => job.clientId === selectedClient.id).map((job) => job.id)
     );
-  }, [joinedApplications, selectedClient]);
+
+    return joinedApplications.filter((application) => {
+      if (selectedClientJobs.has(application.jobId)) {
+        return true;
+      }
+
+      return String(application.clientName || "").trim().toLowerCase() === selectedClientName;
+    });
+  }, [jobs, joinedApplications, selectedClient]);
 
   useEffect(() => {
     setLines(clientJoinedApplications.map(defaultLine));
@@ -414,11 +566,19 @@ export function AdminClientInvoicesPanel() {
     });
 
     if (action === "download") {
-      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const pdfBytes = buildInvoicePdfBytes({
+        invoiceNo,
+        invoiceDate,
+        dueDate,
+        selectedClient,
+        lines,
+        notes,
+      });
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${invoiceNo}_${selectedClient.companyName}.html`;
+      link.download = `${invoiceNo}_${selectedClient.companyName}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
       return;
@@ -543,7 +703,7 @@ export function AdminClientInvoicesPanel() {
               onClick={() => generateInvoice("download")}
               disabled={!selectedClient || totals.count === 0}
             >
-              Download Invoice HTML
+              Download Invoice PDF
             </button>
             <button
               type="button"
