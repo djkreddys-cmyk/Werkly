@@ -193,6 +193,8 @@ export function AdminJobsDashboard({
     stage: JobApplicationStage;
     note: string;
     date: string;
+    finalCtc: string;
+    dateOfJoining: string;
   } | null>(null);
   const [manualCandidateJob, setManualCandidateJob] = useState<JobSummary | null>(null);
   const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
@@ -1229,7 +1231,11 @@ export function AdminJobsDashboard({
     applicationId: string,
     stage: JobApplicationStage,
     stageNote: string,
-    stageDate: string
+    stageDate: string,
+    joinedDetails?: {
+      finalCtc?: string;
+      dateOfJoining?: string;
+    }
   ) {
     if (!token) {
       setError("Please sign in again. Admin token is missing.");
@@ -1246,7 +1252,7 @@ export function AdminJobsDashboard({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ stage, stageNote, stageDate }),
+        body: JSON.stringify({ stage, stageNote, stageDate, ...joinedDetails }),
       });
 
       const result = (await response.json()) as JobApplication & { message?: string };
@@ -1931,6 +1937,11 @@ export function AdminJobsDashboard({
                                     date:
                                       application.stageDate ??
                                       new Date().toISOString().slice(0, 10),
+                                    finalCtc: application.finalCtc ?? application.currentCtc ?? "",
+                                    dateOfJoining:
+                                      application.dateOfJoining ??
+                                      application.stageDate ??
+                                      new Date().toISOString().slice(0, 10),
                                   })
                                 }
                                 className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
@@ -2331,6 +2342,52 @@ export function AdminJobsDashboard({
               className={`${fieldClassName} mt-4 min-h-[150px] resize-y`}
             />
 
+            {stageDraft.stage === "joined" ? (
+              <div className="mt-4 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Joining & Invoice Details
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Final CTC
+                    </span>
+                    <input
+                      value={stageDraft.finalCtc}
+                      onChange={(event) =>
+                        setStageDraft((current) =>
+                          current ? { ...current, finalCtc: event.target.value } : current
+                        )
+                      }
+                      placeholder="Example: 6 LPA or 600000"
+                      className={fieldClassName}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Date of Joining
+                    </span>
+                    <input
+                      type="date"
+                      value={stageDraft.dateOfJoining}
+                      onChange={(event) =>
+                        setStageDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                dateOfJoining: event.target.value,
+                                date: event.target.value,
+                              }
+                            : current
+                        )
+                      }
+                      className={fieldClassName}
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
@@ -2339,12 +2396,25 @@ export function AdminJobsDashboard({
                     setError("Please add both remarks and date before saving the stage update.");
                     return;
                   }
+                  if (
+                    stageDraft.stage === "joined" &&
+                    (!stageDraft.finalCtc.trim() || !stageDraft.dateOfJoining)
+                  ) {
+                    setError("Please add final CTC and date of joining before marking candidate as joined.");
+                    return;
+                  }
 
                   await updateApplicationStage(
                     stageDraft.application.id,
                     stageDraft.stage,
                     stageDraft.note.trim(),
-                    stageDraft.date
+                    stageDraft.date,
+                    stageDraft.stage === "joined"
+                      ? {
+                          finalCtc: stageDraft.finalCtc.trim(),
+                          dateOfJoining: stageDraft.dateOfJoining,
+                        }
+                      : undefined
                   );
                   setStageDraft(null);
                 }}

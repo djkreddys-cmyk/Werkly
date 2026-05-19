@@ -90,6 +90,8 @@ export function AdminCandidatesPanel() {
     interviewMode: string;
     interviewPanel: string;
     interviewReminderAt: string;
+    finalCtc: string;
+    dateOfJoining: string;
   } | null>(null);
   const [assignmentDraft, setAssignmentDraft] = useState<{
     application: JobApplication;
@@ -363,6 +365,8 @@ export function AdminCandidatesPanel() {
       interviewMode?: string;
       interviewPanel?: string;
       interviewReminderAt?: string;
+      finalCtc?: string;
+      dateOfJoining?: string;
     }
   ) {
     if (!token) {
@@ -438,6 +442,9 @@ export function AdminCandidatesPanel() {
       interviewReminderAt: application.interviewReminderAt
         ? application.interviewReminderAt.slice(0, 16)
         : "",
+      finalCtc: application.finalCtc ?? application.currentCtc ?? "",
+      dateOfJoining:
+        application.dateOfJoining ?? application.stageDate ?? new Date().toISOString().slice(0, 10),
     });
     setError("");
   }
@@ -1255,12 +1262,59 @@ export function AdminCandidatesPanel() {
               </div>
             ) : null}
 
+            {stageDraft.stage === "joined" ? (
+              <div className="mt-4 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Joining & Invoice Details
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Final CTC
+                    </span>
+                    <input
+                      value={stageDraft.finalCtc}
+                      onChange={(event) =>
+                        setStageDraft((current) =>
+                          current ? { ...current, finalCtc: event.target.value } : current
+                        )
+                      }
+                      placeholder="Example: 6 LPA or 600000"
+                      className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Date of Joining
+                    </span>
+                    <input
+                      type="date"
+                      value={stageDraft.dateOfJoining}
+                      onChange={(event) =>
+                        setStageDraft((current) =>
+                          current ? { ...current, dateOfJoining: event.target.value, date: event.target.value } : current
+                        )
+                      }
+                      className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={async () => {
                   if (!stageDraft.note.trim() || !stageDraft.date) {
                     setError("Please add both remarks and date before saving the stage update.");
+                    return;
+                  }
+                  if (
+                    stageDraft.stage === "joined" &&
+                    (!stageDraft.finalCtc.trim() || !stageDraft.dateOfJoining)
+                  ) {
+                    setError("Please add final CTC and date of joining before marking candidate as joined.");
                     return;
                   }
 
@@ -1276,7 +1330,12 @@ export function AdminCandidatesPanel() {
                           interviewPanel: stageDraft.interviewPanel.trim() || undefined,
                           interviewReminderAt: stageDraft.interviewReminderAt || undefined,
                         }
-                      : undefined
+                      : stageDraft.stage === "joined"
+                        ? {
+                            finalCtc: stageDraft.finalCtc.trim(),
+                            dateOfJoining: stageDraft.dateOfJoining,
+                          }
+                        : undefined
                   );
                   setStageDraft(null);
                 }}

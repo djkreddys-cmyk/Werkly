@@ -63,6 +63,8 @@ export function mapApplicationRow(row) {
     preferredRole: row.preferred_role,
     currentCtc: row.current_ctc,
     expectedCtc: row.expected_ctc,
+    finalCtc: row.final_ctc,
+    dateOfJoining: row.date_of_joining,
     preferredLocation: row.preferred_location,
     preferredSector: row.preferred_sector,
     sourceType: row.source_type,
@@ -346,6 +348,8 @@ export async function ensureJobsSchema() {
   await query(`alter table job_applications add column if not exists preferred_role text`);
   await query(`alter table job_applications add column if not exists current_ctc text`);
   await query(`alter table job_applications add column if not exists expected_ctc text`);
+  await query(`alter table job_applications add column if not exists final_ctc text`);
+  await query(`alter table job_applications add column if not exists date_of_joining date`);
   await query(`alter table job_applications add column if not exists preferred_location text`);
   await query(`alter table job_applications add column if not exists preferred_sector text`);
   await query(`alter table job_applications add column if not exists candidate_message text`);
@@ -999,6 +1003,8 @@ export async function listJobApplications(jobId, employeeId = null) {
       job_applications.preferred_role,
       job_applications.current_ctc,
       job_applications.expected_ctc,
+      job_applications.final_ctc,
+      job_applications.date_of_joining,
       job_applications.preferred_location,
       job_applications.preferred_sector,
       job_applications.source_type,
@@ -1079,6 +1085,8 @@ export async function listAdminApplications(employeeId = null) {
       job_applications.preferred_role,
       job_applications.current_ctc,
       job_applications.expected_ctc,
+      job_applications.final_ctc,
+      job_applications.date_of_joining,
       job_applications.preferred_location,
       job_applications.preferred_sector,
       job_applications.source_type,
@@ -1141,6 +1149,8 @@ export async function getAdminApplicationById(applicationId) {
       job_applications.preferred_role,
       job_applications.current_ctc,
       job_applications.expected_ctc,
+      job_applications.final_ctc,
+      job_applications.date_of_joining,
       job_applications.preferred_location,
       job_applications.preferred_sector,
       job_applications.source_type,
@@ -1522,7 +1532,8 @@ export async function updateJobApplicationStage(
   stage,
   stageNote,
   stageDate,
-  employeeId = null
+  employeeId = null,
+  payload = {}
 ) {
   const client = await pool.connect();
 
@@ -1570,6 +1581,8 @@ export async function updateJobApplicationStage(
        set stage = $2,
            stage_note = $3,
            stage_date = $4::date,
+           final_ctc = case when $5::boolean then $6 else final_ctc end,
+           date_of_joining = case when $5::boolean then $7::date else date_of_joining end,
            stage_updated_at = now()
        where id = $1
        returning
@@ -1596,6 +1609,8 @@ export async function updateJobApplicationStage(
          preferred_role,
          current_ctc,
          expected_ctc,
+         final_ctc,
+         date_of_joining,
          preferred_location,
          preferred_sector,
          source_type,
@@ -1618,7 +1633,15 @@ export async function updateJobApplicationStage(
          candidate_message,
          job_title,
          applied_at`,
-      [applicationId, stage, stageNote || null, stageDate || null]
+      [
+        applicationId,
+        stage,
+        stageNote || null,
+        stageDate || null,
+        stage === "joined",
+        payload.finalCtc || null,
+        payload.dateOfJoining || stageDate || null,
+      ]
     );
 
     await client.query(

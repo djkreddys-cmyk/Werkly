@@ -63,6 +63,8 @@ export type JobApplication = {
   preferredRole?: string;
   currentCtc?: string;
   expectedCtc?: string;
+  finalCtc?: string;
+  dateOfJoining?: string;
   preferredLocation?: string;
   preferredSector?: string;
   sourceType?: string;
@@ -759,6 +761,8 @@ export async function updateJobApplicationStage(
     interviewMode?: string;
     interviewPanel?: string;
     interviewReminderAt?: string;
+    finalCtc?: string;
+    dateOfJoining?: string;
   }
 ) {
   return readJson<JobApplication>(`/admin/jobs/applications/${id}/stage`, {

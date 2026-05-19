@@ -430,7 +430,11 @@ async function applyApprovedWorkflowAction(request, approval) {
       requestedData.stage,
       requestedData.stageNote,
       requestedData.stageDate,
-      null
+      null,
+      {
+        finalCtc: requestedData.finalCtc,
+        dateOfJoining: requestedData.dateOfJoining,
+      }
     );
 
     if (application) {
@@ -1384,6 +1388,8 @@ app.put(
         interviewMode,
         interviewPanel,
         interviewReminderAt,
+        finalCtc,
+        dateOfJoining,
       } = request.body ?? {};
 
       if (!String(candidateName ?? "").trim()) {
@@ -1511,6 +1517,11 @@ app.put(
           message: "Stage remark and effective date are required.",
         });
       }
+      if (stage === "joined" && (!String(finalCtc ?? "").trim() || !dateOfJoining)) {
+        return response.status(400).json({
+          message: "Final CTC and date of joining are required for joined candidates.",
+        });
+      }
 
       const currentApplication = await getApplicationById(request.params.id);
       if (!currentApplication) {
@@ -1538,6 +1549,8 @@ app.put(
             interviewMode,
             interviewPanel,
             interviewReminderAt,
+            finalCtc,
+            dateOfJoining,
           },
           metadata: {
             jobId: currentApplication.jobId,
@@ -1579,7 +1592,11 @@ app.put(
         stage,
         stageNote,
         stageDate,
-        request.user?.type === "employee" ? request.user.id : null
+        request.user?.type === "employee" ? request.user.id : null,
+        {
+          finalCtc: String(finalCtc ?? "").trim() || null,
+          dateOfJoining: dateOfJoining || stageDate,
+        }
       );
 
       if (!application) {
@@ -1647,6 +1664,8 @@ app.put(
           interviewMode: application.interviewMode,
           interviewPanel: application.interviewPanel,
           interviewReminderAt: application.interviewReminderAt,
+          finalCtc: application.finalCtc,
+          dateOfJoining: application.dateOfJoining,
         },
         metadata: {
           jobId: application.jobId,
@@ -1670,6 +1689,8 @@ app.put(
           interviewMode: application.interviewMode,
           interviewPanel: application.interviewPanel,
           interviewReminderAt: application.interviewReminderAt,
+          finalCtc: application.finalCtc,
+          dateOfJoining: application.dateOfJoining,
         },
         metadata: {
           jobId: application.jobId,

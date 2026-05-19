@@ -164,29 +164,38 @@ function buildInvoicePdfBytes(params: {
   text(40, 646, 9, params.selectedClient.contactPhone || "");
 
   let y = 610;
-  text(40, y, 8, "#", "F2");
-  text(62, y, 8, "Candidate", "F2");
-  text(170, y, 8, "CTC", "F2");
-  text(245, y, 8, "DOJ", "F2");
-  text(310, y, 8, "Dept", "F2");
-  text(385, y, 8, "Rate", "F2");
-  text(455, y, 8, "GST", "F2");
-  text(510, y, 8, "Amount", "F2");
+  text(34, y, 6, "#", "F2");
+  text(48, y, 6, "Item", "F2");
+  text(120, y, 6, "CTC", "F2");
+  text(178, y, 6, "DOJ", "F2");
+  text(228, y, 6, "Department", "F2");
+  text(292, y, 6, "HSN/SAC", "F2");
+  text(340, y, 6, "Rate", "F2");
+  text(390, y, 6, "Qty", "F2");
+  text(414, y, 6, "Taxable", "F2");
+  text(462, y, 6, "CGST", "F2");
+  text(505, y, 6, "SGST", "F2");
+  text(546, y, 6, "Amount", "F2");
   line(40, y - 8, 555, y - 8);
   y -= 26;
 
   selectedLines.slice(0, 16).forEach((item, index) => {
     const rowTaxable = lineTaxableValue(item);
-    const rowGst = (rowTaxable * gstRate * 2) / 100;
-    const rowAmount = rowTaxable + rowGst;
-    text(40, y, 8, String(index + 1));
-    text(62, y, 8, item.candidateName.slice(0, 24));
-    text(170, y, 8, formatInrText(parseMoney(item.ctc)));
-    text(245, y, 8, formatDate(item.doj));
-    text(310, y, 8, item.department.slice(0, 15));
-    text(385, y, 8, formatInrText(rowTaxable));
-    text(455, y, 8, formatInrText(rowGst));
-    text(510, y, 8, formatInrText(rowAmount));
+    const rowCgst = (rowTaxable * gstRate) / 100;
+    const rowSgst = (rowTaxable * gstRate) / 100;
+    const rowAmount = rowTaxable + rowCgst + rowSgst;
+    text(34, y, 6, String(index + 1));
+    text(48, y, 6, item.candidateName.slice(0, 17));
+    text(120, y, 6, formatInrText(parseMoney(item.ctc)).replace("INR ", ""));
+    text(178, y, 6, formatDate(item.doj));
+    text(228, y, 6, item.department.slice(0, 13));
+    text(292, y, 6, item.hsnSac);
+    text(340, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
+    text(390, y, 6, "1");
+    text(414, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
+    text(462, y, 6, `${formatInrText(rowCgst).replace("INR ", "")} 9%`);
+    text(505, y, 6, `${formatInrText(rowSgst).replace("INR ", "")} 9%`);
+    text(546, y, 6, formatInrText(rowAmount).replace("INR ", ""));
     y -= 22;
   });
 
@@ -238,12 +247,19 @@ function buildInvoicePdfBytes(params: {
 }
 
 function defaultLine(application: JobApplication): InvoiceLine {
-  const ctc = parseMoney(application.currentCtc) || parseMoney(application.expectedCtc);
+  const ctc =
+    parseMoney(application.finalCtc) ||
+    parseMoney(application.currentCtc) ||
+    parseMoney(application.expectedCtc);
   return {
     applicationId: application.id,
     candidateName: formatPersonName(application.candidateName),
     ctc: formatNumberInput(ctc),
-    doj: application.stageDate || application.stageUpdatedAt?.slice(0, 10) || todayKey(),
+    doj:
+      application.dateOfJoining ||
+      application.stageDate ||
+      application.stageUpdatedAt?.slice(0, 10) ||
+      todayKey(),
     department: application.sector || application.jobTitle || "Recruitment",
     hsnSac: "998512",
     feePercent: "8.33",
