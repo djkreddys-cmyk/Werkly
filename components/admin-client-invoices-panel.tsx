@@ -266,6 +266,7 @@ export function AdminClientInvoicesPanel() {
   const [token, setToken] = useState("");
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [clientType, setClientType] = useState("onboarded");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState(invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(todayKey);
@@ -332,9 +333,27 @@ export function AdminClientInvoicesPanel() {
     [applications]
   );
 
+  const onboardedClients = useMemo(
+    () =>
+      clients.filter((client) => {
+        const onboardingStatus = String(client.onboardingStatus || "").toLowerCase();
+        const followUpStatus = String(client.followUpStatus || "").toLowerCase();
+        return onboardingStatus === "onboarded" || followUpStatus === "on-boarded";
+      }),
+    [clients]
+  );
+
+  const visibleClients = useMemo(() => {
+    if (clientType === "onboarded") {
+      return onboardedClients;
+    }
+
+    return onboardedClients;
+  }, [clientType, onboardedClients]);
+
   const selectedClient = useMemo(
-    () => clients.find((client) => client.id === selectedClientId),
-    [clients, selectedClientId]
+    () => visibleClients.find((client) => client.id === selectedClientId),
+    [selectedClientId, visibleClients]
   );
 
   const clientJoinedApplications = useMemo(() => {
@@ -352,6 +371,12 @@ export function AdminClientInvoicesPanel() {
   useEffect(() => {
     setLines(clientJoinedApplications.map(defaultLine));
   }, [clientJoinedApplications]);
+
+  useEffect(() => {
+    if (selectedClientId && !visibleClients.some((client) => client.id === selectedClientId)) {
+      setSelectedClientId("");
+    }
+  }, [selectedClientId, visibleClients]);
 
   const totals = useMemo(() => {
     const selectedLines = lines.filter((line) => line.selected);
@@ -443,7 +468,18 @@ export function AdminClientInvoicesPanel() {
           </p>
         ) : null}
 
-        <div className="mt-7 grid gap-4 lg:grid-cols-4">
+        <div className="mt-7 grid gap-4 lg:grid-cols-5">
+          <label className="space-y-2">
+            <span className="section-eyebrow">Client Type</span>
+            <select
+              className={selectClassName}
+              value={clientType}
+              onChange={(event) => setClientType(event.target.value)}
+              disabled={isLoading}
+            >
+              <option value="onboarded">Onboarded Clients</option>
+            </select>
+          </label>
           <label className="space-y-2 lg:col-span-2">
             <span className="section-eyebrow">Client</span>
             <select
@@ -452,10 +488,10 @@ export function AdminClientInvoicesPanel() {
               onChange={(event) => setSelectedClientId(event.target.value)}
               disabled={isLoading}
             >
-              <option value="">Select client</option>
-              {clients.map((client) => (
+              <option value="">Select onboarded client</option>
+              {visibleClients.map((client) => (
                 <option key={client.id} value={client.id}>
-                  {client.companyName}
+                  {client.companyName} - Onboarded
                 </option>
               ))}
             </select>
