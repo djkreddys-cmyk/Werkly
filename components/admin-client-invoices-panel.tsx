@@ -1,0 +1,658 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { ClientRecord } from "@/lib/crm";
+import type { JobApplication } from "@/lib/jobs";
+import { formatPersonName } from "@/lib/format";
+
+type InvoiceLine = {
+  applicationId: string;
+  candidateName: string;
+  ctc: string;
+  doj: string;
+  department: string;
+  hsnSac: string;
+  feePercent: string;
+  selected: boolean;
+};
+
+const fieldClassName =
+  "w-full rounded-[1rem] border border-[var(--color-border)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-teal)] focus:ring-4 focus:ring-[rgba(10,118,132,0.12)]";
+
+const selectClassName = `${fieldClassName} appearance-none pr-10`;
+const gstRate = 9;
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDate(value?: string) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(value) ? value : 0);
+}
+
+function parseMoney(value?: string) {
+  const raw = String(value || "").toLowerCase().trim();
+  if (!raw) {
+    return 0;
+  }
+
+  const firstNumber = Number(raw.replace(/,/g, "").match(/\d+(\.\d+)?/)?.[0] || 0);
+  if (!Number.isFinite(firstNumber)) {
+    return 0;
+  }
+
+  if (raw.includes("lpa") || raw.includes("lakh") || raw.includes("lac")) {
+    return firstNumber * 100000;
+  }
+
+  if (raw.includes("cr") || raw.includes("crore")) {
+    return firstNumber * 10000000;
+  }
+
+  return firstNumber;
+}
+
+function formatNumberInput(value: number) {
+  return value > 0 ? String(Math.round(value)) : "";
+}
+
+function invoiceNumber() {
+  const date = new Date();
+  const year = String(date.getFullYear()).slice(-2);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `INV-${year}${month}${day}`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function amountInWords(amount: number) {
+  return `${formatCurrency(Math.round(amount)).replace("₹", "INR ")} Only`;
+}
+
+function defaultLine(application: JobApplication): InvoiceLine {
+  const ctc = parseMoney(application.currentCtc) || parseMoney(application.expectedCtc);
+  return {
+    applicationId: application.id,
+    candidateName: formatPersonName(application.candidateName),
+    ctc: formatNumberInput(ctc),
+    doj: application.stageDate || application.stageUpdatedAt?.slice(0, 10) || todayKey(),
+    department: application.sector || application.jobTitle || "Recruitment",
+    hsnSac: "998512",
+    feePercent: "8.33",
+    selected: true,
+  };
+}
+
+function lineTaxableValue(line: InvoiceLine) {
+  return (parseMoney(line.ctc) * Number(line.feePercent || 0)) / 100;
+}
+
+function buildInvoiceHtml(params: {
+  invoiceNo: string;
+  invoiceDate: string;
+  dueDate: string;
+  selectedClient?: ClientRecord;
+  lines: InvoiceLine[];
+  notes: string;
+}) {
+  const selectedLines = params.lines.filter((line) => line.selected);
+  const rows = selectedLines
+    .map((line, index) => {
+      const taxable = lineTaxableValue(line);
+      const cgst = (taxable * gstRate) / 100;
+      const sgst = (taxable * gstRate) / 100;
+      const amount = taxable + cgst + sgst;
+      return `<tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(line.candidateName)}</td>
+        <td>${formatCurrency(parseMoney(line.ctc))}</td>
+        <td>${formatDate(line.doj)}</td>
+        <td>${escapeHtml(line.department)}</td>
+        <td>${escapeHtml(line.hsnSac)}</td>
+        <td>${formatCurrency(taxable)}</td>
+        <td>1</td>
+        <td>${formatCurrency(taxable)}</td>
+        <td>${formatCurrency(cgst)}<br/><span>(${gstRate}%)</span></td>
+        <td>${formatCurrency(sgst)}<br/><span>(${gstRate}%)</span></td>
+        <td>${formatCurrency(amount)}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
+  const cgst = (taxable * gstRate) / 100;
+  const sgst = (taxable * gstRate) / 100;
+  const total = Math.round(taxable + cgst + sgst);
+  const client = params.selectedClient;
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(params.invoiceNo)} - ${escapeHtml(client?.companyName || "Client")}</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    body { font-family: Arial, sans-serif; color: #102f3a; margin: 0; font-size: 12px; }
+    h1, h2, p { margin: 0; }
+    .top { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #0a7684; padding-bottom: 12px; }
+    .brand h1 { font-size: 22px; letter-spacing: 0.08em; }
+    .brand p, .muted { color: #52666d; line-height: 1.55; }
+    .title { text-align: center; margin: 16px 0; letter-spacing: 0.22em; font-size: 18px; font-weight: 700; }
+    .grid { display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 18px; margin-bottom: 14px; }
+    .box { border: 1px solid #cfdde2; padding: 12px; border-radius: 8px; }
+    .box h2 { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #0a7684; margin-bottom: 8px; }
+    table { border-collapse: collapse; width: 100%; }
+    th { background: #eef5f6; color: #24424a; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+    th, td { border: 1px solid #d9e5e8; padding: 7px; vertical-align: top; text-align: left; }
+    td span { color: #52666d; font-size: 10px; }
+    .summary { display: grid; grid-template-columns: 1fr 280px; gap: 18px; margin-top: 14px; align-items: start; }
+    .totals td:first-child { font-weight: 700; }
+    .totals td:last-child { text-align: right; }
+    .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 26px; }
+    .sign { text-align: right; min-width: 220px; }
+    .sign-space { height: 54px; }
+    .notes { margin-top: 10px; white-space: pre-line; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">
+      <h1>WERKLY CONSULTING</h1>
+      <p>Hyderabad & Vijayawada, India</p>
+      <p>Email: hr@werkly.in</p>
+    </div>
+    <div>
+      <p><strong>Invoice #:</strong> ${escapeHtml(params.invoiceNo)}</p>
+      <p><strong>Date:</strong> ${formatDate(params.invoiceDate)}</p>
+      <p><strong>Due Date:</strong> ${formatDate(params.dueDate)}</p>
+      <p><strong>Place of Supply:</strong> Telangana</p>
+    </div>
+  </div>
+  <div class="title">TAX INVOICE</div>
+  <div class="grid">
+    <div class="box">
+      <h2>Customer Details</h2>
+      <p><strong>${escapeHtml(client?.companyName || "Client")}</strong></p>
+      <p>${escapeHtml(client?.communicationAddress || client?.branch || "Billing address not added")}</p>
+      <p>${escapeHtml(client?.contactEmail || "")}</p>
+      <p>${escapeHtml(client?.contactPhone || "")}</p>
+    </div>
+    <div class="box">
+      <h2>Recruitment Billing</h2>
+      <p><strong>Total Items / Qty:</strong> ${selectedLines.length} / ${selectedLines.length}</p>
+      <p><strong>Service:</strong> Permanent recruitment placement</p>
+      <p><strong>HSN/SAC:</strong> 998512</p>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Item</th><th>CTC</th><th>DOJ</th><th>Department</th><th>HSN/SAC</th><th>Rate / Item</th><th>Qty</th><th>Taxable Value</th><th>CGST</th><th>SGST</th><th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="summary">
+    <div class="box">
+      <h2>Total amount in words</h2>
+      <p>${escapeHtml(amountInWords(total))}</p>
+      <div class="notes">${escapeHtml(params.notes)}</div>
+      <h2 style="margin-top:14px;">Bank Details</h2>
+      <p>Bank: Add bank name</p>
+      <p>Account Holder: Werkly Consulting</p>
+      <p>Account #: Add account number</p>
+      <p>IFSC Code: Add IFSC</p>
+    </div>
+    <table class="totals">
+      <tbody>
+        <tr><td>Taxable Amount</td><td>${formatCurrency(taxable)}</td></tr>
+        <tr><td>CGST ${gstRate}.0%</td><td>${formatCurrency(cgst)}</td></tr>
+        <tr><td>SGST ${gstRate}.0%</td><td>${formatCurrency(sgst)}</td></tr>
+        <tr><td>Total</td><td>${formatCurrency(total)}</td></tr>
+        <tr><td>Amount Payable</td><td>${formatCurrency(total)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="footer">
+    <p class="muted">This invoice is generated from Werkly CRM based on joined recruitment records.</p>
+    <div class="sign">
+      <div class="sign-space"></div>
+      <p><strong>For Werkly Consulting</strong></p>
+      <p>Authorized Signatory</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export function AdminClientInvoicesPanel() {
+  const [token, setToken] = useState("");
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [invoiceNo, setInvoiceNo] = useState(invoiceNumber);
+  const [invoiceDate, setInvoiceDate] = useState(todayKey);
+  const [dueDate, setDueDate] = useState(addDays(todayKey(), 30));
+  const [notes, setNotes] = useState(
+    "Payment should be made within 30 days after the candidate joins your organization."
+  );
+  const [lines, setLines] = useState<InvoiceLine[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setToken(window.localStorage.getItem("werklyAdminToken") ?? "");
+  }, []);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    Promise.all([
+      fetch("/api/admin/clients", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetch("/api/admin/applications", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ])
+      .then(async ([clientsResponse, applicationsResponse]) => {
+        const clientsResult = (await clientsResponse.json()) as {
+          clients?: ClientRecord[];
+          message?: string;
+        };
+        const applicationsResult = (await applicationsResponse.json()) as {
+          applications?: JobApplication[];
+          message?: string;
+        };
+
+        if (!clientsResponse.ok) {
+          throw new Error(clientsResult.message || "Unable to load clients.");
+        }
+
+        if (!applicationsResponse.ok) {
+          throw new Error(applicationsResult.message || "Unable to load applications.");
+        }
+
+        setClients(clientsResult.clients ?? []);
+        setApplications(applicationsResult.applications ?? []);
+      })
+      .catch((loadError) => {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load invoice data.");
+      })
+      .finally(() => setIsLoading(false));
+  }, [token]);
+
+  const joinedApplications = useMemo(
+    () =>
+      applications.filter(
+        (application) => String(application.stage || "").toLowerCase() === "joined"
+      ),
+    [applications]
+  );
+
+  const selectedClient = useMemo(
+    () => clients.find((client) => client.id === selectedClientId),
+    [clients, selectedClientId]
+  );
+
+  const clientJoinedApplications = useMemo(() => {
+    if (!selectedClient) {
+      return [];
+    }
+
+    return joinedApplications.filter(
+      (application) =>
+        String(application.clientName || "").trim().toLowerCase() ===
+        selectedClient.companyName.trim().toLowerCase()
+    );
+  }, [joinedApplications, selectedClient]);
+
+  useEffect(() => {
+    setLines(clientJoinedApplications.map(defaultLine));
+  }, [clientJoinedApplications]);
+
+  const totals = useMemo(() => {
+    const selectedLines = lines.filter((line) => line.selected);
+    const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
+    const cgst = (taxable * gstRate) / 100;
+    const sgst = (taxable * gstRate) / 100;
+    return {
+      count: selectedLines.length,
+      taxable,
+      cgst,
+      sgst,
+      total: Math.round(taxable + cgst + sgst),
+    };
+  }, [lines]);
+
+  function updateLine(applicationId: string, patch: Partial<InvoiceLine>) {
+    setLines((current) =>
+      current.map((line) => (line.applicationId === applicationId ? { ...line, ...patch } : line))
+    );
+  }
+
+  function generateInvoice(action: "print" | "download") {
+    if (!selectedClient || totals.count === 0) {
+      setError("Select a client and at least one joined candidate before generating invoice.");
+      return;
+    }
+
+    const html = buildInvoiceHtml({
+      invoiceNo,
+      invoiceDate,
+      dueDate,
+      selectedClient,
+      lines,
+      notes,
+    });
+
+    if (action === "download") {
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoiceNo}_${selectedClient.companyName}.html`;
+      link.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (!printWindow) {
+      setError("Popup blocked. Please allow popups to print the invoice.");
+      return;
+    }
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }
+
+  if (!token) {
+    return (
+      <section className="accent-card p-7">
+        <p className="text-sm text-[var(--color-muted)]">Please sign in again to generate invoices.</p>
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="accent-card p-7">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="section-eyebrow">Client Invoices</p>
+            <h2 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+              Generate invoice from joined recruitments.
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-muted)]">
+              Select a client to pull joined candidates from CRM, review billing values, and create
+              a tax invoice for recruitment placements.
+            </p>
+          </div>
+          <div className="rounded-full bg-[rgba(10,118,132,0.08)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-teal)]">
+            {totals.count} Fillups
+          </div>
+        </div>
+
+        {error ? (
+          <p className="mt-5 rounded-[1rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-7 grid gap-4 lg:grid-cols-4">
+          <label className="space-y-2 lg:col-span-2">
+            <span className="section-eyebrow">Client</span>
+            <select
+              className={selectClassName}
+              value={selectedClientId}
+              onChange={(event) => setSelectedClientId(event.target.value)}
+              disabled={isLoading}
+            >
+              <option value="">Select client</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.companyName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-2">
+            <span className="section-eyebrow">Invoice #</span>
+            <input
+              className={fieldClassName}
+              value={invoiceNo}
+              onChange={(event) => setInvoiceNo(event.target.value)}
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="section-eyebrow">Invoice Date</span>
+            <input
+              type="date"
+              className={fieldClassName}
+              value={invoiceDate}
+              onChange={(event) => {
+                setInvoiceDate(event.target.value);
+                setDueDate(addDays(event.target.value, 30));
+              }}
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="section-eyebrow">Due Date</span>
+            <input
+              type="date"
+              className={fieldClassName}
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="accent-card overflow-hidden p-7">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="section-eyebrow">Invoice Items</p>
+            <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
+              Joined candidates for selected client
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="rounded-full border border-[var(--color-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              onClick={() => generateInvoice("download")}
+              disabled={!selectedClient || totals.count === 0}
+            >
+              Download Invoice HTML
+            </button>
+            <button
+              type="button"
+              className="rounded-full bg-[var(--color-teal)] px-5 py-3 text-sm font-semibold text-white"
+              onClick={() => generateInvoice("print")}
+              disabled={!selectedClient || totals.count === 0}
+            >
+              Print / Save PDF
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 overflow-x-auto">
+          <table className="min-w-[1180px] w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="bg-[rgba(10,118,132,0.08)] text-xs uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                {[
+                  "Bill",
+                  "Candidate",
+                  "CTC",
+                  "DOJ",
+                  "Department",
+                  "HSN/SAC",
+                  "Fee %",
+                  "Taxable",
+                  "GST",
+                  "Amount",
+                ].map((heading) => (
+                  <th key={heading} className="px-4 py-3 font-semibold">
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--color-border)] bg-white">
+              {lines.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-8 text-center text-[var(--color-muted)]" colSpan={10}>
+                    {selectedClient
+                      ? "No joined candidates found for this client yet."
+                      : "Select a client to load joined candidate fillups."}
+                  </td>
+                </tr>
+              ) : (
+                lines.map((line) => {
+                  const taxable = lineTaxableValue(line);
+                  const gst = (taxable * gstRate * 2) / 100;
+                  const amount = taxable + gst;
+                  return (
+                    <tr key={line.applicationId} className={!line.selected ? "opacity-55" : ""}>
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={line.selected}
+                          onChange={(event) =>
+                            updateLine(line.applicationId, { selected: event.target.checked })
+                          }
+                          className="h-4 w-4 accent-[var(--color-teal)]"
+                        />
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
+                        {line.candidateName}
+                      </td>
+                      <td className="px-4 py-4">
+                        <input
+                          className="w-32 rounded-xl border border-[var(--color-border)] px-3 py-2"
+                          value={line.ctc}
+                          onChange={(event) => updateLine(line.applicationId, { ctc: event.target.value })}
+                        />
+                      </td>
+                      <td className="px-4 py-4">
+                        <input
+                          type="date"
+                          className="w-40 rounded-xl border border-[var(--color-border)] px-3 py-2"
+                          value={line.doj}
+                          onChange={(event) => updateLine(line.applicationId, { doj: event.target.value })}
+                        />
+                      </td>
+                      <td className="px-4 py-4">
+                        <input
+                          className="w-44 rounded-xl border border-[var(--color-border)] px-3 py-2"
+                          value={line.department}
+                          onChange={(event) =>
+                            updateLine(line.applicationId, { department: event.target.value })
+                          }
+                        />
+                      </td>
+                      <td className="px-4 py-4">
+                        <input
+                          className="w-28 rounded-xl border border-[var(--color-border)] px-3 py-2"
+                          value={line.hsnSac}
+                          onChange={(event) => updateLine(line.applicationId, { hsnSac: event.target.value })}
+                        />
+                      </td>
+                      <td className="px-4 py-4">
+                        <input
+                          className="w-24 rounded-xl border border-[var(--color-border)] px-3 py-2"
+                          value={line.feePercent}
+                          onChange={(event) =>
+                            updateLine(line.applicationId, { feePercent: event.target.value })
+                          }
+                        />
+                      </td>
+                      <td className="px-4 py-4">{formatCurrency(taxable)}</td>
+                      <td className="px-4 py-4">{formatCurrency(gst)}</td>
+                      <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
+                        {formatCurrency(amount)}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_360px]">
+          <label className="space-y-2">
+            <span className="section-eyebrow">Payment / Invoice Notes</span>
+            <textarea
+              className={`${fieldClassName} min-h-[120px] resize-y`}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </label>
+          <div className="rounded-[1rem] border border-[var(--color-border)] bg-[rgba(255,252,247,0.8)] p-5">
+            <div className="flex justify-between py-2 text-sm">
+              <span>Taxable Amount</span>
+              <strong>{formatCurrency(totals.taxable)}</strong>
+            </div>
+            <div className="flex justify-between py-2 text-sm">
+              <span>CGST 9%</span>
+              <strong>{formatCurrency(totals.cgst)}</strong>
+            </div>
+            <div className="flex justify-between py-2 text-sm">
+              <span>SGST 9%</span>
+              <strong>{formatCurrency(totals.sgst)}</strong>
+            </div>
+            <div className="mt-3 flex justify-between border-t border-[var(--color-border)] pt-4 text-base">
+              <span className="font-semibold">Amount Payable</span>
+              <strong>{formatCurrency(totals.total)}</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
