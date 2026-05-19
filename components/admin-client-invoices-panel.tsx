@@ -512,6 +512,10 @@ export function AdminClientInvoicesPanel() {
     );
 
     return joinedApplications.filter((application) => {
+      if (application.clientId === selectedClient.id) {
+        return true;
+      }
+
       if (selectedClientJobs.has(application.jobId)) {
         return true;
       }
