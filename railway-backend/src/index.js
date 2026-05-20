@@ -53,6 +53,7 @@ import {
   updateCrmSettings,
   updateClientOnboarding,
   updateClientFollowUp,
+  updateClient,
   updateEmployee,
 } from "./crm.js";
 import {
@@ -2794,6 +2795,42 @@ app.get("/admin/clients/:id", requireInternalUser, async (request, response) => 
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load client details.",
+    });
+  }
+});
+
+app.put("/admin/clients/:id", requirePermission("clients.manage"), async (request, response) => {
+  try {
+    const previousClient = await getClientById(request.params.id);
+    if (!previousClient) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    if (
+      request.user?.type === "employee" &&
+      !canManageClientWork(request.user, { type: "client", ...previousClient })
+    ) {
+      return response.status(403).json({ message: "You do not have access to update this client." });
+    }
+
+    const client = await updateClient(request.params.id, request.body ?? {});
+    if (!client) {
+      return response.status(404).json({ message: "Client not found." });
+    }
+
+    await createAuditLog({
+      actionType: "client.updated",
+      entityType: "client",
+      entityId: client.id,
+      ...getActorDetails(request),
+      beforeData: previousClient,
+      afterData: client,
+    });
+
+    response.json(client);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update client.",
     });
   }
 });

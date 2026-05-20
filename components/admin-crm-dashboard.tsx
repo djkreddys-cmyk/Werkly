@@ -3048,6 +3048,10 @@ export function AdminClientsPanel({
   const [transferRequests, setTransferRequests] = useState<ClientTransferRequestRecord[]>([]);
   const [selectedTransferClient, setSelectedTransferClient] = useState<ClientRecord | null>(null);
   const [selectedFollowUpClient, setSelectedFollowUpClient] = useState<ClientRecord | null>(null);
+  const [leadOnboardingClient, setLeadOnboardingClient] = useState<ClientRecord | null>(null);
+  const [leadOnboardingForm, setLeadOnboardingForm] =
+    useState<ClientFormState>(emptyClientForm);
+  const [isConvertingLead, setIsConvertingLead] = useState(false);
   const [transferToEmployeeId, setTransferToEmployeeId] = useState("");
   const [transferType, setTransferType] = useState<
     "ownership-transfer" | "temporary-full-access" | "follow-up-support"
@@ -3160,6 +3164,37 @@ export function AdminClientsPanel({
 
   function updateClientField(field: keyof ClientFormState, value: string) {
     setClientForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateLeadOnboardingField(field: keyof ClientFormState, value: string) {
+    setLeadOnboardingForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function buildClientFormFromRecord(client: ClientRecord): ClientFormState {
+    return {
+      companyName: client.companyName || "",
+      contactPerson: client.contactPerson || "",
+      contactEmail: client.contactEmail || "",
+      contactPhone: client.contactPhone || "",
+      secondaryContactPerson: client.secondaryContactPerson || "",
+      secondaryContactEmail: client.secondaryContactEmail || "",
+      secondaryContactPhone: client.secondaryContactPhone || "",
+      communicationAddress: client.communicationAddress || "",
+      sector: client.sector || "",
+      branch: client.branch || "",
+      assignedEmployeeId: client.assignedEmployeeId || "",
+      status: client.status || "active",
+      onboardingStatus: "onboarded",
+      followUpStatus: normalizeGeneralClientFollowUpStatus(client.followUpStatus),
+      nextFollowUpDate: client.nextFollowUpDate || "",
+      lastFollowUpDate: client.lastFollowUpDate || "",
+      onboardingSource: client.onboardingSource || "",
+      notes: client.notes || "",
+      followUpNotes: client.followUpNotes || "",
+      agreementFileName: client.agreementFileName || "",
+      agreementFileType: client.agreementFileType || "",
+      agreementFileData: client.agreementFileData || "",
+    };
   }
 
   async function handleAgreementUpload(event: React.ChangeEvent<HTMLInputElement>) {
@@ -3424,18 +3459,47 @@ export function AdminClientsPanel({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Convert "${client.companyName}" from lead stage to onboarded client?`
-    );
-    if (!confirmed) {
+    setLeadOnboardingClient(client);
+    setLeadOnboardingForm(buildClientFormFromRecord(client));
+    setError("");
+    setMessage("");
+  }
+
+  async function handleSaveAndConvertLead(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !leadOnboardingClient) {
+      return;
+    }
+
+    if (!leadOnboardingForm.companyName.trim()) {
+      setError("Company name is required before onboarding.");
       return;
     }
 
     setError("");
     setMessage("");
+    setIsConvertingLead(true);
 
     try {
-      const response = await fetch(`/api/admin/clients/${client.id}/onboarding`, {
+      const updateResponse = await fetch(`/api/admin/clients/${leadOnboardingClient.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...leadOnboardingForm,
+          onboardingStatus: leadOnboardingClient.onboardingStatus || "new-lead",
+          notes: leadOnboardingForm.notes || "Converted from Client Leads screen.",
+        }),
+      });
+      const updateResult = (await updateResponse.json()) as ClientRecord & { message?: string };
+
+      if (!updateResponse.ok) {
+        throw new Error(updateResult.message || "Unable to update client before onboarding.");
+      }
+
+      const response = await fetch(`/api/admin/clients/${leadOnboardingClient.id}/onboarding`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -3453,11 +3517,14 @@ export function AdminClientsPanel({
       }
 
       await refreshCrm(token);
-      setMessage(`${client.companyName} was converted to an onboarded client.`);
+      setLeadOnboardingClient(null);
+      setMessage(`${leadOnboardingForm.companyName} was converted to an onboarded client.`);
     } catch (conversionError) {
       setError(
         conversionError instanceof Error ? conversionError.message : "Unable to convert lead."
       );
+    } finally {
+      setIsConvertingLead(false);
     }
   }
 
@@ -4115,6 +4182,197 @@ export function AdminClientsPanel({
               await refreshCrm(token);
             }}
           />
+        </div>
+      ) : null}
+
+      {leadOnboardingClient ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Convert Lead</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  Complete onboarding details
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Update any missing client details, then save and convert this lead to onboarded.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLeadOnboardingClient(null);
+                  setLeadOnboardingForm(emptyClientForm);
+                }}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="mt-6" onSubmit={handleSaveAndConvertLead}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Company Name
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.companyName}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("companyName", event.target.value)
+                    }
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Contact Person
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.contactPerson}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("contactPerson", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Contact Email
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    type="email"
+                    value={leadOnboardingForm.contactEmail}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("contactEmail", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Contact Phone
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.contactPhone}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("contactPhone", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Sector
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.sector}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("sector", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Branch / Region
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.branch}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("branch", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Owner
+                  </span>
+                  <select
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.assignedEmployeeId}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("assignedEmployeeId", event.target.value)
+                    }
+                  >
+                    <option value="">Not assigned</option>
+                    {employeeOptions.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.fullName} - {employee.role}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Source
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.onboardingSource}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("onboardingSource", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block sm:col-span-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Communication Address
+                  </span>
+                  <textarea
+                    className="mt-2 min-h-[110px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.communicationAddress}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("communicationAddress", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block sm:col-span-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Notes
+                  </span>
+                  <textarea
+                    className="mt-2 min-h-[130px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.notes}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("notes", event.target.value)
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  disabled={isConvertingLead}
+                  className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isConvertingLead ? "Saving..." : "Save & Convert"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadOnboardingClient(null);
+                    setLeadOnboardingForm(emptyClientForm);
+                  }}
+                  className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       ) : null}
 

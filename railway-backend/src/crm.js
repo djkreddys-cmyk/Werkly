@@ -1483,6 +1483,64 @@ export async function createClient(payload) {
   return client;
 }
 
+export async function updateClient(clientId, payload) {
+  const result = await query(
+    `update clients
+        set company_name = $2,
+            contact_person = $3,
+            contact_email = $4,
+            contact_phone = $5,
+            secondary_contact_person = $6,
+            secondary_contact_email = $7,
+            secondary_contact_phone = $8,
+            communication_address = $9,
+            sector = $10,
+            branch = $11,
+            assigned_employee_id = $12,
+            status = $13,
+            onboarding_status = $14,
+            follow_up_status = $15,
+            next_follow_up_date = $16::date,
+            last_follow_up_date = $17::date,
+            onboarding_source = $18,
+            notes = $19,
+            follow_up_notes = $20,
+            agreement_file_name = $21,
+            agreement_file_type = $22,
+            agreement_file_data = $23,
+            updated_at = now()
+      where id = $1
+      returning id`,
+    [
+      clientId,
+      payload.companyName,
+      payload.contactPerson,
+      payload.contactEmail || null,
+      payload.contactPhone || null,
+      payload.secondaryContactPerson || null,
+      payload.secondaryContactEmail || null,
+      payload.secondaryContactPhone || null,
+      payload.communicationAddress || null,
+      payload.sector || null,
+      payload.branch || null,
+      payload.assignedEmployeeId || null,
+      payload.status || "active",
+      payload.onboardingStatus || "new-lead",
+      payload.followUpStatus || "pending",
+      payload.nextFollowUpDate || null,
+      payload.lastFollowUpDate || null,
+      payload.onboardingSource || null,
+      payload.notes || null,
+      payload.followUpNotes || null,
+      payload.agreementFileName || null,
+      payload.agreementFileType || null,
+      payload.agreementFileData || null,
+    ]
+  );
+
+  return result.rows[0] ? getClientById(clientId) : null;
+}
+
 export async function reassignClient(clientId, payload) {
   const assignmentType = payload.assignmentType || "ownership-transfer";
   const updatedResult =

@@ -473,6 +473,16 @@ export async function getClientById(id: string, token: string) {
   });
 }
 
+export async function updateClient(id: string, payload: ClientFormPayload, token: string) {
+  return readJson<ClientRecord>(`/admin/clients/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export async function deleteClient(id: string, token: string) {
   return readJson<{ success: boolean }>(`/admin/clients/${id}`, {
     method: "DELETE",
