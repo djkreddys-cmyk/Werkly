@@ -5,6 +5,17 @@ function normalizeArray(value) {
   return [];
 }
 
+function normalizePositionsCount(payload) {
+  const rawValue =
+    payload.positionsCount ??
+    payload.positions_count ??
+    payload.numberOfPositions ??
+    payload.noOfPositions ??
+    payload.openPositions;
+  const parsedValue = Math.floor(Number(rawValue ?? 1));
+  return Number.isFinite(parsedValue) ? Math.max(1, parsedValue) : 1;
+}
+
 export function mapRow(row) {
   return {
     id: row.id,
@@ -581,7 +592,7 @@ export async function createJob(payload) {
         payload.employmentType,
         payload.salary || null,
         payload.packagePerAnnum || null,
-        Math.max(1, Number(payload.positionsCount ?? 1) || 1),
+        normalizePositionsCount(payload),
         normalizedStatus,
         payload.isHidden ?? false,
         payload.postedAt || null,
@@ -650,7 +661,7 @@ export async function updateJob(id, payload) {
       payload.employmentType,
       payload.salary || null,
       payload.packagePerAnnum || null,
-      Math.max(1, Number(payload.positionsCount ?? 1) || 1),
+      normalizePositionsCount(payload),
       payload.status,
       payload.isHidden ?? false,
       payload.lastDateToApply || null,

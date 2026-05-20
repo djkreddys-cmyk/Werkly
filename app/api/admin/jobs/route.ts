@@ -12,12 +12,23 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizePositionsCount(body: Record<string, unknown>) {
+  const rawValue =
+    body.positionsCount ??
+    body.positions_count ??
+    body.numberOfPositions ??
+    body.noOfPositions ??
+    body.openPositions;
+  const parsedValue = Math.floor(Number(rawValue ?? 1));
+  return Number.isFinite(parsedValue) ? Math.max(1, parsedValue) : 1;
+}
+
 function normalizePayload(body: Record<string, unknown>): JobFormPayload {
   const title = String(body.title ?? "");
   const location = String(body.location ?? "");
   const sector = String(body.sector ?? "");
   const experience = String(body.experience ?? "");
-  const positionsCount = Math.max(1, Math.floor(Number(body.positionsCount ?? 1) || 1));
+  const positionsCount = normalizePositionsCount(body);
   return {
     title,
     slug: slugify(String(body.slug ?? title)),
