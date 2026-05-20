@@ -318,6 +318,13 @@ export function AdminJobsDashboard({
         client.followUpEmployeeId === currentEmployeeId
     );
   }, [clients, currentEmployeeId, isEmployeeSession]);
+  const jobFormClients = useMemo(
+    () =>
+      visibleClients.filter(
+        (client) => client.status === "active" && client.onboardingStatus === "onboarded"
+      ),
+    [visibleClients]
+  );
   const visibleClientIds = useMemo(
     () => new Set(visibleClients.map((client) => client.id)),
     [visibleClients]
@@ -677,7 +684,7 @@ export function AdminJobsDashboard({
                 required
               >
                 <option value="">Select client</option>
-                {visibleClients.map((client) => (
+                {jobFormClients.map((client) => (
                   <option key={client.id} value={client.id}>
                     {client.companyName}
                   </option>
