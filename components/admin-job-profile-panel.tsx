@@ -283,6 +283,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
           ["Job ID", job.jobCode || "Pending"],
           ["Client", job.clientName || "Not assigned"],
           ["Recruiter", job.recruiterName || "Unassigned"],
+          ["Positions", String(job.positionsCount ?? 1)],
           ["Applications", String(job.applicationsCount)],
         ].map(([label, value]) => (
           <article key={label} className="accent-card p-5">
@@ -540,6 +541,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
               ["Sector", job.sector],
               ["Experience", job.experience],
               ["Employment Type", job.employmentType],
+              ["No. of Positions", String(job.positionsCount ?? 1)],
               ["Salary", job.salary || job.packagePerAnnum || "Not added"],
               ["Status", job.isHidden ? "Hidden" : formatLabel(job.status)],
               ["Posted On", formatDateLabel(job.postedAt)],
