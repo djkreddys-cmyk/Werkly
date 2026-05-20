@@ -1021,6 +1021,7 @@ function CrmClientsList({
   employeeOptions = [],
   onTransfer,
   onFollowUp,
+  onEdit,
   onConvertLead,
   onDelete,
   onBulkAssignment,
@@ -1035,6 +1036,7 @@ function CrmClientsList({
   employeeOptions?: EmployeeRecord[];
   onTransfer: (client: ClientRecord) => void;
   onFollowUp: (client: ClientRecord) => void;
+  onEdit?: (client: ClientRecord) => void;
   onConvertLead?: (client: ClientRecord) => void;
   onDelete: (client: ClientRecord) => void;
   onBulkAssignment?: (
@@ -1718,6 +1720,10 @@ function CrmClientsList({
                                 href: `/admin/clients/${client.id}`,
                               },
                               {
+                                label: "Edit Client",
+                                onClick: () => onEdit?.(client),
+                              },
+                              {
                                 label: "Send Proposal Mail",
                                 onClick: () => {
                                   setProposalClient(client);
@@ -1733,7 +1739,7 @@ function CrmClientsList({
                                 label: "Transfer Client",
                                 onClick: () => onTransfer(client),
                               },
-                              ...(viewMode === "leads" && isSuperAdmin
+                              ...(viewMode === "leads" && onConvertLead
                                 ? [
                                     {
                                       label: "Convert to Onboarded",
@@ -3051,6 +3057,7 @@ export function AdminClientsPanel({
   const [leadOnboardingClient, setLeadOnboardingClient] = useState<ClientRecord | null>(null);
   const [leadOnboardingForm, setLeadOnboardingForm] =
     useState<ClientFormState>(emptyClientForm);
+  const [clientDetailsMode, setClientDetailsMode] = useState<"convert" | "edit">("convert");
   const [isConvertingLead, setIsConvertingLead] = useState(false);
   const [transferToEmployeeId, setTransferToEmployeeId] = useState("");
   const [transferType, setTransferType] = useState<
@@ -3120,11 +3127,17 @@ export function AdminClientsPanel({
         setSelectedFollowUpClient(null);
         return;
       }
+
+      if (leadOnboardingClient) {
+        setLeadOnboardingClient(null);
+        setLeadOnboardingForm(emptyClientForm);
+        setClientDetailsMode("convert");
+      }
     };
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [selectedFollowUpClient, selectedTransferClient]);
+  }, [leadOnboardingClient, selectedFollowUpClient, selectedTransferClient]);
 
   const employeeOptions = useMemo(
     () => employees.filter((employee) => employee.status === "active"),
@@ -3170,7 +3183,10 @@ export function AdminClientsPanel({
     setLeadOnboardingForm((current) => ({ ...current, [field]: value }));
   }
 
-  function buildClientFormFromRecord(client: ClientRecord): ClientFormState {
+  function buildClientFormFromRecord(
+    client: ClientRecord,
+    onboardingStatus?: ClientOnboardingStatus
+  ): ClientFormState {
     return {
       companyName: client.companyName || "",
       contactPerson: client.contactPerson || "",
@@ -3184,7 +3200,7 @@ export function AdminClientsPanel({
       branch: client.branch || "",
       assignedEmployeeId: client.assignedEmployeeId || "",
       status: client.status || "active",
-      onboardingStatus: "onboarded",
+      onboardingStatus: onboardingStatus || client.onboardingStatus || "new-lead",
       followUpStatus: normalizeGeneralClientFollowUpStatus(client.followUpStatus),
       nextFollowUpDate: client.nextFollowUpDate || "",
       lastFollowUpDate: client.lastFollowUpDate || "",
@@ -3195,6 +3211,48 @@ export function AdminClientsPanel({
       agreementFileType: client.agreementFileType || "",
       agreementFileData: client.agreementFileData || "",
     };
+  }
+
+  async function handleClientDetailsAgreementUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setLeadOnboardingForm((current) => ({
+        ...current,
+        agreementFileName: "",
+        agreementFileType: "",
+        agreementFileData: "",
+      }));
+      return;
+    }
+
+    if (file.type !== "application/pdf") {
+      setError("Signed agreement must be uploaded as a PDF.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 4 * 1024 * 1024) {
+      setError("Signed agreement PDF must be 4 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    setError("");
+
+    const fileData = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Unable to read the signed agreement PDF."));
+      reader.readAsDataURL(file);
+    });
+
+    setLeadOnboardingForm((current) => ({
+      ...current,
+      agreementFileName: file.name,
+      agreementFileType: file.type,
+      agreementFileData: fileData,
+    }));
   }
 
   async function handleAgreementUpload(event: React.ChangeEvent<HTMLInputElement>) {
@@ -3454,11 +3512,20 @@ export function AdminClientsPanel({
   }
 
   async function handleConvertLead(client: ClientRecord) {
-    if (!token || !isSuperAdmin) {
-      setError("Only Super Admin can convert leads.");
+    if (!token) {
+      setError("Please sign in again. Admin token is missing.");
       return;
     }
 
+    setClientDetailsMode("convert");
+    setLeadOnboardingClient(client);
+    setLeadOnboardingForm(buildClientFormFromRecord(client, "onboarded"));
+    setError("");
+    setMessage("");
+  }
+
+  function handleEditClient(client: ClientRecord) {
+    setClientDetailsMode("edit");
     setLeadOnboardingClient(client);
     setLeadOnboardingForm(buildClientFormFromRecord(client));
     setError("");
@@ -3489,7 +3556,10 @@ export function AdminClientsPanel({
         },
         body: JSON.stringify({
           ...leadOnboardingForm,
-          onboardingStatus: leadOnboardingClient.onboardingStatus || "new-lead",
+          onboardingStatus:
+            clientDetailsMode === "edit"
+              ? leadOnboardingForm.onboardingStatus
+              : leadOnboardingClient.onboardingStatus || "new-lead",
           notes: leadOnboardingForm.notes || "Converted from Client Leads screen.",
         }),
       });
@@ -3497,6 +3567,15 @@ export function AdminClientsPanel({
 
       if (!updateResponse.ok) {
         throw new Error(updateResult.message || "Unable to update client before onboarding.");
+      }
+
+      if (clientDetailsMode === "edit") {
+        await refreshCrm(token);
+        setLeadOnboardingClient(null);
+        setLeadOnboardingForm(emptyClientForm);
+        setClientDetailsMode("convert");
+        setMessage(`${leadOnboardingForm.companyName} was updated successfully.`);
+        return;
       }
 
       const response = await fetch(`/api/admin/clients/${leadOnboardingClient.id}/onboarding`, {
@@ -3518,6 +3597,8 @@ export function AdminClientsPanel({
 
       await refreshCrm(token);
       setLeadOnboardingClient(null);
+      setLeadOnboardingForm(emptyClientForm);
+      setClientDetailsMode("convert");
       setMessage(`${leadOnboardingForm.companyName} was converted to an onboarded client.`);
     } catch (conversionError) {
       setError(
@@ -4164,6 +4245,7 @@ export function AdminClientsPanel({
               setError("");
               setMessage("");
             }}
+            onEdit={handleEditClient}
             onConvertLead={(client) => {
               void handleConvertLead(client);
             }}
@@ -4190,12 +4272,18 @@ export function AdminClientsPanel({
           <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="eyebrow">Convert Lead</p>
+                <p className="eyebrow">
+                  {clientDetailsMode === "edit" ? "Edit Client" : "Convert Lead"}
+                </p>
                 <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-                  Complete onboarding details
+                  {clientDetailsMode === "edit"
+                    ? "Update client details"
+                    : "Complete onboarding details"}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
-                  Update any missing client details, then save and convert this lead to onboarded.
+                  {clientDetailsMode === "edit"
+                    ? "Save client contact, ownership, agreement, and onboarding changes here."
+                    : "Update any missing client details, then save and convert this lead to onboarded."}
                 </p>
               </div>
               <button
@@ -4203,6 +4291,7 @@ export function AdminClientsPanel({
                 onClick={() => {
                   setLeadOnboardingClient(null);
                   setLeadOnboardingForm(emptyClientForm);
+                  setClientDetailsMode("convert");
                 }}
                 className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
               >
@@ -4268,6 +4357,46 @@ export function AdminClientsPanel({
 
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Second Contact Person
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.secondaryContactPerson}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("secondaryContactPerson", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Second Contact Email
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    type="email"
+                    value={leadOnboardingForm.secondaryContactEmail}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("secondaryContactEmail", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Second Contact Phone
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.secondaryContactPhone}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("secondaryContactPhone", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                     Sector
                   </span>
                   <input
@@ -4325,6 +4454,31 @@ export function AdminClientsPanel({
                   />
                 </label>
 
+                {clientDetailsMode === "edit" ? (
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Onboarding Status
+                    </span>
+                    <select
+                      className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                      value={leadOnboardingForm.onboardingStatus}
+                      onChange={(event) =>
+                        updateLeadOnboardingField(
+                          "onboardingStatus",
+                          event.target.value as ClientOnboardingStatus
+                        )
+                      }
+                    >
+                      <option value="new-lead">New Lead</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="proposal-shared">Proposal Shared</option>
+                      <option value="negotiation">Negotiation</option>
+                      <option value="onboarded">Onboarded</option>
+                      <option value="hold">Hold</option>
+                    </select>
+                  </label>
+                ) : null}
+
                 <label className="block sm:col-span-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                     Communication Address
@@ -4337,6 +4491,28 @@ export function AdminClientsPanel({
                     }
                   />
                 </label>
+
+                {clientDetailsMode === "edit" ? (
+                  <div className="sm:col-span-2 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Signed Agreement PDF
+                    </label>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <label className="inline-flex cursor-pointer items-center rounded-2xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]">
+                        Upload PDF
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          className="sr-only"
+                          onChange={(event) => void handleClientDetailsAgreementUpload(event)}
+                        />
+                      </label>
+                      <span className="text-sm text-[var(--color-muted)]">
+                        {leadOnboardingForm.agreementFileName || "No file chosen"}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
 
                 <label className="block sm:col-span-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
@@ -4358,13 +4534,18 @@ export function AdminClientsPanel({
                   disabled={isConvertingLead}
                   className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isConvertingLead ? "Saving..." : "Save & Convert"}
+                  {isConvertingLead
+                    ? "Saving..."
+                    : clientDetailsMode === "edit"
+                      ? "Save Client"
+                      : "Save & Convert"}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setLeadOnboardingClient(null);
                     setLeadOnboardingForm(emptyClientForm);
+                    setClientDetailsMode("convert");
                   }}
                   className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
                 >

@@ -2808,7 +2808,7 @@ app.put("/admin/clients/:id", requirePermission("clients.manage"), async (reques
 
     if (
       request.user?.type === "employee" &&
-      !canManageClientWork(request.user, { type: "client", ...previousClient })
+      !canAccessEntity(request.user, { type: "client", ...previousClient })
     ) {
       return response.status(403).json({ message: "You do not have access to update this client." });
     }
@@ -2897,10 +2897,10 @@ app.put("/admin/clients/:id/onboarding", requirePermission("clients.manage"), as
     if (
       previousClient &&
       request.user?.type === "employee" &&
-      !canManageClientWork(request.user, { type: "client", ...previousClient })
+      !canAccessEntity(request.user, { type: "client", ...previousClient })
     ) {
       return response.status(403).json({
-        message: "You only have follow-up access for this client.",
+        message: "You do not have access to update this client.",
       });
     }
     const client = await updateClientOnboarding(request.params.id, {
