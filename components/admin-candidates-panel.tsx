@@ -318,6 +318,10 @@ export function AdminCandidatesPanel() {
         [
           application.candidateName,
           application.candidateEmail,
+          application.candidatePhone,
+          application.gender,
+          application.motherTongue,
+          application.otherLanguages,
           application.jobTitle,
           application.jobCode,
           application.clientName,
@@ -652,6 +656,9 @@ export function AdminCandidatesPanel() {
       candidateName: safeCell(application.candidateName),
       mobileNo: safeCell(application.candidatePhone),
       emailId: safeCell(application.candidateEmail),
+      gender: safeCell(application.gender),
+      motherTongue: safeCell(application.motherTongue),
+      otherLanguages: safeCell(application.otherLanguages),
       currentCompany: safeCell(application.currentCompany),
       totalExp: safeCell(application.experience),
       currentCtc: safeCell(application.currentCtc),
@@ -670,6 +677,9 @@ export function AdminCandidatesPanel() {
             <td>${escapeHtml(row.candidateName)}</td>
             <td>${escapeHtml(row.mobileNo)}</td>
             <td>${escapeHtml(row.emailId)}</td>
+            <td>${escapeHtml(row.gender)}</td>
+            <td>${escapeHtml(row.motherTongue)}</td>
+            <td>${escapeHtml(row.otherLanguages)}</td>
             <td>${escapeHtml(row.currentCompany)}</td>
             <td>${escapeHtml(row.totalExp)}</td>
             <td>${escapeHtml(row.currentCtc)}</td>
@@ -701,6 +711,9 @@ export function AdminCandidatesPanel() {
                 <th>Candidate Name</th>
                 <th>Mobile No.</th>
                 <th>Email ID</th>
+                <th>Gender</th>
+                <th>Mother Tongue</th>
+                <th>Other Languages</th>
                 <th>Current Company</th>
                 <th>Total Exp</th>
                 <th>Current CTC</th>
@@ -909,6 +922,11 @@ export function AdminCandidatesPanel() {
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
                           {application.experience || "Experience not added"}
                         </p>
+                        {[application.gender, application.motherTongue, application.otherLanguages].filter(Boolean).length > 0 ? (
+                          <p className="mt-1 text-xs text-[var(--color-muted)]">
+                            {[application.gender, application.motherTongue, application.otherLanguages].filter(Boolean).join(" | ")}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <p>{application.candidateEmail}</p>

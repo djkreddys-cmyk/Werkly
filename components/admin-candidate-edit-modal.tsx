@@ -27,6 +27,9 @@ type CandidateEditFormState = {
   candidateName: string;
   candidateEmail: string;
   candidatePhone: string;
+  gender: string;
+  motherTongue: string;
+  otherLanguages: string;
   experience: string;
   currentCompany: string;
   currentLocation: string;
@@ -49,6 +52,9 @@ function createFormState(application: JobApplication): CandidateEditFormState {
     candidateName: application.candidateName || "",
     candidateEmail: application.candidateEmail || "",
     candidatePhone: application.candidatePhone || "",
+    gender: application.gender || "",
+    motherTongue: application.motherTongue || "",
+    otherLanguages: application.otherLanguages || "",
     experience: application.experience || "",
     currentCompany: application.currentCompany || "",
     currentLocation: application.currentLocation || "",
@@ -181,6 +187,9 @@ export function AdminCandidateEditModal({
         candidateName: form.candidateName.trim(),
         candidateEmail: form.candidateEmail.trim() || undefined,
         candidatePhone: form.candidatePhone.trim() || undefined,
+        gender: form.gender.trim() || undefined,
+        motherTongue: form.motherTongue.trim() || undefined,
+        otherLanguages: form.otherLanguages.trim() || undefined,
         experience: form.experience.trim() || undefined,
         currentCompany: form.currentCompany.trim() || undefined,
         currentLocation: form.currentLocation.trim() || undefined,
@@ -271,6 +280,42 @@ export function AdminCandidateEditModal({
                   placeholder="Phone"
                   value={form.candidatePhone}
                   onChange={(event) => updateField("candidatePhone", event.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Gender
+                </span>
+                <select
+                  className={fieldClassName}
+                  value={form.gender}
+                  onChange={(event) => updateField("gender", event.target.value)}
+                >
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Mother Tongue
+                </span>
+                <input
+                  className={fieldClassName}
+                  placeholder="Mother tongue"
+                  value={form.motherTongue}
+                  onChange={(event) => updateField("motherTongue", event.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Other Languages
+                </span>
+                <input
+                  className={fieldClassName}
+                  placeholder="Other languages"
+                  value={form.otherLanguages}
+                  onChange={(event) => updateField("otherLanguages", event.target.value)}
                 />
               </label>
               <label className="block">

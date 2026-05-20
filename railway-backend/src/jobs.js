@@ -57,6 +57,9 @@ export function mapApplicationRow(row) {
     candidateName: row.candidate_name,
     candidateEmail: row.candidate_email || "",
     candidatePhone: row.candidate_phone,
+    gender: row.gender,
+    motherTongue: row.mother_tongue,
+    otherLanguages: row.other_languages,
     experience: row.experience,
     currentCompany: row.current_company,
     currentLocation: row.current_location,
@@ -117,6 +120,9 @@ export function mapCandidateEnquiryRow(row) {
     candidateName: row.candidate_name,
     candidateEmail: row.candidate_email || "",
     candidatePhone: row.candidate_phone,
+    gender: row.gender,
+    motherTongue: row.mother_tongue,
+    otherLanguages: row.other_languages,
     experience: row.experience,
     currentCompany: row.current_company,
     currentLocation: row.current_location,
@@ -141,6 +147,9 @@ export function mapResumeBuilderSubmissionRow(row) {
     candidateName: row.candidate_name,
     candidateEmail: row.candidate_email || "",
     candidatePhone: row.candidate_phone,
+    gender: row.gender,
+    motherTongue: row.mother_tongue,
+    otherLanguages: row.other_languages,
     targetRole: row.target_role,
     location: row.location,
     yearsExperience: row.years_experience,
@@ -347,6 +356,9 @@ export async function ensureJobsSchema() {
     `alter table job_applications add column if not exists stage_updated_at timestamptz not null default now()`
   );
   await query(`alter table job_applications add column if not exists candidate_phone text`);
+  await query(`alter table job_applications add column if not exists gender text`);
+  await query(`alter table job_applications add column if not exists mother_tongue text`);
+  await query(`alter table job_applications add column if not exists other_languages text`);
   await query(`alter table job_applications add column if not exists experience text`);
   await query(`alter table job_applications add column if not exists current_company text`);
   await query(`alter table job_applications add column if not exists current_location text`);
@@ -427,6 +439,9 @@ export async function ensureJobsSchema() {
       updated_at timestamptz not null default now()
     )
   `);
+  await query(`alter table candidate_enquiries add column if not exists gender text`);
+  await query(`alter table candidate_enquiries add column if not exists mother_tongue text`);
+  await query(`alter table candidate_enquiries add column if not exists other_languages text`);
 
   await query(`
     create table if not exists resume_builder_submissions (
@@ -447,6 +462,9 @@ export async function ensureJobsSchema() {
       updated_at timestamptz not null default now()
     )
   `);
+  await query(`alter table resume_builder_submissions add column if not exists gender text`);
+  await query(`alter table resume_builder_submissions add column if not exists mother_tongue text`);
+  await query(`alter table resume_builder_submissions add column if not exists other_languages text`);
 }
 
 async function generateJobCode(client, postedAt) {
@@ -728,6 +746,9 @@ export async function recordJobApplication(slug, payload) {
         candidate_name,
         candidate_email,
         candidate_phone,
+        gender,
+        mother_tongue,
+        other_languages,
         experience,
         current_company,
         current_location,
@@ -745,7 +766,7 @@ export async function recordJobApplication(slug, payload) {
         resume_file_data,
         candidate_message,
         job_title
-      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)` ,
+      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)` ,
       [
         jobId,
         "applied",
@@ -753,6 +774,9 @@ export async function recordJobApplication(slug, payload) {
         payload.candidateName,
         payload.candidateEmail,
         payload.candidatePhone || null,
+        payload.gender || null,
+        payload.motherTongue || null,
+        payload.otherLanguages || null,
         payload.experience || null,
         payload.currentCompany || null,
         payload.currentLocation || null,
@@ -854,6 +878,9 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         candidate_name,
         candidate_email,
         candidate_phone,
+        gender,
+        mother_tongue,
+        other_languages,
         experience,
         current_company,
         current_location,
@@ -874,7 +901,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         job_title
       ) values (
         $1, $2, $3, $4::date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-        $17, $18, 'manual_entry', $19, $20, $21, $22, $23, $24
+        $17, $18, $19, $20, $21, 'manual_entry', $22, $23, $24, $25, $26, $27
       )
       returning
         id,
@@ -892,6 +919,9 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         candidate_name,
         candidate_email,
         candidate_phone,
+        gender,
+        mother_tongue,
+        other_languages,
         experience,
         current_company,
         current_location,
@@ -920,6 +950,9 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         payload.candidateName,
         payload.candidateEmail || null,
         payload.candidatePhone || null,
+        payload.gender || null,
+        payload.motherTongue || null,
+        payload.otherLanguages || null,
         payload.experience || null,
         payload.currentCompany || null,
         payload.currentLocation || null,
@@ -1007,6 +1040,9 @@ export async function listJobApplications(jobId, employeeId = null) {
       job_applications.candidate_name,
       job_applications.candidate_email,
       job_applications.candidate_phone,
+      job_applications.gender,
+      job_applications.mother_tongue,
+      job_applications.other_languages,
       job_applications.experience,
       job_applications.current_company,
       job_applications.current_location,
@@ -1089,6 +1125,9 @@ export async function listAdminApplications(employeeId = null) {
       job_applications.candidate_name,
       job_applications.candidate_email,
       job_applications.candidate_phone,
+      job_applications.gender,
+      job_applications.mother_tongue,
+      job_applications.other_languages,
       job_applications.experience,
       job_applications.current_company,
       job_applications.current_location,
@@ -1153,6 +1192,9 @@ export async function getAdminApplicationById(applicationId) {
       job_applications.candidate_name,
       job_applications.candidate_email,
       job_applications.candidate_phone,
+      job_applications.gender,
+      job_applications.mother_tongue,
+      job_applications.other_languages,
       job_applications.experience,
       job_applications.current_company,
       job_applications.current_location,
@@ -1253,6 +1295,9 @@ export async function createCandidateEnquiry(payload) {
       candidate_name,
       candidate_email,
       candidate_phone,
+      gender,
+      mother_tongue,
+      other_languages,
       experience,
       current_company,
       current_location,
@@ -1269,13 +1314,16 @@ export async function createCandidateEnquiry(payload) {
       source_type,
       updated_at
     ) values (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,now()
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now()
     )
     returning *`,
     [
       payload.candidateName,
       payload.candidateEmail,
       payload.candidatePhone || null,
+      payload.gender || null,
+      payload.motherTongue || null,
+      payload.otherLanguages || null,
       payload.experience || null,
       payload.currentCompany || null,
       payload.currentLocation || null,
@@ -1303,6 +1351,9 @@ export async function listCandidateEnquiries() {
       candidate_name,
       candidate_email,
       candidate_phone,
+      gender,
+      mother_tongue,
+      other_languages,
       experience,
       current_company,
       current_location,
@@ -1331,6 +1382,9 @@ export async function createResumeBuilderSubmission(payload) {
        candidate_name,
        candidate_email,
        candidate_phone,
+       gender,
+       mother_tongue,
+       other_languages,
        target_role,
        location,
        years_experience,
@@ -1342,12 +1396,15 @@ export async function createResumeBuilderSubmission(payload) {
        source_type,
        updated_at
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, 'resume_builder', now())
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, 'resume_builder', now())
      returning
        id,
        candidate_name,
        candidate_email,
        candidate_phone,
+       gender,
+       mother_tongue,
+       other_languages,
        target_role,
        location,
        years_experience,
@@ -1363,6 +1420,9 @@ export async function createResumeBuilderSubmission(payload) {
       payload.candidateName,
       payload.candidateEmail,
       payload.candidatePhone || null,
+      payload.gender || null,
+      payload.motherTongue || null,
+      payload.otherLanguages || null,
       payload.targetRole || null,
       payload.location || null,
       payload.yearsExperience || null,
@@ -1384,6 +1444,9 @@ export async function listResumeBuilderSubmissions() {
        candidate_name,
        candidate_email,
        candidate_phone,
+       gender,
+       mother_tongue,
+       other_languages,
        target_role,
        location,
        years_experience,
@@ -1441,25 +1504,28 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
      set candidate_name = $2,
          candidate_email = $3,
          candidate_phone = $4,
-         experience = $5,
-         current_company = $6,
-         current_location = $7,
-         current_designation = $8,
-         preferred_role = $9,
-         current_ctc = $10,
-         expected_ctc = $11,
-         preferred_location = $12,
-         preferred_sector = $13,
-         source_type = $14,
-         source_note = $15,
-         candidate_message = $16,
-         resume_file_name = $17,
-         resume_file_type = $18,
-         resume_file_data = $19,
-         interview_scheduled_at = $20,
-         interview_mode = $21,
-         interview_panel = $22,
-         interview_reminder_at = $23,
+         gender = $5,
+         mother_tongue = $6,
+         other_languages = $7,
+         experience = $8,
+         current_company = $9,
+         current_location = $10,
+         current_designation = $11,
+         preferred_role = $12,
+         current_ctc = $13,
+         expected_ctc = $14,
+         preferred_location = $15,
+         preferred_sector = $16,
+         source_type = $17,
+         source_note = $18,
+         candidate_message = $19,
+         resume_file_name = $20,
+         resume_file_type = $21,
+         resume_file_data = $22,
+         interview_scheduled_at = $23,
+         interview_mode = $24,
+         interview_panel = $25,
+         interview_reminder_at = $26,
          updated_at = now()
      where id = $1
      returning
@@ -1479,6 +1545,9 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
        candidate_name,
        candidate_email,
        candidate_phone,
+       gender,
+       mother_tongue,
+       other_languages,
        experience,
        current_company,
        current_location,
@@ -1513,6 +1582,9 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
       payload.candidateName,
       payload.candidateEmail || null,
       payload.candidatePhone || null,
+      payload.gender || null,
+      payload.motherTongue || null,
+      payload.otherLanguages || null,
       payload.experience || null,
       payload.currentCompany || null,
       payload.currentLocation || null,
@@ -1613,6 +1685,9 @@ export async function updateJobApplicationStage(
          candidate_name,
          candidate_email,
          candidate_phone,
+         gender,
+         mother_tongue,
+         other_languages,
          experience,
          current_company,
          current_location,

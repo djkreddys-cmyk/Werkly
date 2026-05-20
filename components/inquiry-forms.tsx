@@ -153,6 +153,15 @@ export function InquiryForm({
               <input className={fieldClassName} type="tel" name="candidatePhone" placeholder="Phone number" required />
               <input className={fieldClassName} type="text" name="experience" placeholder="Experience (e.g. 4 years)" />
             </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <select className={fieldClassName} name="gender" defaultValue="">
+                <option value="">Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+              <input className={fieldClassName} type="text" name="motherTongue" placeholder="Mother tongue" />
+              <input className={fieldClassName} type="text" name="otherLanguages" placeholder="Other languages" />
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <input className={fieldClassName} type="text" name="currentCompany" placeholder="Current company name" />
               <input className={fieldClassName} type="text" name="currentLocation" placeholder="Current location" />

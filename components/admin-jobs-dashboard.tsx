@@ -39,6 +39,9 @@ type ManualCandidateState = {
   candidateName: string;
   candidateEmail: string;
   candidatePhone: string;
+  gender: string;
+  motherTongue: string;
+  otherLanguages: string;
   experience: string;
   currentCompany: string;
   currentLocation: string;
@@ -105,6 +108,9 @@ const emptyManualCandidateForm: ManualCandidateState = {
   candidateName: "",
   candidateEmail: "",
   candidatePhone: "",
+  gender: "",
+  motherTongue: "",
+  otherLanguages: "",
   experience: "",
   currentCompany: "",
   currentLocation: "",
@@ -1202,6 +1208,9 @@ export function AdminJobsDashboard({
         candidateName: manualCandidateForm.candidateName.trim(),
         candidateEmail: manualCandidateForm.candidateEmail.trim() || undefined,
         candidatePhone: manualCandidateForm.candidatePhone.trim() || undefined,
+        gender: manualCandidateForm.gender.trim() || undefined,
+        motherTongue: manualCandidateForm.motherTongue.trim() || undefined,
+        otherLanguages: manualCandidateForm.otherLanguages.trim() || undefined,
         experience: manualCandidateForm.experience.trim() || undefined,
         currentCompany: manualCandidateForm.currentCompany.trim() || undefined,
         currentLocation: manualCandidateForm.currentLocation.trim() || undefined,
@@ -2086,6 +2095,42 @@ export function AdminJobsDashboard({
                     value={manualCandidateForm.candidatePhone}
                     onChange={(event) =>
                       updateManualCandidateField("candidatePhone", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Gender</span>
+                  <select
+                    className={fieldClassName}
+                    value={manualCandidateForm.gender}
+                    onChange={(event) =>
+                      updateManualCandidateField("gender", event.target.value)
+                    }
+                  >
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Mother Tongue</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Mother tongue"
+                    value={manualCandidateForm.motherTongue}
+                    onChange={(event) =>
+                      updateManualCandidateField("motherTongue", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Other Languages</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Other languages"
+                    value={manualCandidateForm.otherLanguages}
+                    onChange={(event) =>
+                      updateManualCandidateField("otherLanguages", event.target.value)
                     }
                   />
                 </label>

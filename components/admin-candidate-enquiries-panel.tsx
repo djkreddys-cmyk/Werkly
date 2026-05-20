@@ -8,6 +8,9 @@ const emptyEnquiryForm: CandidateEnquiryPayload = {
   candidateName: "",
   candidateEmail: "",
   candidatePhone: "",
+  gender: "",
+  motherTongue: "",
+  otherLanguages: "",
   experience: "",
   currentCompany: "",
   currentLocation: "",
@@ -35,6 +38,8 @@ const enquiryFormFields: Array<{
   { field: "candidateName", label: "Candidate Name", required: true },
   { field: "candidateEmail", label: "Email" },
   { field: "candidatePhone", label: "Phone" },
+  { field: "motherTongue", label: "Mother Tongue" },
+  { field: "otherLanguages", label: "Other Languages" },
   { field: "experience", label: "Experience" },
   { field: "currentCompany", label: "Current Company" },
   { field: "currentLocation", label: "Current Location" },
@@ -112,6 +117,9 @@ function mapImportRow(headers: string[], row: string[]): CandidateEnquiryPayload
     candidateName: getValue("Candidate Name", "Name"),
     candidateEmail: getValue("Email", "Email ID", "Mail ID"),
     candidatePhone: getValue("Phone", "Mobile", "Mobile No", "Contact"),
+    gender: getValue("Gender"),
+    motherTongue: getValue("Mother Tongue", "Mother Language", "Native Language"),
+    otherLanguages: getValue("Other Languages", "Languages", "Known Languages"),
     experience: getValue("Experience", "Total Exp", "Total Experience"),
     currentCompany: getValue("Current Company", "Company"),
     currentLocation: getValue("Current Location", "Location"),
@@ -345,6 +353,9 @@ export function AdminCandidateEnquiriesPanel() {
         enquiry.preferredLocation,
         enquiry.preferredSector,
         enquiry.currentCompany,
+        enquiry.gender,
+        enquiry.motherTongue,
+        enquiry.otherLanguages,
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(trimmed))
@@ -475,6 +486,11 @@ export function AdminCandidateEnquiriesPanel() {
                       <p className="mt-1 text-sm text-[var(--color-muted)]">
                         {enquiry.candidateMessage || "No additional note"}
                       </p>
+                      {[enquiry.gender, enquiry.motherTongue, enquiry.otherLanguages].filter(Boolean).length > 0 ? (
+                        <p className="mt-1 text-xs text-[var(--color-muted)]">
+                          {[enquiry.gender, enquiry.motherTongue, enquiry.otherLanguages].filter(Boolean).join(" | ")}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                       <p>{enquiry.candidateEmail}</p>
@@ -569,6 +585,20 @@ export function AdminCandidateEnquiriesPanel() {
                       />
                     </label>
                   ))}
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Gender
+                    </span>
+                    <select
+                      className={fieldClassName}
+                      value={form.gender ?? ""}
+                      onChange={(event) => updateForm("gender", event.target.value)}
+                    >
+                      <option value="">Select gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </label>
                   <label className="block sm:col-span-2 xl:col-span-3">
                     <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                       Remarks

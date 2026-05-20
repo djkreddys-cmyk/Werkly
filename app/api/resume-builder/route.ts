@@ -11,7 +11,9 @@ type ResumeRequest = {
   address?: string
   dateOfBirth?: string
   nationality?: string
-  languages?: string
+  gender?: string
+  motherTongue?: string
+  otherLanguages?: string
   linkedin?: string
   portfolio?: string
   yearsExperience?: string
@@ -295,7 +297,10 @@ export async function POST(request: Request) {
     const address = clean(body.address)
     const dateOfBirth = clean(body.dateOfBirth)
     const nationality = clean(body.nationality)
-    const languages = clean(body.languages)
+    const gender = clean(body.gender)
+    const motherTongue = clean(body.motherTongue)
+    const otherLanguages = clean(body.otherLanguages)
+    const languages = [motherTongue, otherLanguages].filter(Boolean).join(', ')
     const linkedin = clean(body.linkedin)
     const portfolio = clean(body.portfolio)
     const professionalNotes = clean(body.professionalNotes)
@@ -324,6 +329,8 @@ export async function POST(request: Request) {
         { label: 'Address', value: address },
         { label: 'Date of Birth', value: dateOfBirth },
         { label: 'Nationality', value: nationality },
+        { label: 'Gender', value: gender },
+        { label: 'Mother Tongue', value: motherTongue },
         { label: 'Languages', value: languages },
         { label: 'LinkedIn', value: linkedin },
         { label: 'Portfolio', value: portfolio },

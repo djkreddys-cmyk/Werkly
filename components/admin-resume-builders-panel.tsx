@@ -67,6 +67,9 @@ export function AdminResumeBuildersPanel() {
         item.candidateName,
         item.candidateEmail,
         item.candidatePhone,
+        item.gender,
+        item.motherTongue,
+        item.otherLanguages,
         item.targetRole,
         item.location,
         item.skills,
@@ -163,6 +166,11 @@ export function AdminResumeBuildersPanel() {
                         <p className="mt-1 text-sm text-[var(--color-muted)]">
                           {item.yearsExperience || "Experience not added"}
                         </p>
+                        {[item.gender, item.motherTongue, item.otherLanguages].filter(Boolean).length > 0 ? (
+                          <p className="mt-1 text-xs text-[var(--color-muted)]">
+                            {[item.gender, item.motherTongue, item.otherLanguages].filter(Boolean).join(" | ")}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <p>{item.candidateEmail}</p>

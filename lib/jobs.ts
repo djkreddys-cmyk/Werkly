@@ -57,6 +57,9 @@ export type JobApplication = {
   candidateName: string;
   candidateEmail: string;
   candidatePhone?: string;
+  gender?: string;
+  motherTongue?: string;
+  otherLanguages?: string;
   experience?: string;
   currentCompany?: string;
   currentLocation?: string;
@@ -113,6 +116,9 @@ export type CandidateEnquiry = {
   candidateName: string;
   candidateEmail: string;
   candidatePhone?: string;
+  gender?: string;
+  motherTongue?: string;
+  otherLanguages?: string;
   experience?: string;
   currentCompany?: string;
   currentLocation?: string;
@@ -135,6 +141,9 @@ export type ResumeBuilderSubmission = {
   candidateName: string;
   candidateEmail: string;
   candidatePhone?: string;
+  gender?: string;
+  motherTongue?: string;
+  otherLanguages?: string;
   targetRole?: string;
   location?: string;
   yearsExperience?: string;
@@ -152,6 +161,9 @@ export type CandidateEnquiryPayload = {
   candidateName: string;
   candidateEmail?: string;
   candidatePhone?: string;
+  gender?: string;
+  motherTongue?: string;
+  otherLanguages?: string;
   experience?: string;
   currentCompany?: string;
   currentLocation?: string;
@@ -262,6 +274,9 @@ export type ManualJobApplicationPayload = {
   candidateName: string;
   candidateEmail?: string;
   candidatePhone?: string;
+  gender?: string;
+  motherTongue?: string;
+  otherLanguages?: string;
   experience?: string;
   currentCompany?: string;
   currentLocation?: string;
@@ -295,6 +310,9 @@ export type JobApplicationUpdatePayload = {
   candidateName: string;
   candidateEmail?: string;
   candidatePhone?: string;
+  gender?: string;
+  motherTongue?: string;
+  otherLanguages?: string;
   experience?: string;
   currentCompany?: string;
   currentLocation?: string;
@@ -744,6 +762,9 @@ export async function createResumeBuilderSubmission(payload: {
   candidateName: string;
   candidateEmail: string;
   candidatePhone?: string;
+  gender?: string;
+  motherTongue?: string;
+  otherLanguages?: string;
   targetRole?: string;
   location?: string;
   yearsExperience?: string;

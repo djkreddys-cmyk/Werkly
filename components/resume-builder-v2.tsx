@@ -74,7 +74,9 @@ type FormState = {
   address: string;
   dateOfBirth: string;
   nationality: string;
-  languages: string;
+  gender: string;
+  motherTongue: string;
+  otherLanguages: string;
   linkedin: string;
   portfolio: string;
   yearsExperience: string;
@@ -128,7 +130,9 @@ const initialForm = (): FormState => ({
   address: "",
   dateOfBirth: "",
   nationality: "",
-  languages: "",
+  gender: "",
+  motherTongue: "",
+  otherLanguages: "",
   linkedin: "",
   portfolio: "",
   yearsExperience: "",
@@ -391,6 +395,9 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
             candidateName: form.fullName,
             candidateEmail: form.email,
             candidatePhone: form.phone,
+            gender: form.gender,
+            motherTongue: form.motherTongue,
+            otherLanguages: form.otherLanguages,
             targetRole: generatedResume.targetRole,
             location: form.location,
             yearsExperience: form.yearsExperience,
@@ -441,7 +448,7 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
         <div className="pr-16"><p className="eyebrow">Resume Builder Form</p><h2 className="mt-3 text-3xl font-semibold leading-tight text-[var(--color-ink)]">Enter candidate details and generate the resume.</h2></div>
         <div className="mt-5 rounded-[1.25rem] border border-[var(--color-line)] bg-[var(--color-paper)] p-4">
           <p className="text-sm font-semibold text-[var(--color-ink)]">Personal Information included in resume</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">Email, phone, location, address, date of birth, nationality, languages, LinkedIn, and portfolio are added automatically when you fill them here.</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">Email, phone, location, address, date of birth, nationality, gender, languages, LinkedIn, and portfolio are added automatically when you fill them here.</p>
         </div>
         <div className="mt-5 rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4">
           <p className="eyebrow">Connect to Werkly</p>
@@ -518,7 +525,9 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Address</span><input value={form.address} onChange={(event) => handleFieldChange("address", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Street / area" /></label>
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Date of Birth</span><input value={form.dateOfBirth} onChange={(event) => handleFieldChange("dateOfBirth", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="DD/MM/YYYY" /></label>
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Nationality</span><input value={form.nationality} onChange={(event) => handleFieldChange("nationality", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Nationality" /></label>
-          <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Languages</span><input value={form.languages} onChange={(event) => handleFieldChange("languages", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="English, Telugu" /></label>
+          <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Gender</span><select value={form.gender} onChange={(event) => handleFieldChange("gender", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]"><option value="">Select gender</option><option value="Male">Male</option><option value="Female">Female</option></select></label>
+          <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Mother Tongue</span><input value={form.motherTongue} onChange={(event) => handleFieldChange("motherTongue", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Mother tongue" /></label>
+          <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Other Languages</span><input value={form.otherLanguages} onChange={(event) => handleFieldChange("otherLanguages", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="English, Hindi" /></label>
         </div>
         <div className="mt-5 grid gap-5 sm:grid-cols-[1fr_1fr_auto]">
           <label className="space-y-2"><span className="text-sm font-medium text-[var(--color-ink)]">Years of Experience</span><input value={form.yearsExperience} onChange={(event) => handleFieldChange("yearsExperience", event.target.value)} className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 outline-none transition focus:border-[var(--color-dark)]" placeholder="Years of experience" /></label>
