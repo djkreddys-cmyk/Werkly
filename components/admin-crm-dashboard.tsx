@@ -3424,18 +3424,6 @@ export function AdminClientsPanel({
       return;
     }
 
-    const missingFields = [
-      !client.contactPerson?.trim() ? "Contact Person" : "",
-      !client.sector?.trim() ? "Sector" : "",
-      !client.branch?.trim() ? "Branch / Region" : "",
-      !client.assignedEmployeeId ? "Assigned Employee" : "",
-    ].filter(Boolean);
-
-    if (missingFields.length > 0) {
-      setError(`Complete these fields before onboarding: ${missingFields.join(", ")}.`);
-      return;
-    }
-
     const confirmed = window.confirm(
       `Convert "${client.companyName}" from lead stage to onboarded client?`
     );
