@@ -27,6 +27,7 @@ type JobEditorState = {
   employmentType: string;
   salary: string;
   packagePerAnnum: string;
+  positionsCount: string;
   status: JobStatus;
   isHidden: boolean;
   lastDateToApply: string;
@@ -68,6 +69,7 @@ const emptyForm: JobEditorState = {
   employmentType: "Full Time",
   salary: "",
   packagePerAnnum: "",
+  positionsCount: "1",
   status: "open",
   isHidden: false,
   lastDateToApply: "",
@@ -558,6 +560,7 @@ export function AdminJobsDashboard({
           <th>Client</th>
           <th>Recruiter</th>
           <th>Location</th>
+          <th>Positions</th>
           <th>Experience</th>
           <th>Status</th>
           <th>Live Status</th>
@@ -573,6 +576,7 @@ export function AdminJobsDashboard({
               <td>${escapeHtml(job.clientName || "Not assigned")}</td>
               <td>${escapeHtml(job.recruiterName || "Unassigned")}</td>
               <td>${escapeHtml(job.location)}</td>
+              <td>${job.positionsCount ?? 1}</td>
               <td>${escapeHtml(job.experience)}</td>
               <td>${escapeHtml(job.isHidden ? "hidden" : job.status)}</td>
               <td>${escapeHtml(isLiveOnWebsite(job) ? "Live on website" : "Not live")}</td>
@@ -628,7 +632,7 @@ export function AdminJobsDashboard({
             viewMode,
             authType,
           },
-          columns: ["job", "client", "recruiter", "location", "applications", "status"],
+          columns: ["job", "client", "recruiter", "location", "positions", "applications", "status"],
         }),
       });
 
@@ -726,6 +730,22 @@ export function AdminJobsDashboard({
             onChange={(event) => updateForm("employmentType", event.target.value)}
             required
           />
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              No. of Positions
+            </span>
+            <input
+              className={fieldClassName}
+              type="number"
+              min="1"
+              step="1"
+              aria-label="Number of positions"
+              placeholder="No. of positions"
+              value={form.positionsCount}
+              onChange={(event) => updateForm("positionsCount", event.target.value)}
+              required
+            />
+          </label>
           {canViewJobCompensation ? (
             <>
               <input
@@ -797,6 +817,7 @@ export function AdminJobsDashboard({
       employmentType: job.employmentType,
       salary: job.salary ?? "",
       packagePerAnnum: job.packagePerAnnum ?? "",
+      positionsCount: String(job.positionsCount ?? 1),
       status: job.status,
       isHidden: Boolean(job.isHidden),
       lastDateToApply: job.lastDateToApply ?? "",
@@ -933,6 +954,7 @@ export function AdminJobsDashboard({
           employmentType: job.employmentType,
           salary: job.salary ?? "",
           packagePerAnnum: job.packagePerAnnum ?? "",
+          positionsCount: String(job.positionsCount ?? 1),
           status: job.status,
           isHidden: !job.isHidden,
           postedAt: job.postedAt,
@@ -983,6 +1005,7 @@ export function AdminJobsDashboard({
           employmentType: job.employmentType,
           salary: job.salary ?? "",
           packagePerAnnum: job.packagePerAnnum ?? "",
+          positionsCount: String(job.positionsCount ?? 1),
           status: "open",
           isHidden: false,
           postedAt: job.postedAt,
@@ -1539,6 +1562,7 @@ export function AdminJobsDashboard({
                       "Client",
                       "Recruiter",
                       "Location",
+                      "Positions",
                       "Applications",
                       "Status",
                       "Actions",
@@ -1590,6 +1614,11 @@ export function AdminJobsDashboard({
                             Close by {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
                           </p>
                         ) : null}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <span className="font-semibold text-[var(--color-ink)]">
+                          {job.positionsCount ?? 1}
+                        </span>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <button

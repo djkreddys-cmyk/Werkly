@@ -65,6 +65,9 @@ export default async function JobDetailPage({
               <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
                 {job.employmentType}
               </span>
+              <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
+                {job.positionsCount ?? 1} {(job.positionsCount ?? 1) === 1 ? "opening" : "openings"}
+              </span>
               {job.packagePerAnnum ? (
                 <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
                   {job.packagePerAnnum}
@@ -121,6 +124,12 @@ export default async function JobDetailPage({
                     <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Package Per Annum</p>
                     <p className="mt-1 font-semibold text-[var(--color-ink)]">
                       {job.packagePerAnnum ?? "Discussed with shortlisted candidates"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Open Positions</p>
+                    <p className="mt-1 font-semibold text-[var(--color-ink)]">
+                      {job.positionsCount ?? 1}
                     </p>
                   </div>
                   <div>

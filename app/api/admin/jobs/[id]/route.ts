@@ -21,6 +21,7 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
   const location = String(body.location ?? "");
   const sector = String(body.sector ?? "");
   const experience = String(body.experience ?? "");
+  const positionsCount = Math.max(1, Math.floor(Number(body.positionsCount ?? 1) || 1));
   return {
     title,
     slug: slugify(String(body.slug ?? title)),
@@ -32,6 +33,7 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
     employmentType: String(body.employmentType ?? "Full Time"),
     salary: body.salary ? String(body.salary) : undefined,
     packagePerAnnum: body.packagePerAnnum ? String(body.packagePerAnnum) : undefined,
+    positionsCount,
     status: (body.status as JobStatus) ?? "draft",
     isHidden: Boolean(body.isHidden),
     postedAt: body.postedAt ? String(body.postedAt) : undefined,

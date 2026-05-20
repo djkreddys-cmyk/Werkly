@@ -164,6 +164,7 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                   "Position",
                   "Sector",
                   "Location",
+                  "Openings",
                   "Experience",
                   "Type",
                   "Apply By",
@@ -183,7 +184,7 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
               {filteredJobs.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-10 text-center text-sm text-[var(--color-muted)]"
                   >
                     No jobs matched the current filters.
@@ -207,6 +208,9 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                     </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{job.sector}</td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{job.location}</td>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {job.positionsCount ?? 1}
+                    </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">{job.experience}</td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                       {job.employmentType}

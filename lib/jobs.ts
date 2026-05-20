@@ -18,6 +18,7 @@ export type JobSummary = {
   employmentType: string;
   salary?: string;
   packagePerAnnum?: string;
+  positionsCount: number;
   status: JobStatus;
   isHidden?: boolean;
   postedAt: string;
@@ -247,6 +248,7 @@ export type JobFormPayload = {
   employmentType: string;
   salary?: string;
   packagePerAnnum?: string;
+  positionsCount?: number;
   status: JobStatus;
   isHidden?: boolean;
   postedAt?: string;
@@ -326,6 +328,7 @@ const demoJobs: JobDetail[] = [
     employmentType: "Full Time",
     salary: "As per experience",
     packagePerAnnum: "12 - 18 LPA",
+    positionsCount: 1,
     status: "open",
     isHidden: false,
     postedAt: "2026-04-03",
@@ -358,6 +361,7 @@ const demoJobs: JobDetail[] = [
     employmentType: "Full Time",
     salary: "Competitive",
     packagePerAnnum: "6 - 9 LPA",
+    positionsCount: 2,
     status: "open",
     isHidden: false,
     postedAt: "2026-04-01",
@@ -390,6 +394,7 @@ const demoJobs: JobDetail[] = [
     employmentType: "Full Time",
     salary: "Incentive based",
     packagePerAnnum: "10 - 14 LPA",
+    positionsCount: 3,
     status: "open",
     isHidden: false,
     postedAt: "2026-03-29",
@@ -442,6 +447,10 @@ function normalizeJobSummary(job: Partial<JobDetail>): JobSummary {
     employmentType: String(job.employmentType ?? "Full Time"),
     salary: job.salary ? String(job.salary) : undefined,
     packagePerAnnum: job.packagePerAnnum ? String(job.packagePerAnnum) : undefined,
+    positionsCount:
+      typeof job.positionsCount === "number"
+        ? Math.max(1, job.positionsCount)
+        : Math.max(1, Number(job.positionsCount ?? 1) || 1),
     status: (job.status as JobStatus) ?? "open",
     isHidden: Boolean(job.isHidden),
     postedAt: String(job.postedAt ?? ""),
