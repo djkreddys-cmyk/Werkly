@@ -25,6 +25,8 @@ export async function PUT(
       interviewMode?: string;
       interviewPanel?: string;
       interviewReminderAt?: string;
+      finalCtc?: string;
+      dateOfJoining?: string;
     };
     const application = await updateJobApplicationStage(
       id,
@@ -37,6 +39,8 @@ export async function PUT(
         interviewMode: body.interviewMode,
         interviewPanel: body.interviewPanel,
         interviewReminderAt: body.interviewReminderAt,
+        finalCtc: body.finalCtc,
+        dateOfJoining: body.dateOfJoining,
       }
     );
     return NextResponse.json(application);
