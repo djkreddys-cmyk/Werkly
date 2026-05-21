@@ -10,6 +10,10 @@ import type {
   JobSummary,
   JobStatus,
 } from "@/lib/jobs";
+import {
+  countMatchingUniversalProfiles,
+  type UniversalCandidateProfile,
+} from "@/lib/candidate-profiles";
 import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
@@ -183,6 +187,7 @@ export function AdminJobsDashboard({
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [allApplications, setAllApplications] = useState<JobApplication[]>([]);
+  const [universalProfiles, setUniversalProfiles] = useState<UniversalCandidateProfile[]>([]);
   const [form, setForm] = useState<JobEditorState>(emptyForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -212,6 +217,7 @@ export function AdminJobsDashboard({
   const [isSavingCandidate, setIsSavingCandidate] = useState(false);
   const [actionMenuJobId, setActionMenuJobId] = useState("");
   const [viewMessage, setViewMessage] = useState("");
+  const [submissionHistoryJob, setSubmissionHistoryJob] = useState<JobSummary | null>(null);
 
   const isEditing = Boolean(form.id);
 
@@ -422,8 +428,19 @@ export function AdminJobsDashboard({
           Authorization: `Bearer ${token}`,
         },
       }),
+      fetch("/api/admin/candidate-profiles", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }),
     ])
-      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse]) => {
+      .then(async ([
+        jobsResponse,
+        clientsResponse,
+        employeesResponse,
+        applicationsResponse,
+        profilesResponse,
+      ]) => {
         const jobsResult = (await jobsResponse.json()) as {
           jobs?: JobSummary[];
           message?: string;
@@ -444,6 +461,10 @@ export function AdminJobsDashboard({
           applications?: JobApplication[];
           message?: string;
         };
+        const profilesResult = (await profilesResponse.json()) as {
+          profiles?: UniversalCandidateProfile[];
+          message?: string;
+        };
         if (!clientsResponse.ok) {
           throw new Error(clientsResult.message || "Unable to load clients.");
         }
@@ -453,11 +474,15 @@ export function AdminJobsDashboard({
         if (!applicationsResponse.ok) {
           throw new Error(applicationsResult.message || "Unable to load applications.");
         }
+        if (!profilesResponse.ok) {
+          throw new Error(profilesResult.message || "Unable to load candidate profiles.");
+        }
 
         setJobs(jobsResult.jobs ?? []);
         setClients(clientsResult.clients ?? []);
         setEmployees(employeesResult.employees ?? []);
         setAllApplications(applicationsResult.applications ?? []);
+        setUniversalProfiles(profilesResult.profiles ?? []);
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load jobs.");
@@ -534,6 +559,29 @@ export function AdminJobsDashboard({
     [filteredJobs, jobsPage]
   );
 
+  const matchingCandidateCounts = useMemo(() => {
+    return new Map(
+      visibleJobs.map((job) => [
+        job.id,
+        countMatchingUniversalProfiles(job, universalProfiles),
+      ])
+    );
+  }, [universalProfiles, visibleJobs]);
+
+  const submissionHistory = useMemo(() => {
+    if (!submissionHistoryJob) {
+      return [];
+    }
+
+    return allApplications
+      .filter((application) => application.clientName === submissionHistoryJob.clientName)
+      .sort(
+        (first, second) =>
+          new Date(second.stageUpdatedAt || second.appliedAt).getTime() -
+          new Date(first.stageUpdatedAt || first.appliedAt).getTime()
+      );
+  }, [allApplications, submissionHistoryJob]);
+
   function isLiveOnWebsite(job: JobSummary) {
     if (job.isHidden) {
       return false;
@@ -550,6 +598,41 @@ export function AdminJobsDashboard({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return new Date(job.lastDateToApply) >= today;
+  }
+
+  function sendShortlistedProfilesToClient(job: JobSummary) {
+    const shortlistedApplications = allApplications.filter(
+      (application) =>
+        application.jobId === job.id && (application.stage ?? "applied") === "shortlisted"
+    );
+    const client = clients.find((item) => item.id === job.clientId);
+    const recipient = client?.contactEmail || "";
+
+    if (shortlistedApplications.length === 0) {
+      setError("No shortlisted candidates are available for this job.");
+      return;
+    }
+
+    const body = shortlistedApplications
+      .map((application, index) =>
+        [
+          `${index + 1}. ${formatPersonName(application.candidateName)}`,
+          `Email: ${application.candidateEmail || "-"}`,
+          `Phone: ${application.candidatePhone || "-"}`,
+          `Experience: ${application.experience || "-"}`,
+          `Current role: ${application.currentDesignation || "-"}`,
+          `Current location: ${application.currentLocation || "-"}`,
+          `Remarks: ${application.stageNote || application.candidateMessage || "-"}`,
+        ].join("\n")
+      )
+      .join("\n\n");
+
+    window.location.href = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(
+      `Shortlisted profiles for ${job.title}`
+    )}&body=${encodeURIComponent(
+      `Dear ${client?.contactPerson || "Client"},\n\nPlease find the shortlisted profiles for ${job.title} below.\n\n${body}\n\nRegards,\nWerkly Team`
+    )}`;
+    setMessage(`Prepared ${shortlistedApplications.length} shortlisted profiles for client email.`);
   }
 
   function downloadJobsCurrentView() {
@@ -1582,6 +1665,7 @@ export function AdminJobsDashboard({
                       "Location",
                       "Positions",
                       "Applications",
+                      "Matching",
                       "Status",
                       "Actions",
                     ].map((heading) => (
@@ -1648,6 +1732,15 @@ export function AdminJobsDashboard({
                         </button>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <a
+                          href={`/admin/jobs/${job.id}`}
+                          className="font-semibold text-[var(--color-dark)] transition hover:text-[var(--color-accent-strong)]"
+                        >
+                          {matchingCandidateCounts.get(job.id) ?? 0}
+                        </a>
+                        <p className="mt-1 text-xs">candidate matches</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
                           {job.isHidden ? "hidden" : job.status}
                         </span>
@@ -1662,6 +1755,44 @@ export function AdminJobsDashboard({
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
+                        <div className="mb-2 flex flex-wrap gap-2">
+                          <a
+                            href={`/admin/jobs/${job.id}`}
+                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            Open
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => populateForEdit(job)}
+                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            Edit
+                          </button>
+                          {canAddCandidates ? (
+                            <button
+                              type="button"
+                              onClick={() => openManualCandidateModal(job)}
+                              className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                            >
+                              Add Candidate
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => sendShortlistedProfilesToClient(job)}
+                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            Send Shortlist
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSubmissionHistoryJob(job)}
+                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            History
+                          </button>
+                        </div>
                         <TableActionMenu
                           label={`Open actions for ${job.title}`}
                           isOpen={actionMenuJobId === job.id}
@@ -2348,6 +2479,84 @@ export function AdminJobsDashboard({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {submissionHistoryJob ? (
+        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-6 py-5">
+              <div>
+                <p className="eyebrow">Client Submission History</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {submissionHistoryJob.clientName || "Unassigned client"}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Candidate submissions linked to this client across jobs.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubmissionHistoryJob(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+            <div className="overflow-auto p-6">
+              {submissionHistory.length === 0 ? (
+                <p className="muted-copy text-sm">No candidate submissions found for this client.</p>
+              ) : (
+                <table className="min-w-full border-collapse">
+                  <thead>
+                    <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                      {["Candidate", "Job", "Stage", "Submitted", "Remarks"].map((heading) => (
+                        <th
+                          key={heading}
+                          className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        >
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissionHistory.map((application, index) => (
+                      <tr
+                        key={application.id}
+                        className={
+                          index === submissionHistory.length - 1
+                            ? "align-top"
+                            : "align-top border-b border-[var(--color-line)]"
+                        }
+                      >
+                        <td className="px-4 py-4 text-sm">
+                          <p className="font-semibold text-[var(--color-ink)]">
+                            {formatPersonName(application.candidateName)}
+                          </p>
+                          <p className="mt-1 text-[var(--color-muted)]">
+                            {application.candidateEmail || application.candidatePhone || "-"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {application.jobTitle || "Untitled job"}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {formatStageLabel((application.stage ?? "applied") as JobApplicationStage)}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {new Date(application.appliedAt).toLocaleDateString("en-IN")}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          {application.stageNote || application.candidateMessage || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       ) : null}

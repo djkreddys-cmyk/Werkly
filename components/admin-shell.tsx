@@ -8,6 +8,7 @@ import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
 import type { CrmModuleAccessKey } from "@/lib/access-control";
 import type { ClientRecord, EmployeeRecord, NotificationLogRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
+import type { UniversalCandidateProfile } from "@/lib/candidate-profiles";
 import { formatPersonName } from "@/lib/format";
 
 type AdminShellProps = {
@@ -310,6 +311,7 @@ export function AdminShell({
   const [clientsIndex, setClientsIndex] = useState<ClientRecord[]>([]);
   const [employeesIndex, setEmployeesIndex] = useState<EmployeeRecord[]>([]);
   const [applicationsIndex, setApplicationsIndex] = useState<JobApplication[]>([]);
+  const [candidateProfilesIndex, setCandidateProfilesIndex] = useState<UniversalCandidateProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
@@ -672,12 +674,14 @@ export function AdminShell({
       fetch("/api/admin/clients", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
       fetch("/api/admin/employees", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
       fetch("/api/admin/applications", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
+      fetch("/api/admin/candidate-profiles", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
     ])
-      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse]) => {
+      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse, profilesResponse]) => {
         const jobsResult = (await jobsResponse.json()) as { jobs?: JobSummary[] };
         const clientsResult = (await clientsResponse.json()) as { clients?: ClientRecord[] };
         const employeesResult = (await employeesResponse.json()) as { employees?: EmployeeRecord[] };
         const applicationsResult = (await applicationsResponse.json()) as { applications?: JobApplication[] };
+        const profilesResult = (await profilesResponse.json()) as { profiles?: UniversalCandidateProfile[] };
 
         if (!isMounted) {
           return;
@@ -687,6 +691,7 @@ export function AdminShell({
         setClientsIndex(clientsResult.clients ?? []);
         setEmployeesIndex(employeesResult.employees ?? []);
         setApplicationsIndex(applicationsResult.applications ?? []);
+        setCandidateProfilesIndex(profilesResult.profiles ?? []);
       })
       .catch(() => {
         // Global search stays silent if preload fails.
@@ -903,19 +908,21 @@ export function AdminShell({
             href: `/admin/clients/${client.id}`,
             type: "Client",
           })),
-        ...applicationsIndex
+        ...candidateProfilesIndex
           .filter(
-            (application) =>
-              application.candidateName.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-              String(application.candidateEmail || "").toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-              String(application.candidatePhone || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
+            (profile) =>
+              profile.candidateName.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+              String(profile.candidateEmail || "").toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+              String(profile.candidatePhone || "").toLowerCase().includes(searchQuery.trim().toLowerCase())
           )
           .slice(0, 4)
-          .map((application) => ({
-            id: `application-${application.id}`,
-            label: formatPersonName(application.candidateName),
-            sublabel: `${application.jobTitle || "No job"} • ${application.recruiterName || "Unassigned"}`,
-            href: `/admin/candidates/${application.id}`,
+          .map((profile) => ({
+            id: `candidate-profile-${profile.id}`,
+            label: formatPersonName(profile.candidateName),
+            sublabel: `${profile.sources.join(", ") || "Candidate"} - ${profile.jobs[0] || "No job application yet"}`,
+            href: profile.applicationIds[0]
+              ? `/admin/candidates/${profile.applicationIds[0]}`
+              : "/admin/candidates",
             type: "Candidate",
           })),
         ...employeesIndex

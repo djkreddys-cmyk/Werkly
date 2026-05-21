@@ -7,6 +7,7 @@ import {
   type JobApplicationAssignmentPayload,
   type JobApplicationStage,
 } from "@/lib/jobs";
+import type { UniversalCandidateProfile } from "@/lib/candidate-profiles";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobSummary } from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
@@ -71,6 +72,11 @@ export function AdminCandidatesPanel() {
       : ""
   );
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [universalProfiles, setUniversalProfiles] = useState<UniversalCandidateProfile[]>([]);
+  const [universalTotals, setUniversalTotals] = useState({
+    profiles: 0,
+    mergedDuplicates: 0,
+  });
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -181,8 +187,17 @@ export function AdminCandidatesPanel() {
       fetch("/api/admin/clients", {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch("/api/admin/candidate-profiles", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([applicationsResponse, employeesResponse, jobsResponse, clientsResponse]) => {
+      .then(async ([
+        applicationsResponse,
+        employeesResponse,
+        jobsResponse,
+        clientsResponse,
+        profilesResponse,
+      ]) => {
         const applicationsResult = (await applicationsResponse.json()) as {
           applications?: JobApplication[];
           message?: string;
@@ -199,6 +214,14 @@ export function AdminCandidatesPanel() {
           clients?: ClientRecord[];
           message?: string;
         };
+        const profilesResult = (await profilesResponse.json()) as {
+          profiles?: UniversalCandidateProfile[];
+          totals?: {
+            profiles?: number;
+            mergedDuplicates?: number;
+          };
+          message?: string;
+        };
 
         if (!applicationsResponse.ok) {
           throw new Error(applicationsResult.message || "Unable to load candidates.");
@@ -212,11 +235,19 @@ export function AdminCandidatesPanel() {
         if (!clientsResponse.ok) {
           throw new Error(clientsResult.message || "Unable to load clients.");
         }
+        if (!profilesResponse.ok) {
+          throw new Error(profilesResult.message || "Unable to load universal candidate profiles.");
+        }
 
         setApplications(applicationsResult.applications ?? []);
         setEmployees(employeesResult.employees ?? []);
         setJobs(jobsResult.jobs ?? []);
         setClients(clientsResult.clients ?? []);
+        setUniversalProfiles(profilesResult.profiles ?? []);
+        setUniversalTotals({
+          profiles: profilesResult.totals?.profiles ?? profilesResult.profiles?.length ?? 0,
+          mergedDuplicates: profilesResult.totals?.mergedDuplicates ?? 0,
+        });
       })
       .catch((loadError) => {
         setError(
@@ -338,6 +369,38 @@ export function AdminCandidatesPanel() {
       return matchesQuery && matchesStage;
     });
   }, [query, stageFilter, visibleApplications]);
+
+  const filteredUniversalProfiles = useMemo(() => {
+    const searchTerm = query.trim().toLowerCase();
+
+    return universalProfiles.filter((profile) => {
+      const matchesQuery =
+        !searchTerm ||
+        [
+          profile.candidateName,
+          profile.candidateEmail,
+          profile.candidatePhone,
+          profile.experience,
+          profile.currentCompany,
+          profile.currentDesignation,
+          profile.currentLocation,
+          profile.preferredRole,
+          profile.preferredLocation,
+          profile.preferredSector,
+          profile.skills,
+          ...profile.sources,
+          ...profile.jobs,
+          ...profile.clients,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(searchTerm));
+
+      const matchesStage =
+        stageFilter === "all" || profile.latestStage === stageFilter;
+
+      return matchesQuery && matchesStage;
+    });
+  }, [query, stageFilter, universalProfiles]);
 
   const stageCounts = useMemo(() => {
     return stageOptions.reduce<Record<JobApplicationStage, number>>((acc, stage) => {
@@ -812,6 +875,110 @@ export function AdminCandidatesPanel() {
         ))}
       </section>
 
+      <section className="accent-card p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="eyebrow">Universal Candidate Profiles</p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+              Merged candidates across applicants, enquiries, and resume builders.
+            </h2>
+            <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+              Duplicate entries are merged by email or phone so recruiters can see one candidate profile across every source.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <article className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Profiles
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
+                {universalTotals.profiles}
+              </p>
+            </article>
+            <article className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Duplicates Merged
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
+                {universalTotals.mergedDuplicates}
+              </p>
+            </article>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <p className="muted-copy mt-6 text-sm">Loading universal candidate profiles...</p>
+        ) : filteredUniversalProfiles.length === 0 ? (
+          <p className="muted-copy mt-6 text-sm">No universal profiles matched the current filters.</p>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                    {["Candidate", "Contact", "Sources", "Role & Location", "Jobs / Clients", "Latest"].map((heading) => (
+                      <th
+                        key={heading}
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                      >
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUniversalProfiles.slice(0, 10).map((profile, index) => (
+                    <tr
+                      key={profile.id}
+                      className={
+                        index === Math.min(filteredUniversalProfiles.length, 10) - 1
+                          ? "align-top"
+                          : "align-top border-b border-[var(--color-line)]"
+                      }
+                    >
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {formatPersonName(profile.candidateName)}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">
+                          {profile.experience || "Experience not added"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p>{profile.candidateEmail || "-"}</p>
+                        <p className="mt-1">{profile.candidatePhone || "-"}</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p className="font-semibold text-[var(--color-dark)]">
+                          {profile.sourceCount} source{profile.sourceCount === 1 ? "" : "s"}
+                        </p>
+                        <p className="mt-1">{profile.sources.join(", ")}</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p>{profile.currentDesignation || profile.preferredRole || "Role not added"}</p>
+                        <p className="mt-1">{profile.currentLocation || profile.preferredLocation || "Location not added"}</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p>{profile.jobs.slice(0, 2).join(", ") || "No job application yet"}</p>
+                        <p className="mt-1">{profile.clients.slice(0, 2).join(", ") || "No client linked"}</p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p>{profile.latestStage ? labelizeStage(profile.latestStage as JobApplicationStage) : "Profile captured"}</p>
+                        <p className="mt-1">
+                          {profile.latestActivityAt
+                            ? new Date(profile.latestActivityAt).toLocaleDateString("en-IN")
+                            : "-"}
+                        </p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
       <section id="job-applicants" className="accent-card scroll-mt-28 p-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -994,6 +1161,30 @@ export function AdminCandidatesPanel() {
                         })}
                       </td>
                       <td className="relative px-4 py-4 align-middle text-right">
+                        <div className="mb-2 flex flex-wrap justify-end gap-2">
+                          <a
+                            href={`/admin/candidates/${application.id}`}
+                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            Open
+                          </a>
+                          {roleAccess.fields["candidates.updateStage"] ? (
+                            <button
+                              type="button"
+                              onClick={() => openStageEditor(application)}
+                              className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                            >
+                              Stage
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => void openTimeline(application)}
+                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            Timeline
+                          </button>
+                        </div>
                         <TableActionMenu
                           label={`Open actions for ${application.candidateName}`}
                           isOpen={actionMenuApplicationId === application.id}
