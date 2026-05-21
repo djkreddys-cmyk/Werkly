@@ -219,13 +219,17 @@ export function AdminJobsDashboard({
   const [viewMessage, setViewMessage] = useState("");
   const [submissionHistoryJob, setSubmissionHistoryJob] = useState<JobSummary | null>(null);
   const [shortlistDraft, setShortlistDraft] = useState<{
+    jobId: string;
     jobTitle: string;
-    recipient: string;
+    toEmails: string;
+    ccEmails: string;
     subject: string;
     body: string;
     count: number;
+    resumeCount: number;
     usedAllApplications: boolean;
   } | null>(null);
+  const [isSendingShortlist, setIsSendingShortlist] = useState(false);
 
   const isEditing = Boolean(form.id);
 
@@ -615,7 +619,9 @@ export function AdminJobsDashboard({
         (application.stage ?? "applied") === "shortlisted"
     );
     const client = clients.find((item) => item.id === job.clientId);
-    const recipient = client?.contactEmail || "";
+    const recipient = [client?.contactEmail, client?.secondaryContactEmail]
+      .filter(Boolean)
+      .join(", ");
     const profilesToSend =
       shortlistedApplications.length > 0 ? shortlistedApplications : jobApplications;
 
@@ -649,14 +655,87 @@ Werkly Team`;
 
     setError("");
     setShortlistDraft({
+      jobId: job.id,
       jobTitle: job.title,
-      recipient,
+      toEmails: recipient,
+      ccEmails: "hr@werkly.in",
       subject,
       body: emailBody,
       count: profilesToSend.length,
+      resumeCount: profilesToSend.filter(
+        (application) => application.resumeFileData && application.resumeFileName
+      ).length,
       usedAllApplications: shortlistedApplications.length === 0,
     });
     setMessage(`Prepared ${profilesToSend.length} profiles for client email.`);
+  }
+
+  function updateShortlistDraft(patch: Partial<NonNullable<typeof shortlistDraft>>) {
+    setShortlistDraft((current) => (current ? { ...current, ...patch } : current));
+  }
+
+  async function sendShortlistEmail() {
+    if (!shortlistDraft) {
+      return;
+    }
+
+    if (!token) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    const toEmails = shortlistDraft.toEmails
+      .split(",")
+      .map((email) => email.trim())
+      .filter(Boolean);
+    const ccEmails = shortlistDraft.ccEmails
+      .split(",")
+      .map((email) => email.trim())
+      .filter(Boolean);
+
+    if (!toEmails.length) {
+      setError("Please add at least one client email before sending shortlist mail.");
+      return;
+    }
+
+    setIsSendingShortlist(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/jobs/${shortlistDraft.jobId}/shortlist-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          toEmails,
+          ccEmails,
+          subject: shortlistDraft.subject,
+          message: shortlistDraft.body,
+        }),
+      });
+      const result = (await response.json()) as {
+        message?: string;
+        candidatesCount?: number;
+        resumeAttachmentsCount?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to send shortlist mail.");
+      }
+
+      setShortlistDraft(null);
+      setMessage(
+        result.message ||
+          `Shortlist email sent for ${result.candidatesCount ?? shortlistDraft.count} candidate(s).`
+      );
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "Unable to send shortlist mail.");
+    } finally {
+      setIsSendingShortlist(false);
+    }
   }
 
   function openShortlistEmailDraft() {
@@ -664,7 +743,7 @@ Werkly Team`;
       return;
     }
 
-    window.location.href = `mailto:${shortlistDraft.recipient}?subject=${encodeURIComponent(
+    window.location.href = `mailto:${shortlistDraft.toEmails}?subject=${encodeURIComponent(
       shortlistDraft.subject
     )}&body=${encodeURIComponent(shortlistDraft.body)}`;
   }
@@ -2503,7 +2582,9 @@ Werkly Team`;
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
                   {shortlistDraft.count} profile{shortlistDraft.count === 1 ? "" : "s"} ready to send
-                  {shortlistDraft.recipient ? ` to ${shortlistDraft.recipient}` : "."}
+                  {shortlistDraft.toEmails ? ` to ${shortlistDraft.toEmails}` : "."}
+                  {" "}The shortlist report and {shortlistDraft.resumeCount} resume
+                  {shortlistDraft.resumeCount === 1 ? "" : "s"} will be attached.
                 </p>
                 {shortlistDraft.usedAllApplications ? (
                   <p className="mt-2 text-xs font-semibold text-[var(--color-accent-strong)]">
@@ -2520,13 +2601,47 @@ Werkly Team`;
               </button>
             </div>
             <div className="overflow-auto p-6">
+              <div className="mb-4 grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    To
+                  </span>
+                  <input
+                    value={shortlistDraft.toEmails}
+                    onChange={(event) => updateShortlistDraft({ toEmails: event.target.value })}
+                    placeholder="client@example.com, second@example.com"
+                    className={fieldClassName}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    CC
+                  </span>
+                  <input
+                    value={shortlistDraft.ccEmails}
+                    onChange={(event) => updateShortlistDraft({ ccEmails: event.target.value })}
+                    placeholder="hr@werkly.in"
+                    className={fieldClassName}
+                  />
+                </label>
+              </div>
+              <label className="mb-4 block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Subject
+                </span>
+                <input
+                  value={shortlistDraft.subject}
+                  onChange={(event) => updateShortlistDraft({ subject: event.target.value })}
+                  className={fieldClassName}
+                />
+              </label>
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                   Email Body
                 </span>
                 <textarea
-                  readOnly
                   value={shortlistDraft.body}
+                  onChange={(event) => updateShortlistDraft({ body: event.target.value })}
                   className={`${fieldClassName} min-h-[320px] resize-y font-mono text-xs leading-6`}
                 />
               </label>
@@ -2534,8 +2649,16 @@ Werkly Team`;
             <div className="flex shrink-0 flex-wrap gap-3 border-t border-[var(--color-line)] px-6 py-4">
               <button
                 type="button"
+                onClick={() => void sendShortlistEmail()}
+                disabled={isSendingShortlist}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSendingShortlist ? "Sending..." : "Send Mail"}
+              </button>
+              <button
+                type="button"
                 onClick={openShortlistEmailDraft}
-                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
               >
                 Open Email App
               </button>
