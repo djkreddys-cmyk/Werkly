@@ -118,6 +118,10 @@ export function TableActionMenu({
     };
   }, [isOpen, openUp]);
 
+  if (items.length === 0) {
+    return null;
+  }
+
   const menuPanel =
     isOpen && typeof document !== "undefined"
       ? createPortal(

@@ -1058,7 +1058,9 @@ export function AdminCandidatesPanel() {
                     ].map((heading) => (
                       <th
                         key={heading}
-                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
+                          heading === "Actions" ? "min-w-[230px]" : ""
+                        }`}
                       >
                         {heading}
                       </th>
@@ -1160,8 +1162,8 @@ export function AdminCandidatesPanel() {
                           timeStyle: "short",
                         })}
                       </td>
-                      <td className="relative px-4 py-4 align-middle text-right">
-                        <div className="mb-2 flex flex-wrap justify-end gap-2">
+                      <td className="relative min-w-[230px] px-4 py-4 align-middle text-right">
+                        <div className="flex flex-nowrap items-center justify-end gap-2">
                           <a
                             href={`/admin/candidates/${application.id}`}
                             className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
@@ -1184,81 +1186,63 @@ export function AdminCandidatesPanel() {
                           >
                             Timeline
                           </button>
+                          <TableActionMenu
+                            label={`Open actions for ${application.candidateName}`}
+                            isOpen={actionMenuApplicationId === application.id}
+                            onToggle={() =>
+                              setActionMenuApplicationId((current) =>
+                                current === application.id ? "" : application.id
+                              )
+                            }
+                            onClose={() => setActionMenuApplicationId("")}
+                            openUp={shouldOpenUp}
+                            items={[
+                              ...(roleAccess.fields["candidates.transfer"]
+                                ? [
+                                    {
+                                      label: "Transfer Candidate",
+                                      onClick: () => openAssignmentEditor(application),
+                                    },
+                                  ]
+                                : []),
+                              ...(roleAccess.fields["candidates.resume"] &&
+                              application.resumeFileData &&
+                              application.resumeFileName
+                                ? [
+                                    {
+                                      label: "View Resume",
+                                      href: application.resumeFileData,
+                                      external: true,
+                                      tone: "accent" as const,
+                                    },
+                                    {
+                                      label: "Download Resume",
+                                      onClick: () => {
+                                        const link = document.createElement("a");
+                                        link.href = application.resumeFileData || "";
+                                        link.download = application.resumeFileName || "resume";
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                      },
+                                      tone: "danger" as const,
+                                    },
+                                  ]
+                                : []),
+                              ...(isSuperAdmin
+                                ? [
+                                    {
+                                      label: "Delete Candidate",
+                                      onClick: () => {
+                                        void handleDeleteCandidate(application);
+                                      },
+                                      tone: "danger" as const,
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
                         </div>
-                        <TableActionMenu
-                          label={`Open actions for ${application.candidateName}`}
-                          isOpen={actionMenuApplicationId === application.id}
-                          onToggle={() =>
-                            setActionMenuApplicationId((current) =>
-                              current === application.id ? "" : application.id
-                            )
-                          }
-                          onClose={() => setActionMenuApplicationId("")}
-                          openUp={shouldOpenUp}
-                          items={[
-                            {
-                              label: "Open Candidate Page",
-                              href: `/admin/candidates/${application.id}`,
-                              tone: "accent",
-                            },
-                            ...(roleAccess.fields["candidates.updateStage"]
-                              ? [
-                                  {
-                                    label: "Update Stage",
-                                    onClick: () => openStageEditor(application),
-                                  },
-                                ]
-                              : []),
-                            ...(roleAccess.fields["candidates.transfer"]
-                              ? [
-                                  {
-                                    label: "Transfer Candidate",
-                                    onClick: () => openAssignmentEditor(application),
-                                  },
-                                ]
-                              : []),
-                            {
-                              label: "View Timeline",
-                              onClick: () => void openTimeline(application),
-                              tone: "accent",
-                            },
-                            ...(roleAccess.fields["candidates.resume"] &&
-                            application.resumeFileData &&
-                            application.resumeFileName
-                              ? [
-                                  {
-                                    label: "View Resume",
-                                    href: application.resumeFileData,
-                                    external: true,
-                                    tone: "accent" as const,
-                                  },
-                                  {
-                                    label: "Download Resume",
-                                    onClick: () => {
-                                      const link = document.createElement("a");
-                                      link.href = application.resumeFileData || "";
-                                      link.download = application.resumeFileName || "resume";
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
-                                    },
-                                    tone: "danger" as const,
-                                  },
-                                ]
-                              : []),
-                            ...(isSuperAdmin
-                              ? [
-                                  {
-                                    label: "Delete Candidate",
-                                    onClick: () => {
-                                      void handleDeleteCandidate(application);
-                                    },
-                                    tone: "danger" as const,
-                                  },
-                                ]
-                              : []),
-                          ]}
-                        />
                       </td>
                     </tr>
                   )})}
