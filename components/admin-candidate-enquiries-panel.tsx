@@ -158,6 +158,7 @@ export function AdminCandidateEnquiriesPanel() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [form, setForm] = useState<CandidateEnquiryPayload>(emptyEnquiryForm);
   const isSuperAdmin = authType === "admin" || authRole === "super-admin";
@@ -361,6 +362,18 @@ export function AdminCandidateEnquiriesPanel() {
         .some((value) => String(value).toLowerCase().includes(trimmed))
     );
   }, [enquiries, query]);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(filteredEnquiries.length / pageSize));
+  const activePage = Math.min(page, pageCount);
+  const pagedEnquiries = useMemo(
+    () => filteredEnquiries.slice((activePage - 1) * pageSize, activePage * pageSize),
+    [activePage, filteredEnquiries]
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, enquiries.length]);
+
   const duplicateEnquiryMatches = useMemo(() => {
     const normalizedEmail = String(form.candidateEmail || "").trim().toLowerCase();
     const normalizedPhone = String(form.candidatePhone || "").replace(/\D/g, "");
@@ -470,11 +483,11 @@ export function AdminCandidateEnquiriesPanel() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEnquiries.map((enquiry, index) => (
+                {pagedEnquiries.map((enquiry, index) => (
                   <tr
                     key={enquiry.id}
                     className={
-                      index === filteredEnquiries.length - 1
+                      index === pagedEnquiries.length - 1
                         ? "align-top"
                         : "align-top border-b border-[var(--color-line)]"
                     }
@@ -534,6 +547,33 @@ export function AdminCandidateEnquiriesPanel() {
               </tbody>
             </table>
           </div>
+          {filteredEnquiries.length > pageSize ? (
+            <div className="flex flex-col gap-3 border-t border-[var(--color-line)] px-4 py-4 text-sm text-[var(--color-muted)] sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                Showing {(activePage - 1) * pageSize + 1}-
+                {Math.min(activePage * pageSize, filteredEnquiries.length)} of{" "}
+                {filteredEnquiries.length} candidate enquiries
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={activePage === 1}
+                  className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                  disabled={activePage === pageCount}
+                  className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
