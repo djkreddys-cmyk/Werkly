@@ -111,6 +111,7 @@ import {
   listJobApplications,
   listAdminJobs,
   listJobs,
+  mergeJobsByCode,
   recordJobApplication,
   assignJobApplication,
   updateJobApplicationDetails,
@@ -3879,6 +3880,67 @@ app.put("/admin/jobs/:id", requirePermission("jobs.manage"), async (request, res
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to update job.",
+    });
+  }
+});
+
+app.post("/admin/jobs/merge", requireAdmin, async (request, response) => {
+  try {
+    const primaryJobCode = String(request.body?.primaryJobCode || "").trim();
+    const duplicateJobCode = String(request.body?.duplicateJobCode || "").trim();
+
+    if (!primaryJobCode || !duplicateJobCode || primaryJobCode === duplicateJobCode) {
+      return response.status(400).json({
+        message: "Primary and duplicate job codes are required.",
+      });
+    }
+
+    const merged = await mergeJobsByCode(primaryJobCode, duplicateJobCode);
+
+    if (!merged?.job) {
+      return response.status(404).json({
+        message: "One or both job codes were not found.",
+      });
+    }
+
+    await createAuditLog({
+      actionType: "job.merged",
+      entityType: "job",
+      entityId: merged.job.id,
+      ...getActorDetails(request),
+      beforeData: {
+        duplicateJob: merged.mergedFrom,
+      },
+      afterData: merged.job,
+      metadata: {
+        primaryJobCode,
+        duplicateJobCode,
+        movedApplicationsCount: merged.movedApplicationsCount,
+      },
+    });
+
+    await recordTimeline(request, {
+      entityType: "job",
+      entityId: merged.job.id,
+      entityLabel: merged.job.title,
+      eventType: "job.merged",
+      title: "Duplicate job merged",
+      summary: `${duplicateJobCode} was merged into ${primaryJobCode}.`,
+      beforeData: {
+        duplicateJob: merged.mergedFrom,
+      },
+      afterData: merged.job,
+      metadata: {
+        primaryJobCode,
+        duplicateJobCode,
+        movedApplicationsCount: merged.movedApplicationsCount,
+      },
+    });
+
+    response.json({ success: true, ...merged });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to merge jobs.",
     });
   }
 });

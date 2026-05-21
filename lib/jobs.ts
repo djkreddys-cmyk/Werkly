@@ -667,6 +667,29 @@ export async function updateJob(id: string, payload: JobFormPayload, token: stri
   });
 }
 
+export async function mergeJobs(
+  primaryJobCode: string,
+  duplicateJobCode: string,
+  token: string
+) {
+  return readJson<{
+    success: boolean;
+    job: JobDetail;
+    mergedFrom: {
+      id: string;
+      jobCode: string;
+      title: string;
+    };
+    movedApplicationsCount: number;
+  }>("/admin/jobs/merge", {
+    method: "POST",
+    body: JSON.stringify({ primaryJobCode, duplicateJobCode }),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export async function getJobApplications(id: string, token: string) {
   const data = await readJson<JobApplicationsResponse | JobApplication[]>(
     `/admin/jobs/${id}/applications`,

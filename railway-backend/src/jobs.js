@@ -727,6 +727,109 @@ export async function deleteJob(id) {
   return result.rowCount > 0;
 }
 
+export async function mergeJobsByCode(primaryJobCode, duplicateJobCode) {
+  const primaryCode = String(primaryJobCode || "").trim();
+  const duplicateCode = String(duplicateJobCode || "").trim();
+
+  if (!primaryCode || !duplicateCode || primaryCode === duplicateCode) {
+    throw new Error("Two different job codes are required to merge jobs.");
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const jobsResult = await client.query(
+      `select id, job_code, title, applications_count
+       from jobs
+       where job_code = any($1::text[])
+       for update`,
+      [[primaryCode, duplicateCode]]
+    );
+
+    const primaryJob = jobsResult.rows.find((job) => job.job_code === primaryCode);
+    const duplicateJob = jobsResult.rows.find((job) => job.job_code === duplicateCode);
+
+    if (!primaryJob || !duplicateJob) {
+      await client.query("rollback");
+      return null;
+    }
+
+    const movedApplicationsResult = await client.query(
+      `update job_applications
+       set job_id = $1
+       where job_id = $2
+       returning id`,
+      [primaryJob.id, duplicateJob.id]
+    );
+
+    await client.query(
+      `update crm_timeline_events
+       set entity_id = $1
+       where entity_type = 'job'
+         and entity_id = $2`,
+      [primaryJob.id, duplicateJob.id]
+    );
+
+    await client.query(
+      `update crm_audit_logs
+       set entity_id = $1
+       where entity_type = 'job'
+         and entity_id = $2`,
+      [primaryJob.id, duplicateJob.id]
+    );
+
+    await client.query(
+      `update crm_approval_requests
+       set entity_id = $1
+       where entity_type = 'job'
+         and entity_id = $2`,
+      [primaryJob.id, duplicateJob.id]
+    );
+
+    await client.query(
+      `update notification_logs
+       set entity_id = $1
+       where entity_type = 'job'
+         and entity_id = $2`,
+      [primaryJob.id, duplicateJob.id]
+    );
+
+    await client.query(`delete from jobs where id = $1`, [duplicateJob.id]);
+
+    const updatedJobResult = await client.query(
+      `update jobs
+       set applications_count = (
+         select count(*)::int
+         from job_applications
+         where job_applications.job_id = jobs.id
+       ),
+           updated_at = now()
+       where id = $1
+       returning *`,
+      [primaryJob.id]
+    );
+
+    await client.query("commit");
+
+    return {
+      job: updatedJobResult.rows[0] ? mapRow(updatedJobResult.rows[0]) : null,
+      mergedFrom: {
+        id: duplicateJob.id,
+        jobCode: duplicateJob.job_code,
+        title: duplicateJob.title,
+      },
+      movedApplicationsCount: movedApplicationsResult.rowCount,
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function recordJobApplication(slug, payload) {
   const client = await pool.connect();
 
