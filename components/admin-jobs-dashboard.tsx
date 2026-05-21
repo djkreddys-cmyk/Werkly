@@ -1976,7 +1976,9 @@ export function AdminJobsDashboard({
                               <select
                                 value={application.stage ?? "applied"}
                                 disabled={isUpdatingStageId === application.id}
-                                onChange={(event) =>
+                                onChange={(event) => {
+                                  setError("");
+                                  setMessage("");
                                   setStageDraft({
                                     application,
                                     stage: event.target.value as JobApplicationStage,
@@ -1989,8 +1991,8 @@ export function AdminJobsDashboard({
                                       application.dateOfJoining ??
                                       application.stageDate ??
                                       new Date().toISOString().slice(0, 10),
-                                  })
-                                }
+                                  });
+                                }}
                                 className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
                               >
                                 {applicationStages.map((stage) => (
@@ -2474,6 +2476,7 @@ export function AdminJobsDashboard({
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 type="button"
+                disabled={isUpdatingStageId === stageDraft.application.id}
                 onClick={async () => {
                   if (!stageDraft.note.trim() || !stageDraft.date) {
                     setError("Please add both remarks and date before saving the stage update.");
@@ -2503,9 +2506,9 @@ export function AdminJobsDashboard({
                     setStageDraft(null);
                   }
                 }}
-                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Save Stage Update
+                {isUpdatingStageId === stageDraft.application.id ? "Saving..." : "Save Stage Update"}
               </button>
               <button
                 type="button"

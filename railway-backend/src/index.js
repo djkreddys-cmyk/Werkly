@@ -1626,10 +1626,12 @@ app.put(
         stageNote,
         stageDate,
         request.user?.type === "employee" ? request.user.id : null,
-        {
-          finalCtc: String(finalCtc ?? "").trim() || null,
-          dateOfJoining: dateOfJoining || stageDate,
-        }
+        stage === "joined"
+          ? {
+              finalCtc: String(finalCtc ?? "").trim() || null,
+              dateOfJoining: dateOfJoining || stageDate,
+            }
+          : {}
       );
 
       if (!application) {
