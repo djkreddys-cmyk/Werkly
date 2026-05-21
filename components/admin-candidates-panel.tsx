@@ -1042,7 +1042,7 @@ export function AdminCandidatesPanel() {
         ) : (
           <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
             <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse">
+              <table className="min-w-[1360px] border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
                     {[
@@ -1059,7 +1059,7 @@ export function AdminCandidatesPanel() {
                       <th
                         key={heading}
                         className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
-                          heading === "Actions" ? "min-w-[230px]" : ""
+                          heading === "Actions" ? "w-[240px] min-w-[240px]" : ""
                         }`}
                       >
                         {heading}
@@ -1162,11 +1162,11 @@ export function AdminCandidatesPanel() {
                           timeStyle: "short",
                         })}
                       </td>
-                      <td className="relative min-w-[230px] px-4 py-4 align-middle text-right">
+                      <td className="relative w-[240px] min-w-[240px] px-4 py-4 align-middle text-right">
                         <div className="flex flex-nowrap items-center justify-end gap-2">
                           <a
                             href={`/admin/candidates/${application.id}`}
-                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                            className="shrink-0 rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                           >
                             Open
                           </a>
@@ -1174,7 +1174,7 @@ export function AdminCandidatesPanel() {
                             <button
                               type="button"
                               onClick={() => openStageEditor(application)}
-                              className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                              className="shrink-0 rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
                             >
                               Stage
                             </button>
@@ -1182,7 +1182,7 @@ export function AdminCandidatesPanel() {
                           <button
                             type="button"
                             onClick={() => void openTimeline(application)}
-                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                            className="shrink-0 rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                           >
                             Timeline
                           </button>
