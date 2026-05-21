@@ -1779,9 +1779,9 @@ export function AdminJobsDashboard({
       ) : null}
 
       {isEditing ? (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="w-full max-w-4xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-7 shadow-[0_30px_80px_rgba(15,23,42,0.22)]">
-            <div className="flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-slate-950/55 p-3 sm:p-4 lg:items-center">
+          <div className="my-3 flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.22)] sm:my-4 sm:max-h-[calc(100vh-2rem)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-4 py-5 sm:px-7">
               <div>
                 <p className="eyebrow">Edit Job</p>
                 <h3 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
@@ -1800,7 +1800,7 @@ export function AdminJobsDashboard({
               </button>
             </div>
 
-            <form className="mt-2" onSubmit={handleSubmit}>
+            <form className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7" onSubmit={handleSubmit}>
               {renderJobFields()}
 
               {message ? <p className="mt-4 text-sm font-medium text-emerald-700">{message}</p> : null}
