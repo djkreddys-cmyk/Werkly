@@ -558,23 +558,19 @@ export async function GET(
       profiles.set(key, existing ? mergeProfile(existing, profile) : profile);
     };
 
-    applications
-      .filter((application) => application.jobId !== job.id)
-      .map(applicationToProfile)
-      .forEach(addProfile);
+    applications.map(applicationToProfile).forEach(addProfile);
     enquiries.map(enquiryToProfile).forEach(addProfile);
     resumeSubmissions.map(resumeBuilderToProfile).forEach(addProfile);
 
     const ruleBasedSuggestions = Array.from(profiles.values())
       .map((profile) => scoreProfile(job, profile))
-      .filter((profile) => profile.matchScore >= 15)
       .sort((a, b) => {
         if (b.matchScore !== a.matchScore) {
           return b.matchScore - a.matchScore;
         }
         return new Date(b.lastActivityAt || 0).getTime() - new Date(a.lastActivityAt || 0).getTime();
       })
-      .slice(0, 35);
+      .slice(0, 100);
     const matchingResult = applyRuleBasedMatching(ruleBasedSuggestions);
 
     return NextResponse.json({
