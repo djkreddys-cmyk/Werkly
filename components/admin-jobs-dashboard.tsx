@@ -218,6 +218,14 @@ export function AdminJobsDashboard({
   const [actionMenuJobId, setActionMenuJobId] = useState("");
   const [viewMessage, setViewMessage] = useState("");
   const [submissionHistoryJob, setSubmissionHistoryJob] = useState<JobSummary | null>(null);
+  const [shortlistDraft, setShortlistDraft] = useState<{
+    jobTitle: string;
+    recipient: string;
+    subject: string;
+    body: string;
+    count: number;
+    usedAllApplications: boolean;
+  } | null>(null);
 
   const isEditing = Boolean(form.id);
 
@@ -601,19 +609,22 @@ export function AdminJobsDashboard({
   }
 
   function sendShortlistedProfilesToClient(job: JobSummary) {
-    const shortlistedApplications = allApplications.filter(
+    const jobApplications = allApplications.filter((application) => application.jobId === job.id);
+    const shortlistedApplications = jobApplications.filter(
       (application) =>
-        application.jobId === job.id && (application.stage ?? "applied") === "shortlisted"
+        (application.stage ?? "applied") === "shortlisted"
     );
     const client = clients.find((item) => item.id === job.clientId);
     const recipient = client?.contactEmail || "";
+    const profilesToSend =
+      shortlistedApplications.length > 0 ? shortlistedApplications : jobApplications;
 
-    if (shortlistedApplications.length === 0) {
-      setError("No shortlisted candidates are available for this job.");
+    if (profilesToSend.length === 0) {
+      setError("No candidates are available to send for this job.");
       return;
     }
 
-    const body = shortlistedApplications
+    const body = profilesToSend
       .map((application, index) =>
         [
           `${index + 1}. ${formatPersonName(application.candidateName)}`,
@@ -626,13 +637,36 @@ export function AdminJobsDashboard({
         ].join("\n")
       )
       .join("\n\n");
+    const subject = `Shortlisted profiles for ${job.title}`;
+    const emailBody = `Dear ${client?.contactPerson || "Client"},
 
-    window.location.href = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(
-      `Shortlisted profiles for ${job.title}`
-    )}&body=${encodeURIComponent(
-      `Dear ${client?.contactPerson || "Client"},\n\nPlease find the shortlisted profiles for ${job.title} below.\n\n${body}\n\nRegards,\nWerkly Team`
-    )}`;
-    setMessage(`Prepared ${shortlistedApplications.length} shortlisted profiles for client email.`);
+Please find the ${shortlistedApplications.length > 0 ? "shortlisted" : "available"} profiles for ${job.title} below.
+
+${body}
+
+Regards,
+Werkly Team`;
+
+    setError("");
+    setShortlistDraft({
+      jobTitle: job.title,
+      recipient,
+      subject,
+      body: emailBody,
+      count: profilesToSend.length,
+      usedAllApplications: shortlistedApplications.length === 0,
+    });
+    setMessage(`Prepared ${profilesToSend.length} profiles for client email.`);
+  }
+
+  function openShortlistEmailDraft() {
+    if (!shortlistDraft) {
+      return;
+    }
+
+    window.location.href = `mailto:${shortlistDraft.recipient}?subject=${encodeURIComponent(
+      shortlistDraft.subject
+    )}&body=${encodeURIComponent(shortlistDraft.body)}`;
   }
 
   function downloadJobsCurrentView() {
@@ -1756,6 +1790,15 @@ export function AdminJobsDashboard({
                       </td>
                       <td className="px-4 py-4 align-top">
                         <div className="mb-2 flex flex-wrap gap-2">
+                          {canAddCandidates ? (
+                            <button
+                              type="button"
+                              onClick={() => openManualCandidateModal(job)}
+                              className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                            >
+                              Add Candidate
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => sendShortlistedProfilesToClient(job)}
@@ -1782,15 +1825,6 @@ export function AdminJobsDashboard({
                               label: "Edit",
                               onClick: () => populateForEdit(job),
                             },
-                            ...(canAddCandidates
-                              ? [
-                                  {
-                                    label: "Add Candidate",
-                                    onClick: () => openManualCandidateModal(job),
-                                    tone: "accent" as const,
-                                  },
-                                ]
-                              : []),
                             {
                               label: "Submission History",
                               onClick: () => setSubmissionHistoryJob(job),
@@ -2454,6 +2488,75 @@ export function AdminJobsDashboard({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {shortlistDraft ? (
+        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-6 py-5">
+              <div>
+                <p className="eyebrow">Send Shortlist</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {shortlistDraft.jobTitle}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  {shortlistDraft.count} profile{shortlistDraft.count === 1 ? "" : "s"} ready to send
+                  {shortlistDraft.recipient ? ` to ${shortlistDraft.recipient}` : "."}
+                </p>
+                {shortlistDraft.usedAllApplications ? (
+                  <p className="mt-2 text-xs font-semibold text-[var(--color-accent-strong)]">
+                    No candidates are marked Shortlisted yet, so the available job applications are included.
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShortlistDraft(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+            <div className="overflow-auto p-6">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Email Body
+                </span>
+                <textarea
+                  readOnly
+                  value={shortlistDraft.body}
+                  className={`${fieldClassName} min-h-[320px] resize-y font-mono text-xs leading-6`}
+                />
+              </label>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-3 border-t border-[var(--color-line)] px-6 py-4">
+              <button
+                type="button"
+                onClick={openShortlistEmailDraft}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+              >
+                Open Email App
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(shortlistDraft.body);
+                  setMessage("Shortlist email body copied.");
+                }}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Copy Email Body
+              </button>
+              <button
+                type="button"
+                onClick={() => setShortlistDraft(null)}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
