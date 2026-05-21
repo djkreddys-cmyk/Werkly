@@ -1756,41 +1756,12 @@ export function AdminJobsDashboard({
                       </td>
                       <td className="px-4 py-4 align-top">
                         <div className="mb-2 flex flex-wrap gap-2">
-                          <a
-                            href={`/admin/jobs/${job.id}`}
-                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                          >
-                            Open
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => populateForEdit(job)}
-                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                          >
-                            Edit
-                          </button>
-                          {canAddCandidates ? (
-                            <button
-                              type="button"
-                              onClick={() => openManualCandidateModal(job)}
-                              className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-                            >
-                              Add Candidate
-                            </button>
-                          ) : null}
                           <button
                             type="button"
                             onClick={() => sendShortlistedProfilesToClient(job)}
                             className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                           >
                             Send Shortlist
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSubmissionHistoryJob(job)}
-                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
-                          >
-                            History
                           </button>
                         </div>
                         <TableActionMenu
@@ -1820,6 +1791,10 @@ export function AdminJobsDashboard({
                                   },
                                 ]
                               : []),
+                            {
+                              label: "Submission History",
+                              onClick: () => setSubmissionHistoryJob(job),
+                            },
                             ...(canToggleJobVisibility
                               ? [
                                   ...(job.status === "draft"
