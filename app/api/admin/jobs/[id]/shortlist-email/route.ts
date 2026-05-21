@@ -188,12 +188,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ message: "Job not found." }, { status: 404 });
     }
 
-    const client = job.clientId ? await getClientById(job.clientId, token) : null;
-    const applications = await getJobApplications(id, token);
-    const shortlistedApplications = applications.filter(
-      (application) => (application.stage ?? "applied") === "shortlisted"
-    );
-    const profilesToSend = shortlistedApplications.length ? shortlistedApplications : applications;
     const body = (await request.json()) as {
       toEmails?: string[];
       ccEmails?: string[];
@@ -201,9 +195,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       message?: string;
       htmlMessage?: string;
     };
+    let fallbackClientEmails: Array<string | undefined> = [];
+
+    if (!body.toEmails?.length && job.clientId) {
+      const client = await getClientById(job.clientId, token);
+      fallbackClientEmails = [client.contactEmail, client.secondaryContactEmail];
+    }
+
+    const applications = await getJobApplications(id, token);
+    const shortlistedApplications = applications.filter(
+      (application) => (application.stage ?? "applied") === "shortlisted"
+    );
+    const profilesToSend = shortlistedApplications.length ? shortlistedApplications : applications;
     const toEmails = Array.from(
       new Set(
-        (body.toEmails ?? [client?.contactEmail, client?.secondaryContactEmail])
+        (body.toEmails?.length ? body.toEmails : fallbackClientEmails)
           .map((email) => String(email || "").trim())
           .filter(Boolean)
       )
@@ -286,6 +292,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to send shortlist email.";
+    console.error("[shortlist-email] failed", {
+      message,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json({ message }, { status: 500 });
   }
 }

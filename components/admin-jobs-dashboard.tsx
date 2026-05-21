@@ -230,6 +230,7 @@ export function AdminJobsDashboard({
     usedAllApplications: boolean;
   } | null>(null);
   const [isSendingShortlist, setIsSendingShortlist] = useState(false);
+  const [shortlistError, setShortlistError] = useState("");
 
   const isEditing = Boolean(form.id);
 
@@ -654,6 +655,7 @@ Regards,
 Werkly Team`;
 
     setError("");
+    setShortlistError("");
     setShortlistDraft({
       jobId: job.id,
       jobTitle: job.title,
@@ -680,7 +682,7 @@ Werkly Team`;
     }
 
     if (!token) {
-      setError("Please sign in again. Admin token is missing.");
+      setShortlistError("Please sign in again. Admin token is missing.");
       return;
     }
 
@@ -694,12 +696,13 @@ Werkly Team`;
       .filter(Boolean);
 
     if (!toEmails.length) {
-      setError("Please add at least one client email before sending shortlist mail.");
+      setShortlistError("Please add at least one client email before sending shortlist mail.");
       return;
     }
 
     setIsSendingShortlist(true);
     setError("");
+    setShortlistError("");
     setMessage("");
 
     try {
@@ -716,7 +719,7 @@ Werkly Team`;
           message: shortlistDraft.body,
         }),
       });
-      const result = (await response.json()) as {
+      const result = (await response.json().catch(() => ({}))) as {
         message?: string;
         candidatesCount?: number;
         resumeAttachmentsCount?: number;
@@ -732,7 +735,9 @@ Werkly Team`;
           `Shortlist email sent for ${result.candidatesCount ?? shortlistDraft.count} candidate(s).`
       );
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : "Unable to send shortlist mail.");
+      setShortlistError(
+        sendError instanceof Error ? sendError.message : "Unable to send shortlist mail."
+      );
     } finally {
       setIsSendingShortlist(false);
     }
@@ -2645,6 +2650,11 @@ Werkly Team`;
                   className={`${fieldClassName} min-h-[320px] resize-y font-mono text-xs leading-6`}
                 />
               </label>
+              {shortlistError ? (
+                <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {shortlistError}
+                </p>
+              ) : null}
             </div>
             <div className="flex shrink-0 flex-wrap gap-3 border-t border-[var(--color-line)] px-6 py-4">
               <button
