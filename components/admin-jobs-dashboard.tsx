@@ -153,6 +153,106 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
+function buildShortlistEmailHtml(
+  clientName: string,
+  jobTitle: string,
+  applications: JobApplication[],
+  includeShortlistedLabel: boolean
+) {
+  const sentDate = formatExportDate(new Date().toISOString());
+  const rows = applications
+    .map(
+      (application, index) => `
+        <tr>
+          <td>${escapeHtml(String(index + 1))}</td>
+          <td>${escapeHtml(sentDate)}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.jobTitle || jobTitle))}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.candidateName))}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.candidatePhone))}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.candidateEmail))}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.currentCompany))}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.experience))}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.currentCtc))}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.expectedCtc))}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.stageNote || application.candidateMessage))}</td>
+          <td>${escapeHtml(
+            sanitizeExportCell(application.currentLocation || application.preferredLocation)
+          )}</td>
+          <td>${escapeHtml(sanitizeExportCell(application.preferredLocation))}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#18343a;font-size:14px;line-height:1.5;">
+      <p style="margin:0 0 14px;">Dear ${escapeHtml(clientName || "Client")},</p>
+      <p style="margin:0 0 16px;">Please find the ${
+        includeShortlistedLabel ? "shortlisted" : "available"
+      } profiles below for the ${escapeHtml(jobTitle)} position.</p>
+      <table style="border-collapse:collapse;width:100%;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111827;">
+        <thead>
+          <tr>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">S No</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Date</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Position</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Candidate Name</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Mobile Number</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Email ID</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Current Organization</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Total Experience</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">CTC (Fixed + Variable)</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Expected CTC (Fixed + Variable)</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Notice Period</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Current Location</th>
+            <th style="border:1px solid #111827;background:#fff200;padding:8px;text-align:center;">Preferred Location</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="margin:18px 0 0;">Regards,<br />Werkly Team</p>
+    </div>
+  `;
+}
+
+function buildShortlistTextTable(jobTitle: string, applications: JobApplication[]) {
+  const sentDate = formatExportDate(new Date().toISOString());
+  const headers = [
+    "S No",
+    "Date",
+    "Position",
+    "Candidate Name",
+    "Mobile Number",
+    "Email ID",
+    "Current Organization",
+    "Total Experience",
+    "CTC",
+    "Expected CTC",
+    "Notice Period",
+    "Current Location",
+    "Preferred Location",
+  ];
+  const rows = applications.map((application, index) =>
+    [
+      String(index + 1),
+      sentDate,
+      sanitizeExportCell(application.jobTitle || jobTitle),
+      sanitizeExportCell(application.candidateName),
+      sanitizeExportCell(application.candidatePhone),
+      sanitizeExportCell(application.candidateEmail),
+      sanitizeExportCell(application.currentCompany),
+      sanitizeExportCell(application.experience),
+      sanitizeExportCell(application.currentCtc),
+      sanitizeExportCell(application.expectedCtc),
+      sanitizeExportCell(application.stageNote || application.candidateMessage),
+      sanitizeExportCell(application.currentLocation || application.preferredLocation),
+      sanitizeExportCell(application.preferredLocation),
+    ].join("\t")
+  );
+
+  return [headers.join("\t"), ...rows].join("\n");
+}
+
 function formatStageLabel(stage: JobApplicationStage) {
   return stage
     .split("-")
@@ -225,6 +325,7 @@ export function AdminJobsDashboard({
     ccEmails: string;
     subject: string;
     body: string;
+    htmlBody: string;
     count: number;
     resumeCount: number;
     usedAllApplications: boolean;
@@ -631,28 +732,22 @@ export function AdminJobsDashboard({
       return;
     }
 
-    const body = profilesToSend
-      .map((application, index) =>
-        [
-          `${index + 1}. ${formatPersonName(application.candidateName)}`,
-          `Email: ${application.candidateEmail || "-"}`,
-          `Phone: ${application.candidatePhone || "-"}`,
-          `Experience: ${application.experience || "-"}`,
-          `Current role: ${application.currentDesignation || "-"}`,
-          `Current location: ${application.currentLocation || "-"}`,
-          `Remarks: ${application.stageNote || application.candidateMessage || "-"}`,
-        ].join("\n")
-      )
-      .join("\n\n");
     const subject = `Shortlisted profiles for ${job.title}`;
+    const tableText = buildShortlistTextTable(job.title, profilesToSend);
     const emailBody = `Dear ${client?.contactPerson || "Client"},
 
 Please find the ${shortlistedApplications.length > 0 ? "shortlisted" : "available"} profiles for ${job.title} below.
 
-${body}
+${tableText}
 
 Regards,
 Werkly Team`;
+    const htmlBody = buildShortlistEmailHtml(
+      client?.contactPerson || "Client",
+      job.title,
+      profilesToSend,
+      shortlistedApplications.length > 0
+    );
 
     setError("");
     setShortlistError("");
@@ -663,6 +758,7 @@ Werkly Team`;
       ccEmails: "hr@werkly.in",
       subject,
       body: emailBody,
+      htmlBody,
       count: profilesToSend.length,
       resumeCount: profilesToSend.filter(
         (application) => application.resumeFileData && application.resumeFileName
@@ -717,6 +813,7 @@ Werkly Team`;
           ccEmails,
           subject: shortlistDraft.subject,
           message: shortlistDraft.body,
+          htmlMessage: shortlistDraft.htmlBody,
         }),
       });
       const result = (await response.json().catch(() => ({}))) as {
