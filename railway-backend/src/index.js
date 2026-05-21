@@ -3980,6 +3980,14 @@ app.delete("/admin/jobs/:id", requireAdmin, async (request, response) => {
 
 ensureCrmSchema()
   .then(() => ensureJobsSchema())
+  .then(async () => {
+    const merged = await mergeJobsByCode("26050011", "26050013");
+    if (merged?.job) {
+      console.log(
+        `Merged duplicate job 26050013 into 26050011; moved ${merged.movedApplicationsCount} applications.`
+      );
+    }
+  })
   .then(() => ensureAuthAuditSchema())
   .then(() => ensureLeaveSchema())
   .then(() => ensureShiftSchema())
