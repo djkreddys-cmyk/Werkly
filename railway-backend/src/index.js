@@ -1529,6 +1529,8 @@ app.put(
         interviewMode,
         interviewPanel,
         interviewReminderAt,
+        finalCtc,
+        dateOfJoining,
       } = request.body ?? {};
       const allowedStages = [
         "applied",

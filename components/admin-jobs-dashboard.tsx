@@ -1275,10 +1275,10 @@ export function AdminJobsDashboard({
       finalCtc?: string;
       dateOfJoining?: string;
     }
-  ) {
+  ): Promise<boolean> {
     if (!token) {
       setError("Please sign in again. Admin token is missing.");
-      return;
+      return false;
     }
 
     setIsUpdatingStageId(applicationId);
@@ -1301,7 +1301,7 @@ export function AdminJobsDashboard({
 
       if ("approvalPending" in result && (result as { approvalPending?: boolean }).approvalPending) {
         setMessage(result.message || "Stage override request submitted for approval.");
-        return;
+        return true;
       }
 
       setApplications((current) =>
@@ -1317,10 +1317,12 @@ export function AdminJobsDashboard({
             : application
         )
       );
+      return true;
     } catch (stageError) {
       setError(
         stageError instanceof Error ? stageError.message : "Unable to update application stage."
       );
+      return false;
     } finally {
       setIsUpdatingStageId("");
     }
@@ -2485,7 +2487,7 @@ export function AdminJobsDashboard({
                     return;
                   }
 
-                  await updateApplicationStage(
+                  const saved = await updateApplicationStage(
                     stageDraft.application.id,
                     stageDraft.stage,
                     stageDraft.note.trim(),
@@ -2497,7 +2499,9 @@ export function AdminJobsDashboard({
                         }
                       : undefined
                   );
-                  setStageDraft(null);
+                  if (saved) {
+                    setStageDraft(null);
+                  }
                 }}
                 className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
               >
