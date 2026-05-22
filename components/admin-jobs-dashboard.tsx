@@ -160,25 +160,26 @@ function buildShortlistEmailHtml(
   includeShortlistedLabel: boolean
 ) {
   const sentDate = formatExportDate(new Date().toISOString());
+  const cellStyle = "border:1px solid #111827;padding:8px;vertical-align:top;";
   const rows = applications
     .map(
       (application, index) => `
         <tr>
-          <td>${escapeHtml(String(index + 1))}</td>
-          <td>${escapeHtml(sentDate)}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.jobTitle || jobTitle))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.candidateName))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.candidatePhone))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.candidateEmail))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.currentCompany))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.experience))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.currentCtc))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.expectedCtc))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.stageNote || application.candidateMessage))}</td>
-          <td>${escapeHtml(
+          <td style="${cellStyle}">${escapeHtml(String(index + 1))}</td>
+          <td style="${cellStyle}">${escapeHtml(sentDate)}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.jobTitle || jobTitle))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.candidateName))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.candidatePhone))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.candidateEmail))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.currentCompany))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.experience))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.currentCtc))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.expectedCtc))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.stageNote || application.candidateMessage))}</td>
+          <td style="${cellStyle}">${escapeHtml(
             sanitizeExportCell(application.currentLocation || application.preferredLocation)
           )}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.preferredLocation))}</td>
+          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.preferredLocation))}</td>
         </tr>
       `
     )
@@ -1870,7 +1871,7 @@ Werkly Team`;
         ) : (
           <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
             <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse">
+              <table className="min-w-[1240px] border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
                     {[
@@ -1886,7 +1887,9 @@ Werkly Team`;
                     ].map((heading) => (
                       <th
                         key={heading}
-                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
+                          heading === "Actions" ? "w-[250px] min-w-[250px]" : ""
+                        }`}
                       >
                         {heading}
                       </th>
@@ -1969,13 +1972,13 @@ Werkly Team`;
                           {isLiveOnWebsite(job) ? "Live on website" : "Not live"}
                         </p>
                       </td>
-                      <td className="px-4 py-4 align-top">
-                        <div className="mb-2 flex flex-wrap gap-2">
+                      <td className="w-[250px] min-w-[250px] px-4 py-4 align-top">
+                        <div className="flex flex-nowrap items-center gap-2">
                           {canAddCandidates ? (
                             <button
                               type="button"
                               onClick={() => openManualCandidateModal(job)}
-                              className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                              className="shrink-0 rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
                             >
                               Add Candidate
                             </button>
@@ -1983,78 +1986,78 @@ Werkly Team`;
                           <button
                             type="button"
                             onClick={() => sendShortlistedProfilesToClient(job)}
-                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                            className="shrink-0 rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                           >
                             Send Shortlist
                           </button>
-                        </div>
-                        <TableActionMenu
-                          label={`Open actions for ${job.title}`}
-                          isOpen={actionMenuJobId === job.id}
-                          onToggle={() =>
-                            setActionMenuJobId((current) => (current === job.id ? "" : job.id))
-                          }
-                          onClose={() => setActionMenuJobId("")}
-                          openUp={shouldOpenUp}
-                          items={[
-                            {
-                              label: "Open Job Page",
-                              href: `/admin/jobs/${job.id}`,
-                              tone: "accent",
-                            },
-                            {
-                              label: "Edit",
-                              onClick: () => populateForEdit(job),
-                            },
-                            {
-                              label: "Submission History",
-                              onClick: () => setSubmissionHistoryJob(job),
-                            },
-                            ...(canToggleJobVisibility
-                              ? [
-                                  ...(job.status === "draft"
-                                    ? [
-                                        {
-                                          label: "Make Live",
-                                          onClick: () => {
-                                            void handleMakeJobLive(job);
+                          <TableActionMenu
+                            label={`Open actions for ${job.title}`}
+                            isOpen={actionMenuJobId === job.id}
+                            onToggle={() =>
+                              setActionMenuJobId((current) => (current === job.id ? "" : job.id))
+                            }
+                            onClose={() => setActionMenuJobId("")}
+                            openUp={shouldOpenUp}
+                            items={[
+                              {
+                                label: "Open Job Page",
+                                href: `/admin/jobs/${job.id}`,
+                                tone: "accent",
+                              },
+                              {
+                                label: "Edit",
+                                onClick: () => populateForEdit(job),
+                              },
+                              {
+                                label: "Submission History",
+                                onClick: () => setSubmissionHistoryJob(job),
+                              },
+                              ...(canToggleJobVisibility
+                                ? [
+                                    ...(job.status === "draft"
+                                      ? [
+                                          {
+                                            label: "Make Live",
+                                            onClick: () => {
+                                              void handleMakeJobLive(job);
+                                            },
+                                            tone: "accent" as const,
                                           },
-                                          tone: "accent" as const,
-                                        },
-                                      ]
-                                    : []),
-                                  {
-                                    label: job.isHidden ? "Unhide" : "Hide",
-                                    onClick: () => {
-                                      void handleVisibilityToggle(job);
+                                        ]
+                                      : []),
+                                    {
+                                      label: job.isHidden ? "Unhide" : "Hide",
+                                      onClick: () => {
+                                        void handleVisibilityToggle(job);
+                                      },
+                                      tone: "danger" as const,
                                     },
-                                    tone: "danger" as const,
-                                  },
-                                ]
-                              : []),
-                            ...(job.slug && isLiveOnWebsite(job)
-                              ? [
-                                  {
-                                    label: "View",
-                                    href: `/jobs/${job.slug}`,
-                                    external: true,
-                                    tone: "accent" as const,
-                                  },
-                                ]
-                              : []),
-                            ...(isSuperAdmin
-                              ? [
-                                  {
-                                    label: "Delete Job",
-                                    onClick: () => {
-                                      void handleDeleteJob(job);
+                                  ]
+                                : []),
+                              ...(job.slug && isLiveOnWebsite(job)
+                                ? [
+                                    {
+                                      label: "View",
+                                      href: `/jobs/${job.slug}`,
+                                      external: true,
+                                      tone: "accent" as const,
                                     },
-                                    tone: "danger" as const,
-                                  },
-                                ]
-                              : []),
-                          ]}
-                        />
+                                  ]
+                                : []),
+                              ...(isSuperAdmin
+                                ? [
+                                    {
+                                      label: "Delete Job",
+                                      onClick: () => {
+                                        void handleDeleteJob(job);
+                                      },
+                                      tone: "danger" as const,
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
+                        </div>
                       </td>
                     </tr>
                   )})}
