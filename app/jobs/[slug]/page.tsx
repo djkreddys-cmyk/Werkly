@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import type { JobDetail } from "@/lib/jobs";
+import { getJobBySlug } from "@/lib/jobs";
 import { EnquiryModal } from "@/components/enquiry-modal";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -14,17 +13,7 @@ export default async function JobDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const headerStore = await headers();
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "www.werkly.in";
-  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
-  const response = await fetch(`${protocol}://${host}/api/jobs/${slug}`, {
-    cache: "no-store",
-  }).catch(() => null);
-
-  let job: JobDetail | null = null;
-  if (response?.ok) {
-    job = (await response.json()) as JobDetail;
-  }
+  const job = await getJobBySlug(slug).catch(() => null);
 
   if (!job) {
     notFound();

@@ -1,5 +1,4 @@
-import { headers } from "next/headers";
-import type { JobSummary } from "@/lib/jobs";
+import { getJobs, type JobSummary } from "@/lib/jobs";
 import { PublicJobsTable } from "@/components/public-jobs-table";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -7,25 +6,13 @@ import { SiteHeader } from "@/components/site-header";
 export const dynamic = "force-dynamic";
 
 export default async function JobsPage() {
-  const headerStore = await headers();
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "www.werkly.in";
-  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
-  const response = await fetch(`${protocol}://${host}/api/jobs`, { cache: "no-store" }).catch(
-    () => null
-  );
-
   let jobs: JobSummary[] = [];
   let jobsError = "";
-  if (response?.ok) {
-    const data = (await response.json()) as { jobs?: JobSummary[] };
-    jobs = data.jobs ?? [];
-  } else if (response) {
-    const data = (await response.json().catch(() => ({ message: "Unable to load public jobs." }))) as {
-      message?: string;
-    };
-    jobsError = data.message || "Unable to load public jobs.";
-  } else {
-    jobsError = "Unable to reach the public jobs API.";
+
+  try {
+    jobs = await getJobs();
+  } catch (error) {
+    jobsError = error instanceof Error ? error.message : "Unable to load public jobs.";
   }
 
   return (

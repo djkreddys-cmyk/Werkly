@@ -314,6 +314,8 @@ export function AdminShell({
   const [candidateProfilesIndex, setCandidateProfilesIndex] = useState<UniversalCandidateProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearchIndexLoading, setIsSearchIndexLoading] = useState(false);
+  const [hasLoadedSearchIndex, setHasLoadedSearchIndex] = useState(false);
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState("");
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("unread");
@@ -663,11 +665,20 @@ export function AdminShell({
   }, [isHydrated, pathname, showMenu, token]);
 
   useEffect(() => {
-    if (!showMenu || !isHydrated || !token) {
+    const normalizedQuery = searchQuery.trim();
+    if (
+      !showMenu ||
+      !isHydrated ||
+      !token ||
+      hasLoadedSearchIndex ||
+      isSearchIndexLoading ||
+      normalizedQuery.length < 2
+    ) {
       return;
     }
 
     let isMounted = true;
+    setIsSearchIndexLoading(true);
 
     Promise.all([
       fetch("/api/admin/jobs", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
@@ -692,15 +703,21 @@ export function AdminShell({
         setEmployeesIndex(employeesResult.employees ?? []);
         setApplicationsIndex(applicationsResult.applications ?? []);
         setCandidateProfilesIndex(profilesResult.profiles ?? []);
+        setHasLoadedSearchIndex(true);
       })
       .catch(() => {
         // Global search stays silent if preload fails.
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsSearchIndexLoading(false);
+        }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [isHydrated, showMenu, token]);
+  }, [hasLoadedSearchIndex, isHydrated, isSearchIndexLoading, searchQuery, showMenu, token]);
 
   useEffect(() => {
     const closeMenus = () => {
@@ -1160,7 +1177,15 @@ export function AdminShell({
 
                     {isSearchOpen && searchQuery.trim() ? (
                       <div className="absolute right-0 z-30 mt-3 w-[420px] overflow-hidden rounded-[1.15rem] border border-white/12 bg-[linear-gradient(180deg,rgba(9,68,76,0.99),rgba(7,52,59,0.99))] p-3 text-white shadow-[0_24px_60px_rgba(5,24,28,0.34)] backdrop-blur">
-                        {searchResults.length === 0 ? (
+                        {isSearchIndexLoading ? (
+                          <div className="rounded-xl border border-white/8 bg-white/6 px-4 py-3 text-sm text-white/76">
+                            Loading search records...
+                          </div>
+                        ) : searchQuery.trim().length < 2 ? (
+                          <div className="rounded-xl border border-white/8 bg-white/6 px-4 py-3 text-sm text-white/76">
+                            Type at least 2 characters to search.
+                          </div>
+                        ) : searchResults.length === 0 ? (
                           <div className="rounded-xl border border-white/8 bg-white/6 px-4 py-3 text-sm text-white/76">
                             No matching records yet. Try job ID, client name, candidate email, or employee code.
                           </div>
