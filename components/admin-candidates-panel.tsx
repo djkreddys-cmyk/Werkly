@@ -10,6 +10,7 @@ import {
 import type { UniversalCandidateProfile } from "@/lib/candidate-profiles";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobSummary } from "@/lib/jobs";
+import type { SavedViewRecord } from "@/lib/workflow";
 import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
@@ -50,6 +51,109 @@ function safeCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
+function normalizeSearchText(value?: string) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function includesSearch(value: unknown, search: string) {
+  return !search || normalizeSearchText(String(value ?? "")).includes(search);
+}
+
+function extractFirstNumber(value?: string) {
+  const match = String(value || "").match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : 0;
+}
+
+function tokenize(value?: string) {
+  return normalizeSearchText(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+}
+
+function findTokenMatches(source: string, tokens: string[]) {
+  const normalizedSource = normalizeSearchText(source);
+  return tokens.filter((token) => normalizedSource.includes(token));
+}
+
+function scoreCandidateForJob(application: JobApplication, job: JobSummary) {
+  let score = 0;
+  const reasons: string[] = [];
+  const concerns: string[] = [];
+  const candidateRoleText = [
+    application.currentDesignation,
+    application.preferredRole,
+    application.jobTitle,
+    application.candidateMessage,
+  ].join(" ");
+  const candidateLocationText = [
+    application.currentLocation,
+    application.preferredLocation,
+    application.jobLocation,
+  ].join(" ");
+  const candidateSkillText = [
+    application.currentDesignation,
+    application.preferredRole,
+    application.preferredSector,
+    application.candidateMessage,
+    application.sourceNote,
+  ].join(" ");
+  const jobRoleTokens = tokenize(job.title);
+  const jobSkillTokens = [
+    ...tokenize(job.sector),
+    ...job.skills.flatMap((skill) => tokenize(skill)),
+    ...(job.requirements ?? []).flatMap((requirement) => tokenize(requirement)),
+  ];
+  const roleMatches = findTokenMatches(candidateRoleText, jobRoleTokens);
+  const skillMatches = findTokenMatches(candidateSkillText, Array.from(new Set(jobSkillTokens)));
+  const locationMatches = findTokenMatches(candidateLocationText, tokenize(job.location));
+  const candidateExperience = extractFirstNumber(application.experience);
+  const jobExperience = extractFirstNumber(job.experience);
+  const expectedCtc = extractFirstNumber(application.expectedCtc);
+  const jobSalary = extractFirstNumber(job.packagePerAnnum || job.salary);
+
+  if (roleMatches.length) {
+    score += Math.min(32, 18 + roleMatches.length * 7);
+    reasons.push("Role match");
+  }
+  if (skillMatches.length) {
+    score += Math.min(26, 10 + skillMatches.length * 4);
+    reasons.push(`${skillMatches.length} skill match${skillMatches.length === 1 ? "" : "es"}`);
+  }
+  if (locationMatches.length) {
+    score += 18;
+    reasons.push("Location match");
+  } else if (job.location && candidateLocationText.trim()) {
+    concerns.push("Location mismatch");
+  }
+  if (candidateExperience && jobExperience) {
+    if (candidateExperience >= Math.max(0, jobExperience - 1)) {
+      score += 16;
+      reasons.push("Experience fit");
+    } else {
+      concerns.push("Experience lower than job");
+    }
+  }
+  if (application.resumeFileData) {
+    score += 5;
+    reasons.push("Resume available");
+  }
+  if (expectedCtc && jobSalary) {
+    if (expectedCtc <= jobSalary * 1.15) {
+      score += 8;
+      reasons.push("Salary fit");
+    } else {
+      concerns.push("Salary mismatch");
+    }
+  }
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    level: score >= 75 ? "Strong" : score >= 55 ? "Good" : "Possible",
+    reasons: Array.from(new Set([...reasons, ...concerns])).slice(0, 5),
+  };
+}
+
 export function AdminCandidatesPanel() {
   const [token] = useState(
     typeof window !== "undefined"
@@ -84,6 +188,20 @@ export function AdminCandidatesPanel() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
+  const [skillFilter, setSkillFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [experienceFilter, setExperienceFilter] = useState("");
+  const [salaryFilter, setSalaryFilter] = useState("");
+  const [noticeFilter, setNoticeFilter] = useState("");
+  const [languageFilter, setLanguageFilter] = useState("");
+  const [genderFilter, setGenderFilter] = useState("all");
+  const [recruiterFilter, setRecruiterFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
+  const [jobFilter, setJobFilter] = useState("all");
+  const [savedCandidateViews, setSavedCandidateViews] = useState<SavedViewRecord[]>([]);
+  const [selectedSavedViewId, setSelectedSavedViewId] = useState("");
+  const [matchJobId, setMatchJobId] = useState("");
+  const [minimumMatchScore, setMinimumMatchScore] = useState(35);
   const [page, setPage] = useState(1);
   const [actionMenuApplicationId, setActionMenuApplicationId] = useState("");
   const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
@@ -258,17 +376,55 @@ export function AdminCandidatesPanel() {
   }, [token]);
 
   useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    fetch("/api/admin/saved-views?moduleKey=candidates&scope=all", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as { views?: SavedViewRecord[] };
+        if (response.ok) {
+          setSavedCandidateViews(result.views ?? []);
+        }
+      })
+      .catch(() => {
+        setSavedCandidateViews([]);
+      });
+  }, [token, viewMessage]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
     const savedQuery = window.localStorage.getItem("werklyCandidatesQuery");
     const savedStage = window.localStorage.getItem("werklyCandidatesStage");
+    const savedAdvancedFilters = window.localStorage.getItem("werklyCandidatesAdvancedFilters");
     if (savedQuery) {
       setQuery(savedQuery);
     }
     if (savedStage) {
       setStageFilter(savedStage);
+    }
+    if (savedAdvancedFilters) {
+      try {
+        const filters = JSON.parse(savedAdvancedFilters) as Record<string, string>;
+        setSkillFilter(filters.skillFilter ?? "");
+        setLocationFilter(filters.locationFilter ?? "");
+        setExperienceFilter(filters.experienceFilter ?? "");
+        setSalaryFilter(filters.salaryFilter ?? "");
+        setNoticeFilter(filters.noticeFilter ?? "");
+        setLanguageFilter(filters.languageFilter ?? "");
+        setGenderFilter(filters.genderFilter ?? "all");
+        setRecruiterFilter(filters.recruiterFilter ?? "all");
+        setClientFilter(filters.clientFilter ?? "all");
+        setJobFilter(filters.jobFilter ?? "all");
+        setMatchJobId(filters.matchJobId ?? "");
+      } catch {
+        window.localStorage.removeItem("werklyCandidatesAdvancedFilters");
+      }
     }
   }, []);
 
@@ -279,7 +435,37 @@ export function AdminCandidatesPanel() {
 
     window.localStorage.setItem("werklyCandidatesQuery", query);
     window.localStorage.setItem("werklyCandidatesStage", stageFilter);
-  }, [query, stageFilter]);
+    window.localStorage.setItem(
+      "werklyCandidatesAdvancedFilters",
+      JSON.stringify({
+        skillFilter,
+        locationFilter,
+        experienceFilter,
+        salaryFilter,
+        noticeFilter,
+        languageFilter,
+        genderFilter,
+        recruiterFilter,
+        clientFilter,
+        jobFilter,
+        matchJobId,
+      })
+    );
+  }, [
+    clientFilter,
+    experienceFilter,
+    genderFilter,
+    jobFilter,
+    languageFilter,
+    locationFilter,
+    matchJobId,
+    noticeFilter,
+    query,
+    recruiterFilter,
+    salaryFilter,
+    skillFilter,
+    stageFilter,
+  ]);
 
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const currentEmployeeId = useMemo(
@@ -343,6 +529,13 @@ export function AdminCandidatesPanel() {
   ]);
 
   const filteredApplications = useMemo(() => {
+    const skillSearch = normalizeSearchText(skillFilter);
+    const locationSearch = normalizeSearchText(locationFilter);
+    const experienceSearch = normalizeSearchText(experienceFilter);
+    const salarySearch = normalizeSearchText(salaryFilter);
+    const noticeSearch = normalizeSearchText(noticeFilter);
+    const languageSearch = normalizeSearchText(languageFilter);
+
     return visibleApplications.filter((application) => {
       const matchesQuery =
         !query ||
@@ -366,12 +559,92 @@ export function AdminCandidatesPanel() {
       const matchesStage =
         stageFilter === "all" || (application.stage ?? "applied") === stageFilter;
 
-      return matchesQuery && matchesStage;
+      const matchesSkill = includesSearch(
+        [
+          application.currentDesignation,
+          application.preferredRole,
+          application.preferredSector,
+          application.candidateMessage,
+          application.sourceNote,
+          application.jobTitle,
+          application.sector,
+        ].join(" "),
+        skillSearch
+      );
+      const matchesLocation = includesSearch(
+        [application.currentLocation, application.preferredLocation, application.jobLocation].join(" "),
+        locationSearch
+      );
+      const matchesExperience = includesSearch(application.experience, experienceSearch);
+      const matchesSalary = includesSearch(
+        [application.currentCtc, application.expectedCtc, application.finalCtc].join(" "),
+        salarySearch
+      );
+      const matchesNotice = includesSearch(
+        [application.sourceNote, application.candidateMessage, application.stageNote].join(" "),
+        noticeSearch
+      );
+      const matchesLanguage = includesSearch(
+        [application.motherTongue, application.otherLanguages].join(" "),
+        languageSearch
+      );
+      const matchesGender =
+        genderFilter === "all" ||
+        normalizeSearchText(application.gender) === normalizeSearchText(genderFilter);
+      const linkedJob = visibleJobs.find((job) => job.id === application.jobId);
+      const matchesRecruiter =
+        recruiterFilter === "all" ||
+        application.assignedEmployeeId === recruiterFilter ||
+        application.recruiterEmail === recruiterFilter ||
+        application.recruiterName === recruiterFilter ||
+        linkedJob?.recruiterId === recruiterFilter ||
+        linkedJob?.recruiterEmail === recruiterFilter ||
+        linkedJob?.recruiterName === recruiterFilter;
+      const matchesClient =
+        clientFilter === "all" ||
+        application.clientId === clientFilter ||
+        application.clientName === clients.find((client) => client.id === clientFilter)?.companyName;
+      const matchesJob = jobFilter === "all" || application.jobId === jobFilter;
+
+      return (
+        matchesQuery &&
+        matchesStage &&
+        matchesSkill &&
+        matchesLocation &&
+        matchesExperience &&
+        matchesSalary &&
+        matchesNotice &&
+        matchesLanguage &&
+        matchesGender &&
+        matchesRecruiter &&
+        matchesClient &&
+        matchesJob
+      );
     });
-  }, [query, stageFilter, visibleApplications]);
+  }, [
+    clientFilter,
+    clients,
+    experienceFilter,
+    genderFilter,
+    jobFilter,
+    languageFilter,
+    locationFilter,
+    noticeFilter,
+    query,
+    recruiterFilter,
+    salaryFilter,
+    skillFilter,
+    stageFilter,
+    visibleApplications,
+    visibleJobs,
+  ]);
 
   const filteredUniversalProfiles = useMemo(() => {
     const searchTerm = query.trim().toLowerCase();
+    const skillSearch = normalizeSearchText(skillFilter);
+    const locationSearch = normalizeSearchText(locationFilter);
+    const experienceSearch = normalizeSearchText(experienceFilter);
+    const languageSearch = normalizeSearchText(languageFilter);
 
     return universalProfiles.filter((profile) => {
       const matchesQuery =
@@ -398,9 +671,65 @@ export function AdminCandidatesPanel() {
       const matchesStage =
         stageFilter === "all" || profile.latestStage === stageFilter;
 
-      return matchesQuery && matchesStage;
+      const matchesSkill = includesSearch(
+        [profile.skills, profile.currentDesignation, profile.preferredRole, profile.preferredSector].join(" "),
+        skillSearch
+      );
+      const matchesLocation = includesSearch(
+        [profile.currentLocation, profile.preferredLocation].join(" "),
+        locationSearch
+      );
+      const matchesExperience = includesSearch(profile.experience, experienceSearch);
+      const matchesLanguage =
+        !languageSearch ||
+        visibleApplications.some(
+          (application) =>
+            profile.applicationIds.includes(application.id) &&
+            includesSearch([application.motherTongue, application.otherLanguages].join(" "), languageSearch)
+        );
+      const matchesGender =
+        genderFilter === "all" ||
+        visibleApplications.some(
+          (application) =>
+            profile.applicationIds.includes(application.id) &&
+            normalizeSearchText(application.gender) === normalizeSearchText(genderFilter)
+        );
+      const matchesClient =
+        clientFilter === "all" ||
+        profile.clients.includes(clients.find((client) => client.id === clientFilter)?.companyName ?? "");
+      const matchesJob =
+        jobFilter === "all" ||
+        visibleApplications.some(
+          (application) =>
+            profile.applicationIds.includes(application.id) && application.jobId === jobFilter
+        );
+
+      return (
+        matchesQuery &&
+        matchesStage &&
+        matchesSkill &&
+        matchesLocation &&
+        matchesExperience &&
+        matchesLanguage &&
+        matchesGender &&
+        matchesClient &&
+        matchesJob
+      );
     });
-  }, [query, stageFilter, universalProfiles]);
+  }, [
+    clientFilter,
+    clients,
+    experienceFilter,
+    genderFilter,
+    jobFilter,
+    languageFilter,
+    locationFilter,
+    query,
+    skillFilter,
+    stageFilter,
+    universalProfiles,
+    visibleApplications,
+  ]);
 
   const stageCounts = useMemo(() => {
     return stageOptions.reduce<Record<JobApplicationStage, number>>((acc, stage) => {
@@ -421,6 +750,24 @@ export function AdminCandidatesPanel() {
     () => filteredApplications.slice((page - 1) * pageSize, page * pageSize),
     [filteredApplications, page]
   );
+  const selectedMatchJob = useMemo(
+    () => visibleJobs.find((job) => job.id === matchJobId) ?? visibleJobs[0],
+    [matchJobId, visibleJobs]
+  );
+  const matchedCandidates = useMemo(() => {
+    if (!selectedMatchJob) {
+      return [];
+    }
+
+    return visibleApplications
+      .map((application) => ({
+        application,
+        match: scoreCandidateForJob(application, selectedMatchJob),
+      }))
+      .filter(({ match }) => match.score >= minimumMatchScore)
+      .sort((first, second) => second.match.score - first.match.score)
+      .slice(0, 25);
+  }, [minimumMatchScore, selectedMatchJob, visibleApplications]);
 
   async function handleStageChange(
     id: string,
@@ -804,6 +1151,46 @@ export function AdminCandidatesPanel() {
     URL.revokeObjectURL(url);
   }
 
+  function resetAdvancedFilters() {
+    setQuery("");
+    setStageFilter("all");
+    setSkillFilter("");
+    setLocationFilter("");
+    setExperienceFilter("");
+    setSalaryFilter("");
+    setNoticeFilter("");
+    setLanguageFilter("");
+    setGenderFilter("all");
+    setRecruiterFilter("all");
+    setClientFilter("all");
+    setJobFilter("all");
+    setSelectedSavedViewId("");
+  }
+
+  function applySavedCandidateView(viewId: string) {
+    setSelectedSavedViewId(viewId);
+    const view = savedCandidateViews.find((item) => item.id === viewId);
+    if (!view) {
+      return;
+    }
+
+    const filters = view.filters || {};
+    setQuery(String(filters.query ?? ""));
+    setStageFilter(String(filters.stageFilter ?? "all"));
+    setSkillFilter(String(filters.skillFilter ?? ""));
+    setLocationFilter(String(filters.locationFilter ?? ""));
+    setExperienceFilter(String(filters.experienceFilter ?? ""));
+    setSalaryFilter(String(filters.salaryFilter ?? ""));
+    setNoticeFilter(String(filters.noticeFilter ?? ""));
+    setLanguageFilter(String(filters.languageFilter ?? ""));
+    setGenderFilter(String(filters.genderFilter ?? "all"));
+    setRecruiterFilter(String(filters.recruiterFilter ?? "all"));
+    setClientFilter(String(filters.clientFilter ?? "all"));
+    setJobFilter(String(filters.jobFilter ?? "all"));
+    setMatchJobId(String(filters.matchJobId ?? ""));
+    setViewMessage(`Applied saved view: ${view.viewName}`);
+  }
+
   async function saveCurrentCandidatesView() {
     if (!token) {
       return;
@@ -831,6 +1218,17 @@ export function AdminCandidatesPanel() {
           filters: {
             query,
             stageFilter,
+            skillFilter,
+            locationFilter,
+            experienceFilter,
+            salaryFilter,
+            noticeFilter,
+            languageFilter,
+            genderFilter,
+            recruiterFilter,
+            clientFilter,
+            jobFilter,
+            matchJobId,
             authType,
           },
           columns: ["candidate", "contact", "job", "client", "recruiter", "stage", "appliedDate"],
@@ -979,6 +1377,140 @@ export function AdminCandidatesPanel() {
         )}
       </section>
 
+      <section className="accent-card p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="eyebrow">Auto Candidate Matching</p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+              Match candidates to an open job with score reasons.
+            </h2>
+            <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+              Scores use role, skills, location, experience, resume availability, and salary fit from the current CRM data.
+            </p>
+          </div>
+          <div className="grid w-full gap-3 md:grid-cols-2 lg:max-w-2xl">
+            <select
+              value={selectedMatchJob?.id ?? ""}
+              onChange={(event) => setMatchJobId(event.target.value)}
+              className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+            >
+              {visibleJobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.jobCode ? `${job.jobCode} - ` : ""}
+                  {job.title}
+                </option>
+              ))}
+            </select>
+            <select
+              value={minimumMatchScore}
+              onChange={(event) => setMinimumMatchScore(Number(event.target.value))}
+              className="rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value={0}>Any score</option>
+              <option value={35}>35+ score</option>
+              <option value={55}>55+ score</option>
+              <option value={75}>75+ score</option>
+            </select>
+          </div>
+        </div>
+
+        {!selectedMatchJob ? (
+          <p className="muted-copy mt-6 text-sm">No jobs are available for matching.</p>
+        ) : matchedCandidates.length === 0 ? (
+          <p className="muted-copy mt-6 text-sm">No candidates match the selected score threshold.</p>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
+            <div className="overflow-x-auto">
+              <table className="min-w-[1180px] border-collapse">
+                <thead>
+                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                    {["Score", "Candidate", "Role", "Location", "Experience", "Salary", "Match Reasons", "Resume"].map((heading) => (
+                      <th
+                        key={heading}
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                      >
+                        {heading}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {matchedCandidates.map(({ application, match }, index) => (
+                    <tr
+                      key={`${application.id}-${selectedMatchJob.id}`}
+                      className={
+                        index === matchedCandidates.length - 1
+                          ? "align-top"
+                          : "align-top border-b border-[var(--color-line)]"
+                      }
+                    >
+                      <td className="px-4 py-4">
+                        <p className="text-2xl font-semibold text-[var(--color-dark)]">{match.score}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent-strong)]">
+                          {match.level}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {formatPersonName(application.candidateName)}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">
+                          {application.candidateEmail || application.candidatePhone || "Contact not added"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {application.currentDesignation || application.preferredRole || "Role not added"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {application.currentLocation || application.preferredLocation || "Location not added"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {application.experience || "Experience not added"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {application.expectedCtc || application.currentCtc || "CTC not added"}
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex max-w-[360px] flex-wrap gap-2">
+                          {match.reasons.length ? (
+                            match.reasons.map((reason) => (
+                              <span
+                                key={reason}
+                                className="rounded-full bg-[rgba(251,133,0,0.08)] px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-strong)]"
+                              >
+                                {reason}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-2.5 py-1 text-xs font-semibold text-[var(--color-dark)]">
+                              Partial match
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        {application.resumeFileData && application.resumeFileName ? (
+                          <a
+                            href={application.resumeFileData}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                          >
+                            View Resume
+                          </a>
+                        ) : (
+                          "No resume"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
       <section id="job-applicants" className="accent-card scroll-mt-28 p-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -991,7 +1523,7 @@ export function AdminCandidatesPanel() {
             </p>
           </div>
 
-          <div className="grid w-full gap-3 md:grid-cols-2 xl:min-w-[880px] xl:grid-cols-[minmax(260px,1fr)_220px_auto_auto] xl:items-end">
+          <div className="grid w-full gap-3 md:grid-cols-2 xl:min-w-[1040px] xl:grid-cols-[minmax(260px,1fr)_190px_190px_auto_auto] xl:items-end">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -1007,6 +1539,18 @@ export function AdminCandidatesPanel() {
               {stageOptions.map((stage) => (
                 <option key={stage} value={stage}>
                   {labelizeStage(stage)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedSavedViewId}
+              onChange={(event) => applySavedCandidateView(event.target.value)}
+              className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="">Saved views</option>
+              {savedCandidateViews.map((view) => (
+                <option key={view.id} value={view.id}>
+                  {view.viewName}
                 </option>
               ))}
             </select>
@@ -1026,6 +1570,106 @@ export function AdminCandidatesPanel() {
               className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
             >
               Save Current View
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-[1.25rem] border border-[var(--color-line)] bg-white p-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <input
+              value={skillFilter}
+              onChange={(event) => setSkillFilter(event.target.value)}
+              placeholder="Skill or role"
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            />
+            <input
+              value={locationFilter}
+              onChange={(event) => setLocationFilter(event.target.value)}
+              placeholder="Location"
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            />
+            <input
+              value={experienceFilter}
+              onChange={(event) => setExperienceFilter(event.target.value)}
+              placeholder="Experience"
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            />
+            <input
+              value={salaryFilter}
+              onChange={(event) => setSalaryFilter(event.target.value)}
+              placeholder="CTC / salary"
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            />
+            <input
+              value={noticeFilter}
+              onChange={(event) => setNoticeFilter(event.target.value)}
+              placeholder="Notice period"
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            />
+            <input
+              value={languageFilter}
+              onChange={(event) => setLanguageFilter(event.target.value)}
+              placeholder="Language"
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            />
+            <select
+              value={genderFilter}
+              onChange={(event) => setGenderFilter(event.target.value)}
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="all">All genders</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            <select
+              value={recruiterFilter}
+              onChange={(event) => setRecruiterFilter(event.target.value)}
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="all">All recruiters</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.fullName}
+                </option>
+              ))}
+            </select>
+            <select
+              value={clientFilter}
+              onChange={(event) => setClientFilter(event.target.value)}
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="all">All clients</option>
+              {visibleClients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.companyName}
+                </option>
+              ))}
+            </select>
+            <select
+              value={jobFilter}
+              onChange={(event) => setJobFilter(event.target.value)}
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="all">All jobs</option>
+              {visibleJobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.jobCode ? `${job.jobCode} - ` : ""}
+                  {job.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="muted-copy text-xs">
+              Advanced filters cover skill, location, experience, salary, notice, language, gender, recruiter, client, and job.
+            </p>
+            <button
+              type="button"
+              onClick={resetAdvancedFilters}
+              className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+            >
+              Clear Filters
             </button>
           </div>
         </div>
