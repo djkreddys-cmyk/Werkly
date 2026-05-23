@@ -886,7 +886,11 @@ export function AdminShell({
                 </div>
               </div>
 
-              <div className="px-5 py-8 sm:px-8 sm:py-10">{children}</div>
+              <div className="px-5 py-8 sm:px-8 sm:py-10">
+                <div className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-6">
+                  <p className="muted-copy text-sm">Loading workspace...</p>
+                </div>
+              </div>
             </section>
           </main>
         </div>
