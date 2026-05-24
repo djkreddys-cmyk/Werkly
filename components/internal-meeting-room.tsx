@@ -36,6 +36,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [error, setError] = useState("");
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [micEnabled, setMicEnabled] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   const [mediaError, setMediaError] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy link");
 
@@ -78,6 +80,10 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setMediaError("");
 
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera and microphone are not available in this browser.");
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
@@ -90,12 +96,38 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
       setCameraEnabled(true);
       setMicEnabled(true);
+      setHasJoined(true);
     } catch (previewError) {
       setMediaError(
         previewError instanceof Error
           ? previewError.message
           : "Camera or microphone permission was blocked."
       );
+    }
+  }
+
+  async function joinMeeting() {
+    if (isJoining) {
+      return;
+    }
+
+    setIsJoining(true);
+
+    try {
+      await startPreview();
+
+      if (token) {
+        await fetch(`/api/admin/meetings/${roomCode}/status`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: "live" }),
+        }).catch(() => undefined);
+      }
+    } finally {
+      setIsJoining(false);
     }
   }
 
@@ -166,8 +198,18 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     {meeting?.title || "Internal meeting room"}
                   </h1>
                   <p className="mt-2 text-sm text-white/72">
-                    Start your camera and microphone when you are ready.
+                    Review the join details, then allow camera and microphone.
                   </p>
+                  {!hasJoined && !error ? (
+                    <button
+                      type="button"
+                      onClick={joinMeeting}
+                      disabled={isLoading || isJoining}
+                      className="mt-5 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0b1e22] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isJoining ? "Requesting access..." : "Join with camera and mic"}
+                    </button>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -202,6 +244,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                   streamRef.current = null;
                   setCameraEnabled(false);
                   setMicEnabled(false);
+                  setHasJoined(false);
                 }}
                 className="rounded-xl bg-[var(--color-accent-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#9f3914]"
               >
@@ -225,8 +268,10 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               </div>
             ) : (
               <div>
-                <p className="eyebrow">Room</p>
-                <h2 className="mt-2 text-xl font-semibold text-slate-950">{meeting?.title}</h2>
+                <p className="eyebrow">Join details</p>
+                <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                  {meeting?.title || "Internal meeting"}
+                </h2>
                 <p className="mt-2 text-sm text-[var(--color-muted)]">
                   {formatMeetingDate(meeting?.startsAt)}
                 </p>
@@ -253,6 +298,20 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     </span>
                   </div>
                 </div>
+                {!hasJoined ? (
+                  <button
+                    type="button"
+                    onClick={joinMeeting}
+                    disabled={isJoining}
+                    className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isJoining ? "Requesting camera and mic..." : "Join with camera and mic"}
+                  </button>
+                ) : (
+                  <p className="mt-5 rounded-xl bg-[rgba(8,96,108,0.08)] p-3 text-sm font-semibold text-[var(--color-dark)]">
+                    You are in the room. Camera and microphone controls are below the preview.
+                  </p>
+                )}
                 {mediaError ? (
                   <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">
                     {mediaError}
