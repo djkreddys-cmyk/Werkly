@@ -122,7 +122,7 @@ function MeetingTile({
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const stream = media instanceof MediaStream ? media : media?.stream;
   const hasVideo = showVideo && Boolean(stream?.getVideoTracks().length);
-  const tileHeight = large ? "h-full min-h-[calc(100vh-12rem)]" : compact ? "min-h-32" : "min-h-48";
+  const tileHeight = large ? "h-full min-h-[calc(100vh-8rem)]" : compact ? "min-h-32" : "min-h-48";
   const avatarSize = compact ? "h-14 w-14 text-lg" : "h-20 w-20 text-2xl";
   const tileLabel =
     !isScreenShare && !(media instanceof MediaStream) && media?.mediaType === "screen"
@@ -167,6 +167,7 @@ function MeetingTile({
 }
 
 export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
+  const meetingStageRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -233,6 +234,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [isStarting, setIsStarting] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [remoteMedia, setRemoteMedia] = useState<RemoteMedia[]>([]);
   const [mediaError, setMediaError] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy link");
@@ -375,6 +377,15 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       videoRef.current.srcObject = streamRef.current;
     }
   }, [cameraEnabled]);
+
+  useEffect(() => {
+    const updateFullscreenState = () => {
+      setIsFullscreen(document.fullscreenElement === meetingStageRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", updateFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", updateFullscreenState);
+  }, []);
 
   function getLocalMediaStreams() {
     return [streamRef.current, screenStreamRef.current].filter(
@@ -974,6 +985,21 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     sendMediaState();
   }
 
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+
+      await meetingStageRef.current?.requestFullscreen();
+    } catch (fullscreenError) {
+      setMediaError(
+        fullscreenError instanceof Error ? fullscreenError.message : "Unable to open fullscreen."
+      );
+    }
+  }
+
   async function copyLink() {
     await navigator.clipboard.writeText(window.location.href);
     setCopyLabel("Copied");
@@ -981,45 +1007,74 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#eef3f6]">
+    <main className={`min-h-screen ${hasJoined ? "bg-black" : "bg-[#eef3f6]"}`}>
       <div
-        className={`mx-auto flex min-h-screen w-full flex-col px-4 py-5 sm:px-6 lg:px-8 ${
-          activeScreenShare ? "max-w-none" : "max-w-7xl"
+        className={`mx-auto flex min-h-screen w-full flex-col ${
+          hasJoined
+            ? "max-w-none p-0"
+            : `px-4 py-5 sm:px-6 lg:px-8 ${activeScreenShare ? "max-w-none" : "max-w-7xl"}`
         }`}
       >
-        <header className="flex flex-wrap items-center justify-between gap-3 py-3">
-          {token ? (
-            <Link
-              href="/admin/meetings"
-              className="text-sm font-semibold text-[var(--color-dark)] transition hover:text-[#064d56]"
+        {!hasJoined ? (
+          <header className="flex flex-wrap items-center justify-between gap-3 py-3">
+            {token ? (
+              <Link
+                href="/admin/meetings"
+                className="text-sm font-semibold text-[var(--color-dark)] transition hover:text-[#064d56]"
+              >
+                Werkly Team Meetings
+              </Link>
+            ) : (
+              <span className="text-sm font-semibold text-[var(--color-dark)]">
+                Werkly Team Meetings
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={copyLink}
+              className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
             >
-              Werkly Team Meetings
-            </Link>
-          ) : (
-            <span className="text-sm font-semibold text-[var(--color-dark)]">
-              Werkly Team Meetings
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={copyLink}
-            className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
-          >
-            {copyLabel}
-          </button>
-        </header>
+              {copyLabel}
+            </button>
+          </header>
+        ) : null}
 
         <section
-          className={`grid flex-1 gap-5 py-4 ${
-            activeScreenShare ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_22rem]"
+          className={`grid flex-1 ${
+            hasJoined
+              ? "gap-0 py-0 lg:grid-cols-1"
+              : `gap-5 py-4 ${activeScreenShare ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_22rem]"}`
           }`}
         >
-          <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-2xl bg-[#10262b] shadow-[0_18px_44px_rgba(15,23,42,0.18)]">
-            <div className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(241,166,75,0.22),transparent_30%),linear-gradient(135deg,#10262b,#061417)] p-4">
+          <div
+            ref={meetingStageRef}
+            className={`flex overflow-hidden bg-[#10262b] ${
+              hasJoined
+                ? "relative h-screen min-h-screen flex-col rounded-none shadow-none"
+                : "min-h-[28rem] flex-col rounded-2xl shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
+            }`}
+          >
+            {hasJoined ? (
+              <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-5 py-4 text-white">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {meeting?.title || "Internal meeting"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-white/60">{roomCode}</p>
+                </div>
+              </div>
+            ) : null}
+            <div
+              className={`flex flex-1 items-center justify-center ${
+                hasJoined
+                  ? "bg-[#050505] p-3 pb-24 pt-14"
+                  : "bg-[radial-gradient(circle_at_50%_35%,rgba(241,166,75,0.22),transparent_30%),linear-gradient(135deg,#10262b,#061417)] p-4"
+              }`}
+            >
               {hasJoined ? (
                 activeScreenShare ? (
                   <div className="grid h-full w-full gap-3 lg:grid-cols-[13rem_minmax(0,1fr)]">
-                    <div className="flex max-h-[calc(100vh-12rem)] flex-col gap-3 overflow-y-auto pr-1">
+                    <div className="flex max-h-[calc(100vh-8rem)] flex-col gap-3 overflow-y-auto pr-1">
                       <MeetingTile
                         label={displayName.trim() || authName || authEmail || "You"}
                         media={streamRef.current || undefined}
@@ -1051,7 +1106,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                         );
                       })}
                     </div>
-                    <div className="h-full min-h-[calc(100vh-12rem)]">
+                    <div className="h-full min-h-[calc(100vh-8rem)]">
                       <MeetingTile
                         media={activeScreenShare}
                         label={
@@ -1130,7 +1185,13 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-3 border-t border-white/10 bg-[#0b1e22] px-4 py-4">
+            <div
+              className={`flex flex-wrap items-center justify-center gap-3 border-t border-white/10 px-4 py-4 ${
+                hasJoined
+                  ? "absolute bottom-0 left-0 right-0 z-20 bg-black/82 backdrop-blur"
+                  : "bg-[#0b1e22]"
+              }`}
+            >
               <button
                 type="button"
                 onClick={toggleMic}
@@ -1160,6 +1221,15 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               >
                 Leave meeting
               </button>
+              {hasJoined ? (
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/16"
+                >
+                  {isFullscreen ? "Exit full screen" : "Full screen"}
+                </button>
+              ) : null}
               {isHost && hasJoined ? (
                 <button
                   type="button"
@@ -1185,7 +1255,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
             </div>
           </div>
 
-          <aside className={`crm-panel p-5 ${activeScreenShare ? "hidden" : ""}`}>
+          <aside className={`crm-panel p-5 ${hasJoined || activeScreenShare ? "hidden" : ""}`}>
             {isLoading ? (
               <p className="text-sm text-[var(--color-muted)]">Loading room...</p>
             ) : error ? (
