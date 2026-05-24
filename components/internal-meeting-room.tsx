@@ -353,6 +353,27 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
+    participants
+      .filter(
+        (participant) =>
+          participant.participantKey !== participantKey &&
+          participant.isScreenSharing &&
+          !remoteMedia.some(
+            (media) =>
+              media.participantKey === participant.participantKey &&
+              media.mediaType === "screen"
+          )
+      )
+      .forEach((participant) => {
+        void negotiateWith(participant.participantKey);
+      });
+  }, [hasJoined, participantKey, participants, remoteMedia]);
+
+  useEffect(() => {
+    if (!hasJoined) {
+      return;
+    }
+
     const pollSignals = async () => {
       try {
         const response = await fetch(
