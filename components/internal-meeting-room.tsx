@@ -27,6 +27,7 @@ type PeerState = {
   ignoreOffer: boolean;
   mediaTrackIds: Set<string>;
   pendingCandidates: RTCIceCandidateInit[];
+  negotiateAgain: boolean;
 };
 
 function formatMeetingDate(value?: string | null) {
@@ -526,6 +527,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       ignoreOffer: false,
       mediaTrackIds: new Set(),
       pendingCandidates: [],
+      negotiateAgain: false,
     };
 
     peer.connection.onicecandidate = (event) => {
@@ -538,9 +540,15 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       const stream = event.streams[0] || new MediaStream([event.track]);
       setRemoteMedia((current) => {
         const next = current.filter((item) => item.stream.id !== stream.id);
+        const participantStreams = next.filter(
+          (item) => item.participantKey === remoteParticipantKey
+        );
         const mediaType =
           mediaTypesRef.current.get(remoteParticipantKey)?.get(stream.id) ||
-          (next.some((item) => item.participantKey === remoteParticipantKey)
+          (participantStreams.some((item) => item.mediaType === "camera") ||
+          participantsRef.current.find(
+            (participant) => participant.participantKey === remoteParticipantKey
+          )?.isScreenSharing
             ? "screen"
             : "camera");
         return [
@@ -573,15 +581,38 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     }
 
     const peer = getPeer(remoteParticipantKey);
+    if (peer.makingOffer) {
+      peer.negotiateAgain = true;
+      return;
+    }
+
     try {
       peer.makingOffer = true;
-      await peer.connection.setLocalDescription();
-      if (peer.connection.localDescription) {
-        await sendSignal(remoteParticipantKey, "offer", peer.connection.localDescription.toJSON());
-        sendMediaState(remoteParticipantKey);
-      }
+      do {
+        peer.negotiateAgain = false;
+        if (peer.connection.signalingState !== "stable") {
+          peer.negotiateAgain = true;
+          await new Promise((resolve) => window.setTimeout(resolve, 150));
+          continue;
+        }
+
+        await peer.connection.setLocalDescription();
+        if (peer.connection.localDescription) {
+          await sendSignal(remoteParticipantKey, "offer", peer.connection.localDescription.toJSON());
+          sendMediaState(remoteParticipantKey);
+        }
+      } while (peer.negotiateAgain);
+    } catch (negotiateError) {
+      setMediaError(
+        negotiateError instanceof Error
+          ? negotiateError.message
+          : "Unable to update screen sharing for participants."
+      );
     } finally {
       peer.makingOffer = false;
+      if (peer.negotiateAgain) {
+        void negotiateWith(remoteParticipantKey);
+      }
     }
   }
 
@@ -808,10 +839,16 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       screenStreamRef.current = screenStream;
       setIsScreenSharing(true);
       await registerParticipant(true);
-      peersRef.current.forEach((peer, remoteParticipantKey) => {
+      const remoteParticipantKeys = participantsRef.current
+        .map((participant) => participant.participantKey)
+        .filter((key) => key !== participantKey);
+      remoteParticipantKeys.forEach((remoteParticipantKey) => {
+        const peer = getPeer(remoteParticipantKey);
         refreshPeerTracks(peer);
         sendMediaState(remoteParticipantKey);
-        void negotiateWith(remoteParticipantKey);
+        window.setTimeout(() => {
+          void negotiateWith(remoteParticipantKey);
+        }, 100);
       });
       screenStream.getVideoTracks()[0]?.addEventListener("ended", () => {
         void stopScreenShare();
@@ -831,7 +868,9 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     peersRef.current.forEach((peer, remoteParticipantKey) => {
       refreshPeerTracks(peer);
       sendMediaState(remoteParticipantKey);
-      void negotiateWith(remoteParticipantKey);
+      window.setTimeout(() => {
+        void negotiateWith(remoteParticipantKey);
+      }, 100);
     });
   }
 
