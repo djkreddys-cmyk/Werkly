@@ -97,8 +97,12 @@ import {
   createMeeting,
   ensureMeetingsSchema,
   getMeetingByRoomCode,
+  getMeetingWithParticipants,
+  leaveMeetingParticipant,
+  listMeetingParticipants,
   listMeetings,
   updateMeetingStatus,
+  upsertMeetingParticipant,
 } from "./meetings.js";
 import { processResumeUpload } from "./resume.js";
 import {
@@ -647,7 +651,7 @@ app.get("/admin/meetings", requireInternalUser, async (_request, response) => {
 
 app.get("/meetings/:roomCode", async (request, response) => {
   try {
-    const meeting = await getMeetingByRoomCode(request.params.roomCode);
+    const meeting = await getMeetingWithParticipants(request.params.roomCode);
     if (!meeting || meeting.status === "cancelled") {
       return response.status(404).json({ message: "Meeting link was not found." });
     }
@@ -656,6 +660,43 @@ app.get("/meetings/:roomCode", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load meeting.",
+    });
+  }
+});
+
+app.get("/meetings/:roomCode/participants", async (request, response) => {
+  try {
+    const participants = await listMeetingParticipants(request.params.roomCode);
+    response.json({ participants });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load meeting participants.",
+    });
+  }
+});
+
+app.post("/meetings/:roomCode/participants", async (request, response) => {
+  try {
+    const participant = await upsertMeetingParticipant(request.params.roomCode, request.body);
+    if (!participant) {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    response.status(201).json(participant);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to join meeting.",
+    });
+  }
+});
+
+app.delete("/meetings/:roomCode/participants/:participantKey", async (request, response) => {
+  try {
+    await leaveMeetingParticipant(request.params.roomCode, request.params.participantKey);
+    response.json({ success: true });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to leave meeting.",
     });
   }
 });
@@ -720,7 +761,7 @@ app.post("/admin/meetings", requireInternalUser, async (request, response) => {
 
 app.get("/admin/meetings/:roomCode", requireInternalUser, async (request, response) => {
   try {
-    const meeting = await getMeetingByRoomCode(request.params.roomCode);
+    const meeting = await getMeetingWithParticipants(request.params.roomCode);
     if (!meeting || meeting.status === "cancelled") {
       return response.status(404).json({ message: "Meeting link was not found." });
     }

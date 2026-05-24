@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { InternalMeetingRecord } from "@/lib/crm";
+import type { InternalMeetingParticipant, InternalMeetingRecord } from "@/lib/crm";
 
 function formatMeetingDate(value?: string | null) {
   if (!value) {
@@ -26,20 +26,73 @@ function formatMeetingDate(value?: string | null) {
 export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
       : ""
   );
+  const [authType] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthType") ?? ""
+      : ""
+  );
+  const [authName] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAuthName") ?? ""
+      : ""
+  );
+  const [authEmail] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyAdminEmail") ?? ""
+      : ""
+  );
+  const [authEmployeeCode] = useState(
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("werklyEmployeeCode") ?? ""
+      : ""
+  );
+  const [participantKey] = useState(() => {
+    if (typeof window === "undefined") {
+      return "server";
+    }
+
+    const storageKey = `werklyMeetingParticipant-${roomCode}`;
+    const existing = window.localStorage.getItem(storageKey);
+    if (existing) {
+      return existing;
+    }
+
+    const nextKey =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    window.localStorage.setItem(storageKey, nextKey);
+    return nextKey;
+  });
+  const [displayName, setDisplayName] = useState(authName || authEmail || "");
   const [meeting, setMeeting] = useState<InternalMeetingRecord | null>(null);
+  const [participants, setParticipants] = useState<InternalMeetingParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [micEnabled, setMicEnabled] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [mediaError, setMediaError] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy link");
+  const isHost = Boolean(
+    token &&
+      meeting &&
+      (authType === "admin" ||
+        meeting.createdByIdentifier === authEmail ||
+        meeting.createdByIdentifier === authEmployeeCode ||
+        meeting.createdByName === authName)
+  );
+  const isMeetingLive = meeting?.status === "live";
+  const canJoin = Boolean(isMeetingLive || isHost);
 
   useEffect(() => {
     setIsLoading(true);
@@ -59,6 +112,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
           throw new Error(result.message || "Unable to load meeting.");
         }
         setMeeting(result);
+        setParticipants(result.participants ?? []);
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load meeting.");
@@ -67,8 +121,28 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }, [roomCode, token]);
 
   useEffect(() => {
+    const interval = window.setInterval(() => {
+      fetch(token ? `/api/admin/meetings/${roomCode}` : `/api/meetings/${roomCode}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            return;
+          }
+          const result = (await response.json()) as InternalMeetingRecord;
+          setMeeting(result);
+          setParticipants(result.participants ?? []);
+        })
+        .catch(() => undefined);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [roomCode, token]);
+
+  useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
@@ -98,13 +172,77 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
       setCameraEnabled(true);
       setMicEnabled(true);
-      setHasJoined(true);
+      return true;
     } catch (previewError) {
       setMediaError(
         previewError instanceof Error
           ? previewError.message
           : "Camera or microphone permission was blocked."
       );
+      return false;
+    }
+  }
+
+  async function registerParticipant(
+    nextScreenShareState = isScreenSharing,
+    nextCameraEnabled = cameraEnabled,
+    nextMicEnabled = micEnabled
+  ) {
+    const safeDisplayName =
+      displayName.trim() || authName || authEmail || authEmployeeCode || "Meeting guest";
+
+    const response = await fetch(`/api/meetings/${roomCode}/participants`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        participantKey,
+        displayName: safeDisplayName,
+        isHost,
+        cameraEnabled: nextCameraEnabled,
+        micEnabled: nextMicEnabled,
+        isScreenSharing: nextScreenShareState,
+      }),
+    });
+
+    if (response.ok) {
+      const participant = (await response.json()) as InternalMeetingParticipant;
+      setParticipants((current) => [
+        participant,
+        ...current.filter((item) => item.participantKey !== participant.participantKey),
+      ]);
+    }
+  }
+
+  async function startMeeting() {
+    if (!token || !isHost || isStarting) {
+      return;
+    }
+
+    setIsStarting(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/meetings/${roomCode}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "live" }),
+      });
+      const result = (await response.json()) as InternalMeetingRecord & { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to start meeting.");
+      }
+
+      setMeeting(result);
+      setParticipants(result.participants ?? participants);
+    } catch (startError) {
+      setError(startError instanceof Error ? startError.message : "Unable to start meeting.");
+    } finally {
+      setIsStarting(false);
     }
   }
 
@@ -113,24 +251,57 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
+    if (!canJoin) {
+      setMediaError("The host has not started this meeting yet.");
+      return;
+    }
+
     setIsJoining(true);
 
     try {
-      await startPreview();
-
-      if (token) {
-        await fetch(`/api/admin/meetings/${roomCode}/status`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: "live" }),
-        }).catch(() => undefined);
+      const previewStarted = await startPreview();
+      if (previewStarted) {
+        setHasJoined(true);
+        await registerParticipant(false, true, true);
       }
     } finally {
       setIsJoining(false);
     }
+  }
+
+  async function startScreenShare() {
+    if (!hasJoined) {
+      setMediaError("Join the meeting before sharing your screen.");
+      return;
+    }
+
+    try {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        throw new Error("Screen sharing is not available in this browser.");
+      }
+
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+      screenStreamRef.current = screenStream;
+      setIsScreenSharing(true);
+      await registerParticipant(true);
+      screenStream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        void stopScreenShare();
+      });
+    } catch (shareError) {
+      setMediaError(
+        shareError instanceof Error ? shareError.message : "Unable to start screen sharing."
+      );
+    }
+  }
+
+  async function stopScreenShare() {
+    screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+    screenStreamRef.current = null;
+    setIsScreenSharing(false);
+    await registerParticipant(false);
   }
 
   function toggleCamera() {
@@ -206,16 +377,32 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     {meeting?.title || "Internal meeting room"}
                   </h1>
                   <p className="mt-2 text-sm text-white/72">
-                    Review the join details, then allow camera and microphone.
+                    {isMeetingLive || isHost
+                      ? "Review the join details, then allow camera and microphone."
+                      : "Waiting for the host to start this meeting."}
                   </p>
+                  {isHost && !isMeetingLive ? (
+                    <button
+                      type="button"
+                      onClick={startMeeting}
+                      disabled={isStarting}
+                      className="mt-5 rounded-xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[#0b1e22] transition hover:bg-[#e09a43] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isStarting ? "Starting..." : "Start meeting"}
+                    </button>
+                  ) : null}
                   {!hasJoined && !error ? (
                     <button
                       type="button"
                       onClick={joinMeeting}
-                      disabled={isLoading || isJoining}
+                      disabled={isLoading || isJoining || !canJoin}
                       className="mt-5 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0b1e22] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isJoining ? "Requesting access..." : "Join with camera and mic"}
+                      {isJoining
+                        ? "Requesting access..."
+                        : canJoin
+                          ? "Join with camera and mic"
+                          : "Waiting for host"}
                     </button>
                   ) : null}
                 </div>
@@ -253,6 +440,9 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                   setCameraEnabled(false);
                   setMicEnabled(false);
                   setHasJoined(false);
+                  void fetch(`/api/meetings/${roomCode}/participants/${participantKey}`, {
+                    method: "DELETE",
+                  });
                 }}
                 className="rounded-xl bg-[var(--color-accent-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#9f3914]"
               >
@@ -305,20 +495,97 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     </span>
                   </div>
                 </div>
+                {!authName && !hasJoined ? (
+                  <label className="mt-5 block">
+                    <span className="text-sm font-semibold text-slate-800">Your name</span>
+                    <input
+                      value={displayName}
+                      onChange={(event) => setDisplayName(event.target.value)}
+                      placeholder="Enter your name"
+                      className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                    />
+                  </label>
+                ) : null}
+                {isHost && !isMeetingLive ? (
+                  <button
+                    type="button"
+                    onClick={startMeeting}
+                    disabled={isStarting}
+                    className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-accent)] px-4 py-3 text-sm font-semibold text-[#0b1e22] transition hover:bg-[#e09a43] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isStarting ? "Starting meeting..." : "Start meeting as host"}
+                  </button>
+                ) : null}
                 {!hasJoined ? (
                   <button
                     type="button"
                     onClick={joinMeeting}
-                    disabled={isJoining}
+                    disabled={isJoining || !canJoin}
                     className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isJoining ? "Requesting camera and mic..." : "Join with camera and mic"}
+                    {isJoining
+                      ? "Requesting camera and mic..."
+                      : canJoin
+                        ? "Join with camera and mic"
+                        : "Waiting for host to start"}
                   </button>
                 ) : (
-                  <p className="mt-5 rounded-xl bg-[rgba(8,96,108,0.08)] p-3 text-sm font-semibold text-[var(--color-dark)]">
-                    You are in the room. Camera and microphone controls are below the preview.
-                  </p>
+                  <div className="mt-5 space-y-3">
+                    <p className="rounded-xl bg-[rgba(8,96,108,0.08)] p-3 text-sm font-semibold text-[var(--color-dark)]">
+                      You are in the room. Camera and microphone controls are below the preview.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                      className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                    >
+                      {isScreenSharing ? "Stop screen sharing" : "Share screen"}
+                    </button>
+                  </div>
                 )}
+                <div className="mt-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-slate-950">
+                      Joined users
+                    </h3>
+                    <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-2.5 py-1 text-xs font-semibold text-[var(--color-dark)]">
+                      {participants.length}
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {participants.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-[var(--color-line)] p-3 text-sm text-[var(--color-muted)]">
+                        No one has joined yet.
+                      </p>
+                    ) : (
+                      participants.map((participant) => (
+                        <div
+                          key={participant.id}
+                          className="rounded-xl border border-[var(--color-line)] bg-white p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-950">
+                                {participant.displayName}
+                              </p>
+                              <p className="mt-1 text-xs text-[var(--color-muted)]">
+                                {participant.isHost ? "Host" : "Participant"}
+                              </p>
+                            </div>
+                            {participant.isScreenSharing ? (
+                              <span className="rounded-full bg-[rgba(241,166,75,0.16)] px-2 py-1 text-[10px] font-semibold text-[var(--color-accent-strong)]">
+                                Sharing
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <p className="mt-5 text-xs leading-5 text-[var(--color-muted)]">
+                  Screen-share broadcast to every viewer needs the next media layer. This room now captures and marks sharing state; adding WebRTC or LiveKit will make the shared screen visible to everyone.
+                </p>
                 {mediaError ? (
                   <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">
                     {mediaError}

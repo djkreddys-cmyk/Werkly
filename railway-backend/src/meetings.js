@@ -26,6 +26,22 @@ function mapMeetingRow(row) {
   };
 }
 
+function mapParticipantRow(row) {
+  return {
+    id: row.id,
+    meetingId: row.meeting_id,
+    participantKey: row.participant_key,
+    displayName: row.display_name,
+    isHost: Boolean(row.is_host),
+    cameraEnabled: Boolean(row.camera_enabled),
+    micEnabled: Boolean(row.mic_enabled),
+    isScreenSharing: Boolean(row.is_screen_sharing),
+    joinedAt: row.joined_at.toISOString(),
+    lastSeenAt: row.last_seen_at.toISOString(),
+    leftAt: row.left_at ? row.left_at.toISOString() : null,
+  };
+}
+
 function normalizeParticipantIds(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -63,6 +79,28 @@ export async function ensureMeetingsSchema() {
     create index if not exists idx_internal_meetings_starts_at
     on internal_meetings(starts_at)
   `);
+
+  await query(`
+    create table if not exists internal_meeting_participants (
+      id uuid primary key default gen_random_uuid(),
+      meeting_id uuid not null references internal_meetings(id) on delete cascade,
+      participant_key text not null,
+      display_name text not null,
+      is_host boolean not null default false,
+      camera_enabled boolean not null default false,
+      mic_enabled boolean not null default false,
+      is_screen_sharing boolean not null default false,
+      joined_at timestamptz not null default now(),
+      last_seen_at timestamptz not null default now(),
+      left_at timestamptz,
+      unique(meeting_id, participant_key)
+    )
+  `);
+
+  await query(`
+    create index if not exists idx_internal_meeting_participants_meeting_id
+    on internal_meeting_participants(meeting_id)
+  `);
 }
 
 export async function listMeetings() {
@@ -89,6 +127,35 @@ export async function getMeetingByRoomCode(roomCode) {
   );
 
   return result.rows[0] ? mapMeetingRow(result.rows[0]) : null;
+}
+
+export async function listMeetingParticipants(roomCode) {
+  const result = await query(
+    `
+      select p.*
+      from internal_meeting_participants p
+      join internal_meetings m on m.id = p.meeting_id
+      where m.room_code = $1
+        and p.left_at is null
+        and p.last_seen_at > now() - interval '2 minutes'
+      order by p.is_host desc, p.joined_at asc
+    `,
+    [roomCode]
+  );
+
+  return result.rows.map(mapParticipantRow);
+}
+
+export async function getMeetingWithParticipants(roomCode) {
+  const meeting = await getMeetingByRoomCode(roomCode);
+  if (!meeting) {
+    return null;
+  }
+
+  return {
+    ...meeting,
+    participants: await listMeetingParticipants(roomCode),
+  };
 }
 
 export async function createMeeting(payload, actor) {
@@ -172,4 +239,76 @@ export async function updateMeetingStatus(roomCode, status) {
   );
 
   return result.rows[0] ? mapMeetingRow(result.rows[0]) : null;
+}
+
+export async function upsertMeetingParticipant(roomCode, payload) {
+  const participantKey = String(payload?.participantKey || "").trim();
+  const displayName = String(payload?.displayName || "").trim();
+
+  if (!participantKey || !displayName) {
+    throw new Error("Participant name is required.");
+  }
+
+  const meeting = await getMeetingByRoomCode(roomCode);
+  if (!meeting) {
+    return null;
+  }
+
+  const result = await query(
+    `
+      insert into internal_meeting_participants (
+        meeting_id,
+        participant_key,
+        display_name,
+        is_host,
+        camera_enabled,
+        mic_enabled,
+        is_screen_sharing,
+        left_at
+      )
+      values ($1, $2, $3, $4, $5, $6, $7, null)
+      on conflict (meeting_id, participant_key)
+      do update set
+        display_name = excluded.display_name,
+        is_host = excluded.is_host,
+        camera_enabled = excluded.camera_enabled,
+        mic_enabled = excluded.mic_enabled,
+        is_screen_sharing = excluded.is_screen_sharing,
+        last_seen_at = now(),
+        left_at = null
+      returning *
+    `,
+    [
+      meeting.id,
+      participantKey,
+      displayName,
+      Boolean(payload?.isHost),
+      Boolean(payload?.cameraEnabled),
+      Boolean(payload?.micEnabled),
+      Boolean(payload?.isScreenSharing),
+    ]
+  );
+
+  return mapParticipantRow(result.rows[0]);
+}
+
+export async function leaveMeetingParticipant(roomCode, participantKey) {
+  const result = await query(
+    `
+      update internal_meeting_participants p
+      set left_at = now(),
+          last_seen_at = now(),
+          camera_enabled = false,
+          mic_enabled = false,
+          is_screen_sharing = false
+      from internal_meetings m
+      where p.meeting_id = m.id
+        and m.room_code = $1
+        and p.participant_key = $2
+      returning p.*
+    `,
+    [roomCode, participantKey]
+  );
+
+  return result.rows[0] ? mapParticipantRow(result.rows[0]) : null;
 }

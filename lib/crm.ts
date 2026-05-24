@@ -258,8 +258,23 @@ export type InternalMeetingRecord = {
   createdByName?: string;
   createdByIdentifier?: string;
   participantEmployeeIds: string[];
+  participants?: InternalMeetingParticipant[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type InternalMeetingParticipant = {
+  id: string;
+  meetingId: string;
+  participantKey: string;
+  displayName: string;
+  isHost: boolean;
+  cameraEnabled: boolean;
+  micEnabled: boolean;
+  isScreenSharing: boolean;
+  joinedAt: string;
+  lastSeenAt: string;
+  leftAt?: string | null;
 };
 
 export type InternalMeetingPayload = {
