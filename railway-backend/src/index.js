@@ -648,6 +648,16 @@ app.get("/admin/meetings", requireInternalUser, async (_request, response) => {
 app.post("/admin/meetings", requireInternalUser, async (request, response) => {
   try {
     const meeting = await createMeeting(request.body, getActorDetails(request));
+    const meetingTime = meeting.startsAt
+      ? new Date(meeting.startsAt).toLocaleString("en-IN", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: "Asia/Kolkata",
+        })
+      : "an open time";
+    const notificationTargets = meeting.participantEmployeeIds.length
+      ? meeting.participantEmployeeIds
+      : [null];
 
     await createAuditLog({
       actionType: "meeting.created",
@@ -660,6 +670,30 @@ app.post("/admin/meetings", requireInternalUser, async (request, response) => {
         roomCode: meeting.roomCode,
       },
     });
+
+    await Promise.all(
+      notificationTargets.map((employeeId) =>
+        createNotificationLog({
+          notificationKey: `meeting-${meeting.id}-${employeeId || "all"}`,
+          title: `Meeting scheduled: ${meeting.title}`,
+          message: `${meeting.createdByName || "Werkly User"} scheduled a team meeting for ${meetingTime}.`,
+          category: "meeting",
+          severity: "info",
+          targetType: employeeId ? "employee" : "all",
+          targetEmployeeId: employeeId,
+          deliveryChannels: ["in-app"],
+          actionUrl: `/meet/${meeting.roomCode}`,
+          entityType: "meeting",
+          entityId: meeting.id,
+          metadata: {
+            roomCode: meeting.roomCode,
+            startsAt: meeting.startsAt,
+            endsAt: meeting.endsAt,
+            participantEmployeeIds: meeting.participantEmployeeIds,
+          },
+        })
+      )
+    );
 
     response.status(201).json(meeting);
   } catch (error) {

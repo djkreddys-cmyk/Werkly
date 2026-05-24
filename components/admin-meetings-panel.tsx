@@ -4,6 +4,62 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { EmployeeRecord, InternalMeetingRecord } from "@/lib/crm";
 
+function formatLocalDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, "0");
+  const day = `${value.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getTodayKey() {
+  return formatLocalDateKey(new Date());
+}
+
+function normalizeDateKey(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const directMatch = value.match(/^\d{4}-\d{2}-\d{2}/);
+  if (directMatch) {
+    return directMatch[0];
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "" : formatLocalDateKey(parsed);
+}
+
+function parseDateKey(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function formatMonthLabel(value: Date) {
+  return value.toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function buildCalendarDays(monthDate: Date) {
+  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const calendarStart = new Date(monthStart);
+  calendarStart.setDate(monthStart.getDate() - monthStart.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const current = new Date(calendarStart);
+    current.setDate(calendarStart.getDate() + index);
+    const dateKey = formatLocalDateKey(current);
+
+    return {
+      key: dateKey,
+      label: current.getDate(),
+      dateKey,
+      inMonth: current.getMonth() === monthDate.getMonth(),
+    };
+  });
+}
+
 function formatMeetingDate(value?: string | null) {
   if (!value) {
     return "Instant room";
@@ -49,6 +105,9 @@ export function AdminMeetingsPanel() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [copiedRoomCode, setCopiedRoomCode] = useState("");
+  const todayKey = getTodayKey();
+  const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+  const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
 
   useEffect(() => {
     if (!token) {
@@ -103,6 +162,47 @@ export function AdminMeetingsPanel() {
         return bTime - aTime;
       }),
     [meetings]
+  );
+
+  const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
+
+  const meetingsByDate = useMemo(() => {
+    return meetings.reduce<Record<string, InternalMeetingRecord[]>>((accumulator, meeting) => {
+      const dateKey = normalizeDateKey(meeting.startsAt);
+      if (!dateKey) {
+        return accumulator;
+      }
+
+      accumulator[dateKey] = [...(accumulator[dateKey] ?? []), meeting];
+      return accumulator;
+    }, {});
+  }, [meetings]);
+
+  const selectedDateMeetings = useMemo(
+    () =>
+      [...(meetingsByDate[selectedDateKey] ?? [])].sort((a, b) =>
+        String(a.startsAt || "").localeCompare(String(b.startsAt || ""))
+      ),
+    [meetingsByDate, selectedDateKey]
+  );
+
+  const selectedDateLabel = useMemo(
+    () =>
+      parseDateKey(selectedDateKey).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }),
+    [selectedDateKey]
+  );
+
+  const employeeNamesById = useMemo(
+    () =>
+      employees.reduce<Record<string, string>>((accumulator, employee) => {
+        accumulator[employee.id] = employee.fullName;
+        return accumulator;
+      }, {}),
+    [employees]
   );
 
   function toggleParticipant(employeeId: string) {
@@ -164,8 +264,15 @@ export function AdminMeetingsPanel() {
       setStartsAt("");
       setDurationMinutes("30");
       setParticipantEmployeeIds([]);
+      if (result.startsAt) {
+        const createdDateKey = normalizeDateKey(result.startsAt);
+        if (createdDateKey) {
+          setSelectedDateKey(createdDateKey);
+          setVisibleMonth(parseDateKey(createdDateKey));
+        }
+      }
       await copyMeetingLink(result.roomCode);
-      setSuccessMessage("Meeting link created and copied.");
+      setSuccessMessage("Meeting link created, copied, and notifications sent.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to create meeting.");
     } finally {
@@ -281,6 +388,148 @@ export function AdminMeetingsPanel() {
       <section className="crm-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
+            <p className="eyebrow">Meeting calendar</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-950">Scheduled meetings</h2>
+          </div>
+          <label className="min-w-[10rem]">
+            <span className="sr-only">Selected meeting date</span>
+            <input
+              type="date"
+              value={selectedDateKey}
+              onChange={(event) => {
+                setSelectedDateKey(event.target.value);
+                setVisibleMonth(parseDateKey(event.target.value));
+              }}
+              className="w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm outline-none transition focus:border-[var(--color-dark)]"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 rounded-xl border border-[var(--color-line)] bg-white p-3">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleMonth(
+                  (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)
+                )
+              }
+              className="rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-xs font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+            >
+              Prev
+            </button>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted)]">
+              {formatMonthLabel(visibleMonth)}
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleMonth(
+                  (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)
+                )
+              }
+              className="rounded-lg border border-[var(--color-line)] px-3 py-1.5 text-xs font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+            >
+              Next
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-7 gap-1">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div
+                key={day}
+                className="px-1 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-muted)]"
+              >
+                {day}
+              </div>
+            ))}
+
+            {calendarDays.map((day) => {
+              const count = meetingsByDate[day.dateKey]?.length ?? 0;
+              const isSelected = day.dateKey === selectedDateKey;
+              const isToday = day.dateKey === todayKey;
+
+              return (
+                <button
+                  key={day.key}
+                  type="button"
+                  onClick={() => setSelectedDateKey(day.dateKey)}
+                  className={`min-h-[3.35rem] rounded-lg border px-2 py-1.5 text-left transition ${
+                    isSelected
+                      ? "border-[var(--color-dark)] bg-[rgba(8,96,108,0.09)]"
+                      : isToday
+                        ? "border-[var(--color-accent)] bg-[rgba(241,166,75,0.12)] hover:border-[var(--color-dark)]"
+                        : "border-[var(--color-line)] bg-white hover:border-[var(--color-dark)]"
+                  } ${day.inMonth ? "text-slate-900" : "text-slate-400"}`}
+                >
+                  <span
+                    className={`text-xs font-semibold ${
+                      isToday ? "text-[var(--color-accent-strong)]" : ""
+                    }`}
+                  >
+                    {day.label}
+                  </span>
+                  {count > 0 ? (
+                    <span className="mt-1 block w-fit rounded-full bg-[rgba(190,72,26,0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-accent-strong)]">
+                      {count}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-950">{selectedDateLabel}</h3>
+            <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
+              {selectedDateMeetings.length} scheduled
+            </span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {selectedDateMeetings.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-[var(--color-line)] p-4 text-sm text-[var(--color-muted)]">
+                No scheduled meetings for this date.
+              </p>
+            ) : (
+              selectedDateMeetings.map((meeting) => (
+                <Link
+                  key={meeting.id}
+                  href={`/meet/${meeting.roomCode}`}
+                  className="block rounded-xl border border-[var(--color-line)] bg-white p-3 transition hover:border-[var(--color-dark)]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-950">
+                        {meeting.title}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--color-muted)]">
+                        {formatMeetingDate(meeting.startsAt)}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[rgba(241,166,75,0.14)] px-2.5 py-1 text-[11px] font-semibold capitalize text-[var(--color-accent-strong)]">
+                      {meeting.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--color-muted)]">
+                    Invited:{" "}
+                    {meeting.participantEmployeeIds.length
+                      ? meeting.participantEmployeeIds
+                          .map((id) => employeeNamesById[id] || "Team member")
+                          .join(", ")
+                      : "All team members"}
+                  </p>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="crm-panel p-5 xl:col-span-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
             <p className="eyebrow">Meeting links</p>
             <h2 className="mt-2 text-xl font-semibold text-slate-950">Recent rooms</h2>
           </div>
@@ -313,7 +562,7 @@ export function AdminMeetingsPanel() {
                       {meeting.title}
                     </h3>
                     <p className="mt-1 text-sm text-[var(--color-muted)]">
-                      {formatMeetingDate(meeting.startsAt)} · Created by{" "}
+                      {formatMeetingDate(meeting.startsAt)} - Created by{" "}
                       {meeting.createdByName || "Werkly User"}
                     </p>
                   </div>
