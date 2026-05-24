@@ -93,6 +93,13 @@ import {
   listShifts,
   updateShiftAssignment,
 } from "./shifts.js";
+import {
+  createMeeting,
+  ensureMeetingsSchema,
+  getMeetingByRoomCode,
+  listMeetings,
+  updateMeetingStatus,
+} from "./meetings.js";
 import { processResumeUpload } from "./resume.js";
 import {
   createManualJobApplication,
@@ -623,6 +630,71 @@ app.get("/admin/activity", requireInternalUser, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load screen activity.",
+    });
+  }
+});
+
+app.get("/admin/meetings", requireInternalUser, async (_request, response) => {
+  try {
+    const meetings = await listMeetings();
+    response.json({ meetings });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load meetings.",
+    });
+  }
+});
+
+app.post("/admin/meetings", requireInternalUser, async (request, response) => {
+  try {
+    const meeting = await createMeeting(request.body, getActorDetails(request));
+
+    await createAuditLog({
+      actionType: "meeting.created",
+      entityType: "meeting",
+      entityId: meeting.id,
+      ...getActorDetails(request),
+      beforeData: {},
+      afterData: meeting,
+      metadata: {
+        roomCode: meeting.roomCode,
+      },
+    });
+
+    response.status(201).json(meeting);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to create meeting.",
+    });
+  }
+});
+
+app.get("/admin/meetings/:roomCode", requireInternalUser, async (request, response) => {
+  try {
+    const meeting = await getMeetingByRoomCode(request.params.roomCode);
+    if (!meeting || meeting.status === "cancelled") {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    response.json(meeting);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load meeting.",
+    });
+  }
+});
+
+app.put("/admin/meetings/:roomCode/status", requireInternalUser, async (request, response) => {
+  try {
+    const meeting = await updateMeetingStatus(request.params.roomCode, request.body?.status);
+    if (!meeting) {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    response.json(meeting);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update meeting.",
     });
   }
 });
@@ -3992,6 +4064,7 @@ ensureCrmSchema()
   .then(() => ensureLeaveSchema())
   .then(() => ensureShiftSchema())
   .then(() => ensureWorkflowSchema())
+  .then(() => ensureMeetingsSchema())
   .then(() => {
     app.listen(port, () => {
       console.log(`Werkly Railway backend listening on port ${port}`);

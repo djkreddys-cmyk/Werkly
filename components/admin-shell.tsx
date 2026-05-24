@@ -39,6 +39,7 @@ const moduleSections: Array<{
       { href: "/admin/employees/existing", label: "Existing Employees" },
       { href: "/admin/leaves", label: "Leave Types & Access" },
       { href: "/admin/shifts", label: "Shifts & Assignment" },
+      { href: "/admin/meetings", label: "Team Meetings" },
       { href: "/admin/reports/hr", label: "Reports" },
     ],
   },
@@ -216,6 +217,7 @@ function getActiveModuleKey(pathname: string) {
     pathname.startsWith("/admin/employees") ||
     pathname.startsWith("/admin/leaves") ||
     pathname.startsWith("/admin/shifts") ||
+    pathname.startsWith("/admin/meetings") ||
     pathname.startsWith("/admin/reports/hr")
   ) {
     return "hr";

@@ -243,6 +243,33 @@ export type AuditLogRecord = {
   createdAt: string;
 };
 
+export type InternalMeetingStatus = "scheduled" | "live" | "ended" | "cancelled";
+
+export type InternalMeetingRecord = {
+  id: string;
+  roomCode: string;
+  title: string;
+  description?: string;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  status: InternalMeetingStatus;
+  createdByType?: string;
+  createdById?: string;
+  createdByName?: string;
+  createdByIdentifier?: string;
+  participantEmployeeIds: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InternalMeetingPayload = {
+  title: string;
+  description?: string;
+  startsAt?: string;
+  endsAt?: string;
+  participantEmployeeIds?: string[];
+};
+
 export type CrmKpiSettings = {
   recruiterDailyFollowUps: number;
   recruiterDailyApplications: number;
@@ -720,6 +747,51 @@ export async function reviewClientTransferRequest(
   return readJson<ClientTransferRequestRecord>(`/admin/client-transfer-requests/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getInternalMeetings(token: string) {
+  const data = await readJson<{ meetings: InternalMeetingRecord[] } | InternalMeetingRecord[]>(
+    "/admin/meetings",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return Array.isArray(data) ? data : data.meetings;
+}
+
+export async function createInternalMeeting(payload: InternalMeetingPayload, token: string) {
+  return readJson<InternalMeetingRecord>("/admin/meetings", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getInternalMeeting(roomCode: string, token: string) {
+  return readJson<InternalMeetingRecord>(`/admin/meetings/${roomCode}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function updateInternalMeetingStatus(
+  roomCode: string,
+  status: InternalMeetingStatus,
+  token: string
+) {
+  return readJson<InternalMeetingRecord>(`/admin/meetings/${roomCode}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
     headers: {
       Authorization: `Bearer ${token}`,
     },
