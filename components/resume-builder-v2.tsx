@@ -405,7 +405,12 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
             resumeFileName,
             resumeFileType: "application/msword",
             resumeFileData: buildDataUrl(resumeMarkup, "application/msword"),
-            resumePayload: generatedResume,
+            resumePayload: {
+              ...generatedResume,
+              template,
+              photoDataUrl: form.photoDataUrl,
+              photoName: form.photoName,
+            },
           }),
         });
         if (!saveResponse.ok) {
