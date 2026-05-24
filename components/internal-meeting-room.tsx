@@ -26,6 +26,7 @@ type PeerState = {
   makingOffer: boolean;
   ignoreOffer: boolean;
   mediaTrackIds: Set<string>;
+  pendingCandidates: RTCIceCandidateInit[];
 };
 
 function formatMeetingDate(value?: string | null) {
@@ -104,15 +105,17 @@ function MeetingTile({
   media,
   isMuted = false,
   isScreenShare = false,
+  showVideo = true,
 }: {
   label: string;
   media?: RemoteMedia | MediaStream;
   isMuted?: boolean;
   isScreenShare?: boolean;
+  showVideo?: boolean;
 }) {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const stream = media instanceof MediaStream ? media : media?.stream;
-  const hasVideo = Boolean(stream?.getVideoTracks().length);
+  const hasVideo = showVideo && Boolean(stream?.getVideoTracks().length);
   const tileLabel =
     !isScreenShare && !(media instanceof MediaStream) && media?.mediaType === "screen"
       ? `${label} screen`
@@ -463,6 +466,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       makingOffer: false,
       ignoreOffer: false,
       mediaTrackIds: new Set(),
+      pendingCandidates: [],
     };
 
     peer.connection.onicecandidate = (event) => {
@@ -530,13 +534,13 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     const peer = getPeer(signal.fromParticipantKey);
 
     if (signal.type === "candidate") {
-      try {
-        await peer.connection.addIceCandidate(signal.payload as RTCIceCandidateInit);
-      } catch {
-        if (!peer.ignoreOffer) {
-          throw new Error("Unable to add a meeting network candidate.");
-        }
+      const candidate = signal.payload as RTCIceCandidateInit;
+      if (!peer.connection.remoteDescription) {
+        peer.pendingCandidates.push(candidate);
+        return;
       }
+
+      await peer.connection.addIceCandidate(candidate);
       return;
     }
 
@@ -557,6 +561,10 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     }
 
     await peer.connection.setRemoteDescription(description);
+    const queuedCandidates = peer.pendingCandidates.splice(0);
+    await Promise.all(
+      queuedCandidates.map((candidate) => peer.connection.addIceCandidate(candidate))
+    );
 
     if (description.type === "offer") {
       refreshPeerTracks(peer);
@@ -837,6 +845,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                       key={participant.participantKey}
                       label={participant.displayName}
                       media={media}
+                      showVideo={participant.cameraEnabled}
                     />
                   ))}
                   {screenShareMedia.map((media) => {
