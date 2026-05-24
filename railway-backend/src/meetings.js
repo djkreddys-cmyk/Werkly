@@ -42,6 +42,18 @@ function mapParticipantRow(row) {
   };
 }
 
+function mapSignalRow(row) {
+  return {
+    id: Number(row.id),
+    roomCode: row.room_code,
+    fromParticipantKey: row.from_participant_key,
+    toParticipantKey: row.to_participant_key,
+    type: row.signal_type,
+    payload: row.payload || {},
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
 function normalizeParticipantIds(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -101,6 +113,24 @@ export async function ensureMeetingsSchema() {
     create index if not exists idx_internal_meeting_participants_meeting_id
     on internal_meeting_participants(meeting_id)
   `);
+
+  await query(`
+    create table if not exists internal_meeting_signals (
+      id bigserial primary key,
+      meeting_id uuid not null references internal_meetings(id) on delete cascade,
+      room_code text not null,
+      from_participant_key text not null,
+      to_participant_key text not null,
+      signal_type text not null,
+      payload jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now()
+    )
+  `);
+
+  await query(`
+    create index if not exists idx_internal_meeting_signals_recipient
+    on internal_meeting_signals(room_code, to_participant_key, id)
+  `);
 }
 
 export async function listMeetings() {
@@ -113,6 +143,15 @@ export async function listMeetings() {
   `);
 
   return result.rows.map(mapMeetingRow);
+}
+
+export async function deleteAllMeetings() {
+  const result = await query(`
+    delete from internal_meetings
+    returning id
+  `);
+
+  return result.rowCount || 0;
 }
 
 export async function getMeetingByRoomCode(roomCode) {
@@ -223,6 +262,64 @@ export async function createMeeting(payload, actor) {
   throw new Error("Unable to generate a unique meeting link.");
 }
 
+export async function updateMeeting(roomCode, payload) {
+  const title = String(payload?.title || "").trim();
+  if (!title) {
+    throw new Error("Meeting title is required.");
+  }
+
+  const startsAt = payload?.startsAt ? new Date(payload.startsAt) : null;
+  const endsAt = payload?.endsAt ? new Date(payload.endsAt) : null;
+
+  if (startsAt && Number.isNaN(startsAt.getTime())) {
+    throw new Error("Meeting start time is invalid.");
+  }
+
+  if (endsAt && Number.isNaN(endsAt.getTime())) {
+    throw new Error("Meeting end time is invalid.");
+  }
+
+  const participantEmployeeIds = normalizeParticipantIds(payload?.participantEmployeeIds);
+
+  const result = await query(
+    `
+      update internal_meetings
+      set title = $2,
+          description = $3,
+          starts_at = $4,
+          ends_at = $5,
+          participant_employee_ids = $6::uuid[],
+          updated_at = now()
+      where room_code = $1
+        and status <> 'cancelled'
+      returning *
+    `,
+    [
+      roomCode,
+      title,
+      String(payload?.description || "").trim() || null,
+      startsAt ? startsAt.toISOString() : null,
+      endsAt ? endsAt.toISOString() : null,
+      participantEmployeeIds,
+    ]
+  );
+
+  return result.rows[0] ? mapMeetingRow(result.rows[0]) : null;
+}
+
+export async function deleteMeeting(roomCode) {
+  const result = await query(
+    `
+      delete from internal_meetings
+      where room_code = $1
+      returning *
+    `,
+    [roomCode]
+  );
+
+  return result.rows[0] ? mapMeetingRow(result.rows[0]) : null;
+}
+
 export async function updateMeetingStatus(roomCode, status) {
   const safeStatus = ["scheduled", "live", "ended", "cancelled"].includes(status)
     ? status
@@ -311,4 +408,68 @@ export async function leaveMeetingParticipant(roomCode, participantKey) {
   );
 
   return result.rows[0] ? mapParticipantRow(result.rows[0]) : null;
+}
+
+export async function listMeetingSignals(roomCode, participantKey, since = 0) {
+  const safeSince = Number.isFinite(Number(since)) ? Number(since) : 0;
+
+  const result = await query(
+    `
+      select *
+      from internal_meeting_signals
+      where room_code = $1
+        and to_participant_key = $2
+        and id > $3
+        and created_at > now() - interval '10 minutes'
+      order by id asc
+      limit 100
+    `,
+    [roomCode, participantKey, safeSince]
+  );
+
+  return result.rows.map(mapSignalRow);
+}
+
+export async function createMeetingSignal(roomCode, payload) {
+  const fromParticipantKey = String(payload?.fromParticipantKey || "").trim();
+  const toParticipantKey = String(payload?.toParticipantKey || "").trim();
+  const type = String(payload?.type || "").trim();
+
+  if (!fromParticipantKey || !toParticipantKey || !type) {
+    throw new Error("Signal sender, recipient, and type are required.");
+  }
+
+  if (!["offer", "answer", "candidate", "media-state"].includes(type)) {
+    throw new Error("Signal type is not supported.");
+  }
+
+  const meeting = await getMeetingByRoomCode(roomCode);
+  if (!meeting) {
+    return null;
+  }
+
+  const result = await query(
+    `
+      insert into internal_meeting_signals (
+        meeting_id,
+        room_code,
+        from_participant_key,
+        to_participant_key,
+        signal_type,
+        payload
+      )
+      values ($1, $2, $3, $4, $5, $6::jsonb)
+      returning *
+    `,
+    [
+      meeting.id,
+      roomCode,
+      fromParticipantKey,
+      toParticipantKey,
+      type,
+      JSON.stringify(payload?.payload || {}),
+    ]
+  );
+
+  return mapSignalRow(result.rows[0]);
 }

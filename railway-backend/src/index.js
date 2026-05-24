@@ -94,13 +94,18 @@ import {
   updateShiftAssignment,
 } from "./shifts.js";
 import {
+  createMeetingSignal,
   createMeeting,
+  deleteAllMeetings,
+  deleteMeeting,
   ensureMeetingsSchema,
   getMeetingByRoomCode,
   getMeetingWithParticipants,
   leaveMeetingParticipant,
+  listMeetingSignals,
   listMeetingParticipants,
   listMeetings,
+  updateMeeting,
   updateMeetingStatus,
   upsertMeetingParticipant,
 } from "./meetings.js";
@@ -649,6 +654,17 @@ app.get("/admin/meetings", requireInternalUser, async (_request, response) => {
   }
 });
 
+app.delete("/admin/meetings", requireAdmin, async (_request, response) => {
+  try {
+    const deletedCount = await deleteAllMeetings();
+    response.json({ success: true, deletedCount });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to clear meetings.",
+    });
+  }
+});
+
 app.get("/meetings/:roomCode", async (request, response) => {
   try {
     const meeting = await getMeetingWithParticipants(request.params.roomCode);
@@ -697,6 +713,36 @@ app.delete("/meetings/:roomCode/participants/:participantKey", async (request, r
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to leave meeting.",
+    });
+  }
+});
+
+app.get("/meetings/:roomCode/signals/:participantKey", async (request, response) => {
+  try {
+    const signals = await listMeetingSignals(
+      request.params.roomCode,
+      request.params.participantKey,
+      request.query.since
+    );
+    response.json({ signals });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load meeting signals.",
+    });
+  }
+});
+
+app.post("/meetings/:roomCode/signals", async (request, response) => {
+  try {
+    const signal = await createMeetingSignal(request.params.roomCode, request.body);
+    if (!signal) {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    response.status(201).json(signal);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to send meeting signal.",
     });
   }
 });
@@ -770,6 +816,61 @@ app.get("/admin/meetings/:roomCode", requireInternalUser, async (request, respon
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load meeting.",
+    });
+  }
+});
+
+app.put("/admin/meetings/:roomCode", requireInternalUser, async (request, response) => {
+  try {
+    const beforeMeeting = await getMeetingByRoomCode(request.params.roomCode);
+    const meeting = await updateMeeting(request.params.roomCode, request.body);
+    if (!meeting) {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    await createAuditLog({
+      actionType: "meeting.updated",
+      entityType: "meeting",
+      entityId: meeting.id,
+      ...getActorDetails(request),
+      beforeData: beforeMeeting || {},
+      afterData: meeting,
+      metadata: {
+        roomCode: meeting.roomCode,
+      },
+    });
+
+    response.json(meeting);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to update meeting.",
+    });
+  }
+});
+
+app.delete("/admin/meetings/:roomCode", requireInternalUser, async (request, response) => {
+  try {
+    const meeting = await deleteMeeting(request.params.roomCode);
+    if (!meeting) {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    await createAuditLog({
+      actionType: "meeting.deleted",
+      entityType: "meeting",
+      entityId: meeting.id,
+      ...getActorDetails(request),
+      beforeData: meeting,
+      afterData: {},
+      metadata: {
+        roomCode: meeting.roomCode,
+      },
+    });
+
+    response.json({ success: true, meeting });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to delete meeting.",
     });
   }
 });

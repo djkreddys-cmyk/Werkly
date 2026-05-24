@@ -277,6 +277,16 @@ export type InternalMeetingParticipant = {
   leftAt?: string | null;
 };
 
+export type InternalMeetingSignal = {
+  id: number;
+  roomCode: string;
+  fromParticipantKey: string;
+  toParticipantKey: string;
+  type: "offer" | "answer" | "candidate" | "media-state";
+  payload: unknown;
+  createdAt: string;
+};
+
 export type InternalMeetingPayload = {
   title: string;
   description?: string;
@@ -785,6 +795,41 @@ export async function createInternalMeeting(payload: InternalMeetingPayload, tok
   return readJson<InternalMeetingRecord>("/admin/meetings", {
     method: "POST",
     body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function updateInternalMeeting(
+  roomCode: string,
+  payload: InternalMeetingPayload,
+  token: string
+) {
+  return readJson<InternalMeetingRecord>(`/admin/meetings/${roomCode}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function deleteInternalMeeting(roomCode: string, token: string) {
+  return readJson<{ success: boolean; meeting: InternalMeetingRecord }>(
+    `/admin/meetings/${roomCode}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+}
+
+export async function clearInternalMeetings(token: string) {
+  return readJson<{ success: boolean; deletedCount: number }>("/admin/meetings", {
+    method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
     },

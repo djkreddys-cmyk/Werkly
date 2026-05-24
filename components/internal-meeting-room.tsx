@@ -2,7 +2,31 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { InternalMeetingParticipant, InternalMeetingRecord } from "@/lib/crm";
+import type {
+  InternalMeetingParticipant,
+  InternalMeetingRecord,
+  InternalMeetingSignal,
+} from "@/lib/crm";
+
+type RemoteMedia = {
+  participantKey: string;
+  stream: MediaStream;
+  mediaType: "camera" | "screen";
+};
+
+type MediaStatePayload = {
+  streams?: Array<{
+    id?: string;
+    type?: "camera" | "screen";
+  }>;
+};
+
+type PeerState = {
+  connection: RTCPeerConnection;
+  makingOffer: boolean;
+  ignoreOffer: boolean;
+  mediaTrackIds: Set<string>;
+};
 
 function formatMeetingDate(value?: string | null) {
   if (!value) {
@@ -23,10 +47,119 @@ function formatMeetingDate(value?: string | null) {
   });
 }
 
+function getIceServers(): RTCIceServer[] {
+  const fallback = [{ urls: "stun:stun.l.google.com:19302" }];
+
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  const raw = process.env.NEXT_PUBLIC_WEBRTC_ICE_SERVERS;
+  if (!raw) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as RTCIceServer[];
+    return Array.isArray(parsed) && parsed.length ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function streamHasLiveTracks(stream: MediaStream) {
+  return stream.getTracks().some((track) => track.readyState === "live");
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return "WK";
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function getTileGridClass(tileCount: number) {
+  if (tileCount <= 1) {
+    return "grid-cols-1";
+  }
+
+  if (tileCount === 2) {
+    return "grid-cols-1 md:grid-cols-2";
+  }
+
+  if (tileCount <= 4) {
+    return "grid-cols-1 sm:grid-cols-2";
+  }
+
+  return "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3";
+}
+
+function MeetingTile({
+  label,
+  media,
+  isMuted = false,
+  isScreenShare = false,
+}: {
+  label: string;
+  media?: RemoteMedia | MediaStream;
+  isMuted?: boolean;
+  isScreenShare?: boolean;
+}) {
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const stream = media instanceof MediaStream ? media : media?.stream;
+  const hasVideo = Boolean(stream?.getVideoTracks().length);
+  const tileLabel =
+    !isScreenShare && !(media instanceof MediaStream) && media?.mediaType === "screen"
+      ? `${label} screen`
+      : isScreenShare
+        ? `${label} screen`
+        : label;
+
+  useEffect(() => {
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = stream || null;
+    }
+  }, [stream]);
+
+  return (
+    <div className="relative flex min-h-48 overflow-hidden rounded-xl bg-black">
+      {stream ? (
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          muted={isMuted}
+          playsInline
+          className={hasVideo ? "h-full min-h-48 w-full object-cover" : "hidden"}
+        />
+      ) : null}
+      {!hasVideo ? (
+        <div className="flex min-h-48 flex-1 items-center justify-center bg-[#132f35]">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-2xl font-semibold text-white">
+            {getInitials(label)}
+          </div>
+        </div>
+      ) : null}
+      <span className="absolute bottom-3 left-3 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
+        {tileLabel}
+      </span>
+    </div>
+  );
+}
+
 export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const peersRef = useRef<Map<string, PeerState>>(new Map());
+  const participantsRef = useRef<InternalMeetingParticipant[]>([]);
+  const mediaTypesRef = useRef<Map<string, Map<string, "camera" | "screen">>>(new Map());
+  const latestSignalIdRef = useRef(0);
+  const hasJoinedRef = useRef(false);
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -81,6 +214,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [isJoining, setIsJoining] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [remoteMedia, setRemoteMedia] = useState<RemoteMedia[]>([]);
   const [mediaError, setMediaError] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy link");
   const isHost = Boolean(
@@ -93,6 +227,25 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   );
   const isMeetingLive = meeting?.status === "live";
   const canJoin = Boolean(isMeetingLive || isHost);
+  const otherParticipants = participants.filter(
+    (participant) => participant.participantKey !== participantKey
+  );
+  const participantMedia = otherParticipants.map((participant) => ({
+    participant,
+    media: remoteMedia.find(
+      (item) => item.participantKey === participant.participantKey && item.mediaType === "camera"
+    ),
+  }));
+  const screenShareMedia = remoteMedia.filter((media) => media.mediaType === "screen");
+  const tileCount = 1 + participantMedia.length + screenShareMedia.length;
+
+  useEffect(() => {
+    participantsRef.current = participants;
+  }, [participants]);
+
+  useEffect(() => {
+    hasJoinedRef.current = hasJoined;
+  }, [hasJoined]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -140,7 +293,50 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }, [roomCode, token]);
 
   useEffect(() => {
+    connectToParticipants(participants);
+  }, [participants]);
+
+  useEffect(() => {
+    if (!hasJoined) {
+      return;
+    }
+
+    const pollSignals = async () => {
+      try {
+        const response = await fetch(
+          `/api/meetings/${roomCode}/signals/${participantKey}?since=${latestSignalIdRef.current}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) {
+          return;
+        }
+
+        const result = (await response.json()) as { signals?: InternalMeetingSignal[] };
+        for (const signal of result.signals ?? []) {
+          latestSignalIdRef.current = Math.max(latestSignalIdRef.current, signal.id);
+          await handleSignal(signal);
+        }
+      } catch (signalError) {
+        setMediaError(
+          signalError instanceof Error
+            ? signalError.message
+            : "Meeting signaling failed. Try rejoining the room."
+        );
+      }
+    };
+
+    void pollSignals();
+    const interval = window.setInterval(() => {
+      void pollSignals();
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [hasJoined, participantKey, roomCode]);
+
+  useEffect(() => {
     return () => {
+      peersRef.current.forEach((peer) => peer.connection.close());
+      peersRef.current.clear();
       streamRef.current?.getTracks().forEach((track) => track.stop());
       screenStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
@@ -151,6 +347,257 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       videoRef.current.srcObject = streamRef.current;
     }
   }, [cameraEnabled]);
+
+  function getLocalMediaStreams() {
+    return [streamRef.current, screenStreamRef.current].filter(
+      (stream): stream is MediaStream => Boolean(stream && streamHasLiveTracks(stream))
+    );
+  }
+
+  function getLocalMediaState() {
+    return {
+      streams: [
+        streamRef.current
+          ? {
+              id: streamRef.current.id,
+              type: "camera" as const,
+            }
+          : null,
+        screenStreamRef.current
+          ? {
+              id: screenStreamRef.current.id,
+              type: "screen" as const,
+            }
+          : null,
+      ].filter(Boolean),
+    };
+  }
+
+  function applyRemoteMediaState(
+    remoteParticipantKey: string,
+    payload: MediaStatePayload
+  ) {
+    const nextTypes = new Map<string, "camera" | "screen">();
+    payload.streams?.forEach((stream) => {
+      if (stream.id && (stream.type === "camera" || stream.type === "screen")) {
+        nextTypes.set(stream.id, stream.type);
+      }
+    });
+    mediaTypesRef.current.set(remoteParticipantKey, nextTypes);
+    setRemoteMedia((current) =>
+      current.map((item) =>
+        item.participantKey === remoteParticipantKey
+          ? {
+              ...item,
+              mediaType: nextTypes.get(item.stream.id) || item.mediaType,
+            }
+          : item
+      )
+    );
+  }
+
+  function refreshPeerTracks(peer: PeerState) {
+    const streams = getLocalMediaStreams();
+    const nextTrackIds = new Set(streams.flatMap((stream) => stream.getTracks().map((track) => track.id)));
+
+    peer.connection.getSenders().forEach((sender) => {
+      if (sender.track && !nextTrackIds.has(sender.track.id)) {
+        peer.connection.removeTrack(sender);
+      }
+    });
+
+    streams.forEach((stream) => {
+      stream.getTracks().forEach((track) => {
+        const exists = peer.connection
+          .getSenders()
+          .some((sender) => sender.track?.id === track.id);
+        if (!exists) {
+          peer.connection.addTrack(track, stream);
+        }
+      });
+    });
+
+    peer.mediaTrackIds = nextTrackIds;
+  }
+
+  async function sendSignal(
+    toParticipantKey: string,
+    type: InternalMeetingSignal["type"],
+    payload: unknown
+  ) {
+    await fetch(`/api/meetings/${roomCode}/signals`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fromParticipantKey: participantKey,
+        toParticipantKey,
+        type,
+        payload,
+      }),
+    });
+  }
+
+  function sendMediaState(toParticipantKey?: string) {
+    const recipients = toParticipantKey
+      ? [toParticipantKey]
+      : participantsRef.current
+          .map((participant) => participant.participantKey)
+          .filter((key) => key !== participantKey);
+
+    recipients.forEach((recipientKey) => {
+      void sendSignal(recipientKey, "media-state", getLocalMediaState());
+    });
+  }
+
+  function getPeer(remoteParticipantKey: string) {
+    const existing = peersRef.current.get(remoteParticipantKey);
+    if (existing) {
+      refreshPeerTracks(existing);
+      return existing;
+    }
+
+    const peer: PeerState = {
+      connection: new RTCPeerConnection({ iceServers: getIceServers() }),
+      makingOffer: false,
+      ignoreOffer: false,
+      mediaTrackIds: new Set(),
+    };
+
+    peer.connection.onicecandidate = (event) => {
+      if (event.candidate) {
+        void sendSignal(remoteParticipantKey, "candidate", event.candidate.toJSON());
+      }
+    };
+
+    peer.connection.ontrack = (event) => {
+      const stream = event.streams[0] || new MediaStream([event.track]);
+      setRemoteMedia((current) => {
+        const next = current.filter((item) => item.stream.id !== stream.id);
+        const mediaType =
+          mediaTypesRef.current.get(remoteParticipantKey)?.get(stream.id) ||
+          (next.some((item) => item.participantKey === remoteParticipantKey)
+            ? "screen"
+            : "camera");
+        return [
+          ...next,
+          {
+            participantKey: remoteParticipantKey,
+            stream,
+            mediaType,
+          },
+        ];
+      });
+    };
+
+    peer.connection.onconnectionstatechange = () => {
+      if (["closed", "disconnected", "failed"].includes(peer.connection.connectionState)) {
+        setRemoteMedia((current) =>
+          current.filter((item) => item.participantKey !== remoteParticipantKey)
+        );
+      }
+    };
+
+    peersRef.current.set(remoteParticipantKey, peer);
+    refreshPeerTracks(peer);
+    return peer;
+  }
+
+  async function negotiateWith(remoteParticipantKey: string) {
+    if (!hasJoinedRef.current) {
+      return;
+    }
+
+    const peer = getPeer(remoteParticipantKey);
+    try {
+      peer.makingOffer = true;
+      await peer.connection.setLocalDescription();
+      if (peer.connection.localDescription) {
+        await sendSignal(remoteParticipantKey, "offer", peer.connection.localDescription.toJSON());
+        sendMediaState(remoteParticipantKey);
+      }
+    } finally {
+      peer.makingOffer = false;
+    }
+  }
+
+  async function handleSignal(signal: InternalMeetingSignal) {
+    if (signal.fromParticipantKey === participantKey || !hasJoinedRef.current) {
+      return;
+    }
+
+    const peer = getPeer(signal.fromParticipantKey);
+
+    if (signal.type === "candidate") {
+      try {
+        await peer.connection.addIceCandidate(signal.payload as RTCIceCandidateInit);
+      } catch {
+        if (!peer.ignoreOffer) {
+          throw new Error("Unable to add a meeting network candidate.");
+        }
+      }
+      return;
+    }
+
+    if (signal.type === "media-state") {
+      applyRemoteMediaState(signal.fromParticipantKey, signal.payload as MediaStatePayload);
+      return;
+    }
+
+    const description = signal.payload as RTCSessionDescriptionInit;
+    const offerCollision =
+      description.type === "offer" &&
+      (peer.makingOffer || peer.connection.signalingState !== "stable");
+    const isPolite = participantKey > signal.fromParticipantKey;
+    peer.ignoreOffer = !isPolite && offerCollision;
+
+    if (peer.ignoreOffer) {
+      return;
+    }
+
+    await peer.connection.setRemoteDescription(description);
+
+    if (description.type === "offer") {
+      refreshPeerTracks(peer);
+      await peer.connection.setLocalDescription();
+      if (peer.connection.localDescription) {
+        await sendSignal(signal.fromParticipantKey, "answer", peer.connection.localDescription.toJSON());
+        sendMediaState(signal.fromParticipantKey);
+      }
+    }
+  }
+
+  function removePeer(remoteParticipantKey: string) {
+    const peer = peersRef.current.get(remoteParticipantKey);
+    peer?.connection.close();
+    peersRef.current.delete(remoteParticipantKey);
+    setRemoteMedia((current) => current.filter((item) => item.participantKey !== remoteParticipantKey));
+  }
+
+  function connectToParticipants(nextParticipants = participantsRef.current) {
+    if (!hasJoinedRef.current) {
+      return;
+    }
+
+    const activeKeys = new Set(nextParticipants.map((participant) => participant.participantKey));
+    peersRef.current.forEach((_peer, remoteParticipantKey) => {
+      if (!activeKeys.has(remoteParticipantKey)) {
+        removePeer(remoteParticipantKey);
+      }
+    });
+
+    nextParticipants
+      .filter((participant) => participant.participantKey !== participantKey)
+      .forEach((participant) => {
+        const peerExists = peersRef.current.has(participant.participantKey);
+        getPeer(participant.participantKey);
+        sendMediaState(participant.participantKey);
+        if (!peerExists && participantKey < participant.participantKey) {
+          void negotiateWith(participant.participantKey);
+        }
+      });
+  }
 
   async function startPreview() {
     setMediaError("");
@@ -263,6 +710,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       if (previewStarted) {
         setHasJoined(true);
         await registerParticipant(false, true, true);
+        sendMediaState();
+        window.setTimeout(() => connectToParticipants(), 0);
       }
     } finally {
       setIsJoining(false);
@@ -287,6 +736,11 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       screenStreamRef.current = screenStream;
       setIsScreenSharing(true);
       await registerParticipant(true);
+      peersRef.current.forEach((peer, remoteParticipantKey) => {
+        refreshPeerTracks(peer);
+        sendMediaState(remoteParticipantKey);
+        void negotiateWith(remoteParticipantKey);
+      });
       screenStream.getVideoTracks()[0]?.addEventListener("ended", () => {
         void stopScreenShare();
       });
@@ -302,6 +756,11 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     screenStreamRef.current = null;
     setIsScreenSharing(false);
     await registerParticipant(false);
+    peersRef.current.forEach((peer, remoteParticipantKey) => {
+      refreshPeerTracks(peer);
+      sendMediaState(remoteParticipantKey);
+      void negotiateWith(remoteParticipantKey);
+    });
   }
 
   function toggleCamera() {
@@ -313,6 +772,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
     videoTrack.enabled = !videoTrack.enabled;
     setCameraEnabled(videoTrack.enabled);
+    void registerParticipant(isScreenSharing, videoTrack.enabled, micEnabled);
+    sendMediaState();
   }
 
   function toggleMic() {
@@ -324,6 +785,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
     audioTrack.enabled = !audioTrack.enabled;
     setMicEnabled(audioTrack.enabled);
+    void registerParticipant(isScreenSharing, cameraEnabled, audioTrack.enabled);
+    sendMediaState();
   }
 
   async function copyLink() {
@@ -360,14 +823,41 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         <section className="grid flex-1 gap-5 py-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-2xl bg-[#10262b] shadow-[0_18px_44px_rgba(15,23,42,0.18)]">
             <div className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(241,166,75,0.22),transparent_30%),linear-gradient(135deg,#10262b,#061417)] p-4">
-              {cameraEnabled ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="h-full max-h-[72vh] w-full rounded-xl object-cover"
-                />
+              {hasJoined ? (
+                <div
+                  className={`grid h-full w-full auto-rows-fr gap-3 ${getTileGridClass(tileCount)}`}
+                >
+                  <MeetingTile
+                    label={displayName.trim() || authName || authEmail || "You"}
+                    media={streamRef.current || undefined}
+                    isMuted
+                  />
+                  {participantMedia.map(({ participant, media }) => (
+                    <MeetingTile
+                      key={participant.participantKey}
+                      label={participant.displayName}
+                      media={media}
+                    />
+                  ))}
+                  {screenShareMedia.map((media) => {
+                    const participant = participants.find(
+                      (item) => item.participantKey === media.participantKey
+                    );
+                    return (
+                      <MeetingTile
+                        key={`${media.participantKey}-${media.stream.id}`}
+                        media={media}
+                        label={participant?.displayName || "Participant"}
+                        isScreenShare
+                      />
+                    );
+                  })}
+                  {otherParticipants.length === 0 ? (
+                    <div className="flex min-h-48 items-center justify-center rounded-xl border border-white/10 bg-white/5 p-5 text-center text-sm font-semibold text-white/70">
+                      Waiting for another participant to join.
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <div className="text-center text-white">
                   <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-2xl font-semibold">
@@ -435,10 +925,16 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               <button
                 type="button"
                 onClick={() => {
+                  peersRef.current.forEach((peer) => peer.connection.close());
+                  peersRef.current.clear();
+                  setRemoteMedia([]);
                   streamRef.current?.getTracks().forEach((track) => track.stop());
+                  screenStreamRef.current?.getTracks().forEach((track) => track.stop());
                   streamRef.current = null;
+                  screenStreamRef.current = null;
                   setCameraEnabled(false);
                   setMicEnabled(false);
+                  setIsScreenSharing(false);
                   setHasJoined(false);
                   void fetch(`/api/meetings/${roomCode}/participants/${participantKey}`, {
                     method: "DELETE",
@@ -584,7 +1080,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                   </div>
                 </div>
                 <p className="mt-5 text-xs leading-5 text-[var(--color-muted)]">
-                  Screen-share broadcast to every viewer needs the next media layer. This room now captures and marks sharing state; adding WebRTC or LiveKit will make the shared screen visible to everyone.
+                  Camera, microphone, and screen-share streams now connect peer-to-peer with WebRTC signaling through the Werkly backend.
                 </p>
                 {mediaError ? (
                   <p className="mt-5 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">

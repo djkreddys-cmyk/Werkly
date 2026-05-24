@@ -29,6 +29,24 @@ function normalizeDateKey(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? "" : formatLocalDateKey(parsed);
 }
 
+function toDateTimeLocalValue(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 function parseDateKey(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, (month || 1) - 1, day || 1);
@@ -100,6 +118,8 @@ export function AdminMeetingsPanel() {
   const [startsAt, setStartsAt] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("30");
   const [participantEmployeeIds, setParticipantEmployeeIds] = useState<string[]>([]);
+  const [editingRoomCode, setEditingRoomCode] = useState("");
+  const [deletingRoomCode, setDeletingRoomCode] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -213,6 +233,36 @@ export function AdminMeetingsPanel() {
     );
   }
 
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setStartsAt("");
+    setDurationMinutes("30");
+    setParticipantEmployeeIds([]);
+    setEditingRoomCode("");
+  }
+
+  function startEditingMeeting(meeting: InternalMeetingRecord) {
+    setTitle(meeting.title);
+    setDescription(meeting.description || "");
+    setStartsAt(toDateTimeLocalValue(meeting.startsAt));
+    setParticipantEmployeeIds(meeting.participantEmployeeIds);
+    setEditingRoomCode(meeting.roomCode);
+    setError("");
+    setSuccessMessage("");
+
+    if (meeting.startsAt && meeting.endsAt) {
+      const startTime = new Date(meeting.startsAt).getTime();
+      const endTime = new Date(meeting.endsAt).getTime();
+      const minutes = Math.max(5, Math.round((endTime - startTime) / 60000));
+      setDurationMinutes(String(Number.isFinite(minutes) ? minutes : 30));
+    } else {
+      setDurationMinutes("30");
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function copyMeetingLink(roomCode: string) {
     const url = getMeetingUrl(roomCode);
     await navigator.clipboard.writeText(url);
@@ -238,45 +288,102 @@ export function AdminMeetingsPanel() {
           ? new Date(new Date(startsAt).getTime() + duration * 60 * 1000).toISOString()
           : undefined;
 
-      const response = await fetch("/api/admin/meetings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          startsAt: startsAt ? new Date(startsAt).toISOString() : undefined,
-          endsAt,
-          participantEmployeeIds,
-        }),
-      });
+      const payload = {
+        title,
+        description,
+        startsAt: startsAt ? new Date(startsAt).toISOString() : undefined,
+        endsAt,
+        participantEmployeeIds,
+      };
+      const response = await fetch(
+        editingRoomCode ? `/api/admin/meetings/${editingRoomCode}` : "/api/admin/meetings",
+        {
+          method: editingRoomCode ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
       const result = (await response.json()) as InternalMeetingRecord & { message?: string };
 
       if (!response.ok) {
-        throw new Error(result.message || "Unable to create meeting.");
+        throw new Error(
+          result.message || (editingRoomCode ? "Unable to update meeting." : "Unable to create meeting.")
+        );
       }
 
-      setMeetings((current) => [result, ...current]);
-      setTitle("");
-      setDescription("");
-      setStartsAt("");
-      setDurationMinutes("30");
-      setParticipantEmployeeIds([]);
+      setMeetings((current) =>
+        editingRoomCode
+          ? current.map((meeting) => (meeting.roomCode === result.roomCode ? result : meeting))
+          : [result, ...current]
+      );
+      resetForm();
       if (result.startsAt) {
-        const createdDateKey = normalizeDateKey(result.startsAt);
-        if (createdDateKey) {
-          setSelectedDateKey(createdDateKey);
-          setVisibleMonth(parseDateKey(createdDateKey));
+        const savedDateKey = normalizeDateKey(result.startsAt);
+        if (savedDateKey) {
+          setSelectedDateKey(savedDateKey);
+          setVisibleMonth(parseDateKey(savedDateKey));
         }
       }
-      await copyMeetingLink(result.roomCode);
-      setSuccessMessage("Meeting link created, copied, and notifications sent.");
+      if (!editingRoomCode) {
+        await copyMeetingLink(result.roomCode);
+      }
+      setSuccessMessage(
+        editingRoomCode
+          ? "Meeting link updated."
+          : "Meeting link created, copied, and notifications sent."
+      );
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unable to create meeting.");
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : editingRoomCode
+            ? "Unable to update meeting."
+            : "Unable to create meeting."
+      );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function deleteMeeting(roomCode: string) {
+    if (!token || deletingRoomCode) {
+      return;
+    }
+
+    const shouldDelete = window.confirm("Delete this meeting link? People with the link will no longer be able to open it.");
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingRoomCode(roomCode);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/meetings/${roomCode}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const result = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to delete meeting.");
+      }
+
+      setMeetings((current) => current.filter((meeting) => meeting.roomCode !== roomCode));
+      if (editingRoomCode === roomCode) {
+        resetForm();
+      }
+      setSuccessMessage("Meeting link deleted.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete meeting.");
+    } finally {
+      setDeletingRoomCode("");
     }
   }
 
@@ -285,8 +392,10 @@ export function AdminMeetingsPanel() {
       <form onSubmit={handleSubmit} className="crm-panel p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow">Create link</p>
-            <h2 className="mt-2 text-xl font-semibold text-slate-950">New internal meeting</h2>
+            <p className="eyebrow">{editingRoomCode ? "Edit link" : "Create link"}</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-950">
+              {editingRoomCode ? "Update internal meeting" : "New internal meeting"}
+            </h2>
           </div>
           <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
             Team only
@@ -376,13 +485,30 @@ export function AdminMeetingsPanel() {
           <p className="mt-4 text-sm font-semibold text-[var(--color-dark)]">{successMessage}</p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={isSaving || !title.trim()}
-          className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-55"
-        >
-          {isSaving ? "Creating..." : "Create and copy meeting link"}
-        </button>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={isSaving || !title.trim()}
+            className="inline-flex flex-1 items-center justify-center rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {isSaving
+              ? editingRoomCode
+                ? "Saving..."
+                : "Creating..."
+              : editingRoomCode
+                ? "Save meeting link"
+                : "Create and copy meeting link"}
+          </button>
+          {editingRoomCode ? (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
       </form>
 
       <section className="crm-panel p-5">
@@ -592,6 +718,21 @@ export function AdminMeetingsPanel() {
                     className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
                   >
                     {copiedRoomCode === meeting.roomCode ? "Copied" : "Copy link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startEditingMeeting(meeting)}
+                    className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteMeeting(meeting.roomCode)}
+                    disabled={deletingRoomCode === meeting.roomCode}
+                    className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deletingRoomCode === meeting.roomCode ? "Deleting..." : "Delete"}
                   </button>
                 </div>
               </article>
