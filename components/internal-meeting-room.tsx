@@ -106,16 +106,24 @@ function MeetingTile({
   isMuted = false,
   isScreenShare = false,
   showVideo = true,
+  compact = false,
+  large = false,
+  fit = "cover",
 }: {
   label: string;
   media?: RemoteMedia | MediaStream;
   isMuted?: boolean;
   isScreenShare?: boolean;
   showVideo?: boolean;
+  compact?: boolean;
+  large?: boolean;
+  fit?: "cover" | "contain";
 }) {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const stream = media instanceof MediaStream ? media : media?.stream;
   const hasVideo = showVideo && Boolean(stream?.getVideoTracks().length);
+  const tileHeight = large ? "h-full min-h-[calc(100vh-12rem)]" : compact ? "min-h-32" : "min-h-48";
+  const avatarSize = compact ? "h-14 w-14 text-lg" : "h-20 w-20 text-2xl";
   const tileLabel =
     !isScreenShare && !(media instanceof MediaStream) && media?.mediaType === "screen"
       ? `${label} screen`
@@ -130,19 +138,23 @@ function MeetingTile({
   }, [stream]);
 
   return (
-    <div className="relative flex min-h-48 overflow-hidden rounded-xl bg-black">
+    <div className={`relative flex overflow-hidden rounded-xl bg-black ${tileHeight}`}>
       {stream ? (
         <video
           ref={remoteVideoRef}
           autoPlay
           muted={isMuted}
           playsInline
-          className={hasVideo ? "h-full min-h-48 w-full object-cover" : "hidden"}
+          className={
+            hasVideo
+              ? `h-full w-full ${tileHeight} ${fit === "contain" ? "object-contain" : "object-cover"}`
+              : "hidden"
+          }
         />
       ) : null}
       {!hasVideo ? (
-        <div className="flex min-h-48 flex-1 items-center justify-center bg-[#132f35]">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-2xl font-semibold text-white">
+        <div className={`flex flex-1 items-center justify-center bg-[#132f35] ${tileHeight}`}>
+          <div className={`flex items-center justify-center rounded-full bg-white/10 font-semibold text-white ${avatarSize}`}>
             {getInitials(label)}
           </div>
         </div>
@@ -158,6 +170,9 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<BlobPart[]>([]);
   const peersRef = useRef<Map<string, PeerState>>(new Map());
   const participantsRef = useRef<InternalMeetingParticipant[]>([]);
   const mediaTypesRef = useRef<Map<string, Map<string, "camera" | "screen">>>(new Map());
@@ -217,6 +232,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [isJoining, setIsJoining] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [remoteMedia, setRemoteMedia] = useState<RemoteMedia[]>([]);
   const [mediaError, setMediaError] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy link");
@@ -229,7 +245,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         meeting.createdByName === authName)
   );
   const isMeetingLive = meeting?.status === "live";
-  const canJoin = Boolean(isMeetingLive || isHost);
+  const hasMeetingEnded = meeting?.status === "ended";
+  const canJoin = Boolean((isMeetingLive || isHost) && !hasMeetingEnded);
   const otherParticipants = participants.filter(
     (participant) => participant.participantKey !== participantKey
   );
@@ -240,6 +257,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     ),
   }));
   const screenShareMedia = remoteMedia.filter((media) => media.mediaType === "screen");
+  const activeScreenShare = screenShareMedia[0];
+  const secondaryScreenShares = screenShareMedia.slice(1);
   const tileCount = 1 + participantMedia.length + screenShareMedia.length;
 
   useEffect(() => {
@@ -288,6 +307,10 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
           const result = (await response.json()) as InternalMeetingRecord;
           setMeeting(result);
           setParticipants(result.participants ?? []);
+          if (result.status === "ended" && hasJoinedRef.current) {
+            setMediaError("The host ended this meeting.");
+            leaveMeeting();
+          }
         })
         .catch(() => undefined);
     }, 5000);
@@ -342,6 +365,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       peersRef.current.clear();
       streamRef.current?.getTracks().forEach((track) => track.stop());
       screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaRecorderRef.current?.state === "recording" && mediaRecorderRef.current.stop();
     };
   }, []);
 
@@ -546,6 +571,11 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
     if (signal.type === "media-state") {
       applyRemoteMediaState(signal.fromParticipantKey, signal.payload as MediaStatePayload);
+      return;
+    }
+
+    if (signal.type === "mute-audio") {
+      forceMuteMic();
       return;
     }
 
@@ -771,6 +801,153 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     });
   }
 
+  async function startRecording() {
+    if (!isHost) {
+      setMediaError("Only the meeting host can record this room.");
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
+      setMediaError("Meeting recording is not available in this browser.");
+      return;
+    }
+
+    try {
+      setMediaError("");
+      const recordingStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+      recordingStreamRef.current = recordingStream;
+      recordingChunksRef.current = [];
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+        ? "video/webm;codecs=vp9,opus"
+        : "video/webm";
+      const recorder = new MediaRecorder(recordingStream, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(recordingChunksRef.current, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `${roomCode}-recording-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        recordingStream.getTracks().forEach((track) => track.stop());
+        recordingStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        recordingChunksRef.current = [];
+        setIsRecording(false);
+      };
+
+      recordingStream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        stopRecording();
+      });
+      recorder.start(1000);
+      setIsRecording(true);
+    } catch (recordingError) {
+      setMediaError(
+        recordingError instanceof Error ? recordingError.message : "Unable to start recording."
+      );
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+      return;
+    }
+
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingStreamRef.current = null;
+    setIsRecording(false);
+  }
+
+  function leaveMeeting() {
+    peersRef.current.forEach((peer) => peer.connection.close());
+    peersRef.current.clear();
+    setRemoteMedia([]);
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    screenStreamRef.current = null;
+    setCameraEnabled(false);
+    setMicEnabled(false);
+    setIsScreenSharing(false);
+    setHasJoined(false);
+    void fetch(`/api/meetings/${roomCode}/participants/${participantKey}`, {
+      method: "DELETE",
+    });
+  }
+
+  function forceMuteMic() {
+    const audioTrack = streamRef.current?.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = false;
+    }
+    setMicEnabled(false);
+    void registerParticipant(isScreenSharing, cameraEnabled, false);
+    setMediaError("The host muted your microphone.");
+  }
+
+  function muteParticipant(participant: InternalMeetingParticipant) {
+    if (!isHost || participant.participantKey === participantKey) {
+      return;
+    }
+
+    void sendSignal(participant.participantKey, "mute-audio", {});
+    setParticipants((current) =>
+      current.map((item) =>
+        item.participantKey === participant.participantKey
+          ? {
+              ...item,
+              micEnabled: false,
+            }
+          : item
+      )
+    );
+  }
+
+  async function endMeetingForAll() {
+    if (!token || !isHost) {
+      return;
+    }
+
+    const shouldEnd = window.confirm("End this meeting for everyone?");
+    if (!shouldEnd) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/meetings/${roomCode}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "ended" }),
+      });
+      const result = (await response.json()) as InternalMeetingRecord & { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to end meeting.");
+      }
+
+      setMeeting(result);
+      setMediaError("Meeting ended.");
+      leaveMeeting();
+    } catch (endError) {
+      setMediaError(endError instanceof Error ? endError.message : "Unable to end meeting.");
+    }
+  }
+
   function toggleCamera() {
     const videoTrack = streamRef.current?.getVideoTracks()[0];
     if (!videoTrack) {
@@ -805,7 +982,11 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
   return (
     <main className="min-h-screen bg-[#eef3f6]">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
+      <div
+        className={`mx-auto flex min-h-screen w-full flex-col px-4 py-5 sm:px-6 lg:px-8 ${
+          activeScreenShare ? "max-w-none" : "max-w-7xl"
+        }`}
+      >
         <header className="flex flex-wrap items-center justify-between gap-3 py-3">
           {token ? (
             <Link
@@ -828,45 +1009,86 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
           </button>
         </header>
 
-        <section className="grid flex-1 gap-5 py-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <section
+          className={`grid flex-1 gap-5 py-4 ${
+            activeScreenShare ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_22rem]"
+          }`}
+        >
           <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-2xl bg-[#10262b] shadow-[0_18px_44px_rgba(15,23,42,0.18)]">
             <div className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_35%,rgba(241,166,75,0.22),transparent_30%),linear-gradient(135deg,#10262b,#061417)] p-4">
               {hasJoined ? (
-                <div
-                  className={`grid h-full w-full auto-rows-fr gap-3 ${getTileGridClass(tileCount)}`}
-                >
-                  <MeetingTile
-                    label={displayName.trim() || authName || authEmail || "You"}
-                    media={streamRef.current || undefined}
-                    isMuted
-                  />
-                  {participantMedia.map(({ participant, media }) => (
-                    <MeetingTile
-                      key={participant.participantKey}
-                      label={participant.displayName}
-                      media={media}
-                      showVideo={participant.cameraEnabled}
-                    />
-                  ))}
-                  {screenShareMedia.map((media) => {
-                    const participant = participants.find(
-                      (item) => item.participantKey === media.participantKey
-                    );
-                    return (
+                activeScreenShare ? (
+                  <div className="grid h-full w-full gap-3 lg:grid-cols-[13rem_minmax(0,1fr)]">
+                    <div className="flex max-h-[calc(100vh-12rem)] flex-col gap-3 overflow-y-auto pr-1">
                       <MeetingTile
-                        key={`${media.participantKey}-${media.stream.id}`}
-                        media={media}
-                        label={participant?.displayName || "Participant"}
-                        isScreenShare
+                        label={displayName.trim() || authName || authEmail || "You"}
+                        media={streamRef.current || undefined}
+                        isMuted
+                        compact
                       />
-                    );
-                  })}
-                  {otherParticipants.length === 0 ? (
-                    <div className="flex min-h-48 items-center justify-center rounded-xl border border-white/10 bg-white/5 p-5 text-center text-sm font-semibold text-white/70">
-                      Waiting for another participant to join.
+                      {participantMedia.map(({ participant, media }) => (
+                        <MeetingTile
+                          key={participant.participantKey}
+                          label={participant.displayName}
+                          media={media}
+                          showVideo={participant.cameraEnabled}
+                          compact
+                        />
+                      ))}
+                      {secondaryScreenShares.map((media) => {
+                        const participant = participants.find(
+                          (item) => item.participantKey === media.participantKey
+                        );
+                        return (
+                          <MeetingTile
+                            key={`${media.participantKey}-${media.stream.id}`}
+                            media={media}
+                            label={participant?.displayName || "Participant"}
+                            isScreenShare
+                            compact
+                            fit="contain"
+                          />
+                        );
+                      })}
                     </div>
-                  ) : null}
-                </div>
+                    <div className="h-full min-h-[calc(100vh-12rem)]">
+                      <MeetingTile
+                        media={activeScreenShare}
+                        label={
+                          participants.find(
+                            (item) => item.participantKey === activeScreenShare.participantKey
+                          )?.displayName || "Participant"
+                        }
+                        isScreenShare
+                        fit="contain"
+                        large
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`grid h-full w-full auto-rows-fr gap-3 ${getTileGridClass(tileCount)}`}
+                  >
+                    <MeetingTile
+                      label={displayName.trim() || authName || authEmail || "You"}
+                      media={streamRef.current || undefined}
+                      isMuted
+                    />
+                    {participantMedia.map(({ participant, media }) => (
+                      <MeetingTile
+                        key={participant.participantKey}
+                        label={participant.displayName}
+                        media={media}
+                        showVideo={participant.cameraEnabled}
+                      />
+                    ))}
+                    {otherParticipants.length === 0 ? (
+                      <div className="flex min-h-48 items-center justify-center rounded-xl border border-white/10 bg-white/5 p-5 text-center text-sm font-semibold text-white/70">
+                        Waiting for another participant to join.
+                      </div>
+                    ) : null}
+                  </div>
+                )
               ) : (
                 <div className="text-center text-white">
                   <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-2xl font-semibold">
@@ -933,30 +1155,37 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  peersRef.current.forEach((peer) => peer.connection.close());
-                  peersRef.current.clear();
-                  setRemoteMedia([]);
-                  streamRef.current?.getTracks().forEach((track) => track.stop());
-                  screenStreamRef.current?.getTracks().forEach((track) => track.stop());
-                  streamRef.current = null;
-                  screenStreamRef.current = null;
-                  setCameraEnabled(false);
-                  setMicEnabled(false);
-                  setIsScreenSharing(false);
-                  setHasJoined(false);
-                  void fetch(`/api/meetings/${roomCode}/participants/${participantKey}`, {
-                    method: "DELETE",
-                  });
-                }}
+                onClick={leaveMeeting}
                 className="rounded-xl bg-[var(--color-accent-strong)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#9f3914]"
               >
-                Leave
+                Leave meeting
               </button>
+              {isHost && hasJoined ? (
+                <button
+                  type="button"
+                  onClick={isRecording ? stopRecording : startRecording}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                    isRecording
+                      ? "bg-red-100 text-red-700 hover:bg-red-200"
+                      : "bg-white/10 text-white hover:bg-white/16"
+                  }`}
+                >
+                  {isRecording ? "Stop recording" : "Record"}
+                </button>
+              ) : null}
+              {isHost && hasJoined ? (
+                <button
+                  type="button"
+                  onClick={endMeetingForAll}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                >
+                  End for all
+                </button>
+              ) : null}
             </div>
           </div>
 
-          <aside className="crm-panel p-5">
+          <aside className={`crm-panel p-5 ${activeScreenShare ? "hidden" : ""}`}>
             {isLoading ? (
               <p className="text-sm text-[var(--color-muted)]">Loading room...</p>
             ) : error ? (
@@ -1077,11 +1306,29 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                                 {participant.isHost ? "Host" : "Participant"}
                               </p>
                             </div>
-                            {participant.isScreenSharing ? (
-                              <span className="rounded-full bg-[rgba(241,166,75,0.16)] px-2 py-1 text-[10px] font-semibold text-[var(--color-accent-strong)]">
-                                Sharing
-                              </span>
-                            ) : null}
+                            <div className="flex flex-col items-end gap-2">
+                              {participant.isScreenSharing ? (
+                                <span className="rounded-full bg-[rgba(241,166,75,0.16)] px-2 py-1 text-[10px] font-semibold text-[var(--color-accent-strong)]">
+                                  Sharing
+                                </span>
+                              ) : null}
+                              {!participant.micEnabled ? (
+                                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">
+                                  Muted
+                                </span>
+                              ) : null}
+                              {isHost &&
+                              participant.participantKey !== participantKey &&
+                              participant.micEnabled ? (
+                                <button
+                                  type="button"
+                                  onClick={() => muteParticipant(participant)}
+                                  className="rounded-full border border-[var(--color-line)] px-2 py-1 text-[10px] font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                                >
+                                  Mute
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       ))

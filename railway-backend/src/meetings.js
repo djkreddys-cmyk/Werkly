@@ -439,7 +439,7 @@ export async function createMeetingSignal(roomCode, payload) {
     throw new Error("Signal sender, recipient, and type are required.");
   }
 
-  if (!["offer", "answer", "candidate", "media-state"].includes(type)) {
+  if (!["offer", "answer", "candidate", "media-state", "mute-audio"].includes(type)) {
     throw new Error("Signal type is not supported.");
   }
 
