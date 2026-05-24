@@ -645,6 +645,21 @@ app.get("/admin/meetings", requireInternalUser, async (_request, response) => {
   }
 });
 
+app.get("/meetings/:roomCode", async (request, response) => {
+  try {
+    const meeting = await getMeetingByRoomCode(request.params.roomCode);
+    if (!meeting || meeting.status === "cancelled") {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    response.json(meeting);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load meeting.",
+    });
+  }
+});
+
 app.post("/admin/meetings", requireInternalUser, async (request, response) => {
   try {
     const meeting = await createMeeting(request.body, getActorDetails(request));

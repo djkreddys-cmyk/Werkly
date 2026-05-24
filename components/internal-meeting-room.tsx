@@ -42,15 +42,17 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [copyLabel, setCopyLabel] = useState("Copy link");
 
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false);
-      setError("Please log in to Werkly CRM before joining this internal meeting.");
-      return;
-    }
+    setIsLoading(true);
+    setError("");
 
-    fetch(`/api/admin/meetings/${roomCode}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch(
+      token ? `/api/admin/meetings/${roomCode}` : `/api/meetings/${roomCode}`,
+      token
+        ? {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        : undefined
+    )
       .then(async (response) => {
         const result = (await response.json()) as InternalMeetingRecord & { message?: string };
         if (!response.ok) {
@@ -163,12 +165,18 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     <main className="min-h-screen bg-[#eef3f6]">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex flex-wrap items-center justify-between gap-3 py-3">
-          <Link
-            href="/admin/meetings"
-            className="text-sm font-semibold text-[var(--color-dark)] transition hover:text-[#064d56]"
-          >
-            Werkly Team Meetings
-          </Link>
+          {token ? (
+            <Link
+              href="/admin/meetings"
+              className="text-sm font-semibold text-[var(--color-dark)] transition hover:text-[#064d56]"
+            >
+              Werkly Team Meetings
+            </Link>
+          ) : (
+            <span className="text-sm font-semibold text-[var(--color-dark)]">
+              Werkly Team Meetings
+            </span>
+          )}
           <button
             type="button"
             onClick={copyLink}
@@ -259,12 +267,11 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
             ) : error ? (
               <div>
                 <p className="text-sm font-semibold text-red-700">{error}</p>
-                <Link
-                  href="/admin/login"
-                  className="mt-4 inline-flex rounded-xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white"
-                >
-                  Go to login
-                </Link>
+                {token ? null : (
+                  <p className="mt-3 text-sm text-[var(--color-muted)]">
+                    Please check that the meeting link is correct.
+                  </p>
+                )}
               </div>
             ) : (
               <div>
