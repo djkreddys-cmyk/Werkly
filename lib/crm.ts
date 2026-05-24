@@ -295,6 +295,17 @@ export type InternalMeetingPayload = {
   participantEmployeeIds?: string[];
 };
 
+export type CalendarProvider = "google" | "microsoft";
+
+export type CalendarConnection = {
+  provider: CalendarProvider;
+  connectedEmail?: string;
+  calendarId?: string;
+  expiresAt?: string | null;
+  connectedAt: string;
+  updatedAt: string;
+};
+
 export type CrmKpiSettings = {
   recruiterDailyFollowUps: number;
   recruiterDailyApplications: number;
@@ -856,4 +867,65 @@ export async function updateInternalMeetingStatus(
       Authorization: `Bearer ${token}`,
     },
   });
+}
+
+export async function getCalendarConnections(token: string) {
+  return readJson<{ connections: CalendarConnection[] }>("/admin/calendar-connections", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getCalendarAuthUrl(
+  provider: CalendarProvider,
+  redirectUri: string,
+  token: string
+) {
+  return readJson<{ url: string }>(
+    `/admin/calendar-connections/${provider}/auth-url?redirectUri=${encodeURIComponent(
+      redirectUri
+    )}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+}
+
+export async function connectCalendarProvider(
+  provider: CalendarProvider,
+  code: string,
+  redirectUri: string,
+  token: string
+) {
+  return readJson<CalendarConnection>(`/admin/calendar-connections/${provider}/callback`, {
+    method: "POST",
+    body: JSON.stringify({ code, redirectUri }),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function disconnectCalendarProvider(provider: CalendarProvider, token: string) {
+  return readJson<{ success: boolean }>(`/admin/calendar-connections/${provider}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function syncInternalMeetingCalendar(roomCode: string, token: string) {
+  return readJson<{ syncs: { provider: CalendarProvider; eventId: string }[] }>(
+    `/admin/meetings/${roomCode}/calendar-sync`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 }

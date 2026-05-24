@@ -109,6 +109,16 @@ import {
   updateMeetingStatus,
   upsertMeetingParticipant,
 } from "./meetings.js";
+import {
+  buildMeetingIcs,
+  connectCalendarProvider,
+  createCalendarAuthUrl,
+  deleteMeetingFromCalendars,
+  disconnectCalendarProvider,
+  ensureCalendarSchema,
+  listCalendarConnections,
+  syncMeetingToCalendars,
+} from "./calendar.js";
 import { processResumeUpload } from "./resume.js";
 import {
   createManualJobApplication,
@@ -665,6 +675,73 @@ app.delete("/admin/meetings", requireAdmin, async (_request, response) => {
   }
 });
 
+app.get("/admin/calendar-connections", requireInternalUser, async (_request, response) => {
+  try {
+    const connections = await listCalendarConnections();
+    response.json({ connections });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load calendar connections.",
+    });
+  }
+});
+
+app.get(
+  "/admin/calendar-connections/:provider/auth-url",
+  requireInternalUser,
+  async (request, response) => {
+    try {
+      const redirectUri = String(request.query.redirectUri || "");
+      if (!redirectUri) {
+        return response.status(400).json({ message: "Calendar redirect URI is required." });
+      }
+
+      response.json({
+        url: createCalendarAuthUrl(request.params.provider, redirectUri),
+      });
+    } catch (error) {
+      response.status(500).json({
+        message: error instanceof Error ? error.message : "Unable to start calendar sync.",
+      });
+    }
+  }
+);
+
+app.post(
+  "/admin/calendar-connections/:provider/callback",
+  requireInternalUser,
+  async (request, response) => {
+    try {
+      const { code, redirectUri } = request.body || {};
+      if (!code || !redirectUri) {
+        return response.status(400).json({ message: "Calendar code and redirect URI are required." });
+      }
+
+      const connection = await connectCalendarProvider(
+        request.params.provider,
+        String(code),
+        String(redirectUri)
+      );
+      response.status(201).json(connection);
+    } catch (error) {
+      response.status(500).json({
+        message: error instanceof Error ? error.message : "Unable to connect calendar.",
+      });
+    }
+  }
+);
+
+app.delete("/admin/calendar-connections/:provider", requireInternalUser, async (request, response) => {
+  try {
+    const result = await disconnectCalendarProvider(request.params.provider);
+    response.json(result);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to disconnect calendar.",
+    });
+  }
+});
+
 app.get("/meetings/:roomCode", async (request, response) => {
   try {
     const meeting = await getMeetingWithParticipants(request.params.roomCode);
@@ -676,6 +753,26 @@ app.get("/meetings/:roomCode", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load meeting.",
+    });
+  }
+});
+
+app.get("/meetings/:roomCode/ics", async (request, response) => {
+  try {
+    const meeting = await getMeetingByRoomCode(request.params.roomCode);
+    if (!meeting || meeting.status === "cancelled") {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    response.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${meeting.roomCode}.ics"`
+    );
+    response.send(buildMeetingIcs(meeting));
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to create calendar file.",
     });
   }
 });
@@ -797,6 +894,12 @@ app.post("/admin/meetings", requireInternalUser, async (request, response) => {
       )
     );
 
+    try {
+      await syncMeetingToCalendars(meeting);
+    } catch (calendarError) {
+      console.error("Calendar sync failed after meeting create", calendarError);
+    }
+
     response.status(201).json(meeting);
   } catch (error) {
     response.status(500).json({
@@ -840,6 +943,12 @@ app.put("/admin/meetings/:roomCode", requireInternalUser, async (request, respon
       },
     });
 
+    try {
+      await syncMeetingToCalendars(meeting);
+    } catch (calendarError) {
+      console.error("Calendar sync failed after meeting update", calendarError);
+    }
+
     response.json(meeting);
   } catch (error) {
     response.status(500).json({
@@ -853,6 +962,12 @@ app.delete("/admin/meetings/:roomCode", requireInternalUser, async (request, res
     const meeting = await deleteMeeting(request.params.roomCode);
     if (!meeting) {
       return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    try {
+      await deleteMeetingFromCalendars(meeting);
+    } catch (calendarError) {
+      console.error("Calendar sync failed after meeting delete", calendarError);
     }
 
     await createAuditLog({
@@ -871,6 +986,22 @@ app.delete("/admin/meetings/:roomCode", requireInternalUser, async (request, res
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to delete meeting.",
+    });
+  }
+});
+
+app.post("/admin/meetings/:roomCode/calendar-sync", requireInternalUser, async (request, response) => {
+  try {
+    const meeting = await getMeetingByRoomCode(request.params.roomCode);
+    if (!meeting || meeting.status === "cancelled") {
+      return response.status(404).json({ message: "Meeting link was not found." });
+    }
+
+    const syncs = await syncMeetingToCalendars(meeting);
+    response.json({ syncs });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to sync meeting calendars.",
     });
   }
 });
@@ -4256,6 +4387,7 @@ ensureCrmSchema()
   .then(() => ensureShiftSchema())
   .then(() => ensureWorkflowSchema())
   .then(() => ensureMeetingsSchema())
+  .then(() => ensureCalendarSchema())
   .then(() => {
     app.listen(port, () => {
       console.log(`Werkly Railway backend listening on port ${port}`);
