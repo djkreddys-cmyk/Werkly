@@ -813,11 +813,6 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }
 
   async function startRecording() {
-    if (!isHost) {
-      setMediaError("Only the meeting host can record this room.");
-      return;
-    }
-
     if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
       setMediaError("Meeting recording is not available in this browser.");
       return;
@@ -1224,13 +1219,26 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               {hasJoined ? (
                 <button
                   type="button"
+                  onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                    isScreenSharing
+                      ? "bg-white text-[#0b1e22]"
+                      : "bg-white/10 text-white hover:bg-white/16"
+                  }`}
+                >
+                  {isScreenSharing ? "Stop sharing" : "Share screen"}
+                </button>
+              ) : null}
+              {hasJoined ? (
+                <button
+                  type="button"
                   onClick={toggleFullscreen}
                   className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/16"
                 >
                   {isFullscreen ? "Exit full screen" : "Full screen"}
                 </button>
               ) : null}
-              {isHost && hasJoined ? (
+              {hasJoined ? (
                 <button
                   type="button"
                   onClick={isRecording ? stopRecording : startRecording}
