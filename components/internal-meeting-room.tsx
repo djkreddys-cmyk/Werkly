@@ -258,10 +258,33 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       (item) => item.participantKey === participant.participantKey && item.mediaType === "camera"
     ),
   }));
-  const screenShareMedia = remoteMedia.filter((media) => media.mediaType === "screen");
+  const localScreenShareMedia =
+    isScreenSharing && screenStreamRef.current
+      ? {
+          participantKey,
+          stream: screenStreamRef.current,
+          mediaType: "screen" as const,
+        }
+      : null;
+  const screenShareMedia = [
+    ...(localScreenShareMedia ? [localScreenShareMedia] : []),
+    ...remoteMedia.filter((media) => media.mediaType === "screen"),
+  ];
   const activeScreenShare = screenShareMedia[0];
   const secondaryScreenShares = screenShareMedia.slice(1);
   const tileCount = 1 + participantMedia.length + screenShareMedia.length;
+  const localDisplayName = displayName.trim() || authName || authEmail || "You";
+
+  function getParticipantLabel(media: RemoteMedia) {
+    if (media.participantKey === participantKey) {
+      return localDisplayName;
+    }
+
+    return (
+      participants.find((item) => item.participantKey === media.participantKey)?.displayName ||
+      "Participant"
+    );
+  }
 
   useEffect(() => {
     participantsRef.current = participants;
@@ -1071,7 +1094,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                   <div className="grid h-full w-full gap-3 lg:grid-cols-[13rem_minmax(0,1fr)]">
                     <div className="flex max-h-[calc(100vh-8rem)] flex-col gap-3 overflow-y-auto pr-1">
                       <MeetingTile
-                        label={displayName.trim() || authName || authEmail || "You"}
+                        label={localDisplayName}
                         media={streamRef.current || undefined}
                         isMuted
                         compact
@@ -1086,14 +1109,11 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                         />
                       ))}
                       {secondaryScreenShares.map((media) => {
-                        const participant = participants.find(
-                          (item) => item.participantKey === media.participantKey
-                        );
                         return (
                           <MeetingTile
                             key={`${media.participantKey}-${media.stream.id}`}
                             media={media}
-                            label={participant?.displayName || "Participant"}
+                            label={getParticipantLabel(media)}
                             isScreenShare
                             compact
                             fit="contain"
@@ -1104,11 +1124,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     <div className="h-full min-h-[calc(100vh-8rem)]">
                       <MeetingTile
                         media={activeScreenShare}
-                        label={
-                          participants.find(
-                            (item) => item.participantKey === activeScreenShare.participantKey
-                          )?.displayName || "Participant"
-                        }
+                        label={getParticipantLabel(activeScreenShare)}
                         isScreenShare
                         fit="contain"
                         large
@@ -1120,7 +1136,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     className={`grid h-full w-full auto-rows-fr gap-3 ${getTileGridClass(tileCount)}`}
                   >
                     <MeetingTile
-                      label={displayName.trim() || authName || authEmail || "You"}
+                      label={localDisplayName}
                       media={streamRef.current || undefined}
                       isMuted
                     />
