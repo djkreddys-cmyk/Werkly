@@ -497,6 +497,8 @@ export function AdminMeetingsPanel() {
                 <Link
                   key={meeting.id}
                   href={`/meet/${meeting.roomCode}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="block rounded-xl border border-[var(--color-line)] bg-white p-3 transition hover:border-[var(--color-dark)]"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -578,6 +580,8 @@ export function AdminMeetingsPanel() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Link
                     href={`/meet/${meeting.roomCode}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#064d56]"
                   >
                     Open room
