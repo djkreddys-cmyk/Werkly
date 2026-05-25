@@ -83,6 +83,17 @@ const emptyForm: JobEditorState = {
 const fieldClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
 
+const jobsTableColumnClassName: Record<string, string> = {
+  Job: "w-[24%] min-w-[230px]",
+  Client: "w-[13%] min-w-[130px]",
+  Recruiter: "w-[13%] min-w-[130px]",
+  Location: "w-[22%] min-w-[230px]",
+  Positions: "w-[8%] min-w-[90px]",
+  Applications: "w-[9%] min-w-[110px]",
+  Status: "w-[10%] min-w-[120px]",
+  Actions: "w-[180px] min-w-[180px]",
+};
+
 const applicationStages: JobApplicationStage[] = [
   "applied",
   "shortlisted",
@@ -1925,7 +1936,7 @@ Werkly Team`;
         ) : (
           <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
             <div className="overflow-x-auto">
-              <table className="min-w-[1240px] border-collapse">
+              <table className="w-full min-w-[1060px] table-fixed border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
                     {[
@@ -1940,9 +1951,7 @@ Werkly Team`;
                     ].map((heading) => (
                       <th
                         key={heading}
-                        className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
-                          heading === "Actions" ? "w-[250px] min-w-[250px]" : ""
-                        }`}
+                        className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${jobsTableColumnClassName[heading]}`}
                       >
                         {heading}
                       </th>
@@ -1962,7 +1971,7 @@ Werkly Team`;
                           : "align-top border-b border-[var(--color-line)]"
                       }
                     >
-                      <td className="w-[260px] px-4 py-4 align-top">
+                      <td className="px-4 py-4 align-top">
                         <p className="whitespace-normal break-words font-semibold leading-6 text-[var(--color-ink)]">
                           {job.title}
                         </p>
@@ -1979,7 +1988,7 @@ Werkly Team`;
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         {job.recruiterName || "Unassigned"}
                       </td>
-                      <td className="w-[220px] px-4 py-4 align-top text-sm text-[var(--color-muted)]">
+                      <td className="px-4 py-4 align-top text-sm text-[var(--color-muted)]">
                         <p className="whitespace-normal break-words leading-6">{job.location}</p>
                         <p className="mt-1 whitespace-normal break-words">{job.experience}</p>
                         {job.lastDateToApply ? (
@@ -2016,8 +2025,8 @@ Werkly Team`;
                           {isLiveOnWebsite(job) ? "Live on website" : "Not live"}
                         </p>
                       </td>
-                      <td className="w-[250px] min-w-[250px] px-4 py-4 align-top">
-                        <div className="flex flex-nowrap items-center gap-2">
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex flex-wrap items-center gap-2">
                           {canAddCandidates ? (
                             <button
                               type="button"
