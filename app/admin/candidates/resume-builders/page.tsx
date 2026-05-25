@@ -1,14 +1,14 @@
-import { AdminResumeBuildersPanel } from "@/components/admin-resume-builders-panel";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminCandidatesWorkspace } from "@/components/admin-candidates-workspace";
 
 export default function AdminCandidateResumeBuildersPage() {
   return (
     <AdminShell
-      eyebrow="Resume Builders"
-      title="Review candidates who built resumes on the website."
-      description="Every generated website resume is captured here with candidate contact details and a downloadable final resume copy."
+      eyebrow="Candidates"
+      title="Manage every candidate source in one workspace."
+      description="Switch between job applicants, resume builder submissions, and candidate enquiries without leaving the Candidates page."
     >
-      <AdminResumeBuildersPanel />
+      <AdminCandidatesWorkspace initialView="resume-builders" />
     </AdminShell>
   );
 }

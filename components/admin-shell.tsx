@@ -60,10 +60,8 @@ const moduleSections: Array<{
     href: "/admin/candidates",
     description: "Job applicants and website enquiries",
     items: [
-      { href: "/admin/candidates", label: "Job Applicants" },
+      { href: "/admin/candidates", label: "Candidates" },
       { href: "/admin/interviews", label: "Interview Scheduler" },
-      { href: "/admin/candidates/resume-builders", label: "Resume Builders" },
-      { href: "/admin/candidate-enquiries", label: "Candidate Enquiries" },
       { href: "/admin/reports/candidates", label: "Reports" },
     ],
   },

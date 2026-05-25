@@ -1,14 +1,14 @@
-import { AdminCandidateEnquiriesPanel } from "@/components/admin-candidate-enquiries-panel";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminCandidatesWorkspace } from "@/components/admin-candidates-workspace";
 
 export default function AdminCandidateEnquiriesPage() {
   return (
     <AdminShell
-      eyebrow="Candidate Enquiries"
-      title="Review website candidate enquiries separately from job applicants."
-      description="Track candidates who submitted their profile through the website enquiry form without applying against a specific job opening."
+      eyebrow="Candidates"
+      title="Manage every candidate source in one workspace."
+      description="Switch between job applicants, resume builder submissions, and candidate enquiries without leaving the Candidates page."
     >
-      <AdminCandidateEnquiriesPanel />
+      <AdminCandidatesWorkspace initialView="enquiries" />
     </AdminShell>
   );
 }
