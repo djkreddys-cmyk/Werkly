@@ -93,6 +93,22 @@ function createResumeObjectUrl(dataUrl: string, fallbackType = "application/octe
   return window.URL.createObjectURL(new Blob([bytes], { type: mimeType }));
 }
 
+function getResumeMimeType(dataUrl: string, fallbackType = "application/octet-stream") {
+  if (!dataUrl.startsWith("data:")) {
+    return fallbackType;
+  }
+
+  return dataUrl.match(/^data:(.*?)(?:;base64)?,/)?.[1] || fallbackType;
+}
+
+function escapePreviewText(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function normalizeSearchText(value?: string) {
   return String(value || "").trim().toLowerCase();
 }
@@ -1222,24 +1238,58 @@ export function AdminCandidatesPanel() {
 
   async function viewApplicationResume(application: JobApplication) {
     const previewWindow = window.open("", "_blank");
+    previewWindow?.document.write(
+      "<!doctype html><title>Loading resume</title><body style=\"font-family:Arial,sans-serif;padding:24px\">Loading resume...</body>"
+    );
 
     try {
       const resume = await loadApplicationResume(application);
       const resumeUrl = createResumeObjectUrl(resume.resumeFileData, resume.resumeFileType);
+      const mimeType = getResumeMimeType(resume.resumeFileData, resume.resumeFileType);
+      const fileName = escapePreviewText(resume.resumeFileName || "resume");
+      const canEmbed =
+        mimeType.includes("pdf") ||
+        mimeType.startsWith("image/") ||
+        mimeType.startsWith("text/") ||
+        mimeType.includes("html");
+
+      const previewMarkup = `<!doctype html>
+        <html>
+          <head>
+            <title>${fileName}</title>
+            <style>
+              html, body { margin: 0; min-height: 100%; font-family: Arial, sans-serif; color: #082f37; background: #f8fbfc; }
+              .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid #d8e7eb; background: #fff; }
+              .title { margin: 0; font-size: 15px; font-weight: 700; }
+              .button { border: 1px solid #cfe0e4; border-radius: 10px; padding: 9px 13px; color: #082f37; text-decoration: none; font-size: 13px; font-weight: 700; }
+              iframe, object { display: block; width: 100%; height: calc(100vh - 58px); border: 0; background: #fff; }
+              .fallback { padding: 32px; line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+            <div class="bar">
+              <p class="title">${fileName}</p>
+              <a class="button" href="${resumeUrl}" download="${fileName}">Download Resume</a>
+            </div>
+            ${
+              canEmbed
+                ? `<iframe src="${resumeUrl}" title="${fileName}"></iframe>`
+                : `<div class="fallback"><h2>Preview is not available for this file type.</h2><p>Use the download button to open it in Word, PDF viewer, or another installed app.</p></div>`
+            }
+          </body>
+        </html>`;
 
       if (previewWindow) {
-        previewWindow.location.href = resumeUrl;
+        previewWindow.document.open();
+        previewWindow.document.write(previewMarkup);
+        previewWindow.document.close();
       } else {
         window.open(resumeUrl, "_blank", "noopener,noreferrer");
       }
-
-      if (resumeUrl.startsWith("blob:")) {
-        window.setTimeout(() => window.URL.revokeObjectURL(resumeUrl), 60000);
-      }
     } catch (resumeError) {
-      if (previewWindow) {
-        previewWindow.close();
-      }
+      previewWindow?.document.write(
+        "<!doctype html><title>Resume unavailable</title><body style=\"font-family:Arial,sans-serif;padding:24px\">Unable to load this resume. Please try Download Resume.</body>"
+      );
       setError(resumeError instanceof Error ? resumeError.message : "Unable to load resume.");
     }
   }
