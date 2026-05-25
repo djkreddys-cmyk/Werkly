@@ -1,5 +1,17 @@
 import { NextResponse } from "next/server";
-import { createAdminCandidateEnquiry, getAdminCandidateEnquiries } from "@/lib/jobs";
+import {
+  createAdminCandidateEnquiry,
+  getAdminCandidateEnquiries,
+  type CandidateEnquiry,
+} from "@/lib/jobs";
+
+function slimEnquiry(enquiry: CandidateEnquiry): CandidateEnquiry {
+  const { resumeFileData, ...rest } = enquiry;
+  return {
+    ...rest,
+    resumeAvailable: Boolean(enquiry.resumeAvailable || resumeFileData),
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -11,7 +23,9 @@ export async function GET(request: Request) {
     }
 
     const enquiries = await getAdminCandidateEnquiries(token);
-    return NextResponse.json({ enquiries });
+    const url = new URL(request.url);
+    const shouldSlim = url.searchParams.get("slim") === "1";
+    return NextResponse.json({ enquiries: shouldSlim ? enquiries.map(slimEnquiry) : enquiries });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to load candidate enquiries.";

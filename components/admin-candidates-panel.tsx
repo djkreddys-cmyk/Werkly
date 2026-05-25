@@ -330,7 +330,7 @@ export function AdminCandidatesPanel() {
     }
 
     Promise.all([
-      fetch("/api/admin/applications", {
+      fetch("/api/admin/applications?slim=1", {
         headers: { Authorization: `Bearer ${token}` },
       }),
       fetch("/api/admin/employees", {
@@ -342,7 +342,7 @@ export function AdminCandidatesPanel() {
       fetch("/api/admin/clients", {
         headers: { Authorization: `Bearer ${token}` },
       }),
-      fetch("/api/admin/candidate-profiles", {
+      fetch("/api/admin/candidate-profiles?slim=1", {
         headers: { Authorization: `Bearer ${token}` },
       }),
     ])
@@ -1255,6 +1255,69 @@ export function AdminCandidatesPanel() {
     URL.revokeObjectURL(url);
   }
 
+  async function loadApplicationResume(application: JobApplication) {
+    if (application.resumeFileData && application.resumeFileName) {
+      return {
+        resumeFileData: application.resumeFileData,
+        resumeFileName: application.resumeFileName,
+      };
+    }
+
+    const response = await fetch(`/api/admin/applications/${application.id}/resume`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const result = (await response.json()) as {
+      resumeFileData?: string;
+      resumeFileName?: string;
+      message?: string;
+    };
+
+    if (!response.ok || !result.resumeFileData || !result.resumeFileName) {
+      throw new Error(result.message || "Unable to load resume.");
+    }
+
+    setApplications((current) =>
+      current.map((item) =>
+        item.id === application.id
+          ? {
+              ...item,
+              resumeFileData: result.resumeFileData,
+              resumeFileName: result.resumeFileName,
+              resumeAvailable: true,
+            }
+          : item
+      )
+    );
+
+    return {
+      resumeFileData: result.resumeFileData,
+      resumeFileName: result.resumeFileName,
+    };
+  }
+
+  async function viewApplicationResume(application: JobApplication) {
+    try {
+      const resume = await loadApplicationResume(application);
+      window.open(resume.resumeFileData, "_blank", "noopener,noreferrer");
+    } catch (resumeError) {
+      setError(resumeError instanceof Error ? resumeError.message : "Unable to load resume.");
+    }
+  }
+
+  async function downloadApplicationResume(application: JobApplication) {
+    try {
+      const resume = await loadApplicationResume(application);
+      const link = document.createElement("a");
+      link.href = resume.resumeFileData;
+      link.download = resume.resumeFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (resumeError) {
+      setError(resumeError instanceof Error ? resumeError.message : "Unable to download resume.");
+    }
+  }
+
   function resetAdvancedFilters() {
     setQuery("");
     setStageFilter("all");
@@ -1593,15 +1656,15 @@ export function AdminCandidatesPanel() {
                         </div>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        {application.resumeFileData && application.resumeFileName ? (
-                          <a
-                            href={application.resumeFileData}
-                            target="_blank"
-                            rel="noreferrer"
+                        {(application.resumeAvailable || application.resumeFileData) &&
+                        application.resumeFileName ? (
+                          <button
+                            type="button"
+                            onClick={() => void viewApplicationResume(application)}
                             className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                           >
                             View Resume
-                          </a>
+                          </button>
                         ) : (
                           "No resume"
                         )}
@@ -1874,23 +1937,23 @@ export function AdminCandidatesPanel() {
                       </td>
                       {roleAccess.fields["candidates.resume"] ? (
                         <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                          {application.resumeFileData && application.resumeFileName ? (
+                          {(application.resumeAvailable || application.resumeFileData) &&
+                          application.resumeFileName ? (
                             <div className="flex flex-col gap-2">
-                              <a
-                                href={application.resumeFileData}
-                                target="_blank"
-                                rel="noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => void viewApplicationResume(application)}
                                 className="font-semibold text-[var(--color-accent-strong)] transition hover:text-[var(--color-dark)]"
                               >
                                 View Resume
-                              </a>
-                              <a
-                                href={application.resumeFileData}
-                                download={application.resumeFileName}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void downloadApplicationResume(application)}
                                 className="text-xs font-medium text-[var(--color-muted)] transition hover:text-[var(--color-ink)]"
                               >
                                 Download
-                              </a>
+                              </button>
                             </div>
                           ) : (
                             "No resume"
@@ -1959,24 +2022,20 @@ export function AdminCandidatesPanel() {
                                   ]
                                 : []),
                               ...(roleAccess.fields["candidates.resume"] &&
-                              application.resumeFileData &&
+                              (application.resumeAvailable || application.resumeFileData) &&
                               application.resumeFileName
                                 ? [
                                     {
                                       label: "View Resume",
-                                      href: application.resumeFileData,
-                                      external: true,
+                                      onClick: () => {
+                                        void viewApplicationResume(application);
+                                      },
                                       tone: "accent" as const,
                                     },
                                     {
                                       label: "Download Resume",
                                       onClick: () => {
-                                        const link = document.createElement("a");
-                                        link.href = application.resumeFileData || "";
-                                        link.download = application.resumeFileName || "resume";
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
+                                        void downloadApplicationResume(application);
                                       },
                                       tone: "danger" as const,
                                     },

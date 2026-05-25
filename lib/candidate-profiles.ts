@@ -15,6 +15,7 @@ export type UniversalCandidateProfile = {
   skills?: string;
   resumeFileName?: string;
   resumeFileData?: string;
+  resumeAvailable?: boolean;
   sources: string[];
   sourceCount: number;
   applicationIds: string[];
@@ -144,6 +145,8 @@ export function buildUniversalCandidateProfiles(
     profile.preferredSector = firstFilled(profile.preferredSector, application.preferredSector);
     profile.resumeFileName = firstFilled(profile.resumeFileName, application.resumeFileName);
     profile.resumeFileData = firstFilled(profile.resumeFileData, application.resumeFileData);
+    profile.resumeAvailable =
+      profile.resumeAvailable || Boolean(application.resumeAvailable || application.resumeFileData);
     profile.latestStage = application.stage ?? profile.latestStage;
     profile.sources = unique([...profile.sources, application.sourceType || "Job Applicants"]);
     profile.applicationIds = unique([...profile.applicationIds, application.id]);
@@ -169,6 +172,8 @@ export function buildUniversalCandidateProfiles(
     profile.preferredSector = firstFilled(profile.preferredSector, enquiry.preferredSector);
     profile.resumeFileName = firstFilled(profile.resumeFileName, enquiry.resumeFileName);
     profile.resumeFileData = firstFilled(profile.resumeFileData, enquiry.resumeFileData);
+    profile.resumeAvailable =
+      profile.resumeAvailable || Boolean(enquiry.resumeAvailable || enquiry.resumeFileData);
     profile.sources = unique([...profile.sources, enquiry.sourceType || "Candidate Enquiries"]);
     profile.enquiryIds = unique([...profile.enquiryIds, enquiry.id]);
     touchLatest(profile, enquiry.createdAt);
@@ -192,6 +197,8 @@ export function buildUniversalCandidateProfiles(
     profile.skills = firstFilled(profile.skills, submission.skills);
     profile.resumeFileName = firstFilled(profile.resumeFileName, submission.resumeFileName);
     profile.resumeFileData = firstFilled(profile.resumeFileData, submission.resumeFileData);
+    profile.resumeAvailable =
+      profile.resumeAvailable || Boolean(submission.resumeAvailable || submission.resumeFileData);
     profile.sources = unique([...profile.sources, submission.sourceType || "Resume Builder"]);
     profile.resumeBuilderIds = unique([...profile.resumeBuilderIds, submission.id]);
     touchLatest(profile, submission.updatedAt || submission.createdAt);

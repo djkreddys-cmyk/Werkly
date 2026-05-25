@@ -32,7 +32,7 @@ export function AdminResumeBuildersPanel() {
       return;
     }
 
-    fetch("/api/admin/resume-builders", {
+    fetch("/api/admin/resume-builders?slim=1", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (response) => {
@@ -129,6 +129,56 @@ export function AdminResumeBuildersPanel() {
     printWindow.print();
   }
 
+  async function loadStoredResume(item: ResumeBuilderSubmission) {
+    if (item.resumeFileData && item.resumeFileName) {
+      return item;
+    }
+
+    const response = await fetch(`/api/admin/resume-builders/${item.id}/resume`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const result = (await response.json()) as {
+      resumeFileData?: string;
+      resumeFileName?: string;
+      resumeFileType?: string;
+      message?: string;
+    };
+
+    if (!response.ok || !result.resumeFileData || !result.resumeFileName) {
+      throw new Error(result.message || "Unable to load stored resume.");
+    }
+
+    const hydrated = {
+      ...item,
+      resumeFileData: result.resumeFileData,
+      resumeFileName: result.resumeFileName,
+      resumeFileType: result.resumeFileType,
+      resumeAvailable: true,
+    };
+    setSubmissions((current) =>
+      current.map((submission) => (submission.id === item.id ? hydrated : submission))
+    );
+    return hydrated;
+  }
+
+  async function openStoredResume(item: ResumeBuilderSubmission) {
+    try {
+      setPreviewSubmission(await loadStoredResume(item));
+    } catch (resumeError) {
+      setError(resumeError instanceof Error ? resumeError.message : "Unable to load stored resume.");
+    }
+  }
+
+  async function downloadStoredResumeOnDemand(item: ResumeBuilderSubmission) {
+    try {
+      downloadStoredResume(await loadStoredResume(item));
+    } catch (resumeError) {
+      setError(
+        resumeError instanceof Error ? resumeError.message : "Unable to download stored resume."
+      );
+    }
+  }
+
   const previewMarkup = previewSubmission ? decodeStoredResume(previewSubmission.resumeFileData) : "";
 
   return (
@@ -149,7 +199,7 @@ export function AdminResumeBuildersPanel() {
         <article className="accent-card p-5">
           <p className="eyebrow">With Resume Copy</p>
           <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
-            {submissions.filter((item) => item.resumeFileData).length}
+            {submissions.filter((item) => item.resumeAvailable || item.resumeFileData).length}
           </p>
         </article>
         <article className="accent-card p-5">
@@ -241,18 +291,18 @@ export function AdminResumeBuildersPanel() {
                         {formatDateTime(item.createdAt)}
                       </td>
                       <td className="px-4 py-4 text-sm">
-                        {item.resumeFileData && item.resumeFileName ? (
+                        {(item.resumeAvailable || item.resumeFileData) && item.resumeFileName ? (
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
-                              onClick={() => setPreviewSubmission(item)}
+                              onClick={() => void openStoredResume(item)}
                               className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                             >
                               View Format
                             </button>
                             <button
                               type="button"
-                              onClick={() => downloadStoredResume(item)}
+                              onClick={() => void downloadStoredResumeOnDemand(item)}
                               className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
                             >
                               Download
@@ -292,7 +342,7 @@ export function AdminResumeBuildersPanel() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => downloadStoredResume(previewSubmission)}
+                  onClick={() => void downloadStoredResumeOnDemand(previewSubmission)}
                   className="rounded-2xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                 >
                   Download

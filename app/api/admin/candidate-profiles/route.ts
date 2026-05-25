@@ -9,6 +9,16 @@ import {
   type ResumeBuilderSubmission,
 } from "@/lib/jobs";
 
+function stripProfileResumeData<T extends { resumeFileData?: string; resumeAvailable?: boolean }>(
+  profile: T
+) {
+  const { resumeFileData, ...rest } = profile;
+  return {
+    ...rest,
+    resumeAvailable: Boolean(profile.resumeAvailable || resumeFileData),
+  };
+}
+
 async function safeLoad<T>(loader: () => Promise<T>, fallback: T) {
   try {
     return await loader();
@@ -31,9 +41,11 @@ export async function GET(request: Request) {
   ]);
 
   const profiles = buildUniversalCandidateProfiles(applications, enquiries, submissions);
+  const url = new URL(request.url);
+  const shouldSlim = url.searchParams.get("slim") === "1";
 
   return NextResponse.json({
-    profiles,
+    profiles: shouldSlim ? profiles.map(stripProfileResumeData) : profiles,
     totals: {
       applications: applications.length,
       enquiries: enquiries.length,

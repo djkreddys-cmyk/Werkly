@@ -168,7 +168,7 @@ export function AdminCandidateEnquiriesPanel() {
       return;
     }
 
-    fetch("/api/admin/candidate-enquiries", {
+    fetch("/api/admin/candidate-enquiries?slim=1", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (response) => {
@@ -271,6 +271,54 @@ export function AdminCandidateEnquiriesPanel() {
       setError(saveError instanceof Error ? saveError.message : "Unable to save candidate enquiry.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function downloadEnquiryResume(enquiry: CandidateEnquiry) {
+    try {
+      let resumeFileData = enquiry.resumeFileData;
+      let resumeFileName = enquiry.resumeFileName;
+
+      if (!resumeFileData || !resumeFileName) {
+        const response = await fetch(`/api/admin/candidate-enquiries/${enquiry.id}/resume`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = (await response.json()) as {
+          resumeFileData?: string;
+          resumeFileName?: string;
+          resumeFileType?: string;
+          message?: string;
+        };
+
+        if (!response.ok || !result.resumeFileData || !result.resumeFileName) {
+          throw new Error(result.message || "Unable to load resume.");
+        }
+
+        resumeFileData = result.resumeFileData;
+        resumeFileName = result.resumeFileName;
+        setEnquiries((current) =>
+          current.map((item) =>
+            item.id === enquiry.id
+              ? {
+                  ...item,
+                  resumeFileData: result.resumeFileData,
+                  resumeFileName: result.resumeFileName,
+                  resumeFileType: result.resumeFileType,
+                  resumeAvailable: true,
+                }
+              : item
+          )
+        );
+      }
+
+      const link = document.createElement("a");
+      link.href = resumeFileData;
+      link.download = resumeFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (resumeError) {
+      setError(resumeError instanceof Error ? resumeError.message : "Unable to download resume.");
     }
   }
 
@@ -524,14 +572,15 @@ export function AdminCandidateEnquiriesPanel() {
                       {enquiry.experience ? <p className="mt-1">{enquiry.experience}</p> : null}
                     </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      {enquiry.resumeFileData && enquiry.resumeFileName ? (
-                        <a
-                          href={enquiry.resumeFileData}
-                          download={enquiry.resumeFileName}
+                      {(enquiry.resumeAvailable || enquiry.resumeFileData) &&
+                      enquiry.resumeFileName ? (
+                        <button
+                          type="button"
+                          onClick={() => void downloadEnquiryResume(enquiry)}
                           className="font-medium text-[var(--color-accent-strong)]"
                         >
                           Download Resume
-                        </a>
+                        </button>
                       ) : (
                         "Not uploaded"
                       )}

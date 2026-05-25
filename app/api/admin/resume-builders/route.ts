@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
-import { getResumeBuilderSubmissions } from "@/lib/jobs";
+import { getResumeBuilderSubmissions, type ResumeBuilderSubmission } from "@/lib/jobs";
+
+function slimSubmission(submission: ResumeBuilderSubmission): ResumeBuilderSubmission {
+  const { resumeFileData, resumePayload, ...rest } = submission;
+  return {
+    ...rest,
+    resumeAvailable: Boolean(submission.resumeAvailable || resumeFileData),
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -10,7 +18,11 @@ export async function GET(request: Request) {
     }
 
     const submissions = await getResumeBuilderSubmissions(token);
-    return NextResponse.json({ submissions });
+    const url = new URL(request.url);
+    const shouldSlim = url.searchParams.get("slim") === "1";
+    return NextResponse.json({
+      submissions: shouldSlim ? submissions.map(slimSubmission) : submissions,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to load resume builder submissions.";

@@ -77,6 +77,7 @@ export type JobApplication = {
   resumeFileName?: string;
   resumeFileType?: string;
   resumeFileData?: string;
+  resumeAvailable?: boolean;
   uploadedByEmployeeId?: string;
   uploadedByEmployeeName?: string;
   followUpEmployeeId?: string;
@@ -132,6 +133,7 @@ export type CandidateEnquiry = {
   resumeFileName?: string;
   resumeFileType?: string;
   resumeFileData?: string;
+  resumeAvailable?: boolean;
   sourceType?: string;
   createdAt: string;
 };
@@ -151,6 +153,7 @@ export type ResumeBuilderSubmission = {
   resumeFileName?: string;
   resumeFileType?: string;
   resumeFileData?: string;
+  resumeAvailable?: boolean;
   resumePayload?: unknown;
   sourceType?: string;
   createdAt: string;

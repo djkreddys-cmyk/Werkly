@@ -1,6 +1,19 @@
 import { NextResponse } from "next/server";
 import { getClients, getEmployees } from "@/lib/crm";
-import { getAdminApplications, getAdminJobs, getJobApplications } from "@/lib/jobs";
+import {
+  getAdminApplications,
+  getAdminJobs,
+  getJobApplications,
+  type JobApplication,
+} from "@/lib/jobs";
+
+function slimApplication(application: JobApplication): JobApplication {
+  const { resumeFileData, ...rest } = application;
+  return {
+    ...rest,
+    resumeAvailable: Boolean(application.resumeAvailable || resumeFileData),
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -50,7 +63,12 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ applications });
+    const url = new URL(request.url);
+    const shouldSlim = url.searchParams.get("slim") === "1";
+
+    return NextResponse.json({
+      applications: shouldSlim ? applications.map(slimApplication) : applications,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to load admin applications.";

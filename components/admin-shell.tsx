@@ -684,8 +684,8 @@ export function AdminShell({
       fetch("/api/admin/jobs", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
       fetch("/api/admin/clients", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
       fetch("/api/admin/employees", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
-      fetch("/api/admin/applications", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
-      fetch("/api/admin/candidate-profiles", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
+      fetch("/api/admin/applications?slim=1", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
+      fetch("/api/admin/candidate-profiles?slim=1", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
     ])
       .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse, profilesResponse]) => {
         const jobsResult = (await jobsResponse.json()) as { jobs?: JobSummary[] };
