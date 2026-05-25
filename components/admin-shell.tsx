@@ -35,7 +35,6 @@ const moduleSections: Array<{
     href: "/admin/employees",
     description: "Employees, leaves, attendance",
     items: [
-      { href: "/admin/employees/new", label: "Employee Creation" },
       { href: "/admin/employees/existing", label: "Existing Employees" },
       { href: "/admin/leaves", label: "Leave Types & Access" },
       { href: "/admin/shifts", label: "Shifts & Assignment" },
@@ -49,7 +48,6 @@ const moduleSections: Array<{
     href: "/admin/jobs",
     description: "Job creation and existing jobs",
     items: [
-      { href: "/admin/jobs/new", label: "New Job" },
       { href: "/admin/jobs/existing", label: "Existing Jobs" },
       { href: "/admin/reports/jobs", label: "Reports" },
     ],
@@ -351,9 +349,6 @@ export function AdminShell({
           if (item.href.includes("/reports/")) {
             return roleAccess.modules.reports;
           }
-          if (item.href === "/admin/jobs/new") {
-            return roleAccess.fields["jobs.createEdit"];
-          }
           if (item.href === "/admin/candidate-enquiries") {
             return roleAccess.modules.candidates;
           }
@@ -384,7 +379,6 @@ export function AdminShell({
       items: section.items.filter(
         (item) =>
           item.href !== "/admin/employees" &&
-          item.href !== "/admin/employees/new" &&
           item.href !== "/admin/employees/existing" &&
           (!item.href.includes("/reports/") || roleAccess.modules.reports)
       ),

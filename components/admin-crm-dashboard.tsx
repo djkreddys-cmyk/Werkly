@@ -2218,6 +2218,7 @@ export function AdminEmployeesPanel({
       : window.localStorage.getItem("werklyAuthRole") ?? "super-admin"
   );
   const [employeeForm, setEmployeeForm] = useState<EmployeeFormState>(emptyEmployeeForm);
+  const [isCreateEmployeeOpen, setIsCreateEmployeeOpen] = useState(false);
   const [passwordReset, setPasswordReset] = useState<PasswordResetState>({
     employeeId: "",
     password: "",
@@ -2292,6 +2293,12 @@ export function AdminEmployeesPanel({
         return;
       }
 
+      if (isCreateEmployeeOpen) {
+        setIsCreateEmployeeOpen(false);
+        setEmployeeForm(emptyEmployeeForm);
+        return;
+      }
+
       if (isEditingEmployee) {
         setEmployeeForm(emptyEmployeeForm);
       }
@@ -2299,7 +2306,7 @@ export function AdminEmployeesPanel({
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [inactiveEmployee, isEditingEmployee, passwordReset.employeeId]);
+  }, [inactiveEmployee, isCreateEmployeeOpen, isEditingEmployee, passwordReset.employeeId]);
 
   function updateEmployeeField(field: keyof EmployeeFormState, value: string) {
     setEmployeeForm((current) => ({ ...current, [field]: value }));
@@ -2366,6 +2373,7 @@ export function AdminEmployeesPanel({
   }
 
   function loadEmployeeForEdit(employee: EmployeeRecord) {
+    setIsCreateEmployeeOpen(false);
     setEmployeeForm({
       id: employee.id,
       fullName: employee.fullName,
@@ -2415,6 +2423,22 @@ export function AdminEmployeesPanel({
     setError("");
   }
 
+  function openCreateEmployeeModal() {
+    setEmployeeForm(emptyEmployeeForm);
+    setPasswordReset({ employeeId: "", password: "", mustChangePassword: true });
+    setInactiveEmployee(null);
+    setIsCreateEmployeeOpen(true);
+    setMessage("");
+    setError("");
+  }
+
+  function closeCreateEmployeeModal() {
+    setIsCreateEmployeeOpen(false);
+    setEmployeeForm(emptyEmployeeForm);
+    setMessage("");
+    setError("");
+  }
+
   function loadEmployeeForPasswordReset(employee: EmployeeRecord) {
     setPasswordReset({
       employeeId: employee.id,
@@ -2444,6 +2468,7 @@ export function AdminEmployeesPanel({
     setIsSavingEmployee(true);
     setError("");
     setMessage("");
+    const wasEditingEmployee = Boolean(employeeForm.id);
 
     if (
       employeeForm.status === "inactive" &&
@@ -2489,8 +2514,11 @@ export function AdminEmployeesPanel({
 
       await refreshCrm(token);
       setEmployeeForm(emptyEmployeeForm);
+      if (!wasEditingEmployee && viewMode === "existing") {
+        setIsCreateEmployeeOpen(false);
+      }
       setMessage(
-        employeeForm.id
+        wasEditingEmployee
           ? "Employee details updated successfully."
           : `Employee login created successfully.${
               result.employeeCode ? ` Code: ${result.employeeCode}` : ""
@@ -2651,26 +2679,44 @@ export function AdminEmployeesPanel({
             Only Super Admin can open this employee page.
           </h2>
           <p className="muted-copy mt-4 max-w-3xl text-sm leading-7">
-            Employee Creation and Existing Users are limited to the Super Admin login.
+            Employee management is limited to the Super Admin login.
             Other employee accounts should use leave, attendance, reports, jobs, candidates,
             and client screens based on their role access.
           </p>
         </section>
       ) : null}
 
-      {canManageEmployees && viewMode !== "existing" ? (
-        <div className="rounded-[2rem] border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]">
-          <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
-              Employee Onboarding
-            </p>
-            <h2 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
-              Create internal login credentials for your hiring team.
-            </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
-              Add recruiter and employee accounts with their role and starting password.
-              Employee login codes are auto-generated as `YYMM` plus a 3-digit running number.
-            </p>
+      {canManageEmployees && (viewMode !== "existing" || isCreateEmployeeOpen) ? (
+        <div
+          className={
+            viewMode === "existing"
+              ? "fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto bg-slate-950/55 p-3 sm:p-5"
+              : ""
+          }
+        >
+        <div className={`${viewMode === "existing" ? "my-3 max-h-[calc(100vh-1.5rem)] w-full max-w-6xl overflow-y-auto sm:my-4 sm:max-h-[calc(100vh-2rem)]" : ""} rounded-[2rem] border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]`}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
+                Employee Onboarding
+              </p>
+              <h2 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
+                Create internal login credentials for your hiring team.
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
+                Add recruiter and employee accounts with their role and starting password.
+                Employee login codes are auto-generated as `YYMM` plus a 3-digit running number.
+              </p>
+            </div>
+            {viewMode === "existing" ? (
+              <button
+                type="button"
+                onClick={closeCreateEmployeeModal}
+                className="shrink-0 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Close
+              </button>
+            ) : null}
           </div>
 
           <CrmFeedback message={message} error={error} />
@@ -2858,6 +2904,7 @@ export function AdminEmployeesPanel({
           </form>
 
         </div>
+        </div>
       ) : viewMode === "all" ? (
         <section className="accent-card p-6">
           <p className="eyebrow">Employees</p>
@@ -2873,6 +2920,17 @@ export function AdminEmployeesPanel({
 
       {viewMode !== "new" && (canManageEmployees || viewMode === "all") ? (
         <div id="existing-employees" className="scroll-mt-28">
+          {viewMode === "existing" && canManageEmployees ? (
+            <div className="mb-4 flex justify-end">
+              <button
+                type="button"
+                onClick={openCreateEmployeeModal}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+              >
+                Add New Employee
+              </button>
+            </div>
+          ) : null}
           <CrmEmployeesList
             employees={employees}
             attendance={attendance}

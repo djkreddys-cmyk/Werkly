@@ -84,14 +84,14 @@ const fieldClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
 
 const jobsTableColumnClassName: Record<string, string> = {
-  Job: "w-[24%] min-w-[230px]",
-  Client: "w-[13%] min-w-[130px]",
-  Recruiter: "w-[13%] min-w-[130px]",
-  Location: "w-[22%] min-w-[230px]",
-  Positions: "w-[8%] min-w-[90px]",
-  Applications: "w-[9%] min-w-[110px]",
-  Status: "w-[10%] min-w-[120px]",
-  Actions: "w-[180px] min-w-[180px]",
+  Job: "w-[22%] min-w-[230px]",
+  Client: "w-[12%] min-w-[130px]",
+  Recruiter: "w-[12%] min-w-[130px]",
+  Location: "w-[20%] min-w-[220px]",
+  Positions: "w-[7%] min-w-[90px]",
+  Applications: "w-[8%] min-w-[105px]",
+  Status: "w-[9%] min-w-[115px]",
+  Actions: "w-[300px] min-w-[300px]",
 };
 
 const applicationStages: JobApplicationStage[] = [
@@ -296,6 +296,7 @@ export function AdminJobsDashboard({
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [allApplications, setAllApplications] = useState<JobApplication[]>([]);
   const [form, setForm] = useState<JobEditorState>(emptyForm);
+  const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -1139,6 +1140,7 @@ Werkly Team`;
 
   function populateForEdit(job: JobSummary) {
     setActionMenuJobId("");
+    setIsCreateJobOpen(false);
     setForm({
       id: job.id,
       jobCode: job.jobCode,
@@ -1227,6 +1229,7 @@ Werkly Team`;
     setIsSaving(true);
     setError("");
     setMessage("");
+    const wasEditing = Boolean(form.id);
 
     try {
       const payload = shouldAutoAssignRecruiter
@@ -1254,7 +1257,10 @@ Werkly Team`;
         ...emptyForm,
         recruiterId: shouldAutoAssignRecruiter ? currentEmployeeId : "",
       });
-      setMessage(form.id ? "Job updated successfully." : "Job created successfully.");
+      if (!wasEditing && viewMode === "existing") {
+        setIsCreateJobOpen(false);
+      }
+      setMessage(wasEditing ? "Job updated successfully." : "Job created successfully.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save job.");
     } finally {
@@ -1444,6 +1450,21 @@ Werkly Team`;
     });
     setMessage("");
     setError("");
+  }
+
+  function openCreateJobModal() {
+    setForm({
+      ...emptyForm,
+      recruiterId: shouldAutoAssignRecruiter ? currentEmployeeId : "",
+    });
+    setIsCreateJobOpen(true);
+    setMessage("");
+    setError("");
+  }
+
+  function closeCreateJobModal() {
+    setIsCreateJobOpen(false);
+    resetForm();
   }
 
   function openManualCandidateModal(job: JobSummary) {
@@ -1838,9 +1859,18 @@ Werkly Team`;
             </h2>
             <p className="muted-copy mt-4 text-base leading-7">
               {canManageJobs
-                ? `Signed in as ${adminEmail || "Railway admin"}. Use edit to load a role into the form above.`
+                ? `Signed in as ${adminEmail || "Railway admin"}. Use Add New Job for fresh openings or edit an existing role.`
                 : "Showing only the jobs assigned to your login."}
             </p>
+            {canUseJobForms ? (
+              <button
+                type="button"
+                onClick={openCreateJobModal}
+                className="mt-5 rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+              >
+                Add New Job
+              </button>
+            ) : null}
           </div>
           <div className="w-full max-w-5xl lg:sticky lg:top-24">
             {canManageJobs ? (
@@ -1936,7 +1966,7 @@ Werkly Team`;
         ) : (
           <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1060px] table-fixed border-collapse">
+              <table className="w-full min-w-[1220px] table-fixed border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
                     {[
@@ -2026,7 +2056,7 @@ Werkly Team`;
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-nowrap items-center gap-2">
                           {canAddCandidates ? (
                             <button
                               type="button"
@@ -2149,6 +2179,59 @@ Werkly Team`;
           </div>
         ) : null}
       </section>
+      ) : null}
+
+      {viewMode === "existing" && isCreateJobOpen && canUseJobForms ? (
+        <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-slate-950/55 p-3 sm:p-4 lg:items-center">
+          <div className="my-3 flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.22)] sm:my-4 sm:max-h-[calc(100vh-2rem)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-4 py-5 sm:px-7">
+              <div>
+                <p className="eyebrow">New Job</p>
+                <h3 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+                  Create and publish a new opening.
+                </h3>
+                <p className="muted-copy mt-3 text-base leading-7">
+                  Add the role, client, recruiter, Job Description, Key Skills, and application deadline.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCreateJobModal}
+                className="rounded-full border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <form
+              ref={formRef}
+              className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7"
+              onSubmit={handleSubmit}
+            >
+              {renderJobFields()}
+
+              {message ? <p className="mt-4 text-sm font-medium text-emerald-700">{message}</p> : null}
+              {error ? <p className="mt-4 text-sm font-medium text-red-700">{error}</p> : null}
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSaving ? "Saving..." : "Publish Job"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeCreateJobModal}
+                  className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : null}
 
       {isEditing ? (
