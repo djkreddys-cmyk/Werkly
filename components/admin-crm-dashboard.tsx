@@ -1072,10 +1072,10 @@ function CrmClientsList({
   const [onboardingFilter, setOnboardingFilter] = useState(() =>
     typeof window !== "undefined"
       ? window.localStorage.getItem(`werklyClientsOnboarding-${viewMode}`) ??
-        (viewMode === "leads" ? "lead-only" : "all")
+        (viewMode === "leads" ? "lead-only" : "onboarded")
       : viewMode === "leads"
         ? "lead-only"
-        : "all"
+        : "onboarded"
   );
   const [followUpFilter, setFollowUpFilter] = useState(() =>
     typeof window !== "undefined"
@@ -1117,6 +1117,11 @@ function CrmClientsList({
       return;
     }
 
+    if (viewMode === "existing" && onboardingFilter !== "onboarded") {
+      setOnboardingFilter("onboarded");
+      return;
+    }
+
     window.localStorage.setItem("werklyClientsQuery", query);
     window.localStorage.setItem("werklyClientsStatus", statusFilter);
     window.localStorage.setItem(`werklyClientsOnboarding-${viewMode}`, onboardingFilter);
@@ -1144,12 +1149,14 @@ function CrmClientsList({
         statusFilter === "all" || (client.status || "active") === statusFilter;
 
       const safeOnboardingStatus = (client.onboardingStatus || "new-lead") as ClientOnboardingStatus;
+      const effectiveOnboardingFilter =
+        viewMode === "existing" ? "onboarded" : onboardingFilter;
       const matchesOnboarding =
-        onboardingFilter === "all"
+        effectiveOnboardingFilter === "all"
           ? true
-          : onboardingFilter === "lead-only"
+          : effectiveOnboardingFilter === "lead-only"
             ? clientLeadStatuses.includes(safeOnboardingStatus)
-            : safeOnboardingStatus === onboardingFilter;
+            : safeOnboardingStatus === effectiveOnboardingFilter;
 
       const safeFollowUpStatus = normalizeClientFollowUpStatus(client.followUpStatus);
       const matchesFollowUp =
@@ -1157,7 +1164,7 @@ function CrmClientsList({
 
       return matchesQuery && matchesStatus && matchesOnboarding && matchesFollowUp;
     });
-  }, [clients, followUpFilter, onboardingFilter, query, statusFilter]);
+  }, [clients, followUpFilter, onboardingFilter, query, statusFilter, viewMode]);
 
   const pageSize = 8;
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / pageSize));
@@ -1434,7 +1441,13 @@ function CrmClientsList({
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_180px_220px_220px_auto_auto] xl:items-end">
+        <div
+          className={`mt-5 grid gap-3 md:grid-cols-2 xl:items-end ${
+            viewMode === "leads"
+              ? "xl:grid-cols-[minmax(240px,1fr)_180px_220px_220px_auto_auto]"
+              : "xl:grid-cols-[minmax(240px,1fr)_180px_220px_auto_auto]"
+          }`}
+        >
           <input
             value={query}
             onChange={(event) => {
@@ -1456,23 +1469,24 @@ function CrmClientsList({
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-          <select
-            value={onboardingFilter}
-            onChange={(event) => {
-              setOnboardingFilter(event.target.value);
-              setPage(1);
-            }}
-            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-          >
-            <option value="all">All onboarding</option>
-            <option value="lead-only">Lead stages only</option>
-            <option value="new-lead">New Lead</option>
-            <option value="contacted">Contacted</option>
-            <option value="proposal-shared">Proposal Shared</option>
-            <option value="negotiation">Negotiation</option>
-            {viewMode !== "leads" ? <option value="onboarded">Onboarded</option> : null}
-            <option value="hold">Hold</option>
-          </select>
+          {viewMode === "leads" ? (
+            <select
+              value={onboardingFilter}
+              onChange={(event) => {
+                setOnboardingFilter(event.target.value);
+                setPage(1);
+              }}
+              className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="all">All onboarding</option>
+              <option value="lead-only">Lead stages only</option>
+              <option value="new-lead">New Lead</option>
+              <option value="contacted">Contacted</option>
+              <option value="proposal-shared">Proposal Shared</option>
+              <option value="negotiation">Negotiation</option>
+              <option value="hold">Hold</option>
+            </select>
+          ) : null}
           <select
             value={followUpFilter}
             onChange={(event) => {
