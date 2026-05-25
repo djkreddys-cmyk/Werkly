@@ -213,8 +213,8 @@ export async function listJobs() {
        and (jobs.last_date_to_apply is null or jobs.last_date_to_apply >= current_date)
      order by
        case when jobs.status = 'open' then 0 else 1 end,
-       coalesce(jobs.last_date_to_apply, '9999-12-31'::date) asc,
        jobs.posted_at desc,
+       coalesce(jobs.last_date_to_apply, '9999-12-31'::date) asc,
        jobs.created_at desc`
   );
 
@@ -275,8 +275,8 @@ export async function listAdminJobs(employeeId = null) {
      ${employeeScopeClause}
      order by
        case when jobs.status = 'open' then 0 else 1 end,
-       coalesce(jobs.last_date_to_apply, '9999-12-31'::date) asc,
        jobs.posted_at desc,
+       coalesce(jobs.last_date_to_apply, '9999-12-31'::date) asc,
        jobs.created_at desc`,
     values
   );
@@ -1981,6 +1981,10 @@ export async function updateJobApplicationStage(
            stage_date = $4::date,
            final_ctc = case when $5::boolean then $6 else final_ctc end,
            date_of_joining = case when $5::boolean then $7::date else date_of_joining end,
+           interview_scheduled_at = case when $8::boolean then $9::timestamptz else interview_scheduled_at end,
+           interview_mode = case when $8::boolean then $10 else interview_mode end,
+           interview_panel = case when $8::boolean then $11 else interview_panel end,
+           interview_reminder_at = case when $8::boolean then $12::timestamptz else interview_reminder_at end,
            stage_updated_at = now()
        where id = $1
        returning
@@ -2042,6 +2046,11 @@ export async function updateJobApplicationStage(
         stage === "joined",
         payload.finalCtc || null,
         payload.dateOfJoining || stageDate || null,
+        stage === "interview",
+        payload.interviewScheduledAt || null,
+        payload.interviewMode || null,
+        payload.interviewPanel || null,
+        payload.interviewReminderAt || null,
       ]
     );
 

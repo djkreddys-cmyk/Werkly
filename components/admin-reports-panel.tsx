@@ -1986,20 +1986,35 @@ export function AdminReportsPanel({
 
   const filteredInterviewRows = useMemo(
     () =>
-      filteredApplications
-        .filter(
-          (application) =>
-            Boolean(application.interviewScheduledAt) ||
-            (application.stage ?? "applied") === "interview"
-        )
-        .sort(
-          (first, second) => {
-            const firstDate = first.interviewScheduledAt || first.stageDate || first.appliedAt;
-            const secondDate = second.interviewScheduledAt || second.stageDate || second.appliedAt;
-            return new Date(firstDate).getTime() - new Date(secondDate).getTime();
-          }
-        ),
-    [filteredApplications]
+      visibleApplications
+        .filter((application) => {
+          const interviewDate =
+            application.interviewScheduledAt || application.stageDate || application.appliedAt;
+
+          return (
+            (!selectedRecruiter || application.recruiterName === selectedRecruiter) &&
+            (!selectedClient || application.clientName === selectedClient) &&
+            (!selectedSource || getCandidateSourceLabel(application) === selectedSource) &&
+            (!selectedStage || getStageLabel(application.stage) === selectedStage) &&
+            (Boolean(application.interviewScheduledAt) ||
+              (application.stage ?? "applied") === "interview") &&
+            isWithinDateRange(interviewDate, startDate, endDate)
+          );
+        })
+        .sort((first, second) => {
+          const firstDate = first.interviewScheduledAt || first.stageDate || first.appliedAt;
+          const secondDate = second.interviewScheduledAt || second.stageDate || second.appliedAt;
+          return new Date(firstDate).getTime() - new Date(secondDate).getTime();
+        }),
+    [
+      endDate,
+      selectedClient,
+      selectedRecruiter,
+      selectedSource,
+      selectedStage,
+      startDate,
+      visibleApplications,
+    ]
   );
 
   const funnelRows = useMemo(() => {

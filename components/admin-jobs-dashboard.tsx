@@ -617,6 +617,11 @@ export function AdminJobsDashboard({
           return openRankA - openRankB;
         }
 
+        const postedDifference = new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime();
+        if (postedDifference !== 0) {
+          return postedDifference;
+        }
+
         const closingA = a.lastDateToApply
           ? new Date(a.lastDateToApply).getTime()
           : distantFuture;
@@ -624,11 +629,7 @@ export function AdminJobsDashboard({
           ? new Date(b.lastDateToApply).getTime()
           : distantFuture;
 
-        if (closingA !== closingB) {
-          return closingA - closingB;
-        }
-
-        return new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime();
+        return closingA - closingB;
       });
     },
     [visibleJobs]
