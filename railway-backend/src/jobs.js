@@ -419,6 +419,33 @@ export async function ensureJobsSchema() {
   await query(`alter table job_applications add column if not exists interview_panel text`);
   await query(`alter table job_applications add column if not exists interview_reminder_at timestamptz`);
   await query(`alter table job_applications alter column candidate_email drop not null`);
+  await query(
+    `create index if not exists idx_job_applications_stage on job_applications(stage)`
+  );
+  await query(
+    `create index if not exists idx_job_applications_applied_at on job_applications(applied_at desc)`
+  );
+  await query(
+    `create index if not exists idx_job_applications_interview_scheduled_at
+     on job_applications(interview_scheduled_at)
+     where interview_scheduled_at is not null`
+  );
+  await query(
+    `create index if not exists idx_job_applications_candidate_email_lower
+     on job_applications(lower(candidate_email))
+     where candidate_email is not null and candidate_email <> ''`
+  );
+  await query(
+    `create index if not exists idx_job_applications_candidate_phone_digits
+     on job_applications(regexp_replace(coalesce(candidate_phone, ''), '\\D', '', 'g'))
+     where candidate_phone is not null and candidate_phone <> ''`
+  );
+  await query(
+    `create index if not exists idx_jobs_status_posted_at on jobs(status, posted_at desc)`
+  );
+  await query(
+    `create index if not exists idx_jobs_last_date_to_apply on jobs(last_date_to_apply)`
+  );
   await query(`
     create table if not exists job_application_stage_history (
       id uuid primary key default gen_random_uuid(),

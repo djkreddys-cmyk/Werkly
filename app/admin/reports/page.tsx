@@ -1,5 +1,16 @@
-import { AdminReportsPanel } from "@/components/admin-reports-panel";
+import dynamic from "next/dynamic";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminPanelLoading } from "@/components/admin-panel-loading";
+
+const AdminReportsPanel = dynamic(
+  () =>
+    import("@/components/admin-reports-panel").then(
+      (module) => module.AdminReportsPanel
+    ),
+  {
+    loading: () => <AdminPanelLoading label="Loading reports..." />,
+  }
+);
 
 export default function AdminReportsPage() {
   return (

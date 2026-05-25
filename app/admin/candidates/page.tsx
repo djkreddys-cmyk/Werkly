@@ -1,5 +1,16 @@
-import { AdminCandidatesPanel } from "@/components/admin-candidates-panel";
+import dynamic from "next/dynamic";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminPanelLoading } from "@/components/admin-panel-loading";
+
+const AdminCandidatesPanel = dynamic(
+  () =>
+    import("@/components/admin-candidates-panel").then(
+      (module) => module.AdminCandidatesPanel
+    ),
+  {
+    loading: () => <AdminPanelLoading label="Loading candidates..." />,
+  }
+);
 
 export default function AdminCandidatesPage() {
   return (
