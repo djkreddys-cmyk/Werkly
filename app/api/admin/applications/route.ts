@@ -25,9 +25,11 @@ export async function GET(request: Request) {
     }
 
     let applications;
+    const url = new URL(request.url);
+    const shouldSlim = url.searchParams.get("slim") === "1";
 
     try {
-      applications = await getAdminApplications(token);
+      applications = await getAdminApplications(token, { slim: shouldSlim });
     } catch {
       const [jobs, clients, employees] = await Promise.all([
         getAdminJobs(token),
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
           const recruiter = employees.find(
             (item) => item.id === client?.assignedEmployeeId
           );
-          const items = await getJobApplications(job.id, token);
+          const items = await getJobApplications(job.id, token, { slim: shouldSlim });
 
           return items.map((application) => ({
             ...application,
@@ -62,9 +64,6 @@ export async function GET(request: Request) {
         (a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
       );
     }
-
-    const url = new URL(request.url);
-    const shouldSlim = url.searchParams.get("slim") === "1";
 
     return NextResponse.json({
       applications: shouldSlim ? applications.map(slimApplication) : applications,

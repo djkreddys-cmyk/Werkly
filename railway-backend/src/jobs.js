@@ -1017,6 +1017,43 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         : "Candidate added manually from outside source.");
     const stageDate = payload.stageDate || new Date().toISOString().slice(0, 10);
 
+    const duplicateResult = await client.query(
+      `select id from job_applications
+       where job_id = $1
+         and (
+           (nullif(lower(candidate_email), '') is not null and lower(candidate_email) = lower($2))
+           or (nullif(regexp_replace(coalesce(candidate_phone, ''), '\\D', '', 'g'), '') is not null
+             and regexp_replace(coalesce(candidate_phone, ''), '\\D', '', 'g') = regexp_replace(coalesce($3, ''), '\\D', '', 'g'))
+         )
+       order by applied_at desc
+       limit 1`,
+      [jobId, payload.candidateEmail || "", payload.candidatePhone || ""]
+    );
+
+    if (duplicateResult.rows[0]) {
+      await client.query("commit");
+      return getAdminApplicationById(duplicateResult.rows[0].id);
+    }
+
+    const existingCandidateResult = await client.query(
+      `select *
+       from job_applications
+       where (
+           (nullif(lower(candidate_email), '') is not null and lower(candidate_email) = lower($1))
+           or (nullif(regexp_replace(coalesce(candidate_phone, ''), '\\D', '', 'g'), '') is not null
+             and regexp_replace(coalesce(candidate_phone, ''), '\\D', '', 'g') = regexp_replace(coalesce($2, ''), '\\D', '', 'g'))
+         )
+       order by applied_at desc
+       limit 1`,
+      [payload.candidateEmail || "", payload.candidatePhone || ""]
+    );
+    const existingCandidate = existingCandidateResult.rows[0];
+    const sourceNote =
+      existingCandidate && !payload.sourceNote
+        ? `Assigned from existing candidate application ${existingCandidate.id}`
+        : payload.sourceNote || null;
+    const entryType = existingCandidate ? "profile_assignment" : "manual_entry";
+
     const insertResult = await client.query(
       `insert into job_applications (
         job_id,
@@ -1050,7 +1087,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         job_title
       ) values (
         $1, $2, $3, $4::date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-        $17, $18, $19, $20, $21, 'manual_entry', $22, $23, $24, $25, $26, $27
+        $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
       )
       returning
         id,
@@ -1096,28 +1133,29 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         stage,
         stageNote,
         stageDate,
-        payload.candidateName,
-        payload.candidateEmail || null,
-        payload.candidatePhone || null,
-        payload.gender || null,
-        payload.motherTongue || null,
-        payload.otherLanguages || null,
-        payload.experience || null,
-        payload.currentCompany || null,
-        payload.currentLocation || null,
-        payload.currentDesignation || null,
-        payload.preferredRole || null,
-        payload.currentCtc || null,
-        payload.expectedCtc || null,
-        payload.preferredLocation || null,
-        payload.preferredSector || null,
-        payload.sourceType || "Other",
-        payload.sourceNote || null,
-        payload.resumeFileName || null,
-        payload.resumeFileType || null,
-        payload.resumeFileData || null,
-        employeeId || null,
-        payload.candidateMessage || null,
+        payload.candidateName || existingCandidate?.candidate_name,
+        payload.candidateEmail || existingCandidate?.candidate_email || null,
+        payload.candidatePhone || existingCandidate?.candidate_phone || null,
+        payload.gender || existingCandidate?.gender || null,
+        payload.motherTongue || existingCandidate?.mother_tongue || null,
+        payload.otherLanguages || existingCandidate?.other_languages || null,
+        payload.experience || existingCandidate?.experience || null,
+        payload.currentCompany || existingCandidate?.current_company || null,
+        payload.currentLocation || existingCandidate?.current_location || null,
+        payload.currentDesignation || existingCandidate?.current_designation || null,
+        payload.preferredRole || existingCandidate?.preferred_role || null,
+        payload.currentCtc || existingCandidate?.current_ctc || null,
+        payload.expectedCtc || existingCandidate?.expected_ctc || null,
+        payload.preferredLocation || existingCandidate?.preferred_location || null,
+        payload.preferredSector || existingCandidate?.preferred_sector || null,
+        payload.sourceType || existingCandidate?.source_type || "Other",
+        sourceNote,
+        entryType,
+        payload.resumeFileName || existingCandidate?.resume_file_name || null,
+        payload.resumeFileType || existingCandidate?.resume_file_type || null,
+        payload.resumeFileData || existingCandidate?.resume_file_data || null,
+        employeeId || existingCandidate?.uploaded_by_employee_id || null,
+        payload.candidateMessage || existingCandidate?.candidate_message || null,
         payload.jobTitle || job.title || null,
       ]
     );
@@ -1151,7 +1189,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
   }
 }
 
-export async function listJobApplications(jobId, employeeId = null) {
+export async function listJobApplications(jobId, employeeId = null, options = {}) {
   const values = [jobId];
   const employeeScopeClause = employeeId
     ? `and (
@@ -1208,7 +1246,7 @@ export async function listJobApplications(jobId, employeeId = null) {
       job_applications.entry_type,
       job_applications.resume_file_name,
       job_applications.resume_file_type,
-      job_applications.resume_file_data,
+      ${options.slim ? "null::text" : "job_applications.resume_file_data"} as resume_file_data,
       job_applications.uploaded_by_employee_id,
       job_applications.follow_up_employee_id,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1237,7 +1275,7 @@ export async function listJobApplications(jobId, employeeId = null) {
   return result.rows.map(mapApplicationRow);
 }
 
-export async function listAdminApplications(employeeId = null) {
+export async function listAdminApplications(employeeId = null, options = {}) {
   const values = [];
   const employeeScopeClause = employeeId
     ? (() => {
@@ -1293,7 +1331,7 @@ export async function listAdminApplications(employeeId = null) {
       job_applications.entry_type,
       job_applications.resume_file_name,
       job_applications.resume_file_type,
-      job_applications.resume_file_data,
+      ${options.slim ? "null::text" : "job_applications.resume_file_data"} as resume_file_data,
       job_applications.uploaded_by_employee_id,
       job_applications.follow_up_employee_id,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1686,7 +1724,7 @@ export async function createCandidateEnquiry(payload) {
   return result.rows[0] ? mapCandidateEnquiryRow(result.rows[0]) : null;
 }
 
-export async function listCandidateEnquiries() {
+export async function listCandidateEnquiries(options = {}) {
   const result = await query(
     `select
       id,
@@ -1708,7 +1746,7 @@ export async function listCandidateEnquiries() {
       candidate_message,
       resume_file_name,
       resume_file_type,
-      resume_file_data,
+      ${options.slim ? "null::text" : "resume_file_data"} as resume_file_data,
       source_type,
       created_at
      from candidate_enquiries
@@ -1779,7 +1817,7 @@ export async function createResumeBuilderSubmission(payload) {
   return mapResumeBuilderSubmissionRow(result.rows[0]);
 }
 
-export async function listResumeBuilderSubmissions() {
+export async function listResumeBuilderSubmissions(options = {}) {
   const result = await query(
     `select
        id,
@@ -1795,7 +1833,7 @@ export async function listResumeBuilderSubmissions() {
        skills,
        resume_file_name,
        resume_file_type,
-       resume_file_data,
+       ${options.slim ? "null::text" : "resume_file_data"} as resume_file_data,
        resume_payload,
        source_type,
        created_at,

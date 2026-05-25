@@ -254,6 +254,11 @@ export function AdminCandidateEnquiriesPanel() {
       return;
     }
 
+    if (duplicateEnquiryMatches.length > 0) {
+      setError("Candidate enquiry already exists with the same mail ID or mobile number.");
+      return;
+    }
+
     setIsSaving(true);
     setError("");
     setMessage("");
@@ -648,14 +653,40 @@ export function AdminCandidateEnquiriesPanel() {
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
                 {duplicateEnquiryMatches.length > 0 ? (
                   <div className="mb-4 rounded-2xl border border-[rgba(190,72,26,0.24)] bg-[rgba(190,72,26,0.08)] px-4 py-3 text-sm text-[var(--color-accent-strong)]">
-                    Candidate enquiry already exists with the same
-                    {String(form.candidateEmail || "").trim() &&
-                    String(form.candidatePhone || "").trim()
-                      ? " email or phone"
-                      : String(form.candidateEmail || "").trim()
-                        ? " email"
-                        : " phone"}
-                    . You can still save if this is intentionally a separate record.
+                    <p className="font-semibold">
+                      Candidate enquiry already exists with the same
+                      {String(form.candidateEmail || "").trim() &&
+                      String(form.candidatePhone || "").trim()
+                        ? " mail ID or mobile number"
+                        : String(form.candidateEmail || "").trim()
+                          ? " mail ID"
+                          : " mobile number"}
+                      .
+                    </p>
+                    <div className="mt-3 grid gap-2 text-[var(--color-ink)]">
+                      {duplicateEnquiryMatches.slice(0, 4).map((match) => (
+                        <div
+                          key={match.id}
+                          className="rounded-xl border border-[rgba(190,72,26,0.16)] bg-white/70 px-3 py-2"
+                        >
+                          <p className="font-semibold">
+                            {formatPersonName(match.candidateName)}
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--color-muted)]">
+                            {[
+                              match.candidateEmail || "No mail ID",
+                              match.candidatePhone || "No mobile",
+                              match.preferredRole || match.currentDesignation || "Profile not added",
+                            ]
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs">
+                      This record cannot be saved again while the duplicate match is present.
+                    </p>
                   </div>
                 ) : null}
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -743,7 +774,7 @@ export function AdminCandidateEnquiriesPanel() {
               <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--color-line)] bg-white px-4 py-4 sm:flex-row sm:px-6">
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || duplicateEnquiryMatches.length > 0}
                   className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isSaving ? "Saving..." : "Save Candidate Enquiry"}

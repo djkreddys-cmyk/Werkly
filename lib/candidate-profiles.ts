@@ -39,6 +39,10 @@ function normalizePhone(value?: string) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function normalizeEmailMatch(value?: string) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function firstFilled(...values: Array<string | undefined>) {
   return values.find((value) => String(value || "").trim())?.trim();
 }
@@ -83,6 +87,73 @@ function createProfile(id: string): UniversalCandidateProfile {
   };
 }
 
+function mergeProfiles(
+  target: UniversalCandidateProfile,
+  source: UniversalCandidateProfile
+) {
+  target.candidateName = firstFilled(target.candidateName, source.candidateName) ?? "";
+  target.candidateEmail = firstFilled(target.candidateEmail, source.candidateEmail);
+  target.candidatePhone = firstFilled(target.candidatePhone, source.candidatePhone);
+  target.experience = firstFilled(target.experience, source.experience);
+  target.currentCompany = firstFilled(target.currentCompany, source.currentCompany);
+  target.currentLocation = firstFilled(target.currentLocation, source.currentLocation);
+  target.currentDesignation = firstFilled(target.currentDesignation, source.currentDesignation);
+  target.preferredRole = firstFilled(target.preferredRole, source.preferredRole);
+  target.preferredLocation = firstFilled(target.preferredLocation, source.preferredLocation);
+  target.preferredSector = firstFilled(target.preferredSector, source.preferredSector);
+  target.skills = firstFilled(target.skills, source.skills);
+  target.resumeFileName = firstFilled(target.resumeFileName, source.resumeFileName);
+  target.resumeFileData = firstFilled(target.resumeFileData, source.resumeFileData);
+  target.resumeAvailable = target.resumeAvailable || source.resumeAvailable;
+  target.sources = unique([...target.sources, ...source.sources]);
+  target.applicationIds = unique([...target.applicationIds, ...source.applicationIds]);
+  target.enquiryIds = unique([...target.enquiryIds, ...source.enquiryIds]);
+  target.resumeBuilderIds = unique([...target.resumeBuilderIds, ...source.resumeBuilderIds]);
+  target.jobs = unique([...target.jobs, ...source.jobs]);
+  target.clients = unique([...target.clients, ...source.clients]);
+  target.latestStage = source.latestStage || target.latestStage;
+  touchLatest(target, source.latestActivityAt);
+}
+
+function getProfileForIdentity(
+  profiles: Map<string, UniversalCandidateProfile>,
+  aliases: Map<string, string>,
+  name?: string,
+  email?: string,
+  phone?: string
+) {
+  const keys = [
+    normalizeEmailMatch(email) ? `email:${normalizeEmailMatch(email)}` : "",
+    normalizePhone(phone) ? `phone:${normalizePhone(phone)}` : "",
+  ].filter(Boolean);
+
+  const existingIds = unique(
+    keys.map((key) => aliases.get(key)).filter(Boolean)
+  );
+
+  const id = existingIds[0] || profileKey(name, email, phone);
+  const profile = profiles.get(id) ?? createProfile(id);
+
+  existingIds.slice(1).forEach((duplicateId) => {
+    const duplicateProfile = profiles.get(duplicateId);
+    if (!duplicateProfile || duplicateId === id) {
+      return;
+    }
+
+    mergeProfiles(profile, duplicateProfile);
+    profiles.delete(duplicateId);
+    aliases.forEach((value, key) => {
+      if (value === duplicateId) {
+        aliases.set(key, id);
+      }
+    });
+  });
+
+  profiles.set(id, profile);
+  keys.forEach((key) => aliases.set(key, id));
+  return profile;
+}
+
 function rebuildProfileText(profile: UniversalCandidateProfile) {
   profile.sourceCount = profile.sources.length;
   profile.profileText = [
@@ -121,14 +192,16 @@ export function buildUniversalCandidateProfiles(
   submissions: ResumeBuilderSubmission[]
 ) {
   const profiles = new Map<string, UniversalCandidateProfile>();
+  const aliases = new Map<string, string>();
 
   applications.forEach((application) => {
-    const key = profileKey(
+    const profile = getProfileForIdentity(
+      profiles,
+      aliases,
       application.candidateName,
       application.candidateEmail,
       application.candidatePhone
     );
-    const profile = profiles.get(key) ?? createProfile(key);
 
     profile.candidateName = firstFilled(profile.candidateName, application.candidateName) ?? "";
     profile.candidateEmail = firstFilled(profile.candidateEmail, application.candidateEmail);
@@ -153,12 +226,16 @@ export function buildUniversalCandidateProfiles(
     profile.jobs = unique([...profile.jobs, application.jobTitle, application.jobCode]);
     profile.clients = unique([...profile.clients, application.clientName]);
     touchLatest(profile, application.stageUpdatedAt || application.appliedAt);
-    profiles.set(key, profile);
   });
 
   enquiries.forEach((enquiry) => {
-    const key = profileKey(enquiry.candidateName, enquiry.candidateEmail, enquiry.candidatePhone);
-    const profile = profiles.get(key) ?? createProfile(key);
+    const profile = getProfileForIdentity(
+      profiles,
+      aliases,
+      enquiry.candidateName,
+      enquiry.candidateEmail,
+      enquiry.candidatePhone
+    );
 
     profile.candidateName = firstFilled(profile.candidateName, enquiry.candidateName) ?? "";
     profile.candidateEmail = firstFilled(profile.candidateEmail, enquiry.candidateEmail);
@@ -177,16 +254,16 @@ export function buildUniversalCandidateProfiles(
     profile.sources = unique([...profile.sources, enquiry.sourceType || "Candidate Enquiries"]);
     profile.enquiryIds = unique([...profile.enquiryIds, enquiry.id]);
     touchLatest(profile, enquiry.createdAt);
-    profiles.set(key, profile);
   });
 
   submissions.forEach((submission) => {
-    const key = profileKey(
+    const profile = getProfileForIdentity(
+      profiles,
+      aliases,
       submission.candidateName,
       submission.candidateEmail,
       submission.candidatePhone
     );
-    const profile = profiles.get(key) ?? createProfile(key);
 
     profile.candidateName = firstFilled(profile.candidateName, submission.candidateName) ?? "";
     profile.candidateEmail = firstFilled(profile.candidateEmail, submission.candidateEmail);
@@ -202,7 +279,6 @@ export function buildUniversalCandidateProfiles(
     profile.sources = unique([...profile.sources, submission.sourceType || "Resume Builder"]);
     profile.resumeBuilderIds = unique([...profile.resumeBuilderIds, submission.id]);
     touchLatest(profile, submission.updatedAt || submission.createdAt);
-    profiles.set(key, profile);
   });
 
   return Array.from(profiles.values())

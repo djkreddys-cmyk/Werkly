@@ -1327,7 +1327,8 @@ app.get("/admin/jobs/:id", requireInternalUser, async (request, response) => {
 app.get("/admin/applications", requireInternalUser, async (_request, response) => {
   try {
     const applications = await listAdminApplications(
-      _request.user?.type === "employee" ? _request.user.id : null
+      _request.user?.type === "employee" ? _request.user.id : null,
+      { slim: _request.query.slim === "1" }
     );
     response.json({ applications });
   } catch (error) {
@@ -1340,7 +1341,7 @@ app.get("/admin/applications", requireInternalUser, async (_request, response) =
 
 app.get("/admin/candidate-enquiries", requireInternalUser, async (_request, response) => {
   try {
-    const enquiries = await listCandidateEnquiries();
+    const enquiries = await listCandidateEnquiries({ slim: _request.query.slim === "1" });
     response.json({ enquiries });
   } catch (error) {
     response.status(500).json({
@@ -1641,7 +1642,7 @@ app.post("/resume-builder-submissions", async (request, response) => {
 
 app.get("/admin/resume-builder-submissions", requireInternalUser, async (_request, response) => {
   try {
-    const submissions = await listResumeBuilderSubmissions();
+    const submissions = await listResumeBuilderSubmissions({ slim: _request.query.slim === "1" });
     response.json({ submissions });
   } catch (error) {
     response.status(500).json({
@@ -1655,7 +1656,8 @@ app.get("/admin/jobs/:id/applications", requireInternalUser, async (request, res
   try {
     const applications = await listJobApplications(
       request.params.id,
-      request.user?.type === "employee" ? request.user.id : null
+      request.user?.type === "employee" ? request.user.id : null,
+      { slim: request.query.slim === "1" }
     );
     response.json({ applications });
   } catch (error) {

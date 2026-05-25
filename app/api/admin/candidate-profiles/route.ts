@@ -34,16 +34,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Missing admin token." }, { status: 401 });
   }
 
-  const [applications, enquiries, submissions] = await Promise.all([
-    safeLoad(() => getAdminApplications(token), [] as JobApplication[]),
-    safeLoad(() => getAdminCandidateEnquiries(token), [] as CandidateEnquiry[]),
-    safeLoad(() => getResumeBuilderSubmissions(token), [] as ResumeBuilderSubmission[]),
-  ]);
-
-  const profiles = buildUniversalCandidateProfiles(applications, enquiries, submissions);
   const url = new URL(request.url);
   const shouldSlim = url.searchParams.get("slim") === "1";
   const shouldReturnSummaryOnly = url.searchParams.get("summary") === "1";
+  const shouldLoadSlim = shouldSlim || shouldReturnSummaryOnly;
+
+  const [applications, enquiries, submissions] = await Promise.all([
+    safeLoad(() => getAdminApplications(token, { slim: shouldLoadSlim }), [] as JobApplication[]),
+    safeLoad(() => getAdminCandidateEnquiries(token, { slim: shouldLoadSlim }), [] as CandidateEnquiry[]),
+    safeLoad(() => getResumeBuilderSubmissions(token, { slim: shouldLoadSlim }), [] as ResumeBuilderSubmission[]),
+  ]);
+
+  const profiles = buildUniversalCandidateProfiles(applications, enquiries, submissions);
 
   const totals = {
     applications: applications.length,

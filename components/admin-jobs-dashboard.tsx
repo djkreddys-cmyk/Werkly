@@ -10,10 +10,6 @@ import type {
   JobSummary,
   JobStatus,
 } from "@/lib/jobs";
-import {
-  countMatchingUniversalProfiles,
-  type UniversalCandidateProfile,
-} from "@/lib/candidate-profiles";
 import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
@@ -288,7 +284,6 @@ export function AdminJobsDashboard({
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [allApplications, setAllApplications] = useState<JobApplication[]>([]);
-  const [universalProfiles, setUniversalProfiles] = useState<UniversalCandidateProfile[]>([]);
   const [form, setForm] = useState<JobEditorState>(emptyForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -318,7 +313,6 @@ export function AdminJobsDashboard({
   const [isSavingCandidate, setIsSavingCandidate] = useState(false);
   const [actionMenuJobId, setActionMenuJobId] = useState("");
   const [viewMessage, setViewMessage] = useState("");
-  const [submissionHistoryJob, setSubmissionHistoryJob] = useState<JobSummary | null>(null);
   const [shortlistDraft, setShortlistDraft] = useState<{
     jobId: string;
     jobTitle: string;
@@ -491,6 +485,16 @@ export function AdminJobsDashboard({
       );
     });
   }, [allApplications, manualCandidateForm.candidateEmail, manualCandidateForm.candidatePhone]);
+  const duplicateCandidateAlreadyOnJob = useMemo(
+    () =>
+      Boolean(
+        manualCandidateJob &&
+          duplicateCandidateMatches.some(
+            (application) => application.jobId === manualCandidateJob.id
+          )
+      ),
+    [duplicateCandidateMatches, manualCandidateJob]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined" || !canManageJobs) {
@@ -522,6 +526,8 @@ export function AdminJobsDashboard({
       return;
     }
 
+    let isMounted = true;
+
     Promise.all([
       fetch("/api/admin/jobs", {
         headers: {
@@ -538,24 +544,8 @@ export function AdminJobsDashboard({
           Authorization: `Bearer ${token}`,
         },
       }),
-      fetch("/api/admin/applications", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }),
-      fetch("/api/admin/candidate-profiles", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }),
     ])
-      .then(async ([
-        jobsResponse,
-        clientsResponse,
-        employeesResponse,
-        applicationsResponse,
-        profilesResponse,
-      ]) => {
+      .then(async ([jobsResponse, clientsResponse, employeesResponse]) => {
         const jobsResult = (await jobsResponse.json()) as {
           jobs?: JobSummary[];
           message?: string;
@@ -572,37 +562,57 @@ export function AdminJobsDashboard({
           employees?: EmployeeRecord[];
           message?: string;
         };
-        const applicationsResult = (await applicationsResponse.json()) as {
-          applications?: JobApplication[];
-          message?: string;
-        };
-        const profilesResult = (await profilesResponse.json()) as {
-          profiles?: UniversalCandidateProfile[];
-          message?: string;
-        };
         if (!clientsResponse.ok) {
           throw new Error(clientsResult.message || "Unable to load clients.");
         }
         if (!employeesResponse.ok) {
           throw new Error(employeesResult.message || "Unable to load employees.");
         }
-        if (!applicationsResponse.ok) {
-          throw new Error(applicationsResult.message || "Unable to load applications.");
-        }
-        if (!profilesResponse.ok) {
-          throw new Error(profilesResult.message || "Unable to load candidate profiles.");
-        }
 
+        if (!isMounted) {
+          return;
+        }
         setJobs(jobsResult.jobs ?? []);
         setClients(clientsResult.clients ?? []);
         setEmployees(employeesResult.employees ?? []);
-        setAllApplications(applicationsResult.applications ?? []);
-        setUniversalProfiles(profilesResult.profiles ?? []);
       })
       .catch((loadError) => {
-        setError(loadError instanceof Error ? loadError.message : "Unable to load jobs.");
+        if (isMounted) {
+          setError(loadError instanceof Error ? loadError.message : "Unable to load jobs.");
+        }
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    fetch("/api/admin/applications?slim=1", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(async (applicationsResponse) => {
+        const applicationsResult = (await applicationsResponse.json()) as {
+          applications?: JobApplication[];
+          message?: string;
+        };
+        if (!applicationsResponse.ok) {
+          throw new Error(applicationsResult.message || "Unable to load applications.");
+        }
+
+        if (!isMounted) {
+          return;
+        }
+        setAllApplications(applicationsResult.applications ?? []);
+      })
+      .catch(() => {
+        // Candidate application index loads in the background and should not block the Jobs page.
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
 
   const sortedJobs = useMemo(
@@ -696,29 +706,6 @@ export function AdminJobsDashboard({
     [filteredJobs, jobsPage]
   );
 
-  const matchingCandidateCounts = useMemo(() => {
-    return new Map(
-      visibleJobs.map((job) => [
-        job.id,
-        countMatchingUniversalProfiles(job, universalProfiles),
-      ])
-    );
-  }, [universalProfiles, visibleJobs]);
-
-  const submissionHistory = useMemo(() => {
-    if (!submissionHistoryJob) {
-      return [];
-    }
-
-    return allApplications
-      .filter((application) => application.clientName === submissionHistoryJob.clientName)
-      .sort(
-        (first, second) =>
-          new Date(second.stageUpdatedAt || second.appliedAt).getTime() -
-          new Date(first.stageUpdatedAt || first.appliedAt).getTime()
-      );
-  }, [allApplications, submissionHistoryJob]);
-
   function isLiveOnWebsite(job: JobSummary) {
     if (job.isHidden) {
       return false;
@@ -784,7 +771,9 @@ Werkly Team`;
       htmlBody,
       count: profilesToSend.length,
       resumeCount: profilesToSend.filter(
-        (application) => application.resumeFileData && application.resumeFileName
+        (application) =>
+          (application.resumeAvailable || application.resumeFileData) &&
+          application.resumeFileName
       ).length,
       usedAllApplications: shortlistedApplications.length === 0,
     });
@@ -1179,7 +1168,7 @@ Werkly Team`;
           Authorization: `Bearer ${token}`,
         },
       }),
-      fetch("/api/admin/applications", {
+      fetch("/api/admin/applications?slim=1", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1413,7 +1402,7 @@ Werkly Team`;
     setError("");
 
     try {
-      const response = await fetch(`/api/admin/jobs/${job.id}/applications`, {
+      const response = await fetch(`/api/admin/jobs/${job.id}/applications?slim=1`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1527,11 +1516,54 @@ Werkly Team`;
       return;
     }
 
+    if (duplicateCandidateAlreadyOnJob) {
+      setError("Candidate is already assigned to this job.");
+      return;
+    }
+
     setIsSavingCandidate(true);
     setError("");
     setMessage("");
 
     try {
+      const existingCandidateApplication = duplicateCandidateMatches.find(
+        (application) => application.jobId !== manualCandidateJob.id
+      );
+
+      if (existingCandidateApplication) {
+        const response = await fetch(
+          `/api/admin/jobs/applications/${existingCandidateApplication.id}/assign-job`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              jobId: manualCandidateJob.id,
+              initialStage: manualCandidateForm.initialStage,
+              stageDate: manualCandidateForm.stageDate,
+              stageNote:
+                manualCandidateForm.stageNote.trim() ||
+                `Assigned from ${existingCandidateApplication.jobCode || existingCandidateApplication.jobTitle || "candidate profile"}.`,
+            }),
+          }
+        );
+
+        const result = (await response.json()) as { message?: string };
+        if (!response.ok) {
+          throw new Error(result.message || "Unable to assign candidate to this job.");
+        }
+
+        await refreshJobs();
+        if (applicationsJob?.id === manualCandidateJob.id) {
+          await openApplications(manualCandidateJob);
+        }
+        setMessage("Existing candidate assigned successfully against this job.");
+        closeManualCandidateModal();
+        return;
+      }
+
       const payload: ManualJobApplicationPayload = {
         candidateName: manualCandidateForm.candidateName.trim(),
         candidateEmail: manualCandidateForm.candidateEmail.trim() || undefined,
@@ -1903,7 +1935,6 @@ Werkly Team`;
                       "Location",
                       "Positions",
                       "Applications",
-                      "Matching",
                       "Status",
                       "Actions",
                     ].map((heading) => (
@@ -1972,15 +2003,6 @@ Werkly Team`;
                         </button>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        <a
-                          href={`/admin/jobs/${job.id}`}
-                          className="font-semibold text-[var(--color-dark)] transition hover:text-[var(--color-accent-strong)]"
-                        >
-                          {matchingCandidateCounts.get(job.id) ?? 0}
-                        </a>
-                        <p className="mt-1 text-xs">candidate matches</p>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
                           {job.isHidden ? "hidden" : job.status}
                         </span>
@@ -2022,17 +2044,13 @@ Werkly Team`;
                             openUp={shouldOpenUp}
                             items={[
                               {
-                                label: "Open Job Page",
+                                label: "Matching Profiles",
                                 href: `/admin/jobs/${job.id}`,
                                 tone: "accent",
                               },
                               {
                                 label: "Edit",
                                 onClick: () => populateForEdit(job),
-                              },
-                              {
-                                label: "Submission History",
-                                onClick: () => setSubmissionHistoryJob(job),
                               },
                               ...(canToggleJobVisibility
                                 ? [
@@ -2407,17 +2425,22 @@ Werkly Team`;
                 <div className="mb-4 rounded-2xl border border-[rgba(190,72,26,0.24)] bg-[rgba(190,72,26,0.08)] px-4 py-3 text-sm text-[var(--color-accent-strong)]">
                   Candidate already exists in the CRM with the same
                   {manualCandidateForm.candidateEmail.trim() && manualCandidateForm.candidatePhone.trim()
-                    ? " email or phone"
+                    ? " mail ID or mobile number"
                     : manualCandidateForm.candidateEmail.trim()
-                      ? " email"
-                      : " phone"}
-                  . You can still continue if this application is meant for a different job.
+                      ? " mail ID"
+                      : " mobile number"}
+                  .
                   <div className="mt-2 text-xs text-[var(--color-ink)]">
                     {duplicateCandidateMatches
                       .slice(0, 3)
                       .map((match) => `${match.candidateName} - ${match.jobTitle || match.jobCode || "Existing application"}`)
                       .join(" | ")}
                   </div>
+                  <p className="mt-3 text-xs text-[var(--color-ink)]">
+                    {duplicateCandidateAlreadyOnJob
+                      ? "This candidate is already assigned to this job."
+                      : "Submitting will assign the existing candidate to this job and keep the history under the same master candidate."}
+                  </p>
                 </div>
               ) : null}
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -2680,10 +2703,14 @@ Werkly Team`;
               <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--color-line)] bg-white px-4 py-4 sm:flex-row sm:flex-wrap sm:px-6">
                 <button
                   type="submit"
-                  disabled={isSavingCandidate}
+                  disabled={isSavingCandidate || duplicateCandidateAlreadyOnJob}
                   className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isSavingCandidate ? "Saving..." : "Add Candidate"}
+                  {isSavingCandidate
+                    ? "Saving..."
+                    : duplicateCandidateMatches.length > 0
+                      ? "Assign Existing Candidate"
+                      : "Add Candidate"}
                 </button>
                 <button
                   type="button"
@@ -2811,84 +2838,6 @@ Werkly Team`;
               >
                 Done
               </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {submissionHistoryJob ? (
-        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-6 py-5">
-              <div>
-                <p className="eyebrow">Client Submission History</p>
-                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-                  {submissionHistoryJob.clientName || "Unassigned client"}
-                </h3>
-                <p className="muted-copy mt-2 text-sm">
-                  Candidate submissions linked to this client across jobs.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSubmissionHistoryJob(null)}
-                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
-              >
-                Close
-              </button>
-            </div>
-            <div className="overflow-auto p-6">
-              {submissionHistory.length === 0 ? (
-                <p className="muted-copy text-sm">No candidate submissions found for this client.</p>
-              ) : (
-                <table className="min-w-full border-collapse">
-                  <thead>
-                    <tr className="bg-[rgba(8,96,108,0.05)] text-left">
-                      {["Candidate", "Job", "Stage", "Submitted", "Remarks"].map((heading) => (
-                        <th
-                          key={heading}
-                          className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
-                        >
-                          {heading}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {submissionHistory.map((application, index) => (
-                      <tr
-                        key={application.id}
-                        className={
-                          index === submissionHistory.length - 1
-                            ? "align-top"
-                            : "align-top border-b border-[var(--color-line)]"
-                        }
-                      >
-                        <td className="px-4 py-4 text-sm">
-                          <p className="font-semibold text-[var(--color-ink)]">
-                            {formatPersonName(application.candidateName)}
-                          </p>
-                          <p className="mt-1 text-[var(--color-muted)]">
-                            {application.candidateEmail || application.candidatePhone || "-"}
-                          </p>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                          {application.jobTitle || "Untitled job"}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                          {formatStageLabel((application.stage ?? "applied") as JobApplicationStage)}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                          {new Date(application.appliedAt).toLocaleDateString("en-IN")}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                          {application.stageNote || application.candidateMessage || "-"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
             </div>
           </div>
         </div>

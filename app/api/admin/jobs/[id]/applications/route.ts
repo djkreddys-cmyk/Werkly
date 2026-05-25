@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
-import { createManualJobApplication, getJobApplications } from "@/lib/jobs";
+import { createManualJobApplication, getJobApplications, type JobApplication } from "@/lib/jobs";
+
+function slimApplication(application: JobApplication): JobApplication {
+  const { resumeFileData, ...rest } = application;
+  return {
+    ...rest,
+    resumeAvailable: Boolean(application.resumeAvailable || resumeFileData),
+  };
+}
 
 export async function GET(
   request: Request,
@@ -14,8 +22,12 @@ export async function GET(
     }
 
     const { id } = await context.params;
-    const applications = await getJobApplications(id, token);
-    return NextResponse.json({ applications });
+    const url = new URL(request.url);
+    const shouldSlim = url.searchParams.get("slim") === "1";
+    const applications = await getJobApplications(id, token, { slim: shouldSlim });
+    return NextResponse.json({
+      applications: shouldSlim ? applications.map(slimApplication) : applications,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to load job applications.";

@@ -175,6 +175,14 @@ const clientSelectOptionStyle = {
   color: "#ffffff",
 };
 
+function normalizeEmailMatch(value?: string) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizePhoneMatch(value?: string) {
+  return String(value || "").replace(/\D/g, "");
+}
+
 const clientLeadStatuses: ClientOnboardingStatus[] = [
   "new-lead",
   "contacted",
@@ -2242,6 +2250,27 @@ export function AdminEmployeesPanel({
       ),
     [employeeForm.id, employees]
   );
+  const duplicateEmployeeMatches = useMemo(() => {
+    const normalizedEmail = normalizeEmailMatch(employeeForm.email);
+    const normalizedPhone = normalizePhoneMatch(employeeForm.phone);
+
+    if (!normalizedEmail && !normalizedPhone) {
+      return [];
+    }
+
+    return employees.filter((employee) => {
+      if (employeeForm.id && employee.id === employeeForm.id) {
+        return false;
+      }
+
+      const employeeEmail = normalizeEmailMatch(employee.email);
+      const employeePhone = normalizePhoneMatch(employee.phone);
+      return Boolean(
+        (normalizedEmail && employeeEmail === normalizedEmail) ||
+          (normalizedPhone && employeePhone === normalizedPhone)
+      );
+    });
+  }, [employeeForm.email, employeeForm.id, employeeForm.phone, employees]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -2421,6 +2450,12 @@ export function AdminEmployeesPanel({
       (!employeeForm.inactiveDate || !employeeForm.inactiveRemarks.trim())
     ) {
       setError("Inactive date and remarks are required when employee is inactive.");
+      setIsSavingEmployee(false);
+      return;
+    }
+
+    if (duplicateEmployeeMatches.length > 0) {
+      setError("Employee already exists with the same mail ID or mobile number.");
       setIsSavingEmployee(false);
       return;
     }
@@ -2644,6 +2679,37 @@ export function AdminEmployeesPanel({
             className="mt-8 rounded-[1.7rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.08)] p-6 backdrop-blur"
             onSubmit={handleEmployeeSubmit}
           >
+            {duplicateEmployeeMatches.length > 0 ? (
+              <div className="mb-5 rounded-2xl border border-[rgba(241,166,75,0.32)] bg-[rgba(241,166,75,0.14)] px-4 py-3 text-sm text-white">
+                <p className="font-semibold">
+                  Employee already exists with the same
+                  {employeeForm.email.trim() && employeeForm.phone.trim()
+                    ? " mail ID or mobile number"
+                    : employeeForm.email.trim()
+                      ? " mail ID"
+                      : " mobile number"}
+                  .
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {duplicateEmployeeMatches.slice(0, 4).map((employee) => (
+                    <div
+                      key={employee.id}
+                      className="rounded-xl border border-white/15 bg-white/10 px-3 py-2"
+                    >
+                      <p className="font-semibold">{employee.fullName}</p>
+                      <p className="mt-1 text-xs text-white/78">
+                        {[employee.email, employee.phone || "No mobile", employee.employeeCode, employee.status]
+                          .filter(Boolean)
+                          .join(" | ")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-white/78">
+                  This record cannot be saved again while the duplicate match is present.
+                </p>
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <input
                 className={fieldClassName}
@@ -2768,7 +2834,7 @@ export function AdminEmployeesPanel({
             <div className="mt-5 flex gap-3">
               <button
                 type="submit"
-                disabled={isSavingEmployee || isLoading}
+                disabled={isSavingEmployee || isLoading || duplicateEmployeeMatches.length > 0}
                 className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSavingEmployee
@@ -2896,7 +2962,7 @@ export function AdminEmployeesPanel({
               </div>
 
               <div className="flex shrink-0 flex-wrap gap-3 border-t border-[var(--color-line)] bg-white p-5 sm:p-6">
-                <button type="submit" disabled={isSavingEmployee} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70">
+                <button type="submit" disabled={isSavingEmployee || duplicateEmployeeMatches.length > 0} className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70">
                   {isSavingEmployee ? "Updating..." : "Update Employee"}
                 </button>
                 <button type="button" onClick={() => setEmployeeForm(emptyEmployeeForm)} className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]">
@@ -3122,6 +3188,42 @@ export function AdminClientsPanel({
         client.followUpEmployeeId === currentEmployeeId
     );
   }, [clients, currentEmployeeId, isSuperAdmin]);
+  const duplicateClientMatches = useMemo(() => {
+    const emails = [
+      normalizeEmailMatch(clientForm.contactEmail),
+      normalizeEmailMatch(clientForm.secondaryContactEmail),
+    ].filter(Boolean);
+    const phones = [
+      normalizePhoneMatch(clientForm.contactPhone),
+      normalizePhoneMatch(clientForm.secondaryContactPhone),
+    ].filter(Boolean);
+
+    if (emails.length === 0 && phones.length === 0) {
+      return [];
+    }
+
+    return clients.filter((client) => {
+      const clientEmails = [
+        normalizeEmailMatch(client.contactEmail),
+        normalizeEmailMatch(client.secondaryContactEmail),
+      ].filter(Boolean);
+      const clientPhones = [
+        normalizePhoneMatch(client.contactPhone),
+        normalizePhoneMatch(client.secondaryContactPhone),
+      ].filter(Boolean);
+
+      return (
+        emails.some((email) => clientEmails.includes(email)) ||
+        phones.some((phone) => clientPhones.includes(phone))
+      );
+    });
+  }, [
+    clientForm.contactEmail,
+    clientForm.contactPhone,
+    clientForm.secondaryContactEmail,
+    clientForm.secondaryContactPhone,
+    clients,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -3333,6 +3435,16 @@ export function AdminClientsPanel({
     setError("");
     setMessage("");
 
+    if (duplicateClientMatches.length > 0) {
+      setError(
+        viewMode === "leads"
+          ? "Client lead already exists with the same mail ID or mobile number."
+          : "Client already exists with the same mail ID or mobile number."
+      );
+      setIsSavingClient(false);
+      return;
+    }
+
     try {
       const effectiveAssignedEmployeeId = shouldAutoAssignClientOwner
         ? currentEmployeeId
@@ -3413,7 +3525,24 @@ export function AdminClientsPanel({
       }
 
       let createdCount = 0;
+      let duplicateCount = 0;
       const failedCompanies: string[] = [];
+      const existingKeys = new Set<string>();
+
+      clients.forEach((client) => {
+        [
+          normalizeEmailMatch(client.contactEmail),
+          normalizeEmailMatch(client.secondaryContactEmail),
+        ]
+          .filter(Boolean)
+          .forEach((email) => existingKeys.add(`email:${email}`));
+        [
+          normalizePhoneMatch(client.contactPhone),
+          normalizePhoneMatch(client.secondaryContactPhone),
+        ]
+          .filter(Boolean)
+          .forEach((phone) => existingKeys.add(`phone:${phone}`));
+      });
 
       for (const row of rows) {
         const companyName =
@@ -3444,6 +3573,22 @@ export function AdminClientsPanel({
 
         if (!companyName.trim() || !contactPerson.trim()) {
           failedCompanies.push(companyName || "Unnamed row");
+          continue;
+        }
+
+        const importKeys = [
+          normalizeEmailMatch(contactEmail) ? `email:${normalizeEmailMatch(contactEmail)}` : "",
+          normalizeEmailMatch(secondaryContactEmail)
+            ? `email:${normalizeEmailMatch(secondaryContactEmail)}`
+            : "",
+          normalizePhoneMatch(contactPhone) ? `phone:${normalizePhoneMatch(contactPhone)}` : "",
+          normalizePhoneMatch(secondaryContactPhone)
+            ? `phone:${normalizePhoneMatch(secondaryContactPhone)}`
+            : "",
+        ].filter(Boolean);
+
+        if (importKeys.some((key) => existingKeys.has(key))) {
+          duplicateCount += 1;
           continue;
         }
 
@@ -3482,13 +3627,16 @@ export function AdminClientsPanel({
         }
 
         createdCount += 1;
+        importKeys.forEach((key) => existingKeys.add(key));
       }
 
       await refreshCrm(token);
       setMessage(
-        failedCompanies.length > 0
-          ? `${createdCount} leads imported. ${failedCompanies.length} rows could not be created.`
-          : `${createdCount} leads imported successfully.`
+        `${createdCount} leads imported.${duplicateCount ? ` ${duplicateCount} duplicate row(s) skipped.` : ""}${
+          failedCompanies.length > 0
+            ? ` ${failedCompanies.length} row(s) could not be created.`
+            : ""
+        }`
       );
     } catch (importError) {
       setError(
@@ -4056,6 +4204,43 @@ export function AdminClientsPanel({
           className="mt-8 rounded-[1.7rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.08)] p-6 backdrop-blur"
           onSubmit={handleClientSubmit}
         >
+          {duplicateClientMatches.length > 0 ? (
+            <div className="mb-5 rounded-2xl border border-[rgba(241,166,75,0.32)] bg-[rgba(241,166,75,0.14)] px-4 py-3 text-sm text-white">
+              <p className="font-semibold">
+                Client {viewMode === "leads" ? "lead " : ""}already exists with the same
+                {(clientForm.contactEmail.trim() || clientForm.secondaryContactEmail.trim()) &&
+                (clientForm.contactPhone.trim() || clientForm.secondaryContactPhone.trim())
+                  ? " mail ID or mobile number"
+                  : clientForm.contactEmail.trim() || clientForm.secondaryContactEmail.trim()
+                    ? " mail ID"
+                    : " mobile number"}
+                .
+              </p>
+              <div className="mt-3 grid gap-2">
+                {duplicateClientMatches.slice(0, 4).map((client) => (
+                  <div
+                    key={client.id}
+                    className="rounded-xl border border-white/15 bg-white/10 px-3 py-2"
+                  >
+                    <p className="font-semibold">{client.companyName}</p>
+                    <p className="mt-1 text-xs text-white/78">
+                      {[
+                        formatClientStageLabel(client.onboardingStatus || "onboarded"),
+                        client.contactPerson,
+                        client.contactEmail || client.secondaryContactEmail || "No mail ID",
+                        client.contactPhone || client.secondaryContactPhone || "No mobile",
+                      ]
+                        .filter(Boolean)
+                        .join(" | ")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-white/78">
+                This record cannot be saved again while the duplicate match is present.
+              </p>
+            </div>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className={clientFormLabelClassName}>Company Name</span>
@@ -4250,7 +4435,7 @@ export function AdminClientsPanel({
           <div className="mt-5 flex gap-3">
             <button
               type="submit"
-              disabled={isSavingClient || isLoading}
+              disabled={isSavingClient || isLoading || duplicateClientMatches.length > 0}
               className="rounded-2xl bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSavingClient

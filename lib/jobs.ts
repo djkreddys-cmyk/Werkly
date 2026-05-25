@@ -693,9 +693,13 @@ export async function mergeJobs(
   });
 }
 
-export async function getJobApplications(id: string, token: string) {
+export async function getJobApplications(
+  id: string,
+  token: string,
+  options?: { slim?: boolean }
+) {
   const data = await readJson<JobApplicationsResponse | JobApplication[]>(
-    `/admin/jobs/${id}/applications`,
+    `/admin/jobs/${id}/applications${options?.slim ? "?slim=1" : ""}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -738,9 +742,9 @@ export async function assignCandidateApplicationToJob(
   });
 }
 
-export async function getAdminApplications(token: string) {
+export async function getAdminApplications(token: string, options?: { slim?: boolean }) {
   const data = await readJson<AdminApplicationsResponse | JobApplication[]>(
-    "/admin/applications",
+    `/admin/applications${options?.slim ? "?slim=1" : ""}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -764,9 +768,9 @@ export async function getAdminApplicationHistory(token: string) {
   return Array.isArray(data) ? data : data.history;
 }
 
-export async function getAdminCandidateEnquiries(token: string) {
+export async function getAdminCandidateEnquiries(token: string, options?: { slim?: boolean }) {
   const data = await readJson<CandidateEnquiriesResponse | CandidateEnquiry[]>(
-    "/admin/candidate-enquiries",
+    `/admin/candidate-enquiries${options?.slim ? "?slim=1" : ""}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -790,9 +794,9 @@ export async function createAdminCandidateEnquiry(
   });
 }
 
-export async function getResumeBuilderSubmissions(token: string) {
+export async function getResumeBuilderSubmissions(token: string, options?: { slim?: boolean }) {
   const data = await readJson<ResumeBuilderSubmissionsResponse | ResumeBuilderSubmission[]>(
-    "/admin/resume-builder-submissions",
+    `/admin/resume-builder-submissions${options?.slim ? "?slim=1" : ""}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
