@@ -71,9 +71,7 @@ const moduleSections: Array<{
     href: "/admin/clients",
     description: "Client onboarding and existing clients",
     items: [
-      { href: "/admin/clients/new", label: "New Client" },
-      { href: "/admin/clients/leads", label: "Client Leads" },
-      { href: "/admin/clients/existing", label: "Existing Clients" },
+      { href: "/admin/clients", label: "Clients" },
       { href: "/admin/clients/invoices", label: "Client Invoices" },
       { href: "/admin/reports/clients", label: "Reports" },
     ],

@@ -1,14 +1,14 @@
-import { AdminClientsPanel } from "@/components/admin-crm-dashboard";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminClientsWorkspace } from "@/components/admin-clients-workspace";
 
 export default function AdminExistingClientsPage() {
   return (
     <AdminShell
-      eyebrow="Existing Clients"
-      title="Review all onboarded clients."
-      description="Browse current clients, linked jobs, owners, and agreement status on a dedicated page."
+      eyebrow="Clients"
+      title="Manage leads and existing clients in one workspace."
+      description="Switch between client leads and onboarded clients, then add new records from the selected view."
     >
-      <AdminClientsPanel viewMode="existing" />
+      <AdminClientsWorkspace initialView="existing" />
     </AdminShell>
   );
 }

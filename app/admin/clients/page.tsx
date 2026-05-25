@@ -1,14 +1,14 @@
-import { AdminClientsPanel } from "@/components/admin-crm-dashboard";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminClientsWorkspace } from "@/components/admin-clients-workspace";
 
 export default function AdminClientsPage() {
   return (
     <AdminShell
       eyebrow="Clients"
-      title="Onboard clients and assign delivery responsibility."
-      description="Register client accounts, upload signed agreements, and map each account to the right internal owner before hiring starts."
+      title="Manage leads and existing clients in one workspace."
+      description="Switch between client leads and onboarded clients, then add new records from the selected view."
     >
-      <AdminClientsPanel />
+      <AdminClientsWorkspace initialView="leads" />
     </AdminShell>
   );
 }

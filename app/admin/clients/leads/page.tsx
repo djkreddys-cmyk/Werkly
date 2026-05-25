@@ -1,14 +1,14 @@
-import { AdminClientsPanel } from "@/components/admin-crm-dashboard";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminClientsWorkspace } from "@/components/admin-clients-workspace";
 
 export default function AdminClientLeadsPage() {
   return (
     <AdminShell
-      eyebrow="Client Leads"
-      title="Track client leads and follow-up commitments."
-      description="Work lead-stage client accounts separately from onboarded clients, review next follow-up dates, and update ownership or lead movement from one dedicated screen."
+      eyebrow="Clients"
+      title="Manage leads and existing clients in one workspace."
+      description="Switch between client leads and onboarded clients, then add new records from the selected view."
     >
-      <AdminClientsPanel viewMode="leads" />
+      <AdminClientsWorkspace initialView="leads" />
     </AdminShell>
   );
 }

@@ -1,14 +1,14 @@
-import { AdminClientsPanel } from "@/components/admin-crm-dashboard";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminClientsWorkspace } from "@/components/admin-clients-workspace";
 
 export default function AdminNewClientsPage() {
   return (
     <AdminShell
-      eyebrow="New Client"
-      title="Register a new client account."
-      description="Capture client details, assign ownership, and complete onboarding in a dedicated page."
+      eyebrow="Clients"
+      title="Manage leads and existing clients in one workspace."
+      description="The New Client page has moved into the Existing Clients view as an Add New Client popup."
     >
-      <AdminClientsPanel viewMode="new" />
+      <AdminClientsWorkspace initialView="existing" />
     </AdminShell>
   );
 }

@@ -3074,6 +3074,7 @@ export function AdminClientsPanel({
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [adminTransferNote, setAdminTransferNote] = useState("");
   const [clientForm, setClientForm] = useState<ClientFormState>(emptyClientForm);
+  const [isCreateClientOpen, setIsCreateClientOpen] = useState(viewMode === "new");
   const [isSavingClient, setIsSavingClient] = useState(false);
   const [isImportingLeads, setIsImportingLeads] = useState(false);
   const [isSavingTransferRequest, setIsSavingTransferRequest] = useState(false);
@@ -3132,12 +3133,21 @@ export function AdminClientsPanel({
         setLeadOnboardingClient(null);
         setLeadOnboardingForm(emptyClientForm);
         setClientDetailsMode("convert");
+        return;
+      }
+
+      if (isCreateClientOpen && viewMode !== "new") {
+        setIsCreateClientOpen(false);
+        setClientForm({
+          ...emptyClientForm,
+          onboardingStatus: viewMode === "leads" ? "new-lead" : "onboarded",
+        });
       }
     };
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [leadOnboardingClient, selectedFollowUpClient, selectedTransferClient]);
+  }, [isCreateClientOpen, leadOnboardingClient, selectedFollowUpClient, selectedTransferClient, viewMode]);
 
   const employeeOptions = useMemo(
     () => employees.filter((employee) => employee.status === "active"),
@@ -3354,9 +3364,11 @@ export function AdminClientsPanel({
           ? "Client lead added successfully."
           : "Client onboarding saved successfully."
       );
-      if (viewMode !== "leads") {
+      if (viewMode === "new") {
         router.push("/admin/clients/existing");
         router.refresh();
+      } else {
+        setIsCreateClientOpen(false);
       }
     } catch (saveError) {
       setError(
@@ -3943,25 +3955,60 @@ export function AdminClientsPanel({
 
   return (
     <section className="space-y-6">
-      {canOnboardClients && viewMode !== "existing" ? (
+      {canOnboardClients && viewMode !== "new" ? (
+        <>
+          <CrmFeedback message={message} error={error} />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setClientForm({
+                  ...emptyClientForm,
+                  onboardingStatus: viewMode === "leads" ? "new-lead" : "onboarded",
+                });
+                setError("");
+                setMessage("");
+                setIsCreateClientOpen(true);
+              }}
+              className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+            >
+              {viewMode === "leads" ? "Add New Lead" : "Add New Client"}
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {canOnboardClients && (viewMode === "new" || isCreateClientOpen) ? (
+      <div className={viewMode === "new" ? "" : "fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto bg-slate-950/55 p-3 sm:p-4"}>
       <div
         id="new-client"
-        className="rounded-[2rem] scroll-mt-28 border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)]"
+        className={`rounded-[2rem] scroll-mt-28 border border-[rgba(255,255,255,0.1)] bg-[linear-gradient(135deg,rgba(8,96,108,0.88),rgba(11,64,72,0.94))] p-7 text-white shadow-[0_26px_70px_rgba(6,31,36,0.26)] ${viewMode === "new" ? "" : "my-3 max-h-[calc(100vh-1.5rem)] w-full max-w-5xl overflow-y-auto sm:my-4 sm:max-h-[calc(100vh-2rem)]"}`}
       >
-        <div className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
-            {viewMode === "leads" ? "Client Leads" : "Client Onboarding"}
-          </p>
-          <h2 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
-            {viewMode === "leads"
-              ? "Capture client leads and assign lead ownership clearly."
-              : "Register client accounts and assign ownership clearly."}
-          </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
-            {viewMode === "leads"
-              ? "Capture company details, lead contact information, and assign the right internal employee before onboarding is finalized."
-              : "Capture company details, the main client contact, and assign the right internal employee before jobs and follow-ups are distributed."}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[rgba(241,166,75,0.92)]">
+              {viewMode === "leads" ? "Client Leads" : "Client Onboarding"}
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
+              {viewMode === "leads"
+                ? "Capture client leads and assign lead ownership clearly."
+                : "Register client accounts and assign ownership clearly."}
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
+              {viewMode === "leads"
+                ? "Capture company details, lead contact information, and assign the right internal employee before onboarding is finalized."
+                : "Capture company details, the main client contact, and assign the right internal employee before jobs and follow-ups are distributed."}
+            </p>
+          </div>
+          {viewMode !== "new" ? (
+            <button
+              type="button"
+              onClick={() => setIsCreateClientOpen(false)}
+              className="rounded-full border border-white/20 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              Close
+            </button>
+          ) : null}
         </div>
 
         <CrmFeedback message={message} error={error} />
@@ -4200,6 +4247,7 @@ export function AdminClientsPanel({
             </button>
           </div>
         </form>
+      </div>
       </div>
       ) : null}
 
