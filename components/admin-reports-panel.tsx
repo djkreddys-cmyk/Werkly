@@ -570,26 +570,6 @@ function downloadExcelReport(
   URL.revokeObjectURL(url);
 }
 
-function MetricCard({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string | number;
-  detail?: string;
-}) {
-  return (
-    <article className="accent-card p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">{value}</p>
-      {detail ? <p className="muted-copy mt-2 text-sm">{detail}</p> : null}
-    </article>
-  );
-}
-
 function ReportLinkCard({
   href,
   eyebrow,
@@ -2252,38 +2232,6 @@ export function AdminReportsPanel({
           saveFeedback={viewMessage}
         />
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Total Employees" value={visibleEmployees.length} />
-          <MetricCard label="Active Employees" value={activeEmployees} />
-          <MetricCard label="Inactive Employees" value={inactiveEmployees} />
-          <MetricCard
-            label="Live Sessions"
-            value={activeSessions}
-            detail={`${filteredAttendanceSummary.length} employee day records`}
-          />
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Average Screen Time"
-            value={formatDuration(averageScreenTime)}
-            detail="Average CRM active time per employee day"
-          />
-          <MetricCard
-            label="Attendance Records"
-            value={filteredAttendanceSummary.length}
-            detail="End-of-day attendance summaries"
-          />
-          <MetricCard
-            label="Today Login Capture"
-            value={filteredEmployeeActivityRows.filter((row) => row.attendanceSummary?.firstLoginAt).length}
-          />
-          <MetricCard
-            label="Last Seen Captured"
-            value={filteredEmployeeActivityRows.filter((row) => row.activitySummary?.lastSeenAt).length}
-          />
-        </section>
-
         {report === "hr-attendance" && (
           <section className="accent-card p-7">
             <p className="eyebrow">Attendance Report</p>
@@ -2521,24 +2469,6 @@ export function AdminReportsPanel({
           saveFeedback={viewMessage}
         />
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Open Jobs" value={openJobs} />
-          <MetricCard label="Draft Jobs" value={draftJobs} />
-          <MetricCard label="Closed Jobs" value={closedJobs} />
-          <MetricCard label="Applications" value={filteredApplications.length} />
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Active Recruiters" value={activeRecruiters} />
-          <MetricCard
-            label="Shortlisted"
-            value={filteredApplicationTotals.shortlisted}
-            detail="Candidates moved beyond applied stage"
-          />
-          <MetricCard label="Interview" value={filteredApplicationTotals.interview} />
-          <MetricCard label="Joined" value={filteredApplicationTotals.joined} />
-        </section>
-
         {report === "jobs-performance" && (
         <section className="accent-card p-7">
           <p className="eyebrow">Job Performance</p>
@@ -2683,30 +2613,28 @@ export function AdminReportsPanel({
             Use this funnel to spot where applications are building up across the selected
             recruiter, client, and date filters.
           </p>
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {funnelRows.map((row) => (
-              <article
+          <ReportTable headings={["Stage", "Candidates", "Share"]}>
+            {funnelRows.map((row, index) => (
+              <tr
                 key={row.key}
-                className="rounded-2xl border border-[var(--color-line)] bg-white p-5"
+                className={
+                  index === funnelRows.length - 1
+                    ? "align-top"
+                    : "align-top border-b border-[var(--color-line)]"
+                }
               >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--color-ink)]">{row.label}</p>
-                  <p className="text-xs font-semibold text-[var(--color-accent-strong)]">
-                    {row.share}%
-                  </p>
-                </div>
-                <p className="mt-4 text-3xl font-semibold text-[var(--color-ink)]">
+                <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                  {row.label}
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                   {row.count}
-                </p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[rgba(8,96,108,0.08)]">
-                  <div
-                    className="h-full rounded-full bg-[var(--color-accent)]"
-                    style={{ width: `${Math.min(row.share, 100)}%` }}
-                  />
-                </div>
-              </article>
+                </td>
+                <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                  {row.share}%
+                </td>
+              </tr>
             ))}
-          </div>
+          </ReportTable>
         </section>
         )}
 
@@ -2819,37 +2747,6 @@ export function AdminReportsPanel({
           onSaveView={saveCurrentReportView}
           saveFeedback={viewMessage}
         />
-
-        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
-          <MetricCard label="Applied" value={filteredApplicationTotals.applied} />
-          <MetricCard label="Shortlisted" value={filteredApplicationTotals.shortlisted} />
-          <MetricCard label="Interview" value={filteredApplicationTotals.interview} />
-          <MetricCard label="Offered" value={filteredApplicationTotals.offered} />
-          <MetricCard label="Joined" value={filteredApplicationTotals.joined} />
-          <MetricCard label="Screen Rejection" value={filteredApplicationTotals.screenRejection} />
-          <MetricCard label="Rejected" value={filteredApplicationTotals.rejected} />
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Total Applications" value={filteredApplications.length} />
-          <MetricCard label="Website Enquiries" value={filteredRecentEnquiries.length} />
-          <MetricCard
-            label="Website Apply"
-            value={
-              filteredApplications.filter(
-                (application) => getCandidateSourceLabel(application) === "Website Apply"
-              ).length
-            }
-          />
-          <MetricCard
-            label="Manual Entries"
-            value={
-              filteredApplications.filter(
-                (application) => getCandidateSourceLabel(application) !== "Website Apply"
-              ).length
-            }
-          />
-        </section>
 
         {report === "interview-scheduler" && (
         <section className="accent-card p-7">
@@ -3078,17 +2975,25 @@ export function AdminReportsPanel({
             ) : filteredSourceMetrics.length === 0 ? (
               <p className="muted-copy mt-6 text-sm">No source information is available yet.</p>
             ) : (
-              <div className="mt-6 space-y-3">
-                {filteredSourceMetrics.map((item) => (
-                  <div
+              <ReportTable headings={["Source", "Candidates"]}>
+                {filteredSourceMetrics.map((item, index) => (
+                  <tr
                     key={item.source}
-                    className="flex items-center justify-between rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3"
+                    className={
+                      index === filteredSourceMetrics.length - 1
+                        ? "align-top"
+                        : "align-top border-b border-[var(--color-line)]"
+                    }
                   >
-                    <p className="text-sm font-semibold text-[var(--color-ink)]">{item.source}</p>
-                    <p className="text-sm text-[var(--color-muted)]">{item.count}</p>
-                  </div>
+                    <td className="px-4 py-4 text-sm font-semibold text-[var(--color-ink)]">
+                      {item.source}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {item.count}
+                    </td>
+                  </tr>
                 ))}
-              </div>
+              </ReportTable>
             )}
           </section>
           )}
@@ -3184,44 +3089,6 @@ export function AdminReportsPanel({
         onSaveView={saveCurrentReportView}
         saveFeedback={viewMessage}
       />
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total Clients" value={filteredClientReportRows.length} />
-        <MetricCard
-          label="Active Clients"
-          value={filteredClientReportRows.filter((row) => row.client.status === "active").length}
-        />
-        <MetricCard label="Unassigned Clients" value={unassignedClients} />
-        <MetricCard
-          label="Linked Jobs"
-          value={filteredClientReportRows.reduce((sum, row) => sum + row.client.linkedJobsCount, 0)}
-        />
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <MetricCard
-          label="Pending Transfers"
-          value={filteredTransferRequests.filter((request) => request.status === "pending").length}
-        />
-        <MetricCard label="Approved Transfers" value={approvedTransfers} />
-        <MetricCard label="Rejected Transfers" value={rejectedTransfers} />
-        <MetricCard
-          label="Follow-Up Due"
-          value={
-            filteredClientReportRows.filter(
-              (row) => row.client.followUpStatus === "follow-up-due"
-            ).length
-          }
-        />
-        <MetricCard
-          label="Awaiting Client"
-          value={
-            filteredClientReportRows.filter(
-              (row) => row.client.followUpStatus === "awaiting-client"
-            ).length
-          }
-        />
-      </section>
 
       {report === "clients-coverage" && (
       <section className="accent-card p-7">
@@ -3363,45 +3230,6 @@ export function AdminReportsPanel({
           saveFeedback={viewMessage}
         />
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label={isTeamFollowUpReport ? "Team Follow-Ups" : "Follow-Up Rows"}
-            value={activeFollowUpReportRows.length}
-          />
-          <MetricCard
-            label="Onboarding Follow-Ups"
-            value={
-              activeFollowUpReportRows.filter(
-                (row) => row.client.onboardingStatus && row.client.onboardingStatus !== "onboarded"
-              ).length
-            }
-          />
-          <MetricCard
-            label="Follow-Up Due"
-            value={
-              activeFollowUpReportRows.filter(
-                (row) => row.client.followUpStatus === "follow-up-due"
-              ).length
-            }
-          />
-          <MetricCard
-            label="In Discussion"
-            value={
-              activeFollowUpReportRows.filter(
-                (row) => row.client.followUpStatus === "in-progress"
-              ).length
-            }
-          />
-          <MetricCard
-            label="Awaiting Response"
-            value={
-              activeFollowUpReportRows.filter(
-                (row) => row.client.followUpStatus === "awaiting-client"
-              ).length
-            }
-          />
-        </section>
-
         <section className="accent-card p-7">
           <p className="eyebrow">
             {isTeamFollowUpReport ? "My Team Follow-Ups" : "Follow-Up Report"}
@@ -3501,30 +3329,6 @@ export function AdminReportsPanel({
           This report separates lead conversion from general client coverage so acquisition
           progress, owner follow-up, linked jobs, and hiring output stay visible.
         </p>
-
-        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Lead Rows" value={leadConversionRows.length} />
-          <MetricCard
-            label="Converted"
-            value={leadConversionRows.filter((row) => row.isConverted).length}
-          />
-          <MetricCard
-            label="Conversion Rate"
-            value={`${
-              leadConversionRows.length > 0
-                ? Math.round(
-                    (leadConversionRows.filter((row) => row.isConverted).length /
-                      leadConversionRows.length) *
-                      100
-                  )
-                : 0
-            }%`}
-          />
-          <MetricCard
-            label="Linked Jobs"
-            value={leadConversionRows.reduce((sum, row) => sum + row.client.linkedJobsCount, 0)}
-          />
-        </section>
 
         {isLoading ? (
           <p className="muted-copy mt-6 text-sm">Loading lead conversion report...</p>
