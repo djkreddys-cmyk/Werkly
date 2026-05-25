@@ -139,6 +139,7 @@ import {
   listJobs,
   mergeJobsByCode,
   recordJobApplication,
+  assignCandidateApplicationToJob,
   assignJobApplication,
   updateJobApplicationDetails,
   updateJobApplicationStage,
@@ -1906,6 +1907,73 @@ app.put(
       response.status(500).json({
         message:
           error instanceof Error ? error.message : "Unable to update candidate details.",
+      });
+    }
+  }
+);
+
+app.post(
+  "/admin/jobs/applications/:id/assign-job",
+  requirePermission("candidates.manage"),
+  async (request, response) => {
+    try {
+      const { jobId, initialStage, stageNote, stageDate } = request.body ?? {};
+      if (!jobId) {
+        return response.status(400).json({ message: "Target job is required." });
+      }
+
+      const previousApplication = await getApplicationById(request.params.id);
+      const application = await assignCandidateApplicationToJob(
+        request.params.id,
+        String(jobId),
+        {
+          initialStage,
+          stageNote,
+          stageDate,
+        },
+        request.user?.type === "employee" ? request.user.id : null
+      );
+
+      if (!application) {
+        return response.status(404).json({ message: "Candidate or target job not found." });
+      }
+
+      await createAuditLog({
+        actionType: "candidate.assigned-to-job",
+        entityType: "application",
+        entityId: application.id,
+        ...getActorDetails(request),
+        beforeData: previousApplication || {},
+        afterData: application,
+        metadata: {
+          sourceApplicationId: request.params.id,
+          targetJobId: jobId,
+          targetJobCode: application.jobCode,
+          candidateName: application.candidateName,
+        },
+      });
+
+      await recordTimeline(request, {
+        entityType: "candidate",
+        entityId: application.id,
+        entityLabel: application.candidateName,
+        eventType: "candidate.assigned-to-job",
+        title: "Candidate assigned to job",
+        summary: `${application.candidateName} was assigned to ${application.jobTitle || "the selected job"}.`,
+        beforeData: previousApplication || {},
+        afterData: application,
+        metadata: {
+          sourceApplicationId: request.params.id,
+          targetJobId: application.jobId,
+          targetJobCode: application.jobCode,
+        },
+      });
+
+      response.status(201).json(application);
+    } catch (error) {
+      response.status(500).json({
+        message:
+          error instanceof Error ? error.message : "Unable to assign candidate to job.",
       });
     }
   }

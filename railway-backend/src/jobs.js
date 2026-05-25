@@ -1354,6 +1354,199 @@ export async function getAdminApplicationById(applicationId) {
   return result.rows[0] ? mapApplicationRow(result.rows[0]) : null;
 }
 
+export async function assignCandidateApplicationToJob(applicationId, targetJobId, payload = {}, employeeId = null) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const sourceValues = [applicationId];
+    const sourceScopeClause = employeeId
+      ? `and (
+           coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2
+           or (
+             clients.temporary_access_employee_id = $2
+             and clients.temporary_access_scope = 'full-access'
+             and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+             and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+           )
+           or source.assigned_employee_id = $2
+           or source.follow_up_employee_id = $2
+         )`
+      : "";
+
+    if (employeeId) {
+      sourceValues.push(employeeId);
+    }
+
+    const sourceResult = await client.query(
+      `select source.*
+       from job_applications source
+       left join jobs on jobs.id = source.job_id
+       left join clients on clients.id = jobs.client_id
+       where source.id = $1
+         ${sourceScopeClause}
+       limit 1`,
+      sourceValues
+    );
+    const source = sourceResult.rows[0];
+    if (!source) {
+      await client.query("rollback");
+      return null;
+    }
+
+    const targetValues = [targetJobId];
+    const targetScopeClause = employeeId
+      ? `and (
+           coalesce(jobs.assigned_employee_id, clients.assigned_employee_id) = $2
+           or (
+             clients.temporary_access_employee_id = $2
+             and clients.temporary_access_scope = 'full-access'
+             and (clients.temporary_access_from_date is null or clients.temporary_access_from_date <= current_date)
+             and (clients.temporary_access_to_date is null or clients.temporary_access_to_date >= current_date)
+           )
+         )`
+      : "";
+
+    if (employeeId) {
+      targetValues.push(employeeId);
+    }
+
+    const targetJobResult = await client.query(
+      `select jobs.id, jobs.title
+       from jobs
+       left join clients on clients.id = jobs.client_id
+       where jobs.id = $1
+         ${targetScopeClause}
+       limit 1`,
+      targetValues
+    );
+    const targetJob = targetJobResult.rows[0];
+    if (!targetJob) {
+      await client.query("rollback");
+      return null;
+    }
+
+    const duplicateResult = await client.query(
+      `select id from job_applications
+       where job_id = $1
+         and (
+           (nullif(lower(candidate_email), '') is not null and lower(candidate_email) = lower($2))
+           or (nullif(regexp_replace(coalesce(candidate_phone, ''), '\\D', '', 'g'), '') is not null
+             and regexp_replace(coalesce(candidate_phone, ''), '\\D', '', 'g') = regexp_replace(coalesce($3, ''), '\\D', '', 'g'))
+         )
+       order by applied_at desc
+       limit 1`,
+      [targetJobId, source.candidate_email || "", source.candidate_phone || ""]
+    );
+
+    if (duplicateResult.rows[0]) {
+      await client.query("commit");
+      return getAdminApplicationById(duplicateResult.rows[0].id);
+    }
+
+    const stage = payload.initialStage || source.stage || "applied";
+    const stageNote =
+      payload.stageNote ||
+      `Candidate assigned to this job from ${source.job_title || "an existing profile"}.`;
+    const stageDate = payload.stageDate || new Date().toISOString().slice(0, 10);
+
+    const insertResult = await client.query(
+      `insert into job_applications (
+        job_id,
+        stage,
+        stage_note,
+        stage_date,
+        stage_updated_at,
+        candidate_name,
+        candidate_email,
+        candidate_phone,
+        gender,
+        mother_tongue,
+        other_languages,
+        experience,
+        current_company,
+        current_location,
+        current_designation,
+        preferred_role,
+        current_ctc,
+        expected_ctc,
+        preferred_location,
+        preferred_sector,
+        source_type,
+        source_note,
+        entry_type,
+        resume_file_name,
+        resume_file_type,
+        resume_file_data,
+        uploaded_by_employee_id,
+        candidate_message,
+        job_title
+      ) values (
+        $1, $2, $3, $4::date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+        $17, $18, $19, $20, $21, 'profile_assignment', $22, $23, $24, $25, $26, $27
+      )
+      returning id`,
+      [
+        targetJobId,
+        stage,
+        stageNote,
+        stageDate,
+        source.candidate_name,
+        source.candidate_email || null,
+        source.candidate_phone || null,
+        source.gender || null,
+        source.mother_tongue || null,
+        source.other_languages || null,
+        source.experience || null,
+        source.current_company || null,
+        source.current_location || null,
+        source.current_designation || null,
+        source.preferred_role || null,
+        source.current_ctc || null,
+        source.expected_ctc || null,
+        source.preferred_location || null,
+        source.preferred_sector || null,
+        source.source_type || "Existing Profile",
+        source.source_note || `Copied from application ${applicationId}`,
+        source.resume_file_name || null,
+        source.resume_file_type || null,
+        source.resume_file_data || null,
+        employeeId || source.uploaded_by_employee_id || null,
+        source.candidate_message || null,
+        targetJob.title || null,
+      ]
+    );
+
+    await client.query(
+      `insert into job_application_stage_history (
+        application_id,
+        from_stage,
+        to_stage,
+        stage_note,
+        stage_date
+      ) values ($1, $2, $3, $4, $5::date)`,
+      [insertResult.rows[0].id, null, stage, stageNote, stageDate]
+    );
+
+    await client.query(
+      `update jobs
+       set applications_count = coalesce(applications_count, 0) + 1,
+           updated_at = now()
+       where id = $1`,
+      [targetJobId]
+    );
+
+    await client.query("commit");
+    return getAdminApplicationById(insertResult.rows[0].id);
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function listApplicationStageHistory(employeeId = null) {
   const values = [];
   const employeeScopeClause = employeeId

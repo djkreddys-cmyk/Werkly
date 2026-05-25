@@ -61,14 +61,21 @@ function inferExtension(fileName, mimeType) {
 }
 
 async function convertWordToPdf(inputPath, outputDir) {
-  await execFileAsync("soffice", [
-    "--headless",
-    "--convert-to",
-    "pdf",
-    "--outdir",
-    outputDir,
-    inputPath,
-  ]);
+  try {
+    await execFileAsync("soffice", [
+      "--headless",
+      "--convert-to",
+      "pdf",
+      "--outdir",
+      outputDir,
+      inputPath,
+    ]);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error("DOC/DOCX resume conversion is not available on this server.");
+    }
+    throw error;
+  }
 
   const convertedPath = path.join(outputDir, `${path.parse(inputPath).name}.pdf`);
   return readFile(convertedPath);
@@ -132,7 +139,21 @@ export async function processResumeUpload({
     } else if ([".doc", ".docx", ".rtf", ".odt"].includes(extension)) {
       const inputPath = path.join(workingDir, `resume-source${extension}`);
       await writeFile(inputPath, parsed.buffer);
-      pdfBuffer = await convertWordToPdf(inputPath, workingDir);
+      try {
+        pdfBuffer = await convertWordToPdf(inputPath, workingDir);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes("conversion is not available")
+        ) {
+          return {
+            resumeFileName: String(resumeFileName || "").trim() || buildResumePdfName(candidateName, currentDesignation),
+            resumeFileType: parsed.mimeType,
+            resumeFileData: `data:${parsed.mimeType};base64,${parsed.buffer.toString("base64")}`,
+          };
+        }
+        throw error;
+      }
     } else {
       throw new Error("Resume upload must be a PDF, DOC, or DOCX file.");
     }

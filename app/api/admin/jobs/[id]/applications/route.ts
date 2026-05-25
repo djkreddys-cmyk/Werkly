@@ -3,7 +3,7 @@ import { createManualJobApplication, getJobApplications } from "@/lib/jobs";
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: RouteContext<"/api/admin/jobs/[id]/applications">
 ) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -25,7 +25,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: RouteContext<"/api/admin/jobs/[id]/applications">
 ) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -38,6 +38,10 @@ export async function POST(
     const { id } = await context.params;
     const body = (await request.json()) as Parameters<typeof createManualJobApplication>[1];
     const application = await createManualJobApplication(id, body, token);
+    if (!application) {
+      return NextResponse.json({ message: "Job not found or not accessible." }, { status: 404 });
+    }
+
     return NextResponse.json(application, { status: 201 });
   } catch (error) {
     const message =

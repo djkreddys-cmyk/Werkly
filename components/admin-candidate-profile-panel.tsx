@@ -2,9 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AuditLogRecord } from "@/lib/crm";
-import type { JobApplication } from "@/lib/jobs";
+import type { JobApplication, JobApplicationStage, JobSummary } from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+
+const stageOptions: JobApplicationStage[] = [
+  "applied",
+  "shortlisted",
+  "interview",
+  "offered",
+  "joined",
+  "screen-rejection",
+  "rejected",
+];
 
 function formatDateTime(value?: string) {
   if (!value) {
@@ -52,6 +62,11 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
   );
   const [application, setApplication] = useState<JobApplication | null>(null);
+  const [jobs, setJobs] = useState<JobSummary[]>([]);
+  const [targetJobId, setTargetJobId] = useState("");
+  const [targetStage, setTargetStage] = useState<JobApplicationStage>("shortlisted");
+  const [assignMessage, setAssignMessage] = useState("");
+  const [isAssigning, setIsAssigning] = useState(false);
   const [logs, setLogs] = useState<AuditLogRecord[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
@@ -68,14 +83,21 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
       fetch(`/api/admin/audit-logs?entityType=application&entityId=${applicationId}`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch("/api/admin/jobs", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     ])
-      .then(async ([applicationsResponse, logsResponse]) => {
+      .then(async ([applicationsResponse, logsResponse, jobsResponse]) => {
         const applicationsResult = (await applicationsResponse.json()) as {
           applications?: JobApplication[];
           message?: string;
         };
         const logsResult = (await logsResponse.json()) as {
           logs?: AuditLogRecord[];
+          message?: string;
+        };
+        const jobsResult = (await jobsResponse.json()) as {
+          jobs?: JobSummary[];
           message?: string;
         };
 
@@ -85,11 +107,15 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
         if (!logsResponse.ok) {
           throw new Error(logsResult.message || "Unable to load candidate timeline.");
         }
+        if (!jobsResponse.ok) {
+          throw new Error(jobsResult.message || "Unable to load jobs.");
+        }
 
         setApplication(
           (applicationsResult.applications ?? []).find((item) => item.id === applicationId) || null
         );
         setLogs(logsResult.logs ?? []);
+        setJobs(jobsResult.jobs ?? []);
       })
       .catch((loadError) => {
         setError(
@@ -106,6 +132,15 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
       stageUpdates: logs.filter((item) => item.actionType.includes("stage")).length,
     }),
     [logs]
+  );
+  const assignableJobs = useMemo(
+    () =>
+      jobs
+        .filter((job) => job.id !== application?.jobId)
+        .sort((first, second) =>
+          String(second.jobCode || "").localeCompare(String(first.jobCode || ""))
+        ),
+    [application?.jobId, jobs]
   );
   const resumeData = useMemo(() => getResumeData(application), [application]);
   const resumeViewUrl = useMemo(() => {
@@ -137,6 +172,49 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
       window.URL.revokeObjectURL(resumeViewUrl);
     };
   }, [resumeViewUrl]);
+
+  async function assignToSelectedJob() {
+    if (!token || !application || !targetJobId) {
+      setAssignMessage("Select a target job first.");
+      return;
+    }
+
+    setIsAssigning(true);
+    setAssignMessage("");
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/jobs/applications/${application.id}/assign-job`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          jobId: targetJobId,
+          initialStage: targetStage,
+          stageDate: new Date().toISOString().slice(0, 10),
+          stageNote: `Assigned from candidate profile ${application.jobCode || application.jobTitle || ""}`.trim(),
+        }),
+      });
+      const result = (await response.json()) as JobApplication & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to assign candidate to job.");
+      }
+
+      setAssignMessage(
+        `${formatPersonName(result.candidateName)} assigned to ${result.jobCode || result.jobTitle || "selected job"}.`
+      );
+      setTargetJobId("");
+    } catch (assignError) {
+      setAssignMessage(
+        assignError instanceof Error ? assignError.message : "Unable to assign candidate to job."
+      );
+    } finally {
+      setIsAssigning(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -223,6 +301,57 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
               </p>
             </div>
           ) : null}
+
+          <div className="mt-5 rounded-[1.2rem] border border-[var(--color-line)] bg-white p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              Assign To Another Job
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+              <label className="block">
+                <span className="sr-only">Target job</span>
+                <select
+                  value={targetJobId}
+                  onChange={(event) => setTargetJobId(event.target.value)}
+                  className="w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value="">Select job</option>
+                  {assignableJobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.jobCode ? `${job.jobCode} - ` : ""}
+                      {job.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="sr-only">Initial stage</span>
+                <select
+                  value={targetStage}
+                  onChange={(event) => setTargetStage(event.target.value as JobApplicationStage)}
+                  className="w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  {stageOptions.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {formatLabel(stage)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={assignToSelectedJob}
+              disabled={isAssigning || !targetJobId}
+              className="mt-3 rounded-xl bg-[var(--color-dark)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isAssigning ? "Assigning..." : "Assign candidate"}
+            </button>
+            {assignMessage ? (
+              <p className="mt-3 text-sm font-semibold text-[var(--color-dark)]">
+                {assignMessage}
+              </p>
+            ) : null}
+          </div>
         </article>
 
         <article className="accent-card p-6">

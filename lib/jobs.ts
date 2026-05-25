@@ -716,6 +716,25 @@ export async function createManualJobApplication(
   });
 }
 
+export async function assignCandidateApplicationToJob(
+  applicationId: string,
+  payload: {
+    jobId: string;
+    initialStage?: JobApplicationStage;
+    stageNote?: string;
+    stageDate?: string;
+  },
+  token: string
+) {
+  return readJson<JobApplication>(`/admin/jobs/applications/${applicationId}/assign-job`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export async function getAdminApplications(token: string) {
   const data = await readJson<AdminApplicationsResponse | JobApplication[]>(
     "/admin/applications",

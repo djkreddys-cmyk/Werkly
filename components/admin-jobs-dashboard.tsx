@@ -2649,7 +2649,7 @@ Werkly Team`;
                     {manualCandidateForm.resumeFileName || "No file chosen"}
                   </span>
                   <span className="text-xs font-medium text-[var(--color-muted)]">
-                    Will be saved as compressed PDF
+                    PDF files are compressed; DOC/DOCX files are kept if server conversion is unavailable.
                   </span>
                 </div>
               </div>
