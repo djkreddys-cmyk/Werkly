@@ -43,16 +43,23 @@ export async function GET(request: Request) {
   const profiles = buildUniversalCandidateProfiles(applications, enquiries, submissions);
   const url = new URL(request.url);
   const shouldSlim = url.searchParams.get("slim") === "1";
+  const shouldReturnSummaryOnly = url.searchParams.get("summary") === "1";
+
+  const totals = {
+    applications: applications.length,
+    enquiries: enquiries.length,
+    resumeBuilderSubmissions: submissions.length,
+    profiles: profiles.length,
+    mergedDuplicates:
+      applications.length + enquiries.length + submissions.length - profiles.length,
+  };
+
+  if (shouldReturnSummaryOnly) {
+    return NextResponse.json({ totals });
+  }
 
   return NextResponse.json({
     profiles: shouldSlim ? profiles.map(stripProfileResumeData) : profiles,
-    totals: {
-      applications: applications.length,
-      enquiries: enquiries.length,
-      resumeBuilderSubmissions: submissions.length,
-      profiles: profiles.length,
-      mergedDuplicates:
-        applications.length + enquiries.length + submissions.length - profiles.length,
-    },
+    totals,
   });
 }
