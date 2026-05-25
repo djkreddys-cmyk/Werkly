@@ -39,6 +39,32 @@ function formatLabel(value?: string) {
     .join(" ");
 }
 
+function sortJobsByOpenAndClosingDate(jobs: JobSummary[]) {
+  const distantFuture = new Date("9999-12-31").getTime();
+
+  return [...jobs].sort((first, second) => {
+    const firstOpenRank = first.status === "open" ? 0 : 1;
+    const secondOpenRank = second.status === "open" ? 0 : 1;
+
+    if (firstOpenRank !== secondOpenRank) {
+      return firstOpenRank - secondOpenRank;
+    }
+
+    const firstClosingTime = first.lastDateToApply
+      ? new Date(first.lastDateToApply).getTime()
+      : distantFuture;
+    const secondClosingTime = second.lastDateToApply
+      ? new Date(second.lastDateToApply).getTime()
+      : distantFuture;
+
+    if (firstClosingTime !== secondClosingTime) {
+      return firstClosingTime - secondClosingTime;
+    }
+
+    return String(second.jobCode || "").localeCompare(String(first.jobCode || ""));
+  });
+}
+
 function getResumeData(application: JobApplication | null) {
   if (!application?.resumeFileData) {
     return null;
@@ -135,11 +161,7 @@ export function AdminCandidateProfilePanel({ applicationId }: { applicationId: s
   );
   const assignableJobs = useMemo(
     () =>
-      jobs
-        .filter((job) => job.id !== application?.jobId)
-        .sort((first, second) =>
-          String(second.jobCode || "").localeCompare(String(first.jobCode || ""))
-        ),
+      sortJobsByOpenAndClosingDate(jobs).filter((job) => job.id !== application?.jobId),
     [application?.jobId, jobs]
   );
   const resumeData = useMemo(() => getResumeData(application), [application]);

@@ -606,10 +606,31 @@ export function AdminJobsDashboard({
   }, [token]);
 
   const sortedJobs = useMemo(
-    () =>
-      [...visibleJobs].sort((a, b) =>
-        new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()
-      ),
+    () => {
+      const distantFuture = new Date("9999-12-31").getTime();
+
+      return [...visibleJobs].sort((a, b) => {
+        const openRankA = a.status === "open" ? 0 : 1;
+        const openRankB = b.status === "open" ? 0 : 1;
+
+        if (openRankA !== openRankB) {
+          return openRankA - openRankB;
+        }
+
+        const closingA = a.lastDateToApply
+          ? new Date(a.lastDateToApply).getTime()
+          : distantFuture;
+        const closingB = b.lastDateToApply
+          ? new Date(b.lastDateToApply).getTime()
+          : distantFuture;
+
+        if (closingA !== closingB) {
+          return closingA - closingB;
+        }
+
+        return new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime();
+      });
+    },
     [visibleJobs]
   );
 

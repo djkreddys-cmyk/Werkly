@@ -211,7 +211,11 @@ export async function listJobs() {
      where coalesce(jobs.is_hidden, false) = false
        and jobs.status = 'open'
        and (jobs.last_date_to_apply is null or jobs.last_date_to_apply >= current_date)
-     order by jobs.posted_at desc, jobs.created_at desc`
+     order by
+       case when jobs.status = 'open' then 0 else 1 end,
+       coalesce(jobs.last_date_to_apply, '9999-12-31'::date) asc,
+       jobs.posted_at desc,
+       jobs.created_at desc`
   );
 
   return result.rows.map(mapRow);
@@ -269,7 +273,11 @@ export async function listAdminJobs(employeeId = null) {
      left join clients on clients.id = jobs.client_id
      left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
      ${employeeScopeClause}
-     order by jobs.posted_at desc, jobs.created_at desc`,
+     order by
+       case when jobs.status = 'open' then 0 else 1 end,
+       coalesce(jobs.last_date_to_apply, '9999-12-31'::date) asc,
+       jobs.posted_at desc,
+       jobs.created_at desc`,
     values
   );
 

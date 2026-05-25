@@ -26,6 +26,32 @@ const stageOptions: JobApplicationStage[] = [
   "rejected",
 ];
 
+function sortJobsByOpenAndClosingDate(jobs: JobSummary[]) {
+  const distantFuture = new Date("9999-12-31").getTime();
+
+  return [...jobs].sort((first, second) => {
+    const firstOpenRank = first.status === "open" ? 0 : 1;
+    const secondOpenRank = second.status === "open" ? 0 : 1;
+
+    if (firstOpenRank !== secondOpenRank) {
+      return firstOpenRank - secondOpenRank;
+    }
+
+    const firstClosingTime = first.lastDateToApply
+      ? new Date(first.lastDateToApply).getTime()
+      : distantFuture;
+    const secondClosingTime = second.lastDateToApply
+      ? new Date(second.lastDateToApply).getTime()
+      : distantFuture;
+
+    if (firstClosingTime !== secondClosingTime) {
+      return firstClosingTime - secondClosingTime;
+    }
+
+    return String(second.jobCode || "").localeCompare(String(first.jobCode || ""));
+  });
+}
+
 function labelizeStage(stage: JobApplicationStage) {
   return stage
     .split("-")
@@ -225,6 +251,12 @@ export function AdminCandidatesPanel() {
     effectiveToDate: string;
     note: string;
   } | null>(null);
+  const [jobAssignmentDraft, setJobAssignmentDraft] = useState<{
+    application: JobApplication;
+    jobId: string;
+    stage: JobApplicationStage;
+  } | null>(null);
+  const [isAssigningJob, setIsAssigningJob] = useState(false);
   const [timelineDraft, setTimelineDraft] = useState<{
     application: JobApplication;
     logs: Array<{
@@ -278,6 +310,11 @@ export function AdminCandidatesPanel() {
         return;
       }
 
+      if (jobAssignmentDraft) {
+        setJobAssignmentDraft(null);
+        return;
+      }
+
       if (stageDraft) {
         setStageDraft(null);
       }
@@ -285,7 +322,7 @@ export function AdminCandidatesPanel() {
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [assignmentDraft, editingApplication, stageDraft, timelineDraft]);
+  }, [assignmentDraft, editingApplication, jobAssignmentDraft, stageDraft, timelineDraft]);
 
   useEffect(() => {
     if (!token) {
@@ -502,6 +539,7 @@ export function AdminCandidatesPanel() {
         (job.clientId ? visibleClientIds.has(job.clientId) : false)
     );
   }, [authEmail, currentEmployeeId, isEmployeeSession, jobs, visibleClientIds]);
+  const assignableJobs = useMemo(() => sortJobsByOpenAndClosingDate(visibleJobs), [visibleJobs]);
   const visibleJobIds = useMemo(
     () => new Set(visibleJobs.map((job) => job.id)),
     [visibleJobs]
@@ -874,6 +912,72 @@ export function AdminCandidatesPanel() {
       note: application.followUpAssignmentNote || "",
     });
     setError("");
+  }
+
+  function openJobAssignmentEditor(application: JobApplication) {
+    setActionMenuApplicationId("");
+    setJobAssignmentDraft({
+      application,
+      jobId: "",
+      stage: "shortlisted",
+    });
+    setError("");
+    setViewMessage("");
+  }
+
+  async function handleJobAssignmentSave() {
+    if (!token || !jobAssignmentDraft) {
+      return;
+    }
+
+    if (!jobAssignmentDraft.jobId) {
+      setError("Please select a target job.");
+      return;
+    }
+
+    setIsAssigningJob(true);
+    setError("");
+    setViewMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/jobs/applications/${jobAssignmentDraft.application.id}/assign-job`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            jobId: jobAssignmentDraft.jobId,
+            initialStage: jobAssignmentDraft.stage,
+            stageDate: new Date().toISOString().slice(0, 10),
+            stageNote: `Assigned from ${jobAssignmentDraft.application.jobCode || jobAssignmentDraft.application.jobTitle || "candidate profile"}.`,
+          }),
+        }
+      );
+      const assigned = (await response.json()) as JobApplication & { message?: string };
+
+      if (!response.ok) {
+        throw new Error(assigned.message || "Unable to assign candidate to job.");
+      }
+
+      setApplications((current) =>
+        current.some((application) => application.id === assigned.id)
+          ? current.map((application) => (application.id === assigned.id ? assigned : application))
+          : [assigned, ...current]
+      );
+      setJobAssignmentDraft(null);
+      setViewMessage(
+        `${formatPersonName(assigned.candidateName)} assigned to ${assigned.jobCode || assigned.jobTitle || "selected job"}.`
+      );
+    } catch (assignError) {
+      setError(
+        assignError instanceof Error ? assignError.message : "Unable to assign candidate to job."
+      );
+    } finally {
+      setIsAssigningJob(false);
+    }
   }
 
   async function handleDeleteCandidate(application: JobApplication) {
@@ -1847,6 +1951,11 @@ export function AdminCandidatesPanel() {
                                       label: "Transfer Candidate",
                                       onClick: () => openAssignmentEditor(application),
                                     },
+                                    {
+                                      label: "Assign To Job",
+                                      onClick: () => openJobAssignmentEditor(application),
+                                      tone: "accent" as const,
+                                    },
                                   ]
                                 : []),
                               ...(roleAccess.fields["candidates.resume"] &&
@@ -2341,6 +2450,100 @@ export function AdminCandidatesPanel() {
               <button
                 type="button"
                 onClick={() => setAssignmentDraft(null)}
+                className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {jobAssignmentDraft ? (
+        <div className="fixed inset-0 z-[145] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-[1.8rem] border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Assign To Job</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {formatPersonName(jobAssignmentDraft.application.candidateName)}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Copy this candidate profile and resume to another open job.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setJobAssignmentDraft(null)}
+                className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Target Job
+                </span>
+                <select
+                  value={jobAssignmentDraft.jobId}
+                  onChange={(event) =>
+                    setJobAssignmentDraft((current) =>
+                      current ? { ...current, jobId: event.target.value } : current
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  <option value="">Select job</option>
+                  {assignableJobs
+                    .filter((job) => job.id !== jobAssignmentDraft.application.jobId)
+                    .map((job) => (
+                      <option key={job.id} value={job.id}>
+                        {job.status === "open" ? "Open - " : ""}
+                        {job.jobCode ? `${job.jobCode} - ` : ""}
+                        {job.title}
+                        {job.lastDateToApply ? ` - closes ${job.lastDateToApply}` : ""}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Stage
+                </span>
+                <select
+                  value={jobAssignmentDraft.stage}
+                  onChange={(event) =>
+                    setJobAssignmentDraft((current) =>
+                      current
+                        ? { ...current, stage: event.target.value as JobApplicationStage }
+                        : current
+                    )
+                  }
+                  className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  {stageOptions.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {labelizeStage(stage)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleJobAssignmentSave}
+                disabled={isAssigningJob || !jobAssignmentDraft.jobId}
+                className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isAssigningJob ? "Assigning..." : "Assign Candidate"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setJobAssignmentDraft(null)}
                 className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
               >
                 Cancel
