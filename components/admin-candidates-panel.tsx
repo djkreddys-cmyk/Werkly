@@ -76,6 +76,23 @@ function safeCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
+function createResumeObjectUrl(dataUrl: string, fallbackType = "application/octet-stream") {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  if (!dataUrl.startsWith("data:")) {
+    return dataUrl;
+  }
+
+  const [header, content = ""] = dataUrl.split(",", 2);
+  const mimeType = header.match(/^data:(.*?)(?:;base64)?$/)?.[1] || fallbackType;
+  const isBase64 = header.includes(";base64");
+  const binary = isBase64 ? window.atob(content) : decodeURIComponent(content);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return window.URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+}
+
 function normalizeSearchText(value?: string) {
   return String(value || "").trim().toLowerCase();
 }
@@ -1164,6 +1181,7 @@ export function AdminCandidatesPanel() {
       return {
         resumeFileData: application.resumeFileData,
         resumeFileName: application.resumeFileName,
+        resumeFileType: application.resumeFileType,
       };
     }
 
@@ -1173,6 +1191,7 @@ export function AdminCandidatesPanel() {
     const result = (await response.json()) as {
       resumeFileData?: string;
       resumeFileName?: string;
+      resumeFileType?: string;
       message?: string;
     };
 
@@ -1187,6 +1206,7 @@ export function AdminCandidatesPanel() {
               ...item,
               resumeFileData: result.resumeFileData,
               resumeFileName: result.resumeFileName,
+              resumeFileType: result.resumeFileType,
               resumeAvailable: true,
             }
           : item
@@ -1196,14 +1216,30 @@ export function AdminCandidatesPanel() {
     return {
       resumeFileData: result.resumeFileData,
       resumeFileName: result.resumeFileName,
+      resumeFileType: result.resumeFileType,
     };
   }
 
   async function viewApplicationResume(application: JobApplication) {
+    const previewWindow = window.open("", "_blank");
+
     try {
       const resume = await loadApplicationResume(application);
-      window.open(resume.resumeFileData, "_blank", "noopener,noreferrer");
+      const resumeUrl = createResumeObjectUrl(resume.resumeFileData, resume.resumeFileType);
+
+      if (previewWindow) {
+        previewWindow.location.href = resumeUrl;
+      } else {
+        window.open(resumeUrl, "_blank", "noopener,noreferrer");
+      }
+
+      if (resumeUrl.startsWith("blob:")) {
+        window.setTimeout(() => window.URL.revokeObjectURL(resumeUrl), 60000);
+      }
     } catch (resumeError) {
+      if (previewWindow) {
+        previewWindow.close();
+      }
       setError(resumeError instanceof Error ? resumeError.message : "Unable to load resume.");
     }
   }
