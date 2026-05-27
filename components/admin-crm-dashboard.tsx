@@ -139,6 +139,27 @@ const emptyEmployeeForm: EmployeeFormState = {
 
 const defaultEmployeeDesignations = ["Executive", "Delivery Manager", "Delivery Head"];
 
+async function readAdminJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const text = await response.text();
+  let parsed: { message?: string } | undefined;
+
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as { message?: string };
+    } catch {
+      parsed = undefined;
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      parsed?.message || text || `${fallbackMessage} Status: ${response.status}.`
+    );
+  }
+
+  return (parsed ?? {}) as T;
+}
+
 const emptyClientForm: ClientFormState = {
   companyName: "",
   contactPerson: "",
@@ -2502,15 +2523,10 @@ export function AdminEmployeesPanel({
         }),
       };
 
-      const actualResponse = await fetch(endpoint, requestConfig);
-
-      const result = (await actualResponse.json()) as {
+      const result = await readAdminJsonResponse<{
         message?: string;
         employeeCode?: string;
-      };
-      if (!actualResponse.ok) {
-        throw new Error(result.message || "Unable to create employee.");
-      }
+      }>(await fetch(endpoint, requestConfig), "Unable to save employee.");
 
       await refreshCrm(token);
       setEmployeeForm(emptyEmployeeForm);
@@ -2581,10 +2597,7 @@ export function AdminEmployeesPanel({
         }),
       });
 
-      const result = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to inactivate employee.");
-      }
+      await readAdminJsonResponse<EmployeeRecord>(response, "Unable to inactivate employee.");
 
       await refreshCrm(token);
       setInactiveEmployee(null);
@@ -2640,11 +2653,7 @@ export function AdminEmployeesPanel({
         }
       );
 
-      const result = (await response.json()) as { message?: string };
-
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to reset employee password.");
-      }
+      await readAdminJsonResponse<EmployeeRecord>(response, "Unable to reset employee password.");
 
       await refreshCrm(token);
       setMessage(

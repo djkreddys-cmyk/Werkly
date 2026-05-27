@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import {
   type JobApplication,
   type JobApplicationUpdatePayload,
-  updateJobApplicationDetails,
 } from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
 
@@ -22,6 +21,27 @@ const sourceOptions = [
   "Walk-in",
   "Other",
 ];
+
+async function readAdminJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const text = await response.text();
+  let parsed: { message?: string } | undefined;
+
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as { message?: string };
+    } catch {
+      parsed = undefined;
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      parsed?.message || text || `${fallbackMessage} Status: ${response.status}.`
+    );
+  }
+
+  return (parsed ?? {}) as T;
+}
 
 type CandidateEditFormState = {
   candidateName: string;
@@ -207,11 +227,18 @@ export function AdminCandidateEditModal({
         resumeFileData: form.resumeFileData || undefined,
       };
 
-      const updatedApplication = await updateJobApplicationDetails(
-        currentApplication.id,
-        payload,
-        token
+      const updatedApplication = await readAdminJsonResponse<JobApplication>(
+        await fetch(`/api/admin/jobs/applications/${currentApplication.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }),
+        "Unable to update candidate details."
       );
+
       onSaved(updatedApplication);
       onClose();
     } catch (saveError) {

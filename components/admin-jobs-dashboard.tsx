@@ -115,6 +115,27 @@ const manualSourceOptions = [
   "Other",
 ];
 
+async function readAdminJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const text = await response.text();
+  let parsed: { message?: string } | undefined;
+
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as { message?: string };
+    } catch {
+      parsed = undefined;
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      parsed?.message || text || `${fallbackMessage} Status: ${response.status}.`
+    );
+  }
+
+  return (parsed ?? {}) as T;
+}
+
 const emptyManualCandidateForm: ManualCandidateState = {
   candidateName: "",
   candidateEmail: "",
@@ -1247,10 +1268,7 @@ Werkly Team`;
         }
       );
 
-      const result = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to save job.");
-      }
+      await readAdminJsonResponse<JobSummary>(response, "Unable to save job.");
 
       await refreshJobs();
       setForm({
@@ -1304,10 +1322,7 @@ Werkly Team`;
         }),
       });
 
-      const result = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to update job visibility.");
-      }
+      await readAdminJsonResponse<JobSummary>(response, "Unable to update job visibility.");
 
       await refreshJobs();
       setMessage(job.isHidden ? "Job is visible again." : "Job has been hidden from the jobs page.");
@@ -1355,10 +1370,7 @@ Werkly Team`;
         }),
       });
 
-      const result = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to make job live.");
-      }
+      await readAdminJsonResponse<JobSummary>(response, "Unable to make job live.");
 
       await refreshJobs();
       setMessage("Job is live now.");
