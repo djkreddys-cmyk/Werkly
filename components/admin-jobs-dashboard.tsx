@@ -62,6 +62,24 @@ type ManualCandidateState = {
   resumeFileData: string;
 };
 
+type ShortlistDraft = {
+  jobId: string;
+  clientId?: string;
+  jobTitle: string;
+  toEmails: string;
+  ccEmails: string;
+  subject: string;
+  body: string;
+  htmlBody: string;
+  fromDate: string;
+  toDate: string;
+  count: number;
+  resumeCount: number;
+  availableCount: number;
+  usedAllApplications: boolean;
+  profiles: JobApplication[];
+};
+
 const emptyForm: JobEditorState = {
   clientId: "",
   recruiterId: "",
@@ -167,6 +185,31 @@ function formatExportDate(value: string) {
   return new Date(value).toLocaleDateString("en-GB");
 }
 
+function toDateKey(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value).slice(0, 10);
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getShortlistDateKey(application: JobApplication) {
+  return toDateKey(application.stageDate || application.stageUpdatedAt || application.appliedAt);
+}
+
+function isWithinDateRange(value: string, fromDate: string, toDate: string) {
+  if (!value) {
+    return false;
+  }
+
+  return (!fromDate || value >= fromDate) && (!toDate || value <= toDate);
+}
+
 function sanitizeExportCell(value?: string) {
   const trimmed = String(value ?? "").trim();
   return trimmed ? trimmed : "-";
@@ -187,14 +230,13 @@ function buildShortlistEmailHtml(
   applications: JobApplication[],
   includeShortlistedLabel: boolean
 ) {
-  const sentDate = formatExportDate(new Date().toISOString());
   const cellStyle = "border:1px solid #111827;padding:8px;vertical-align:top;";
   const rows = applications
     .map(
       (application, index) => `
         <tr>
           <td style="${cellStyle}">${escapeHtml(String(index + 1))}</td>
-          <td style="${cellStyle}">${escapeHtml(sentDate)}</td>
+          <td style="${cellStyle}">${escapeHtml(formatExportDate(getShortlistDateKey(application)))}</td>
           <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.jobTitle || jobTitle))}</td>
           <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.candidateName))}</td>
           <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.candidatePhone))}</td>
@@ -245,7 +287,6 @@ function buildShortlistEmailHtml(
 }
 
 function buildShortlistTextTable(jobTitle: string, applications: JobApplication[]) {
-  const sentDate = formatExportDate(new Date().toISOString());
   const headers = [
     "S No",
     "Date",
@@ -264,7 +305,7 @@ function buildShortlistTextTable(jobTitle: string, applications: JobApplication[
   const rows = applications.map((application, index) =>
     [
       String(index + 1),
-      sentDate,
+      formatExportDate(getShortlistDateKey(application)),
       sanitizeExportCell(application.jobTitle || jobTitle),
       sanitizeExportCell(application.candidateName),
       sanitizeExportCell(application.candidatePhone),
@@ -346,18 +387,7 @@ export function AdminJobsDashboard({
   const [isSavingCandidate, setIsSavingCandidate] = useState(false);
   const [actionMenuJobId, setActionMenuJobId] = useState("");
   const [viewMessage, setViewMessage] = useState("");
-  const [shortlistDraft, setShortlistDraft] = useState<{
-    jobId: string;
-    jobTitle: string;
-    toEmails: string;
-    ccEmails: string;
-    subject: string;
-    body: string;
-    htmlBody: string;
-    count: number;
-    resumeCount: number;
-    usedAllApplications: boolean;
-  } | null>(null);
+  const [shortlistDraft, setShortlistDraft] = useState<ShortlistDraft | null>(null);
   const [isSendingShortlist, setIsSendingShortlist] = useState(false);
   const [shortlistError, setShortlistError] = useState("");
 
@@ -757,29 +787,27 @@ export function AdminJobsDashboard({
     return new Date(job.lastDateToApply) >= today;
   }
 
-  function sendShortlistedProfilesToClient(job: JobSummary) {
+  function buildShortlistDraftForJob(
+    job: JobSummary,
+    fromDate = new Date().toISOString().slice(0, 10),
+    toDate = new Date().toISOString().slice(0, 10)
+  ): ShortlistDraft {
     const jobApplications = allApplications.filter((application) => application.jobId === job.id);
     const shortlistedApplications = jobApplications.filter(
       (application) =>
-        (application.stage ?? "applied") === "shortlisted"
+        (application.stage ?? "applied") === "shortlisted" &&
+        isWithinDateRange(getShortlistDateKey(application), fromDate, toDate)
     );
     const client = clients.find((item) => item.id === job.clientId);
     const recipient = [client?.contactEmail, client?.secondaryContactEmail]
       .filter(Boolean)
       .join(", ");
-    const profilesToSend =
-      shortlistedApplications.length > 0 ? shortlistedApplications : jobApplications;
-
-    if (profilesToSend.length === 0) {
-      setError("No candidates are available to send for this job.");
-      return;
-    }
 
     const subject = `Shortlisted profiles for ${job.title}`;
-    const tableText = buildShortlistTextTable(job.title, profilesToSend);
+    const tableText = buildShortlistTextTable(job.title, shortlistedApplications);
     const emailBody = `Dear ${client?.contactPerson || "Client"},
 
-Please find the ${shortlistedApplications.length > 0 ? "shortlisted" : "available"} profiles for ${job.title} below.
+Please find the shortlisted profiles for ${job.title} below.
 
 ${tableText}
 
@@ -788,33 +816,73 @@ Werkly Team`;
     const htmlBody = buildShortlistEmailHtml(
       client?.contactPerson || "Client",
       job.title,
-      profilesToSend,
-      shortlistedApplications.length > 0
+      shortlistedApplications,
+      true
     );
 
-    setError("");
-    setShortlistError("");
-    setShortlistDraft({
+    return {
       jobId: job.id,
+      clientId: job.clientId,
       jobTitle: job.title,
       toEmails: recipient,
       ccEmails: "hr@werkly.in",
       subject,
       body: emailBody,
       htmlBody,
-      count: profilesToSend.length,
-      resumeCount: profilesToSend.filter(
+      fromDate,
+      toDate,
+      count: shortlistedApplications.length,
+      resumeCount: shortlistedApplications.filter(
         (application) =>
           (application.resumeAvailable || application.resumeFileData) &&
           application.resumeFileName
       ).length,
-      usedAllApplications: shortlistedApplications.length === 0,
-    });
-    setMessage(`Prepared ${profilesToSend.length} profiles for client email.`);
+      availableCount: jobApplications.filter(
+        (application) => (application.stage ?? "applied") === "shortlisted"
+      ).length,
+      usedAllApplications: false,
+      profiles: shortlistedApplications,
+    };
   }
 
-  function updateShortlistDraft(patch: Partial<NonNullable<typeof shortlistDraft>>) {
+  function sendShortlistedProfilesToClient(job: JobSummary) {
+    const fromDate = new Date().toISOString().slice(0, 10);
+    const toDate = fromDate;
+    const draft = buildShortlistDraftForJob(job, fromDate, toDate);
+
+    setError("");
+    setShortlistError("");
+    setShortlistDraft(draft);
+    setMessage(
+      draft.count
+        ? `Prepared ${draft.count} shortlisted profiles for client email.`
+        : "Choose a shortlist date range to prepare profiles for client email."
+    );
+  }
+
+  function updateShortlistDraft(patch: Partial<ShortlistDraft>) {
     setShortlistDraft((current) => (current ? { ...current, ...patch } : current));
+  }
+
+  function updateShortlistDateRange(fromDate: string, toDate: string) {
+    setShortlistDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const updatedDraft = buildShortlistDraftForJob(
+        { id: current.jobId, clientId: current.clientId, title: current.jobTitle } as JobSummary,
+        fromDate,
+        toDate
+      );
+
+      return {
+        ...updatedDraft,
+        toEmails: current.toEmails,
+        ccEmails: current.ccEmails,
+        subject: current.subject,
+      };
+    });
   }
 
   async function sendShortlistEmail() {
@@ -841,6 +909,11 @@ Werkly Team`;
       return;
     }
 
+    if (!shortlistDraft.count) {
+      setShortlistError("No shortlisted candidates are available for the selected date range.");
+      return;
+    }
+
     setIsSendingShortlist(true);
     setError("");
     setShortlistError("");
@@ -859,6 +932,9 @@ Werkly Team`;
           subject: shortlistDraft.subject,
           message: shortlistDraft.body,
           htmlMessage: shortlistDraft.htmlBody,
+          fromDate: shortlistDraft.fromDate,
+          toDate: shortlistDraft.toDate,
+          applicationIds: shortlistDraft.profiles.map((application) => application.id),
         }),
       });
       const result = (await response.json().catch(() => ({}))) as {
@@ -2831,7 +2907,7 @@ Werkly Team`;
 
       {shortlistDraft ? (
         <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+          <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
             <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-6 py-5">
               <div>
                 <p className="eyebrow">Send Shortlist</p>
@@ -2839,16 +2915,15 @@ Werkly Team`;
                   {shortlistDraft.jobTitle}
                 </h3>
                 <p className="muted-copy mt-2 text-sm">
-                  {shortlistDraft.count} profile{shortlistDraft.count === 1 ? "" : "s"} ready to send
+                  {shortlistDraft.count} shortlisted profile{shortlistDraft.count === 1 ? "" : "s"} ready to send
                   {shortlistDraft.toEmails ? ` to ${shortlistDraft.toEmails}` : "."}
                   {" "}The shortlist report and {shortlistDraft.resumeCount} resume
                   {shortlistDraft.resumeCount === 1 ? "" : "s"} will be attached.
                 </p>
-                {shortlistDraft.usedAllApplications ? (
-                  <p className="mt-2 text-xs font-semibold text-[var(--color-accent-strong)]">
-                    No candidates are marked Shortlisted yet, so the available job applications are included.
-                  </p>
-                ) : null}
+                <p className="muted-copy mt-1 text-xs">
+                  {shortlistDraft.availableCount} total shortlisted candidate
+                  {shortlistDraft.availableCount === 1 ? "" : "s"} found for this job.
+                </p>
               </div>
               <button
                 type="button"
@@ -2883,6 +2958,34 @@ Werkly Team`;
                   />
                 </label>
               </div>
+              <div className="mb-4 grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Shortlisted From
+                  </span>
+                  <input
+                    type="date"
+                    value={shortlistDraft.fromDate}
+                    onChange={(event) =>
+                      updateShortlistDateRange(event.target.value, shortlistDraft.toDate)
+                    }
+                    className={fieldClassName}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Shortlisted To
+                  </span>
+                  <input
+                    type="date"
+                    value={shortlistDraft.toDate}
+                    onChange={(event) =>
+                      updateShortlistDateRange(shortlistDraft.fromDate, event.target.value)
+                    }
+                    className={fieldClassName}
+                  />
+                </label>
+              </div>
               <label className="mb-4 block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                   Subject
@@ -2893,14 +2996,89 @@ Werkly Team`;
                   className={fieldClassName}
                 />
               </label>
+              <div className="mb-4 overflow-auto rounded-2xl border border-[var(--color-line)]">
+                <table className="w-full min-w-[1050px] border-collapse bg-white text-sm">
+                  <thead>
+                    <tr className="bg-[#fff200] text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-950">
+                      {[
+                        "S No",
+                        "Date",
+                        "Position",
+                        "Candidate Name",
+                        "Mobile Number",
+                        "Email ID",
+                        "Current Organization",
+                        "Total Experience",
+                        "CTC",
+                        "Expected CTC",
+                        "Notice Period",
+                        "Current Location",
+                        "Preferred Location",
+                      ].map((heading) => (
+                        <th key={heading} className="border border-slate-900 px-3 py-2">
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shortlistDraft.profiles.map((application, index) => (
+                      <tr key={application.id}>
+                        <td className="border border-slate-900 px-3 py-2">{index + 1}</td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {formatExportDate(getShortlistDateKey(application))}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.jobTitle || shortlistDraft.jobTitle}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {formatPersonName(application.candidateName)}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.candidatePhone || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.candidateEmail || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.currentCompany || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.experience || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.currentCtc || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.expectedCtc || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.stageNote || application.candidateMessage || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.currentLocation || application.preferredLocation || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.preferredLocation || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {shortlistDraft.count === 0 ? (
+                <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                  No shortlisted candidates found for the selected date range.
+                </p>
+              ) : null}
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                  Email Body
+                  Plain Text Body
                 </span>
                 <textarea
                   value={shortlistDraft.body}
                   onChange={(event) => updateShortlistDraft({ body: event.target.value })}
-                  className={`${fieldClassName} min-h-[320px] resize-y font-mono text-xs leading-6`}
+                  className={`${fieldClassName} min-h-[140px] resize-y font-mono text-xs leading-6`}
                 />
               </label>
               {shortlistError ? (
@@ -2913,7 +3091,7 @@ Werkly Team`;
               <button
                 type="button"
                 onClick={() => void sendShortlistEmail()}
-                disabled={isSendingShortlist}
+                disabled={isSendingShortlist || shortlistDraft.count === 0}
                 className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSendingShortlist ? "Sending..." : "Send Mail"}

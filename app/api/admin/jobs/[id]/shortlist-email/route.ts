@@ -40,6 +40,31 @@ function sanitizeExportCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
+function toDateKey(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value).slice(0, 10);
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getShortlistDateKey(application: JobApplication) {
+  return toDateKey(application.stageDate || application.stageUpdatedAt || application.appliedAt);
+}
+
+function isWithinDateRange(value: string, fromDate?: string, toDate?: string) {
+  if (!value) {
+    return false;
+  }
+
+  return (!fromDate || value >= fromDate) && (!toDate || value <= toDate);
+}
+
 function safeFileName(value: string) {
   return value
     .trim()
@@ -62,13 +87,12 @@ function buildShortlistReportAttachment(
   jobCode: string | undefined,
   applications: JobApplication[]
 ): ResendAttachment {
-  const downloadedDate = new Date().toLocaleDateString("en-GB");
   const rows = applications
     .map(
       (application, index) => `
         <tr>
           <td>${escapeHtml(String(index + 1))}</td>
-          <td>${escapeHtml(downloadedDate)}</td>
+          <td>${escapeHtml(new Date(getShortlistDateKey(application)).toLocaleDateString("en-GB"))}</td>
           <td>${escapeHtml(sanitizeExportCell(application.jobTitle || jobTitle))}</td>
           <td>${escapeHtml(sanitizeExportCell(application.candidateName))}</td>
           <td>${escapeHtml(sanitizeExportCell(application.candidatePhone))}</td>
@@ -194,6 +218,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       subject?: string;
       message?: string;
       htmlMessage?: string;
+      fromDate?: string;
+      toDate?: string;
+      applicationIds?: string[];
     };
     let fallbackClientEmails: Array<string | undefined> = [];
 
@@ -203,10 +230,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const applications = await getJobApplications(id, token);
-    const shortlistedApplications = applications.filter(
-      (application) => (application.stage ?? "applied") === "shortlisted"
+    const selectedApplicationIds = new Set((body.applicationIds ?? []).map(String));
+    const fromDate = String(body.fromDate || "").slice(0, 10);
+    const toDate = String(body.toDate || "").slice(0, 10);
+    const profilesToSend = applications.filter(
+      (application) =>
+        (application.stage ?? "applied") === "shortlisted" &&
+        (!selectedApplicationIds.size || selectedApplicationIds.has(application.id)) &&
+        isWithinDateRange(getShortlistDateKey(application), fromDate, toDate)
     );
-    const profilesToSend = shortlistedApplications.length ? shortlistedApplications : applications;
     const toEmails = Array.from(
       new Set(
         (body.toEmails?.length ? body.toEmails : fallbackClientEmails)
@@ -235,7 +267,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (!profilesToSend.length) {
       return NextResponse.json(
-        { message: "No candidates are available to send for this job." },
+        { message: "No shortlisted candidates are available for the selected date range." },
         { status: 400 }
       );
     }
@@ -287,7 +319,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       candidatesCount: profilesToSend.length,
       resumeAttachmentsCount: resumeAttachments.length,
       reportAttached: true,
-      usedAllApplications: shortlistedApplications.length === 0,
+      usedAllApplications: false,
       message: `Shortlist email sent with report and ${resumeAttachments.length} resume attachment(s).`,
     });
   } catch (error) {
