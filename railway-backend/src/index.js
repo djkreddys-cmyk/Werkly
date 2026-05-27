@@ -154,7 +154,20 @@ import {
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
-const allowedOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      "http://localhost:3000",
+      "https://werkly.in",
+      "https://www.werkly.in",
+      "https://admin.werkly.in",
+      ...(process.env.CORS_ORIGIN || "")
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    ].map((origin) => origin.replace(/\/$/, ""))
+  )
+);
 
 function getActorDetails(request) {
   const scope = buildEmployeeScope(request.user);
@@ -503,7 +516,14 @@ async function applyApprovedWorkflowAction(request, approval) {
 
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, allowedOrigins.includes(origin.replace(/\/$/, "")) ? origin : false);
+    },
     credentials: true,
   })
 );
