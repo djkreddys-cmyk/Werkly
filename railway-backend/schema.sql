@@ -39,6 +39,7 @@ create table if not exists job_applications (
   preferred_role text,
   current_ctc text,
   expected_ctc text,
+  notice_period text,
   preferred_location text,
   preferred_sector text,
   candidate_message text,

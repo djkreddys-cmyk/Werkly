@@ -49,6 +49,8 @@ type ManualCandidateState = {
   preferredRole: string;
   currentCtc: string;
   expectedCtc: string;
+  noticePeriodType: string;
+  noticePeriodMonths: string;
   preferredLocation: string;
   preferredSector: string;
   candidateMessage: string;
@@ -133,6 +135,14 @@ const manualSourceOptions = [
   "Other",
 ];
 
+const noticePeriodTypeOptions = [
+  { value: "fresher", label: "Fresher" },
+  { value: "immediate", label: "Immediate Joinee" },
+  { value: "notice-period", label: "Notice Period" },
+];
+
+const noticePeriodMonthOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
+
 async function readAdminJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
   const text = await response.text();
   let parsed: { message?: string } | undefined;
@@ -168,6 +178,8 @@ const emptyManualCandidateForm: ManualCandidateState = {
   preferredRole: "",
   currentCtc: "",
   expectedCtc: "",
+  noticePeriodType: "fresher",
+  noticePeriodMonths: "",
   preferredLocation: "",
   preferredSector: "",
   candidateMessage: "",
@@ -215,6 +227,42 @@ function sanitizeExportCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
+function buildNoticePeriodValue(form: Pick<ManualCandidateState, "noticePeriodType" | "noticePeriodMonths">) {
+  if (form.noticePeriodType === "immediate") {
+    return "Immediate Joinee";
+  }
+
+  if (form.noticePeriodType === "notice-period") {
+    const months = form.noticePeriodMonths.trim();
+    return months ? `${months} Month${months === "1" ? "" : "s"}` : "";
+  }
+
+  return "Fresher";
+}
+
+function formatNoticePeriod(value?: string) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return "-";
+  }
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "fresher") {
+    return "Fresher";
+  }
+  if (normalized === "immediate" || normalized === "immediate joinee") {
+    return "Immediate Joinee";
+  }
+
+  const monthMatch = normalized.match(/^(\d+)/);
+  if (monthMatch) {
+    const months = monthMatch[1];
+    return `${months} Month${months === "1" ? "" : "s"}`;
+  }
+
+  return trimmed;
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -245,7 +293,7 @@ function buildShortlistEmailHtml(
           <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.experience))}</td>
           <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.currentCtc))}</td>
           <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.expectedCtc))}</td>
-          <td style="${cellStyle}">${escapeHtml(sanitizeExportCell(application.stageNote || application.candidateMessage))}</td>
+          <td style="${cellStyle}">${escapeHtml(formatNoticePeriod(application.noticePeriod))}</td>
           <td style="${cellStyle}">${escapeHtml(
             sanitizeExportCell(application.currentLocation || application.preferredLocation)
           )}</td>
@@ -314,7 +362,7 @@ function buildShortlistTextTable(jobTitle: string, applications: JobApplication[
       sanitizeExportCell(application.experience),
       sanitizeExportCell(application.currentCtc),
       sanitizeExportCell(application.expectedCtc),
-      sanitizeExportCell(application.stageNote || application.candidateMessage),
+      formatNoticePeriod(application.noticePeriod),
       sanitizeExportCell(application.currentLocation || application.preferredLocation),
       sanitizeExportCell(application.preferredLocation),
     ].join("\t")
@@ -1641,6 +1689,12 @@ Werkly Team`;
       return;
     }
 
+    const noticePeriod = buildNoticePeriodValue(manualCandidateForm);
+    if (!noticePeriod) {
+      setError("Please select notice period months.");
+      return;
+    }
+
     setIsSavingCandidate(true);
     setError("");
     setMessage("");
@@ -1698,6 +1752,7 @@ Werkly Team`;
         preferredRole: manualCandidateForm.preferredRole.trim() || undefined,
         currentCtc: manualCandidateForm.currentCtc.trim() || undefined,
         expectedCtc: manualCandidateForm.expectedCtc.trim() || undefined,
+        noticePeriod,
         preferredLocation: manualCandidateForm.preferredLocation.trim() || undefined,
         preferredSector: manualCandidateForm.preferredSector.trim() || undefined,
         candidateMessage: manualCandidateForm.candidateMessage.trim() || undefined,
@@ -1830,7 +1885,7 @@ Werkly Team`;
             <td>${escapeHtml(sanitizeExportCell(application.experience))}</td>
             <td>${escapeHtml(sanitizeExportCell(application.currentCtc))}</td>
             <td>${escapeHtml(sanitizeExportCell(application.expectedCtc))}</td>
-            <td>${escapeHtml("Shortlisted")}</td>
+            <td>${escapeHtml(formatNoticePeriod(application.noticePeriod))}</td>
             <td>${escapeHtml(sanitizeExportCell(application.currentLocation || application.preferredLocation))}</td>
           </tr>
         `
@@ -2435,7 +2490,7 @@ Werkly Team`;
                     </label>
                   </div>
                   <div className="overflow-auto rounded-2xl border border-[var(--color-line)]">
-                    <table className="w-full min-w-[980px] border-collapse bg-[rgba(255,252,247,0.7)]">
+                    <table className="w-full min-w-[1120px] border-collapse bg-[rgba(255,252,247,0.7)]">
                       <thead>
                         <tr className="bg-[rgba(8,96,108,0.06)] text-left">
                           <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
@@ -2446,6 +2501,9 @@ Werkly Team`;
                           </th>
                           <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                             Source
+                          </th>
+                          <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                            Notice Period (In Months)
                           </th>
                           <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                             Stage
@@ -2515,6 +2573,9 @@ Werkly Team`;
                                   Resume
                                 </a>
                               ) : null}
+                            </td>
+                            <td className="px-4 py-4 text-sm font-medium text-[var(--color-ink)]">
+                              {formatNoticePeriod(application.noticePeriod)}
                             </td>
                             <td className="px-4 py-4 text-sm">
                               <select
@@ -2797,6 +2858,58 @@ Werkly Team`;
                     }
                   />
                 </label>
+                <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4 sm:col-span-2 xl:col-span-3">
+                  <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Notice Period
+                  </span>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {noticePeriodTypeOptions.map((option) => (
+                      <label
+                        key={option.value}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)]"
+                      >
+                        <input
+                          type="radio"
+                          name="manualNoticePeriod"
+                          value={option.value}
+                          checked={manualCandidateForm.noticePeriodType === option.value}
+                          onChange={(event) =>
+                            setManualCandidateForm((current) => ({
+                              ...current,
+                              noticePeriodType: event.target.value,
+                              noticePeriodMonths:
+                                event.target.value === "notice-period"
+                                  ? current.noticePeriodMonths || "1"
+                                  : "",
+                            }))
+                          }
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                  {manualCandidateForm.noticePeriodType === "notice-period" ? (
+                    <label className="mt-4 block max-w-xs">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                        Notice Period (In Months)
+                      </span>
+                      <select
+                        className={fieldClassName}
+                        value={manualCandidateForm.noticePeriodMonths}
+                        onChange={(event) =>
+                          updateManualCandidateField("noticePeriodMonths", event.target.value)
+                        }
+                        required
+                      >
+                        {noticePeriodMonthOptions.map((month) => (
+                          <option key={month} value={month}>
+                            {month}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                </div>
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Source</span>
                   <select
@@ -3053,7 +3166,7 @@ Werkly Team`;
                           {application.expectedCtc || "-"}
                         </td>
                         <td className="border border-slate-900 px-3 py-2">
-                          {application.stageNote || application.candidateMessage || "-"}
+                          {formatNoticePeriod(application.noticePeriod)}
                         </td>
                         <td className="border border-slate-900 px-3 py-2">
                           {application.currentLocation || application.preferredLocation || "-"}

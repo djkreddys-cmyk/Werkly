@@ -22,6 +22,43 @@ const sourceOptions = [
   "Other",
 ];
 
+const noticePeriodTypeOptions = [
+  { value: "fresher", label: "Fresher" },
+  { value: "immediate", label: "Immediate Joinee" },
+  { value: "notice-period", label: "Notice Period" },
+];
+
+const noticePeriodMonthOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
+
+function parseNoticePeriod(value?: string) {
+  const trimmed = String(value ?? "").trim();
+  const normalized = trimmed.toLowerCase();
+
+  if (!trimmed || normalized === "fresher") {
+    return { noticePeriodType: "fresher", noticePeriodMonths: "" };
+  }
+
+  if (normalized === "immediate" || normalized === "immediate joinee") {
+    return { noticePeriodType: "immediate", noticePeriodMonths: "" };
+  }
+
+  const months = normalized.match(/^(\d+)/)?.[1] || "1";
+  return { noticePeriodType: "notice-period", noticePeriodMonths: months };
+}
+
+function buildNoticePeriodValue(form: Pick<CandidateEditFormState, "noticePeriodType" | "noticePeriodMonths">) {
+  if (form.noticePeriodType === "immediate") {
+    return "Immediate Joinee";
+  }
+
+  if (form.noticePeriodType === "notice-period") {
+    const months = form.noticePeriodMonths.trim();
+    return months ? `${months} Month${months === "1" ? "" : "s"}` : "";
+  }
+
+  return "Fresher";
+}
+
 async function readAdminJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
   const text = await response.text();
   let parsed: { message?: string } | undefined;
@@ -57,6 +94,8 @@ type CandidateEditFormState = {
   preferredRole: string;
   currentCtc: string;
   expectedCtc: string;
+  noticePeriodType: string;
+  noticePeriodMonths: string;
   preferredLocation: string;
   preferredSector: string;
   sourceType: string;
@@ -68,6 +107,8 @@ type CandidateEditFormState = {
 };
 
 function createFormState(application: JobApplication): CandidateEditFormState {
+  const noticePeriod = parseNoticePeriod(application.noticePeriod);
+
   return {
     candidateName: application.candidateName || "",
     candidateEmail: application.candidateEmail || "",
@@ -82,6 +123,8 @@ function createFormState(application: JobApplication): CandidateEditFormState {
     preferredRole: application.preferredRole || "",
     currentCtc: application.currentCtc || "",
     expectedCtc: application.expectedCtc || "",
+    noticePeriodType: noticePeriod.noticePeriodType,
+    noticePeriodMonths: noticePeriod.noticePeriodMonths,
     preferredLocation: application.preferredLocation || "",
     preferredSector: application.preferredSector || "",
     sourceType: application.sourceType || "Website",
@@ -199,6 +242,12 @@ export function AdminCandidateEditModal({
       return;
     }
 
+    const noticePeriod = buildNoticePeriodValue(form);
+    if (!noticePeriod) {
+      setError("Please select notice period months.");
+      return;
+    }
+
     setIsSaving(true);
     setError("");
 
@@ -217,6 +266,7 @@ export function AdminCandidateEditModal({
         preferredRole: form.preferredRole.trim() || undefined,
         currentCtc: form.currentCtc.trim() || undefined,
         expectedCtc: form.expectedCtc.trim() || undefined,
+        noticePeriod,
         preferredLocation: form.preferredLocation.trim() || undefined,
         preferredSector: form.preferredSector.trim() || undefined,
         sourceType: form.sourceType.trim() || undefined,
@@ -448,6 +498,60 @@ export function AdminCandidateEditModal({
                   onChange={(event) => updateField("preferredSector", event.target.value)}
                 />
               </label>
+              <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4 sm:col-span-2 xl:col-span-3">
+                <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Notice Period
+                </span>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {noticePeriodTypeOptions.map((option) => (
+                    <label
+                      key={option.value}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-[var(--color-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-ink)]"
+                    >
+                      <input
+                        type="radio"
+                        name="candidateEditNoticePeriod"
+                        value={option.value}
+                        checked={form.noticePeriodType === option.value}
+                        onChange={(event) =>
+                          setForm((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  noticePeriodType: event.target.value,
+                                  noticePeriodMonths:
+                                    event.target.value === "notice-period"
+                                      ? current.noticePeriodMonths || "1"
+                                      : "",
+                                }
+                              : current
+                          )
+                        }
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+                {form.noticePeriodType === "notice-period" ? (
+                  <label className="mt-4 block max-w-xs">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                      Notice Period (In Months)
+                    </span>
+                    <select
+                      className={fieldClassName}
+                      value={form.noticePeriodMonths}
+                      onChange={(event) => updateField("noticePeriodMonths", event.target.value)}
+                      required
+                    >
+                      {noticePeriodMonthOptions.map((month) => (
+                        <option key={month} value={month}>
+                          {month}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                   Source

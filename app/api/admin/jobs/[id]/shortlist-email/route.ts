@@ -40,6 +40,29 @@ function sanitizeExportCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
+function formatNoticePeriod(value?: string) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return "-";
+  }
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "fresher") {
+    return "Fresher";
+  }
+  if (normalized === "immediate" || normalized === "immediate joinee") {
+    return "Immediate Joinee";
+  }
+
+  const monthMatch = normalized.match(/^(\d+)/);
+  if (monthMatch) {
+    const months = monthMatch[1];
+    return `${months} Month${months === "1" ? "" : "s"}`;
+  }
+
+  return trimmed;
+}
+
 function toDateKey(value?: string) {
   if (!value) {
     return "";
@@ -101,7 +124,7 @@ function buildShortlistReportAttachment(
           <td>${escapeHtml(sanitizeExportCell(application.experience))}</td>
           <td>${escapeHtml(sanitizeExportCell(application.currentCtc))}</td>
           <td>${escapeHtml(sanitizeExportCell(application.expectedCtc))}</td>
-          <td>${escapeHtml(sanitizeExportCell(application.stageNote || "Shortlisted"))}</td>
+          <td>${escapeHtml(formatNoticePeriod(application.noticePeriod))}</td>
           <td>${escapeHtml(
             sanitizeExportCell(application.currentLocation || application.preferredLocation)
           )}</td>

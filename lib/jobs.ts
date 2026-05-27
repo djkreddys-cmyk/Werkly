@@ -67,6 +67,7 @@ export type JobApplication = {
   preferredRole?: string;
   currentCtc?: string;
   expectedCtc?: string;
+  noticePeriod?: string;
   finalCtc?: string;
   dateOfJoining?: string;
   preferredLocation?: string;
@@ -287,6 +288,7 @@ export type ManualJobApplicationPayload = {
   preferredRole?: string;
   currentCtc?: string;
   expectedCtc?: string;
+  noticePeriod?: string;
   preferredLocation?: string;
   preferredSector?: string;
   candidateMessage?: string;
@@ -323,6 +325,7 @@ export type JobApplicationUpdatePayload = {
   preferredRole?: string;
   currentCtc?: string;
   expectedCtc?: string;
+  noticePeriod?: string;
   preferredLocation?: string;
   preferredSector?: string;
   sourceType?: string;

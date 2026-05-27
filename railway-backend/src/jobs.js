@@ -78,6 +78,7 @@ export function mapApplicationRow(row) {
     preferredRole: row.preferred_role,
     currentCtc: row.current_ctc,
     expectedCtc: row.expected_ctc,
+    noticePeriod: row.notice_period,
     finalCtc: row.final_ctc,
     dateOfJoining: row.date_of_joining,
     preferredLocation: row.preferred_location,
@@ -356,6 +357,7 @@ export async function ensureJobsSchema() {
       preferred_role text,
       current_ctc text,
       expected_ctc text,
+      notice_period text,
       preferred_location text,
       preferred_sector text,
       candidate_message text,
@@ -385,6 +387,7 @@ export async function ensureJobsSchema() {
   await query(`alter table job_applications add column if not exists preferred_role text`);
   await query(`alter table job_applications add column if not exists current_ctc text`);
   await query(`alter table job_applications add column if not exists expected_ctc text`);
+  await query(`alter table job_applications add column if not exists notice_period text`);
   await query(`alter table job_applications add column if not exists final_ctc text`);
   await query(`alter table job_applications add column if not exists date_of_joining date`);
   await query(`alter table job_applications add column if not exists preferred_location text`);
@@ -905,6 +908,7 @@ export async function recordJobApplication(slug, payload) {
         preferred_role,
         current_ctc,
         expected_ctc,
+        notice_period,
         preferred_location,
         preferred_sector,
         source_type,
@@ -915,7 +919,7 @@ export async function recordJobApplication(slug, payload) {
         resume_file_data,
         candidate_message,
         job_title
-      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)` ,
+      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)` ,
       [
         jobId,
         "applied",
@@ -933,6 +937,7 @@ export async function recordJobApplication(slug, payload) {
         payload.preferredRole || null,
         payload.currentCtc || null,
         payload.expectedCtc || null,
+        payload.noticePeriod || null,
         payload.preferredLocation || null,
         payload.preferredSector || null,
         "Website",
@@ -1074,6 +1079,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         preferred_role,
         current_ctc,
         expected_ctc,
+        notice_period,
         preferred_location,
         preferred_sector,
         source_type,
@@ -1087,7 +1093,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         job_title
       ) values (
         $1, $2, $3, $4::date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-        $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+        $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
       )
       returning
         id,
@@ -1115,6 +1121,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         preferred_role,
         current_ctc,
         expected_ctc,
+        notice_period,
         preferred_location,
         preferred_sector,
         source_type,
@@ -1146,6 +1153,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         payload.preferredRole || existingCandidate?.preferred_role || null,
         payload.currentCtc || existingCandidate?.current_ctc || null,
         payload.expectedCtc || existingCandidate?.expected_ctc || null,
+        payload.noticePeriod || existingCandidate?.notice_period || null,
         payload.preferredLocation || existingCandidate?.preferred_location || null,
         payload.preferredSector || existingCandidate?.preferred_sector || null,
         payload.sourceType || existingCandidate?.source_type || "Other",
@@ -1237,6 +1245,7 @@ export async function listJobApplications(jobId, employeeId = null, options = {}
       job_applications.preferred_role,
       job_applications.current_ctc,
       job_applications.expected_ctc,
+      job_applications.notice_period,
       job_applications.final_ctc,
       job_applications.date_of_joining,
       job_applications.preferred_location,
@@ -1322,6 +1331,7 @@ export async function listAdminApplications(employeeId = null, options = {}) {
       job_applications.preferred_role,
       job_applications.current_ctc,
       job_applications.expected_ctc,
+      job_applications.notice_period,
       job_applications.final_ctc,
       job_applications.date_of_joining,
       job_applications.preferred_location,
@@ -1389,6 +1399,7 @@ export async function getAdminApplicationById(applicationId) {
       job_applications.preferred_role,
       job_applications.current_ctc,
       job_applications.expected_ctc,
+      job_applications.notice_period,
       job_applications.final_ctc,
       job_applications.date_of_joining,
       job_applications.preferred_location,
@@ -1544,6 +1555,7 @@ export async function assignCandidateApplicationToJob(applicationId, targetJobId
         preferred_role,
         current_ctc,
         expected_ctc,
+        notice_period,
         preferred_location,
         preferred_sector,
         source_type,
@@ -1557,7 +1569,7 @@ export async function assignCandidateApplicationToJob(applicationId, targetJobId
         job_title
       ) values (
         $1, $2, $3, $4::date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-        $17, $18, $19, $20, $21, 'profile_assignment', $22, $23, $24, $25, $26, $27
+        $17, $18, $19, $20, $21, $22, 'profile_assignment', $23, $24, $25, $26, $27, $28
       )
       returning id`,
       [
@@ -1578,6 +1590,7 @@ export async function assignCandidateApplicationToJob(applicationId, targetJobId
         source.preferred_role || null,
         source.current_ctc || null,
         source.expected_ctc || null,
+        source.notice_period || null,
         source.preferred_location || null,
         source.preferred_sector || null,
         source.source_type || "Existing Profile",
@@ -1894,18 +1907,19 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
          preferred_role = $12,
          current_ctc = $13,
          expected_ctc = $14,
-         preferred_location = $15,
-         preferred_sector = $16,
-         source_type = $17,
-         source_note = $18,
-         candidate_message = $19,
-         resume_file_name = $20,
-         resume_file_type = $21,
-         resume_file_data = $22,
-         interview_scheduled_at = $23,
-         interview_mode = $24,
-         interview_panel = $25,
-         interview_reminder_at = $26,
+         notice_period = $15,
+         preferred_location = $16,
+         preferred_sector = $17,
+         source_type = $18,
+         source_note = $19,
+         candidate_message = $20,
+         resume_file_name = $21,
+         resume_file_type = $22,
+         resume_file_data = $23,
+         interview_scheduled_at = $24,
+         interview_mode = $25,
+         interview_panel = $26,
+         interview_reminder_at = $27,
          updated_at = now()
      where id = $1
      returning
@@ -1935,6 +1949,7 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
        preferred_role,
        current_ctc,
        expected_ctc,
+       notice_period,
        preferred_location,
        preferred_sector,
        source_type,
@@ -1972,6 +1987,7 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
       payload.preferredRole || null,
       payload.currentCtc || null,
       payload.expectedCtc || null,
+      payload.noticePeriod || null,
       payload.preferredLocation || null,
       payload.preferredSector || null,
       payload.sourceType || null,
@@ -2079,6 +2095,7 @@ export async function updateJobApplicationStage(
          preferred_role,
          current_ctc,
          expected_ctc,
+         notice_period,
          final_ctc,
          date_of_joining,
          preferred_location,
