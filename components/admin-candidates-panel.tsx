@@ -76,6 +76,65 @@ function safeCell(value?: string) {
   return trimmed ? trimmed : "-";
 }
 
+function formatNoticePeriod(value?: string) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return "-";
+  }
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "fresher") {
+    return "Fresher";
+  }
+  if (normalized === "immediate" || normalized === "immediate joinee") {
+    return "Immediate Joinee";
+  }
+
+  const monthMatch = normalized.match(/^(\d+)/);
+  if (monthMatch) {
+    const months = monthMatch[1];
+    return `${months} Month${months === "1" ? "" : "s"}`;
+  }
+
+  return trimmed;
+}
+
+function candidateIdentityKey(application: JobApplication) {
+  const email = String(application.candidateEmail || "").trim().toLowerCase();
+  const phone = String(application.candidatePhone || "").replace(/\D/g, "");
+
+  if (email) {
+    return `email:${email}`;
+  }
+  if (phone) {
+    return `phone:${phone}`;
+  }
+
+  return `application:${application.id}`;
+}
+
+function applicationActivityTime(application: JobApplication) {
+  const parsed = new Date(
+    application.stageUpdatedAt || application.appliedAt || application.stageDate || ""
+  ).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function dedupeCandidateApplications(applications: JobApplication[]) {
+  const byCandidate = new Map<string, JobApplication>();
+
+  applications.forEach((application) => {
+    const key = candidateIdentityKey(application);
+    const existing = byCandidate.get(key);
+
+    if (!existing || applicationActivityTime(application) > applicationActivityTime(existing)) {
+      byCandidate.set(key, application);
+    }
+  });
+
+  return Array.from(byCandidate.values());
+}
+
 function createResumeObjectUrl(dataUrl: string, fallbackType = "application/octet-stream") {
   if (typeof window === "undefined") {
     return "";
@@ -603,7 +662,10 @@ export function AdminCandidatesPanel() {
     const noticeSearch = normalizeSearchText(noticeFilter);
     const languageSearch = normalizeSearchText(languageFilter);
 
-    return visibleApplications.filter((application) => {
+    const candidateRows =
+      jobFilter === "all" ? dedupeCandidateApplications(visibleApplications) : visibleApplications;
+
+    return candidateRows.filter((application) => {
       const matchesQuery =
         !query ||
         [
@@ -648,7 +710,12 @@ export function AdminCandidatesPanel() {
         salarySearch
       );
       const matchesNotice = includesSearch(
-        [application.sourceNote, application.candidateMessage, application.stageNote].join(" "),
+        [
+          application.noticePeriod,
+          application.sourceNote,
+          application.candidateMessage,
+          application.stageNote,
+        ].join(" "),
         noticeSearch
       );
       const matchesLanguage = includesSearch(
@@ -1114,7 +1181,7 @@ export function AdminCandidatesPanel() {
       totalExp: safeCell(application.experience),
       currentCtc: safeCell(application.currentCtc),
       expectedCtc: safeCell(application.expectedCtc),
-      noticePeriod: "-",
+      noticePeriod: formatNoticePeriod(application.noticePeriod),
       currentLocation: safeCell(application.currentLocation || application.preferredLocation),
     }));
 

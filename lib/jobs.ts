@@ -41,6 +41,7 @@ export type JobDetail = JobSummary & {
 
 export type JobApplication = {
   id: string;
+  parentApplicationId?: string;
   jobId: string;
   clientId?: string;
   assignedEmployeeId?: string;

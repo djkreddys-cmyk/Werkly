@@ -53,6 +53,7 @@ export function mapRow(row) {
 export function mapApplicationRow(row) {
   return {
     id: row.id,
+    parentApplicationId: row.parent_application_id,
     jobId: row.job_id,
     assignedEmployeeId: row.assigned_employee_id,
     stage: row.stage,
@@ -89,6 +90,7 @@ export function mapApplicationRow(row) {
     resumeFileName: row.resume_file_name,
     resumeFileType: row.resume_file_type,
     resumeFileData: row.resume_file_data,
+    resumeAvailable: Boolean(row.resume_available || row.resume_file_data),
     uploadedByEmployeeId: row.uploaded_by_employee_id,
     uploadedByEmployeeName: row.uploaded_by_employee_name,
     followUpEmployeeId: row.follow_up_employee_id,
@@ -346,6 +348,7 @@ export async function ensureJobsSchema() {
   await query(`
     create table if not exists job_applications (
       id uuid primary key default gen_random_uuid(),
+      parent_application_id uuid references job_applications(id) on delete set null,
       job_id uuid not null references jobs(id) on delete cascade,
       candidate_name text not null,
       candidate_email text not null,
@@ -367,6 +370,9 @@ export async function ensureJobsSchema() {
   `);
   await query(
     `create index if not exists idx_job_applications_job_id on job_applications(job_id)`
+  );
+  await query(
+    `alter table job_applications add column if not exists parent_application_id uuid references job_applications(id) on delete set null`
   );
   await query(
     `alter table job_applications add column if not exists stage text not null default 'applied'`
@@ -1062,6 +1068,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
     const insertResult = await client.query(
       `insert into job_applications (
         job_id,
+        parent_application_id,
         stage,
         stage_note,
         stage_date,
@@ -1092,12 +1099,13 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         candidate_message,
         job_title
       ) values (
-        $1, $2, $3, $4::date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-        $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
+        $1, $2, $3, $4, $5::date, now(), $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+        $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
       )
       returning
         id,
         job_id,
+        parent_application_id,
         stage,
         stage_note,
         stage_date,
@@ -1130,6 +1138,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         resume_file_name,
         resume_file_type,
         resume_file_data,
+        (resume_file_data is not null) as resume_available,
         uploaded_by_employee_id,
         null::text as uploaded_by_employee_name,
         candidate_message,
@@ -1137,6 +1146,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         applied_at`,
       [
         jobId,
+        existingCandidate?.parent_application_id || existingCandidate?.id || null,
         stage,
         stageNote,
         stageDate,
@@ -1161,7 +1171,7 @@ export async function createManualJobApplication(jobId, payload, employeeId = nu
         entryType,
         payload.resumeFileName || existingCandidate?.resume_file_name || null,
         payload.resumeFileType || existingCandidate?.resume_file_type || null,
-        payload.resumeFileData || existingCandidate?.resume_file_data || null,
+        payload.resumeFileData || null,
         employeeId || existingCandidate?.uploaded_by_employee_id || null,
         payload.candidateMessage || existingCandidate?.candidate_message || null,
         payload.jobTitle || job.title || null,
@@ -1220,6 +1230,7 @@ export async function listJobApplications(jobId, employeeId = null, options = {}
   const result = await query(
     `select
       job_applications.id,
+      job_applications.parent_application_id,
       job_applications.job_id,
       job_applications.assigned_employee_id,
       job_applications.stage,
@@ -1253,9 +1264,17 @@ export async function listJobApplications(jobId, employeeId = null, options = {}
       job_applications.source_type,
       job_applications.source_note,
       job_applications.entry_type,
-      job_applications.resume_file_name,
-      job_applications.resume_file_type,
-      ${options.slim ? "null::text" : "job_applications.resume_file_data"} as resume_file_data,
+      coalesce(job_applications.resume_file_name, parent_application.resume_file_name) as resume_file_name,
+      coalesce(job_applications.resume_file_type, parent_application.resume_file_type) as resume_file_type,
+      ${
+        options.slim
+          ? "null::text"
+          : "coalesce(job_applications.resume_file_data, parent_application.resume_file_data)"
+      } as resume_file_data,
+      (
+        job_applications.resume_file_data is not null
+        or parent_application.resume_file_data is not null
+      ) as resume_available,
       job_applications.uploaded_by_employee_id,
       job_applications.follow_up_employee_id,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1273,6 +1292,7 @@ export async function listJobApplications(jobId, employeeId = null, options = {}
      from job_applications
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
+     left join job_applications parent_application on parent_application.id = job_applications.parent_application_id
      left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
      left join employees follow_up_employee on follow_up_employee.id = job_applications.follow_up_employee_id
      where job_id = $1
@@ -1306,6 +1326,7 @@ export async function listAdminApplications(employeeId = null, options = {}) {
   const result = await query(
     `select
       job_applications.id,
+      job_applications.parent_application_id,
       job_applications.job_id,
       job_applications.assigned_employee_id,
       job_applications.stage,
@@ -1339,9 +1360,17 @@ export async function listAdminApplications(employeeId = null, options = {}) {
       job_applications.source_type,
       job_applications.source_note,
       job_applications.entry_type,
-      job_applications.resume_file_name,
-      job_applications.resume_file_type,
-      ${options.slim ? "null::text" : "job_applications.resume_file_data"} as resume_file_data,
+      coalesce(job_applications.resume_file_name, parent_application.resume_file_name) as resume_file_name,
+      coalesce(job_applications.resume_file_type, parent_application.resume_file_type) as resume_file_type,
+      ${
+        options.slim
+          ? "null::text"
+          : "coalesce(job_applications.resume_file_data, parent_application.resume_file_data)"
+      } as resume_file_data,
+      (
+        job_applications.resume_file_data is not null
+        or parent_application.resume_file_data is not null
+      ) as resume_available,
       job_applications.uploaded_by_employee_id,
       job_applications.follow_up_employee_id,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1359,6 +1388,7 @@ export async function listAdminApplications(employeeId = null, options = {}) {
      from job_applications
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
+     left join job_applications parent_application on parent_application.id = job_applications.parent_application_id
      left join employees on employees.id = coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id)
      left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
      left join employees follow_up_employee on follow_up_employee.id = job_applications.follow_up_employee_id
@@ -1374,6 +1404,7 @@ export async function getAdminApplicationById(applicationId) {
   const result = await query(
     `select
       job_applications.id,
+      job_applications.parent_application_id,
       job_applications.job_id,
       job_applications.assigned_employee_id,
       job_applications.stage,
@@ -1407,9 +1438,13 @@ export async function getAdminApplicationById(applicationId) {
       job_applications.source_type,
       job_applications.source_note,
       job_applications.entry_type,
-      job_applications.resume_file_name,
-      job_applications.resume_file_type,
-      job_applications.resume_file_data,
+      coalesce(job_applications.resume_file_name, parent_application.resume_file_name) as resume_file_name,
+      coalesce(job_applications.resume_file_type, parent_application.resume_file_type) as resume_file_type,
+      coalesce(job_applications.resume_file_data, parent_application.resume_file_data) as resume_file_data,
+      (
+        job_applications.resume_file_data is not null
+        or parent_application.resume_file_data is not null
+      ) as resume_available,
       job_applications.uploaded_by_employee_id,
       job_applications.follow_up_employee_id,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1427,6 +1462,7 @@ export async function getAdminApplicationById(applicationId) {
      from job_applications
      left join jobs on jobs.id = job_applications.job_id
      left join clients on clients.id = jobs.client_id
+     left join job_applications parent_application on parent_application.id = job_applications.parent_application_id
      left join employees on employees.id = coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id)
      left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
      left join employees follow_up_employee on follow_up_employee.id = job_applications.follow_up_employee_id
@@ -1538,6 +1574,7 @@ export async function assignCandidateApplicationToJob(applicationId, targetJobId
     const insertResult = await client.query(
       `insert into job_applications (
         job_id,
+        parent_application_id,
         stage,
         stage_note,
         stage_date,
@@ -1568,12 +1605,13 @@ export async function assignCandidateApplicationToJob(applicationId, targetJobId
         candidate_message,
         job_title
       ) values (
-        $1, $2, $3, $4::date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-        $17, $18, $19, $20, $21, $22, 'profile_assignment', $23, $24, $25, $26, $27, $28
+        $1, $2, $3, $4, $5::date, now(), $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+        $18, $19, $20, $21, $22, $23, 'profile_assignment', $24, $25, $26, $27, $28, $29
       )
       returning id`,
       [
         targetJobId,
+        source.parent_application_id || source.id,
         stage,
         stageNote,
         stageDate,
@@ -1597,7 +1635,7 @@ export async function assignCandidateApplicationToJob(applicationId, targetJobId
         source.source_note || `Copied from application ${applicationId}`,
         source.resume_file_name || null,
         source.resume_file_type || null,
-        source.resume_file_data || null,
+        null,
         employeeId || source.uploaded_by_employee_id || null,
         source.candidate_message || null,
         targetJob.title || null,
@@ -1924,6 +1962,7 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
      where id = $1
      returning
        id,
+       parent_application_id,
        job_id,
        assigned_employee_id,
        stage,
@@ -1958,6 +1997,7 @@ export async function updateJobApplicationDetails(applicationId, payload, employ
        resume_file_name,
        resume_file_type,
        resume_file_data,
+       (resume_file_data is not null) as resume_available,
        uploaded_by_employee_id,
        follow_up_employee_id,
        null::text as follow_up_employee_name,
@@ -2070,6 +2110,7 @@ export async function updateJobApplicationStage(
        where id = $1
        returning
          id,
+         parent_application_id,
          job_id,
          assigned_employee_id,
          stage,
@@ -2106,6 +2147,7 @@ export async function updateJobApplicationStage(
          resume_file_name,
          resume_file_type,
          resume_file_data,
+         (resume_file_data is not null) as resume_available,
          uploaded_by_employee_id,
          follow_up_employee_id,
          null::text as follow_up_employee_name,

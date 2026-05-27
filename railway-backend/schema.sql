@@ -28,6 +28,7 @@ create table if not exists jobs (
 
 create table if not exists job_applications (
   id uuid primary key default gen_random_uuid(),
+  parent_application_id uuid references job_applications(id) on delete set null,
   job_id uuid not null references jobs(id) on delete cascade,
   candidate_name text not null,
   candidate_email text not null,
