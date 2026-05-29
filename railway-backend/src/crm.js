@@ -321,6 +321,10 @@ export async function ensureCrmSchema() {
   await ensureCrmSettingsSeed();
 }
 
+function mapDateValue(value) {
+  return normalizeDateKey(value) || undefined;
+}
+
 function mapEmployeeRow(row) {
   return {
     id: row.id,
@@ -332,15 +336,15 @@ function mapEmployeeRow(row) {
     reportingManagerId: row.reporting_manager_id,
     reportingManagerName: row.reporting_manager_name,
     reportingManagerEmail: row.reporting_manager_email,
-    dateOfBirth: row.date_of_birth,
-    dateOfJoining: row.date_of_joining,
+    dateOfBirth: mapDateValue(row.date_of_birth),
+    dateOfJoining: mapDateValue(row.date_of_joining),
     educationQualification: row.education_qualification,
     previousExperience: row.previous_experience,
     educationDetails: Array.isArray(row.education_details) ? row.education_details : [],
     experienceDetails: Array.isArray(row.experience_details) ? row.experience_details : [],
     status: row.status,
     mustChangePassword: Boolean(row.must_change_password),
-    inactiveDate: row.inactive_date,
+    inactiveDate: mapDateValue(row.inactive_date),
     inactiveRemarks: row.inactive_remarks,
     createdAt: row.created_at,
   };
@@ -355,8 +359,8 @@ function mapClientFollowUpHistoryRow(row) {
     actorRole: row.actor_role,
     fromStatus: row.from_status,
     toStatus: row.to_status,
-    lastFollowUpDate: row.last_follow_up_date,
-    nextFollowUpDate: row.next_follow_up_date,
+    lastFollowUpDate: mapDateValue(row.last_follow_up_date),
+    nextFollowUpDate: mapDateValue(row.next_follow_up_date),
     notes: row.notes,
     createdAt: row.created_at,
   };
@@ -373,7 +377,7 @@ function mapClientActivityRow(row) {
     actorRole: row.actor_role,
     fromStatus: row.from_status,
     toStatus: row.to_status,
-    effectiveDate: row.effective_date,
+    effectiveDate: mapDateValue(row.effective_date),
     createdAt: row.created_at,
   };
 }
@@ -689,20 +693,20 @@ function mapClientRow(row) {
     assignedEmployeeName: row.assigned_employee_name,
     followUpEmployeeId: row.follow_up_employee_id,
     followUpEmployeeName: row.follow_up_employee_name,
-    followUpFromDate: row.follow_up_from_date,
-    followUpToDate: row.follow_up_to_date,
+    followUpFromDate: mapDateValue(row.follow_up_from_date),
+    followUpToDate: mapDateValue(row.follow_up_to_date),
     followUpAssignmentNote: row.follow_up_assignment_note,
     temporaryAccessEmployeeId: row.temporary_access_employee_id,
     temporaryAccessEmployeeName: row.temporary_access_employee_name,
-    temporaryAccessFromDate: row.temporary_access_from_date,
-    temporaryAccessToDate: row.temporary_access_to_date,
+    temporaryAccessFromDate: mapDateValue(row.temporary_access_from_date),
+    temporaryAccessToDate: mapDateValue(row.temporary_access_to_date),
     temporaryAccessScope: row.temporary_access_scope,
     temporaryAccessNote: row.temporary_access_note,
     status: row.status,
     onboardingStatus: row.onboarding_status,
     followUpStatus: row.follow_up_status,
-    nextFollowUpDate: row.next_follow_up_date,
-    lastFollowUpDate: row.last_follow_up_date,
+    nextFollowUpDate: mapDateValue(row.next_follow_up_date),
+    lastFollowUpDate: mapDateValue(row.last_follow_up_date),
     onboardingSource: row.onboarding_source,
     notes: row.notes,
     followUpNotes: row.follow_up_notes,
@@ -724,7 +728,7 @@ function mapClientTransferRequestRow(row) {
     requestedByEmployeeName: row.requested_by_employee_name,
     requestedToEmployeeId: row.requested_to_employee_id,
     requestedToEmployeeName: row.requested_to_employee_name,
-    effectiveFromDate: row.effective_from_date,
+    effectiveFromDate: mapDateValue(row.effective_from_date),
     reason: row.reason,
     status: row.status,
     adminNote: row.admin_note,

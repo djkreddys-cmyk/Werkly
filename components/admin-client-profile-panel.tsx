@@ -48,6 +48,15 @@ function formatDateTimeLabel(value?: string) {
   });
 }
 
+function dateInputValue(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const normalized = String(value).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
+}
+
 function formatFollowUpStage(stage?: string, isLeadFlow = false) {
   const safeStage = isLeadFlow
     ? normalizeClientFollowUpStatus(stage)
@@ -123,8 +132,8 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
             ? normalizeClientFollowUpStatus(clientResult.followUpStatus)
             : normalizeGeneralClientFollowUpStatus(clientResult.followUpStatus)
         );
-        setLastFollowUpDate(clientResult.lastFollowUpDate || "");
-        setNextFollowUpDate(clientResult.nextFollowUpDate || "");
+        setLastFollowUpDate(dateInputValue(clientResult.lastFollowUpDate));
+        setNextFollowUpDate(dateInputValue(clientResult.nextFollowUpDate));
         setFollowUpNotes(clientResult.followUpNotes || "");
       })
       .catch((loadError) => {
@@ -218,9 +227,9 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
         },
         body: JSON.stringify({
           followUpStatus,
-          lastFollowUpDate,
-          nextFollowUpDate,
-          followUpNotes,
+          lastFollowUpDate: dateInputValue(lastFollowUpDate) || undefined,
+          nextFollowUpDate: dateInputValue(nextFollowUpDate) || undefined,
+          followUpNotes: followUpNotes.trim() || undefined,
         }),
       });
 

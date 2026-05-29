@@ -611,7 +611,7 @@ export function AdminDashboardOverview() {
       {
         label: "My Pending Approvals",
         value: state.approvals.filter((approval) => approval.requestStatus === "pending").length,
-        href: "/admin/settings/workflow",
+        href: "/admin/settings/workflows",
       },
     ],
     [
@@ -1216,7 +1216,7 @@ export function AdminDashboardOverview() {
           {
             label: "Pending Approvals",
             value: metrics.pendingApprovalCount,
-            onClick: () => router.push("/admin/settings/workflow"),
+            onClick: () => router.push("/admin/settings/workflows"),
           },
           {
             label: "Next 7 Days",
@@ -1310,7 +1310,7 @@ export function AdminDashboardOverview() {
                 </h2>
               </div>
               <Link
-                href="/admin/settings/workflow"
+                href="/admin/settings/workflows"
                 className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
               >
                 Open Workflow

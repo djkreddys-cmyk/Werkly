@@ -204,6 +204,45 @@ function normalizePhoneMatch(value?: string) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function dateInputValue(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const normalized = String(value).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
+}
+
+function trimmedOptional(value: string) {
+  return value.trim() || undefined;
+}
+
+function buildClientPayload(form: ClientFormState, overrides: Partial<ClientFormState> = {}) {
+  const merged = { ...form, ...overrides };
+  return {
+    ...merged,
+    companyName: merged.companyName.trim(),
+    contactPerson: merged.contactPerson.trim(),
+    contactEmail: trimmedOptional(merged.contactEmail),
+    contactPhone: trimmedOptional(merged.contactPhone),
+    secondaryContactPerson: trimmedOptional(merged.secondaryContactPerson),
+    secondaryContactEmail: trimmedOptional(merged.secondaryContactEmail),
+    secondaryContactPhone: trimmedOptional(merged.secondaryContactPhone),
+    communicationAddress: trimmedOptional(merged.communicationAddress),
+    sector: trimmedOptional(merged.sector),
+    branch: trimmedOptional(merged.branch),
+    assignedEmployeeId: merged.assignedEmployeeId || undefined,
+    onboardingSource: trimmedOptional(merged.onboardingSource),
+    notes: trimmedOptional(merged.notes),
+    followUpNotes: trimmedOptional(merged.followUpNotes),
+    nextFollowUpDate: dateInputValue(merged.nextFollowUpDate) || undefined,
+    lastFollowUpDate: dateInputValue(merged.lastFollowUpDate) || undefined,
+    agreementFileName: merged.agreementFileName || undefined,
+    agreementFileType: merged.agreementFileType || undefined,
+    agreementFileData: merged.agreementFileData || undefined,
+  };
+}
+
 const clientLeadStatuses: ClientOnboardingStatus[] = [
   "new-lead",
   "contacted",
@@ -2412,8 +2451,8 @@ export function AdminEmployeesPanel({
       phone: employee.phone ?? "",
       role: employee.role,
       reportingManagerId: employee.reportingManagerId ?? "",
-      dateOfBirth: employee.dateOfBirth ?? "",
-      dateOfJoining: employee.dateOfJoining ?? "",
+      dateOfBirth: dateInputValue(employee.dateOfBirth),
+      dateOfJoining: dateInputValue(employee.dateOfJoining),
       educationDetails:
         employee.educationDetails && employee.educationDetails.length > 0
           ? employee.educationDetails
@@ -2447,7 +2486,7 @@ export function AdminEmployeesPanel({
             : [createEmptyExperienceEntry()],
       password: "",
       status: employee.status,
-      inactiveDate: employee.inactiveDate ?? "",
+      inactiveDate: dateInputValue(employee.inactiveDate),
       inactiveRemarks: employee.inactiveRemarks ?? "",
     });
     setMessage("");
@@ -2482,7 +2521,7 @@ export function AdminEmployeesPanel({
 
   function loadEmployeeForInactivation(employee: EmployeeRecord) {
     setInactiveEmployee(employee);
-    setInactiveDate(employee.inactiveDate ?? new Date().toISOString().slice(0, 10));
+    setInactiveDate(dateInputValue(employee.inactiveDate) || new Date().toISOString().slice(0, 10));
     setInactiveRemarks(employee.inactiveRemarks ?? "");
     setMessage("");
     setError("");
@@ -2591,8 +2630,8 @@ export function AdminEmployeesPanel({
           phone: inactiveEmployee.phone ?? "",
           role: inactiveEmployee.role,
           reportingManagerId: inactiveEmployee.reportingManagerId ?? "",
-          dateOfBirth: inactiveEmployee.dateOfBirth ?? "",
-          dateOfJoining: inactiveEmployee.dateOfJoining ?? "",
+          dateOfBirth: dateInputValue(inactiveEmployee.dateOfBirth),
+          dateOfJoining: dateInputValue(inactiveEmployee.dateOfJoining),
           educationQualification: buildEducationSummary(
             inactiveEmployee.educationDetails ?? []
           ),
@@ -3405,8 +3444,8 @@ export function AdminClientsPanel({
       status: client.status || "active",
       onboardingStatus: onboardingStatus || client.onboardingStatus || "new-lead",
       followUpStatus: normalizeGeneralClientFollowUpStatus(client.followUpStatus),
-      nextFollowUpDate: client.nextFollowUpDate || "",
-      lastFollowUpDate: client.lastFollowUpDate || "",
+      nextFollowUpDate: dateInputValue(client.nextFollowUpDate),
+      lastFollowUpDate: dateInputValue(client.lastFollowUpDate),
       onboardingSource: client.onboardingSource || "",
       notes: client.notes || "",
       followUpNotes: client.followUpNotes || "",
@@ -3537,30 +3576,16 @@ export function AdminClientsPanel({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...clientForm,
-          companyName: clientForm.companyName.trim(),
-          contactPerson: clientForm.contactPerson.trim(),
-          contactEmail: clientForm.contactEmail.trim() || undefined,
-          contactPhone: clientForm.contactPhone.trim() || undefined,
-          secondaryContactPerson: clientForm.secondaryContactPerson.trim() || undefined,
-          secondaryContactEmail: clientForm.secondaryContactEmail.trim() || undefined,
-          secondaryContactPhone: clientForm.secondaryContactPhone.trim() || undefined,
-          communicationAddress: clientForm.communicationAddress.trim() || undefined,
-          sector: clientForm.sector.trim() || undefined,
-          branch: clientForm.branch.trim() || undefined,
-          onboardingStatus:
-            viewMode === "leads" ? "new-lead" : clientForm.onboardingStatus,
-          onboardingSource: clientForm.onboardingSource.trim() || undefined,
-          notes: clientForm.notes.trim() || undefined,
-          followUpNotes: clientForm.followUpNotes.trim() || undefined,
-          nextFollowUpDate: clientForm.nextFollowUpDate || undefined,
-          lastFollowUpDate: clientForm.lastFollowUpDate || undefined,
-          agreementFileName:
-            viewMode === "leads" ? undefined : clientForm.agreementFileName,
-          agreementFileType:
-            viewMode === "leads" ? undefined : clientForm.agreementFileType,
-          agreementFileData:
-            viewMode === "leads" ? undefined : clientForm.agreementFileData,
+          ...buildClientPayload(clientForm, {
+            onboardingStatus:
+              viewMode === "leads" ? "new-lead" : clientForm.onboardingStatus,
+            agreementFileName:
+              viewMode === "leads" ? "" : clientForm.agreementFileName,
+            agreementFileType:
+              viewMode === "leads" ? "" : clientForm.agreementFileType,
+            agreementFileData:
+              viewMode === "leads" ? "" : clientForm.agreementFileData,
+          }),
           assignedEmployeeId: effectiveAssignedEmployeeId,
           assignedEmployeeName: assignedEmployee?.fullName,
         }),
@@ -3820,12 +3845,13 @@ export function AdminClientsPanel({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...leadOnboardingForm,
-          onboardingStatus:
-            clientDetailsMode === "edit"
-              ? leadOnboardingForm.onboardingStatus
-              : leadOnboardingClient.onboardingStatus || "new-lead",
-          notes: leadOnboardingForm.notes || "Converted from Client Leads screen.",
+          ...buildClientPayload(leadOnboardingForm, {
+            onboardingStatus:
+              clientDetailsMode === "edit"
+                ? leadOnboardingForm.onboardingStatus
+                : leadOnboardingClient.onboardingStatus || "new-lead",
+            notes: leadOnboardingForm.notes || "Converted from Client Leads screen.",
+          }),
         }),
       });
       const updateResult = (await updateResponse.json()) as ClientRecord & { message?: string };
@@ -4131,9 +4157,9 @@ export function AdminClientsPanel({
         },
         body: JSON.stringify({
           followUpStatus,
-          nextFollowUpDate: followUpNextDate,
-          lastFollowUpDate: followUpLastDate,
-          followUpNotes,
+          nextFollowUpDate: dateInputValue(followUpNextDate) || undefined,
+          lastFollowUpDate: dateInputValue(followUpLastDate) || undefined,
+          followUpNotes: trimmedOptional(followUpNotes),
         }),
       });
 
