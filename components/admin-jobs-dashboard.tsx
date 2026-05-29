@@ -1724,10 +1724,10 @@ Werkly Team`;
           }
         );
 
-        const result = (await response.json()) as { message?: string };
-        if (!response.ok) {
-          throw new Error(result.message || "Unable to assign candidate to this job.");
-        }
+        await readAdminJsonResponse<JobApplication>(
+          response,
+          "Unable to assign candidate to this job."
+        );
 
         await refreshJobs();
         if (applicationsJob?.id === manualCandidateJob.id) {
@@ -1776,10 +1776,7 @@ Werkly Team`;
         body: JSON.stringify(payload),
       });
 
-      const result = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to add candidate.");
-      }
+      await readAdminJsonResponse<JobApplication>(response, "Unable to add candidate.");
 
       await refreshJobs();
       if (applicationsJob?.id === manualCandidateJob.id) {
