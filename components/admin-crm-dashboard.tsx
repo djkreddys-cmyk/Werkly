@@ -1151,11 +1151,21 @@ function CrmClientsList({
       return;
     }
 
+    if (viewMode === "leads" && onboardingFilter === "onboarded") {
+      setOnboardingFilter("lead-only");
+      return;
+    }
+
     window.localStorage.setItem("werklyClientsQuery", query);
     window.localStorage.setItem("werklyClientsStatus", statusFilter);
     window.localStorage.setItem(`werklyClientsOnboarding-${viewMode}`, onboardingFilter);
     window.localStorage.setItem(`werklyClientsFollowUp-${viewMode}`, followUpFilter);
   }, [followUpFilter, onboardingFilter, query, statusFilter, viewMode]);
+
+  useEffect(() => {
+    setPage(1);
+    setSelectedLeadIds([]);
+  }, [viewMode]);
 
   const filteredClients = useMemo(() => {
     return clients.filter((client) => {

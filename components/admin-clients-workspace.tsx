@@ -33,6 +33,22 @@ function getClientViewFromQuery() {
     : null;
 }
 
+function getClientViewFromPath() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (window.location.pathname.endsWith("/admin/clients/leads")) {
+    return "leads";
+  }
+
+  if (window.location.pathname.endsWith("/admin/clients/existing")) {
+    return "existing";
+  }
+
+  return null;
+}
+
 export function AdminClientsWorkspace({
   initialView = "leads",
 }: {
@@ -42,6 +58,11 @@ export function AdminClientsWorkspace({
     const queryView = getClientViewFromQuery();
     if (queryView) {
       return queryView;
+    }
+
+    const pathView = getClientViewFromPath();
+    if (pathView) {
+      return pathView;
     }
 
     if (typeof window === "undefined") {
