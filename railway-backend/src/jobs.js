@@ -1295,9 +1295,9 @@ export async function listJobApplications(jobId, employeeId = null, options = {}
      left join job_applications parent_application on parent_application.id = job_applications.parent_application_id
      left join employees uploader on uploader.id = job_applications.uploaded_by_employee_id
      left join employees follow_up_employee on follow_up_employee.id = job_applications.follow_up_employee_id
-     where job_id = $1
+     where job_applications.job_id = $1
        ${employeeScopeClause}
-     order by applied_at desc`,
+     order by job_applications.applied_at desc`,
     values
   );
 
