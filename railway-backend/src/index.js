@@ -1387,6 +1387,7 @@ app.post("/admin/candidate-enquiries", requirePermission("candidates.manage"), a
       preferredRole,
       currentCtc,
       expectedCtc,
+      noticePeriod,
       preferredLocation,
       preferredSector,
       candidateMessage,
