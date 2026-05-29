@@ -3528,9 +3528,23 @@ export function AdminClientsPanel({
         },
         body: JSON.stringify({
           ...clientForm,
+          companyName: clientForm.companyName.trim(),
+          contactPerson: clientForm.contactPerson.trim(),
+          contactEmail: clientForm.contactEmail.trim() || undefined,
+          contactPhone: clientForm.contactPhone.trim() || undefined,
+          secondaryContactPerson: clientForm.secondaryContactPerson.trim() || undefined,
+          secondaryContactEmail: clientForm.secondaryContactEmail.trim() || undefined,
+          secondaryContactPhone: clientForm.secondaryContactPhone.trim() || undefined,
+          communicationAddress: clientForm.communicationAddress.trim() || undefined,
+          sector: clientForm.sector.trim() || undefined,
+          branch: clientForm.branch.trim() || undefined,
           onboardingStatus:
             viewMode === "leads" ? "new-lead" : clientForm.onboardingStatus,
-          onboardingSource: clientForm.onboardingSource || undefined,
+          onboardingSource: clientForm.onboardingSource.trim() || undefined,
+          notes: clientForm.notes.trim() || undefined,
+          followUpNotes: clientForm.followUpNotes.trim() || undefined,
+          nextFollowUpDate: clientForm.nextFollowUpDate || undefined,
+          lastFollowUpDate: clientForm.lastFollowUpDate || undefined,
           agreementFileName:
             viewMode === "leads" ? undefined : clientForm.agreementFileName,
           agreementFileType:
