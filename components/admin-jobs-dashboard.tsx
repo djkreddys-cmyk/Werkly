@@ -193,18 +193,32 @@ const emptyManualCandidateForm: ManualCandidateState = {
   resumeFileData: "",
 };
 
+const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
+
+function toLocalDateKey(date = new Date()) {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 10);
+}
+
 function formatExportDate(value: string) {
-  return new Date(value).toLocaleDateString("en-GB");
+  const dateKey = toDateKey(value);
+  return dateKey ? new Date(`${dateKey}T00:00:00`).toLocaleDateString("en-GB") : "-";
 }
 
 function toDateKey(value?: string) {
-  if (!value) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) {
     return "";
   }
 
-  const date = new Date(value);
+  const directDateKey = rawValue.slice(0, 10);
+  if (dateKeyPattern.test(directDateKey)) {
+    return directDateKey;
+  }
+
+  const date = new Date(rawValue);
   if (Number.isNaN(date.getTime())) {
-    return String(value).slice(0, 10);
+    return "";
   }
 
   return date.toISOString().slice(0, 10);
@@ -212,6 +226,34 @@ function toDateKey(value?: string) {
 
 function getShortlistDateKey(application: JobApplication) {
   return toDateKey(application.stageDate || application.stageUpdatedAt || application.appliedAt);
+}
+
+function normalizeDateRange(fromDate?: string, toDate?: string) {
+  const normalizedFromDate = toDateKey(fromDate);
+  const normalizedToDate = toDateKey(toDate);
+
+  if (normalizedFromDate && normalizedToDate && normalizedFromDate > normalizedToDate) {
+    return { fromDate: normalizedToDate, toDate: normalizedFromDate };
+  }
+
+  return { fromDate: normalizedFromDate, toDate: normalizedToDate };
+}
+
+function getDefaultShortlistDateRange(applications: JobApplication[]) {
+  const shortlistDates = applications
+    .map((application) => getShortlistDateKey(application))
+    .filter(Boolean)
+    .sort();
+
+  if (!shortlistDates.length) {
+    const today = toLocalDateKey();
+    return { fromDate: today, toDate: today };
+  }
+
+  return {
+    fromDate: shortlistDates[0],
+    toDate: shortlistDates[shortlistDates.length - 1],
+  };
 }
 
 function isWithinDateRange(value: string, fromDate: string, toDate: string) {
@@ -837,14 +879,26 @@ export function AdminJobsDashboard({
 
   function buildShortlistDraftForJob(
     job: JobSummary,
-    fromDate = new Date().toISOString().slice(0, 10),
-    toDate = new Date().toISOString().slice(0, 10)
+    fromDate?: string,
+    toDate?: string
   ): ShortlistDraft {
     const jobApplications = allApplications.filter((application) => application.jobId === job.id);
+    const allShortlistedApplications = jobApplications.filter(
+      (application) => (application.stage ?? "applied") === "shortlisted"
+    );
+    const defaultDateRange = getDefaultShortlistDateRange(allShortlistedApplications);
+    const selectedDateRange = normalizeDateRange(
+      fromDate === undefined ? defaultDateRange.fromDate : fromDate,
+      toDate === undefined ? defaultDateRange.toDate : toDate
+    );
     const shortlistedApplications = jobApplications.filter(
       (application) =>
         (application.stage ?? "applied") === "shortlisted" &&
-        isWithinDateRange(getShortlistDateKey(application), fromDate, toDate)
+        isWithinDateRange(
+          getShortlistDateKey(application),
+          selectedDateRange.fromDate,
+          selectedDateRange.toDate
+        )
     );
     const client = clients.find((item) => item.id === job.clientId);
     const recipient = [client?.contactEmail, client?.secondaryContactEmail]
@@ -877,26 +931,22 @@ Werkly Team`;
       subject,
       body: emailBody,
       htmlBody,
-      fromDate,
-      toDate,
+      fromDate: selectedDateRange.fromDate,
+      toDate: selectedDateRange.toDate,
       count: shortlistedApplications.length,
       resumeCount: shortlistedApplications.filter(
         (application) =>
           (application.resumeAvailable || application.resumeFileData) &&
           application.resumeFileName
       ).length,
-      availableCount: jobApplications.filter(
-        (application) => (application.stage ?? "applied") === "shortlisted"
-      ).length,
+      availableCount: allShortlistedApplications.length,
       usedAllApplications: false,
       profiles: shortlistedApplications,
     };
   }
 
   function sendShortlistedProfilesToClient(job: JobSummary) {
-    const fromDate = new Date().toISOString().slice(0, 10);
-    const toDate = fromDate;
-    const draft = buildShortlistDraftForJob(job, fromDate, toDate);
+    const draft = buildShortlistDraftForJob(job);
 
     setError("");
     setShortlistError("");
@@ -904,7 +954,7 @@ Werkly Team`;
     setMessage(
       draft.count
         ? `Prepared ${draft.count} shortlisted profiles for client email.`
-        : "Choose a shortlist date range to prepare profiles for client email."
+        : "No shortlisted profiles found. Choose another shortlist date range if needed."
     );
   }
 

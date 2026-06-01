@@ -63,14 +63,27 @@ function formatNoticePeriod(value?: string) {
   return trimmed;
 }
 
+const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatExportDate(value: string) {
+  const dateKey = toDateKey(value);
+  return dateKey ? new Date(`${dateKey}T00:00:00`).toLocaleDateString("en-GB") : "-";
+}
+
 function toDateKey(value?: string) {
-  if (!value) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) {
     return "";
   }
 
-  const date = new Date(value);
+  const directDateKey = rawValue.slice(0, 10);
+  if (dateKeyPattern.test(directDateKey)) {
+    return directDateKey;
+  }
+
+  const date = new Date(rawValue);
   if (Number.isNaN(date.getTime())) {
-    return String(value).slice(0, 10);
+    return "";
   }
 
   return date.toISOString().slice(0, 10);
@@ -86,6 +99,17 @@ function isWithinDateRange(value: string, fromDate?: string, toDate?: string) {
   }
 
   return (!fromDate || value >= fromDate) && (!toDate || value <= toDate);
+}
+
+function normalizeDateRange(fromDate?: string, toDate?: string) {
+  const normalizedFromDate = toDateKey(fromDate);
+  const normalizedToDate = toDateKey(toDate);
+
+  if (normalizedFromDate && normalizedToDate && normalizedFromDate > normalizedToDate) {
+    return { fromDate: normalizedToDate, toDate: normalizedFromDate };
+  }
+
+  return { fromDate: normalizedFromDate, toDate: normalizedToDate };
 }
 
 function safeFileName(value: string) {
@@ -115,7 +139,7 @@ function buildShortlistReportAttachment(
       (application, index) => `
         <tr>
           <td>${escapeHtml(String(index + 1))}</td>
-          <td>${escapeHtml(new Date(getShortlistDateKey(application)).toLocaleDateString("en-GB"))}</td>
+          <td>${escapeHtml(formatExportDate(getShortlistDateKey(application)))}</td>
           <td>${escapeHtml(sanitizeExportCell(application.jobTitle || jobTitle))}</td>
           <td>${escapeHtml(sanitizeExportCell(application.candidateName))}</td>
           <td>${escapeHtml(sanitizeExportCell(application.candidatePhone))}</td>
@@ -254,8 +278,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const applications = await getJobApplications(id, token);
     const selectedApplicationIds = new Set((body.applicationIds ?? []).map(String));
-    const fromDate = String(body.fromDate || "").slice(0, 10);
-    const toDate = String(body.toDate || "").slice(0, 10);
+    const { fromDate, toDate } = normalizeDateRange(body.fromDate, body.toDate);
     const profilesToSend = applications.filter(
       (application) =>
         (application.stage ?? "applied") === "shortlisted" &&
