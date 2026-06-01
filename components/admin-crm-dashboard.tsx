@@ -1162,6 +1162,7 @@ function CrmClientsList({
   const [bulkFollowUpNotes, setBulkFollowUpNotes] = useState("");
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [isSavingBulkLeadFollowUp, setIsSavingBulkLeadFollowUp] = useState(false);
+  const showFollowUpTracking = viewMode === "leads";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1198,8 +1199,10 @@ function CrmClientsList({
     window.localStorage.setItem("werklyClientsQuery", query);
     window.localStorage.setItem("werklyClientsStatus", statusFilter);
     window.localStorage.setItem(`werklyClientsOnboarding-${viewMode}`, onboardingFilter);
-    window.localStorage.setItem(`werklyClientsFollowUp-${viewMode}`, followUpFilter);
-  }, [followUpFilter, onboardingFilter, query, statusFilter, viewMode]);
+    if (showFollowUpTracking) {
+      window.localStorage.setItem(`werklyClientsFollowUp-${viewMode}`, followUpFilter);
+    }
+  }, [followUpFilter, onboardingFilter, query, showFollowUpTracking, statusFilter, viewMode]);
 
   useEffect(() => {
     setPage(1);
@@ -1238,11 +1241,13 @@ function CrmClientsList({
 
       const safeFollowUpStatus = normalizeClientFollowUpStatus(client.followUpStatus);
       const matchesFollowUp =
-        followUpFilter === "all" ? true : safeFollowUpStatus === followUpFilter;
+        !showFollowUpTracking || followUpFilter === "all"
+          ? true
+          : safeFollowUpStatus === followUpFilter;
 
       return matchesQuery && matchesStatus && matchesOnboarding && matchesFollowUp;
     });
-  }, [clients, followUpFilter, onboardingFilter, query, statusFilter, viewMode]);
+  }, [clients, followUpFilter, onboardingFilter, query, showFollowUpTracking, statusFilter, viewMode]);
 
   const pageSize = 8;
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / pageSize));
@@ -1282,7 +1287,7 @@ function CrmClientsList({
           <th>Contact</th>
           <th>Owner</th>
           <th>Onboarding</th>
-          <th>Follow-Up</th>
+          ${showFollowUpTracking ? "<th>Follow-Up</th>" : ""}
           <th>Jobs</th>
           <th>Status</th>
         </tr>
@@ -1295,9 +1300,13 @@ function CrmClientsList({
               <td>${[client.contactPerson, client.secondaryContactPerson].filter(Boolean).join(" / ")}</td>
               <td>${client.assignedEmployeeName || "Not assigned"}</td>
               <td>${client.onboardingStatus || "new-lead"}</td>
-              <td>${formatClientStageLabel(
-                normalizeClientFollowUpStatus(client.followUpStatus)
-              )}</td>
+              ${
+                showFollowUpTracking
+                  ? `<td>${formatClientStageLabel(
+                      normalizeClientFollowUpStatus(client.followUpStatus)
+                    )}</td>`
+                  : ""
+              }
               <td>${client.linkedJobsCount}</td>
               <td>${client.status}</td>
             </tr>`
@@ -1346,9 +1355,17 @@ function CrmClientsList({
             query,
             statusFilter,
             onboardingFilter,
-            followUpFilter,
+            ...(showFollowUpTracking ? { followUpFilter } : {}),
           },
-          columns: ["client", "contact", "owner", "onboarding", "followUp", "jobs", "status"],
+          columns: [
+            "client",
+            "contact",
+            "owner",
+            "onboarding",
+            ...(showFollowUpTracking ? ["followUp"] : []),
+            "jobs",
+            "status",
+          ],
         }),
       });
     } catch {
@@ -1565,21 +1582,23 @@ function CrmClientsList({
               <option value="hold">Hold</option>
             </select>
           ) : null}
-          <select
-            value={followUpFilter}
-            onChange={(event) => {
-              setFollowUpFilter(event.target.value);
-              setPage(1);
-            }}
-            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-          >
-            <option value="all">All follow-ups</option>
-            {getClientFollowUpOptions(viewMode === "leads").map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+          {showFollowUpTracking ? (
+            <select
+              value={followUpFilter}
+              onChange={(event) => {
+                setFollowUpFilter(event.target.value);
+                setPage(1);
+              }}
+              className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+            >
+              <option value="all">All follow-ups</option>
+              {getClientFollowUpOptions(true).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <button
             type="button"
             onClick={exportCurrentView}
@@ -1658,7 +1677,7 @@ function CrmClientsList({
                       "Contact",
                       "Owner",
                       "Onboarding",
-                      "Follow-Up",
+                      ...(showFollowUpTracking ? ["Follow-Up"] : []),
                       "Jobs",
                       "Status",
                       "Agreement",
@@ -1752,21 +1771,23 @@ function CrmClientsList({
                           {client.onboardingSource || "Source not added"}
                         </p>
                       </td>
-                      <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                        <p className="font-semibold text-[var(--color-ink)]">
-                          {formatClientStageLabel(
-                            normalizeClientFollowUpStatus(client.followUpStatus)
-                          )}
-                        </p>
-                        <p className="mt-1 text-xs">
-                          Next: {client.nextFollowUpDate || "Not scheduled"}
-                        </p>
-                        {client.followUpNotes ? (
-                          <p className="mt-1 max-w-[220px] text-xs leading-5">
-                            {client.followUpNotes}
+                      {showFollowUpTracking ? (
+                        <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                          <p className="font-semibold text-[var(--color-ink)]">
+                            {formatClientStageLabel(
+                              normalizeClientFollowUpStatus(client.followUpStatus)
+                            )}
                           </p>
-                        ) : null}
-                      </td>
+                          <p className="mt-1 text-xs">
+                            Next: {client.nextFollowUpDate || "Not scheduled"}
+                          </p>
+                          {client.followUpNotes ? (
+                            <p className="mt-1 max-w-[220px] text-xs leading-5">
+                              {client.followUpNotes}
+                            </p>
+                          ) : null}
+                        </td>
+                      ) : null}
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
                         <button
                           type="button"
