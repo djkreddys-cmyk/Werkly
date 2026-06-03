@@ -1458,7 +1458,7 @@ export function AdminDashboardOverview() {
                   type="button"
                   onClick={() => {
                     setVisibleMonth(parseDateKey(item.nextFollowUpDate));
-                    if (item.ownerId) {
+                    if (isEmployeeSession && item.ownerId) {
                       setSelectedEmployeeId(item.ownerId);
                     }
                     openDateDetails(item.nextFollowUpDate);
