@@ -1842,6 +1842,16 @@ export async function updateClientFollowUp(clientId, payload) {
   }
 
   await query(
+    `update notification_logs
+        set is_read = true,
+            read_at = coalesce(read_at, now()),
+            updated_at = now()
+      where notification_key = $1
+        and is_read = false`,
+    [`sla-client-follow-up-overdue-${clientId}`]
+  );
+
+  await query(
     `insert into client_follow_up_history (
       client_id,
       actor_employee_id,

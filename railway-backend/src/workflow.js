@@ -765,6 +765,20 @@ export async function runSlaEscalations() {
       [clientRule.thresholdDays]
     );
 
+    const activeClientOverdueKeys = clientRows.rows.map(
+      (row) => `sla-client-follow-up-overdue-${row.id}`
+    );
+    await query(
+      `update notification_logs
+          set is_read = true,
+              read_at = coalesce(read_at, now()),
+              updated_at = now()
+        where notification_key like 'sla-client-follow-up-overdue-%'
+          and is_read = false
+          and not (notification_key = any($1::text[]))`,
+      [activeClientOverdueKeys]
+    );
+
     for (const row of clientRows.rows) {
       await upsertNotification({
         notificationKey: `sla-client-follow-up-overdue-${row.id}`,
