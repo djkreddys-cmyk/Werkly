@@ -60,6 +60,9 @@ type ClientFormState = {
   communicationAddress: string;
   sector: string;
   branch: string;
+  billingTerms: string;
+  gstNumber: string;
+  panNumber: string;
   assignedEmployeeId: string;
   status: ClientStatus;
   onboardingStatus: ClientOnboardingStatus;
@@ -171,6 +174,9 @@ const emptyClientForm: ClientFormState = {
   communicationAddress: "",
   sector: "",
   branch: "",
+  billingTerms: "",
+  gstNumber: "",
+  panNumber: "",
   assignedEmployeeId: "",
   status: "active",
   onboardingStatus: "onboarded",
@@ -236,7 +242,9 @@ function buildOnboardingChecklist(
     | "assignedEmployeeId"
     | "agreementFileData"
     | "agreementFileName"
-    | "notes"
+    | "billingTerms"
+    | "gstNumber"
+    | "panNumber"
   >,
   linkedJobsCount = 0
 ) {
@@ -253,7 +261,7 @@ function buildOnboardingChecklist(
     },
     {
       label: "Billing terms",
-      complete: /\bbilling\b|\bpayment\b|\bterms?\b|\bcommercial\b/i.test(form.notes),
+      complete: Boolean(form.billingTerms.trim() && form.gstNumber.trim() && form.panNumber.trim()),
     },
     {
       label: "First job",
@@ -280,6 +288,9 @@ function buildClientPayload(form: ClientFormState, overrides: Partial<ClientForm
     communicationAddress: trimmedOptional(merged.communicationAddress),
     sector: trimmedOptional(merged.sector),
     branch: trimmedOptional(merged.branch),
+    billingTerms: trimmedOptional(merged.billingTerms),
+    gstNumber: trimmedOptional(merged.gstNumber),
+    panNumber: trimmedOptional(merged.panNumber),
     assignedEmployeeId: merged.assignedEmployeeId || undefined,
     onboardingSource: trimmedOptional(merged.onboardingSource),
     notes: trimmedOptional(merged.notes),
@@ -3568,6 +3579,9 @@ export function AdminClientsPanel({
       communicationAddress: client.communicationAddress || "",
       sector: client.sector || "",
       branch: client.branch || "",
+      billingTerms: client.billingTerms || "",
+      gstNumber: client.gstNumber || "",
+      panNumber: client.panNumber || "",
       assignedEmployeeId: client.assignedEmployeeId || "",
       status: client.status || "active",
       onboardingStatus: onboardingStatus || client.onboardingStatus || "new-lead",
@@ -4599,6 +4613,41 @@ export function AdminClientsPanel({
                 onChange={(event) => updateClientField("branch", event.target.value)}
               />
             </label>
+            {viewMode !== "leads" ? (
+              <>
+                <label className="block">
+                  <span className={clientFormLabelClassName}>GST Number</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="GST number"
+                    value={clientForm.gstNumber}
+                    onChange={(event) =>
+                      updateClientField("gstNumber", event.target.value.toUpperCase())
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className={clientFormLabelClassName}>PAN Number</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="PAN number"
+                    value={clientForm.panNumber}
+                    onChange={(event) =>
+                      updateClientField("panNumber", event.target.value.toUpperCase())
+                    }
+                  />
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className={clientFormLabelClassName}>Billing Terms / Commercial Terms</span>
+                  <textarea
+                    className={`${fieldClassName} min-h-[104px] resize-y`}
+                    placeholder="Commercial terms, fee percentage, replacement period, payment timeline, invoice notes"
+                    value={clientForm.billingTerms}
+                    onChange={(event) => updateClientField("billingTerms", event.target.value)}
+                  />
+                </label>
+              </>
+            ) : null}
             {viewMode === "leads" ? (
               <label className="block">
                 <span className={clientFormLabelClassName}>Lead Source</span>
@@ -4953,6 +5002,46 @@ export function AdminClientsPanel({
                     value={leadOnboardingForm.branch}
                     onChange={(event) =>
                       updateLeadOnboardingField("branch", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    GST Number
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.gstNumber}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("gstNumber", event.target.value.toUpperCase())
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    PAN Number
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.panNumber}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("panNumber", event.target.value.toUpperCase())
+                    }
+                  />
+                </label>
+
+                <label className="block sm:col-span-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Billing Terms / Commercial Terms
+                  </span>
+                  <textarea
+                    className="mt-2 min-h-[104px] w-full resize-y rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    placeholder="Commercial terms, fee percentage, replacement period, payment timeline, invoice notes"
+                    value={leadOnboardingForm.billingTerms}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("billingTerms", event.target.value)
                     }
                   />
                 </label>

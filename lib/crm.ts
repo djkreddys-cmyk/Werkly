@@ -133,6 +133,9 @@ export type ClientRecord = {
   communicationAddress?: string;
   sector?: string;
   branch?: string;
+  billingTerms?: string;
+  gstNumber?: string;
+  panNumber?: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
   followUpEmployeeId?: string;
@@ -376,6 +379,9 @@ export type ClientFormPayload = {
   communicationAddress?: string;
   sector?: string;
   branch?: string;
+  billingTerms?: string;
+  gstNumber?: string;
+  panNumber?: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
   status: ClientStatus;
