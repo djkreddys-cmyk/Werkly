@@ -476,6 +476,7 @@ export function AdminJobsDashboard({
   const [recruiterFilter, setRecruiterFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [jobsPage, setJobsPage] = useState(1);
+  const [jobsPageSize, setJobsPageSize] = useState(8);
   const [stageDraft, setStageDraft] = useState<{
     application: JobApplication;
     stage: JobApplicationStage;
@@ -878,12 +879,11 @@ export function AdminJobsDashboard({
     }
   }, [clientFilter, recruiterClientOptions]);
 
-  const jobsPageSize = 8;
   const jobsPageCount = Math.max(1, Math.ceil(filteredJobs.length / jobsPageSize));
   const paginatedJobs = useMemo(
     () =>
       filteredJobs.slice((jobsPage - 1) * jobsPageSize, jobsPage * jobsPageSize),
-    [filteredJobs, jobsPage]
+    [filteredJobs, jobsPage, jobsPageSize]
   );
 
   function isLiveOnWebsite(job: JobSummary) {
@@ -1657,6 +1657,17 @@ Werkly Team`;
       return;
     }
 
+    if (nextStatus === "paused" || nextStatus === "closed") {
+      const confirmed = window.confirm(
+        `${nextStatus === "paused" ? "Pause" : "Close"} job "${job.title}"${
+          job.jobCode ? ` (${job.jobCode})` : ""
+        }?`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setError("");
     setMessage("");
     setActionMenuJobId("");
@@ -2329,7 +2340,9 @@ Werkly Team`;
                     ].map((heading) => (
                       <th
                         key={heading}
-                        className={`whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${jobsTableColumnClassName[heading]}`}
+                        className={`whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
+                          heading === "Job" ? "sticky left-0 z-20 bg-[#f3f8f9] shadow-[1px_0_0_var(--color-line)]" : ""
+                        } ${jobsTableColumnClassName[heading]}`}
                       >
                         {heading}
                       </th>
@@ -2349,7 +2362,7 @@ Werkly Team`;
                           : "align-top border-b border-[var(--color-line)]"
                       }
                     >
-                      <td className="px-4 py-4 align-top">
+                      <td className="sticky left-0 z-10 bg-white px-4 py-4 align-top shadow-[1px_0_0_var(--color-line)]">
                         <p className="whitespace-normal break-words font-semibold leading-6 text-[var(--color-ink)]">
                           {job.title}
                         </p>
@@ -2539,7 +2552,24 @@ Werkly Team`;
               Showing {(jobsPage - 1) * jobsPageSize + 1}-
               {Math.min(jobsPage * jobsPageSize, filteredJobs.length)} of {filteredJobs.length} jobs
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
+                Rows
+                <select
+                  value={jobsPageSize}
+                  onChange={(event) => {
+                    setJobsPageSize(Number(event.target.value));
+                    setJobsPage(1);
+                  }}
+                  className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  {[8, 15, 25, 50].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 onClick={() => setJobsPage((current) => Math.max(1, current - 1))}

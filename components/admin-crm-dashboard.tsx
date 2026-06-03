@@ -1309,12 +1309,12 @@ function CrmClientsList({
     });
   }, [clients, followUpFilter, onboardingFilter, query, showFollowUpTracking, statusFilter, viewMode]);
 
-  const pageSize = 8;
+  const [pageSize, setPageSize] = useState(8);
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / pageSize));
   const activePage = Math.min(page, pageCount);
   const paginatedClients = useMemo(
     () => filteredClients.slice((activePage - 1) * pageSize, activePage * pageSize),
-    [activePage, filteredClients]
+    [activePage, filteredClients, pageSize]
   );
 
   const allVisibleLeadIds = useMemo(
@@ -1799,7 +1799,13 @@ function CrmClientsList({
                     ].map((heading) => (
                       <th
                         key={heading}
-                        className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        className={`whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
+                          heading === "Select"
+                            ? "sticky left-0 z-30 w-12 bg-[#f3f8f9] shadow-[1px_0_0_var(--color-line)]"
+                            : heading === "Client"
+                              ? `sticky ${viewMode === "leads" && isSuperAdmin ? "left-12" : "left-0"} z-20 bg-[#f3f8f9] shadow-[1px_0_0_var(--color-line)]`
+                              : ""
+                        }`}
                       >
                         {heading === "Select" ? (
                           <input
@@ -1831,7 +1837,7 @@ function CrmClientsList({
                       }
                     >
                       {viewMode === "leads" && isSuperAdmin ? (
-                        <td className="px-4 py-4 align-top">
+                        <td className="sticky left-0 z-20 bg-white px-4 py-4 align-top shadow-[1px_0_0_var(--color-line)]">
                           <input
                             type="checkbox"
                             checked={selectedLeadIds.includes(client.id)}
@@ -1846,7 +1852,7 @@ function CrmClientsList({
                           />
                         </td>
                       ) : null}
-                      <td className="px-4 py-4">
+                      <td className={`sticky ${viewMode === "leads" && isSuperAdmin ? "left-12" : "left-0"} z-10 bg-white px-4 py-4 shadow-[1px_0_0_var(--color-line)]`}>
                         <Link
                           href={`/admin/clients/${client.id}`}
                           className="font-semibold text-[var(--color-ink)] transition hover:text-[var(--color-dark)]"
@@ -2002,7 +2008,24 @@ function CrmClientsList({
               Showing {(activePage - 1) * pageSize + 1}-{Math.min(activePage * pageSize, filteredClients.length)} of{" "}
               {filteredClients.length} clients
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
+                Rows
+                <select
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  {[8, 15, 25, 50].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
@@ -3954,6 +3977,13 @@ export function AdminClientsPanel({
       return;
     }
 
+    const confirmed = window.confirm(
+      `Convert lead "${client.companyName}" to an onboarded client?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
     setClientDetailsMode("convert");
     setLeadOnboardingClient(client);
     setLeadOnboardingForm(buildClientFormFromRecord(client, "onboarded"));
@@ -4057,6 +4087,15 @@ export function AdminClientsPanel({
       return;
     }
 
+    const confirmed = window.confirm(
+      `${action === "assign" ? "Assign" : "Unassign"} ${clientIds.length} selected lead${
+        clientIds.length === 1 ? "" : "s"
+      }?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
     setError("");
     setMessage("");
 
@@ -4122,6 +4161,15 @@ export function AdminClientsPanel({
 
     if (clientIds.length === 0) {
       setError("Please select at least one lead.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Update follow-up details for ${clientIds.length} selected lead${
+        clientIds.length === 1 ? "" : "s"
+      }?`
+    );
+    if (!confirmed) {
       return;
     }
 

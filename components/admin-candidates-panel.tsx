@@ -798,11 +798,11 @@ export function AdminCandidatesPanel() {
     setPage(1);
   }, [query, stageFilter, visibleApplications.length]);
 
-  const pageSize = 8;
+  const [pageSize, setPageSize] = useState(8);
   const pageCount = Math.max(1, Math.ceil(filteredApplications.length / pageSize));
   const paginatedApplications = useMemo(
     () => filteredApplications.slice((page - 1) * pageSize, page * pageSize),
-    [filteredApplications, page]
+    [filteredApplications, page, pageSize]
   );
   const selectedMatchJob = useMemo(
     () => visibleJobs.find((job) => job.id === matchJobId) ?? visibleJobs[0],
@@ -1858,6 +1858,8 @@ export function AdminCandidatesPanel() {
                       <th
                         key={heading}
                         className={`whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
+                          heading === "Candidate" ? "sticky left-0 z-20 bg-[#f3f8f9] shadow-[1px_0_0_var(--color-line)]" : ""
+                        } ${
                           heading === "Actions" ? "w-[240px] min-w-[240px]" : ""
                         }`}
                       >
@@ -1881,7 +1883,7 @@ export function AdminCandidatesPanel() {
                           : "align-top border-b border-[var(--color-line)]"
                       }
                     >
-                      <td className="px-4 py-4">
+                      <td className="sticky left-0 z-10 bg-white px-4 py-4 shadow-[1px_0_0_var(--color-line)]">
                         <button
                           type="button"
                           onClick={() => setEditingApplication(application)}
@@ -2064,7 +2066,24 @@ export function AdminCandidatesPanel() {
               Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filteredApplications.length)} of{" "}
               {filteredApplications.length} candidates
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
+                Rows
+                <select
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                >
+                  {[8, 15, 25, 50].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 onClick={() => setPage((current) => Math.max(1, current - 1))}

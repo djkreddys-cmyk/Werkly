@@ -279,6 +279,19 @@ function FollowUpStatusPill({ status }: { status: ClientFollowUpStatus }) {
   );
 }
 
+function followUpMetricClassName(label: string) {
+  if (label.toLowerCase().includes("overdue")) {
+    return "border-[rgba(190,72,26,0.24)] bg-[rgba(190,72,26,0.06)] text-[var(--color-accent-strong)]";
+  }
+  if (label.toLowerCase().includes("today")) {
+    return "border-[rgba(241,166,75,0.34)] bg-[rgba(241,166,75,0.1)] text-[var(--color-accent-strong)]";
+  }
+  if (label.toLowerCase().includes("tomorrow")) {
+    return "border-[rgba(8,96,108,0.2)] bg-[rgba(8,96,108,0.07)] text-[var(--color-dark)]";
+  }
+  return "border-[var(--color-line)] bg-white text-[var(--color-ink)]";
+}
+
 export function AdminDashboardOverview() {
   const router = useRouter();
   const [token] = useState(
@@ -338,6 +351,7 @@ export function AdminDashboardOverview() {
       : "unsupported"
   );
   const [viewMessage, setViewMessage] = useState("");
+  const [isOverdueDrawerOpen, setIsOverdueDrawerOpen] = useState(false);
   const isAdminView = authType === "admin" || authRole === "super-admin";
   const isEmployeeSession = authType === "employee" || Boolean(authEmployeeCode);
   const activeDateKey = normalizeDateKey(selectedDateKey) || todayKey;
@@ -581,6 +595,44 @@ export function AdminDashboardOverview() {
     [activeDateKey, filteredFollowUps]
   );
 
+  const overdueFollowUps = useMemo(
+    () =>
+      filteredFollowUps.filter(
+        (item) =>
+          item.nextFollowUpDate < todayKey &&
+          normalizeGeneralClientFollowUpStatus(item.followUpStatus) !== "closed"
+      ),
+    [filteredFollowUps, todayKey]
+  );
+
+  const todayFollowUps = useMemo(
+    () =>
+      filteredFollowUps.filter(
+        (item) =>
+          item.nextFollowUpDate === todayKey &&
+          normalizeGeneralClientFollowUpStatus(item.followUpStatus) !== "closed"
+      ),
+    [filteredFollowUps, todayKey]
+  );
+
+  const tomorrowKey = useMemo(
+    () =>
+      formatLocalDateKey(
+        new Date(parseDateKey(todayKey).getTime() + 1000 * 60 * 60 * 24)
+      ),
+    [todayKey]
+  );
+
+  const tomorrowFollowUps = useMemo(
+    () =>
+      filteredFollowUps.filter(
+        (item) =>
+          item.nextFollowUpDate === tomorrowKey &&
+          normalizeGeneralClientFollowUpStatus(item.followUpStatus) !== "closed"
+      ),
+    [filteredFollowUps, tomorrowKey]
+  );
+
   const upcomingFollowUps = useMemo(
     () => filteredFollowUps.filter((item) => item.nextFollowUpDate >= todayKey).slice(0, 8),
     [filteredFollowUps, todayKey]
@@ -632,9 +684,6 @@ export function AdminDashboardOverview() {
     const staleClients = visibleClients.filter(
       (client) => !normalizeDateKey(client.lastFollowUpDate) && normalizeDateKey(client.nextFollowUpDate)
     ).length;
-    const tomorrowKey = formatLocalDateKey(
-      new Date(parseDateKey(todayKey).getTime() + 1000 * 60 * 60 * 24)
-    );
     const tomorrowFollowUps = filteredFollowUps.filter(
       (item) => item.nextFollowUpDate === tomorrowKey && normalizeGeneralClientFollowUpStatus(item.followUpStatus) !== "closed"
     ).length;
@@ -669,7 +718,7 @@ export function AdminDashboardOverview() {
         detail: "Sensitive workflow actions that still need admin review.",
       },
     ];
-  }, [filteredFollowUps, state.approvals, todayKey, visibleApplications, visibleClients, visibleJobs]);
+  }, [filteredFollowUps, state.approvals, tomorrowKey, visibleApplications, visibleClients, visibleJobs]);
 
   const followUpCountsByDate = useMemo(() => {
     return filteredFollowUps.reduce<Record<string, number>>((accumulator, item) => {
@@ -825,24 +874,14 @@ export function AdminDashboardOverview() {
       return new Date(job.lastDateToApply) >= new Date();
     });
 
-    const overdueFollowUps = filteredFollowUps.filter(
-      (item) => item.nextFollowUpDate < todayKey && normalizeGeneralClientFollowUpStatus(item.followUpStatus) !== "closed"
-    ).length;
-    const dueTodayFollowUps = filteredFollowUps.filter(
-      (item) => item.nextFollowUpDate === todayKey && normalizeGeneralClientFollowUpStatus(item.followUpStatus) !== "closed"
-    ).length;
+    const dueTodayFollowUps = todayFollowUps.length;
     const upcomingSevenDays = filteredFollowUps.filter((item) => {
       const diff =
         (parseDateKey(item.nextFollowUpDate).getTime() - parseDateKey(todayKey).getTime()) /
         (1000 * 60 * 60 * 24);
       return diff >= 0 && diff <= 7;
     }).length;
-    const tomorrowKey = formatLocalDateKey(
-      new Date(parseDateKey(todayKey).getTime() + 1000 * 60 * 60 * 24)
-    );
-    const dueTomorrowFollowUps = filteredFollowUps.filter(
-      (item) => item.nextFollowUpDate === tomorrowKey && normalizeGeneralClientFollowUpStatus(item.followUpStatus) !== "closed"
-    ).length;
+    const dueTomorrowFollowUps = tomorrowFollowUps.length;
     const pendingApprovalCount = state.approvals.filter(
       (approval) => approval.requestStatus === "pending"
     ).length;
@@ -878,7 +917,7 @@ export function AdminDashboardOverview() {
       activeClients: visibleClients.filter((client) => client.status === "active").length,
       activeEmployees: visibleEmployees.filter((employee) => employee.status === "active").length,
       dueTodayFollowUps,
-      overdueFollowUps,
+      overdueFollowUps: overdueFollowUps.length,
       dueTomorrowFollowUps,
       upcomingSevenDays,
       pendingApprovalCount,
@@ -931,9 +970,12 @@ export function AdminDashboardOverview() {
   }, [
     filteredFollowUps,
     followUpItems,
+    overdueFollowUps.length,
     state.approvals,
     state.leaveRequests,
     todayKey,
+    todayFollowUps.length,
+    tomorrowFollowUps.length,
     visibleApplications,
     visibleClients,
     visibleEmployees,
@@ -1119,13 +1161,74 @@ export function AdminDashboardOverview() {
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-3">
         {reminderItems.map((item) => (
-          <article key={item.label} className="accent-card p-5">
+          <article key={item.label} className={`rounded-[1.25rem] border p-5 shadow-[0_14px_36px_rgba(15,23,42,0.07)] ${followUpMetricClassName(item.label)}`}>
             <p className="eyebrow">{item.label}</p>
-            <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">{item.value}</p>
-            <p className="muted-copy mt-3 text-sm leading-6">{item.detail}</p>
+            <p className="mt-3 text-3xl font-semibold">{item.value}</p>
+            <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">{item.detail}</p>
+            {item.label === "Overdue Follow-Ups" && item.value > 0 ? (
+              <button
+                type="button"
+                onClick={() => setIsOverdueDrawerOpen(true)}
+                className="mt-4 rounded-xl border border-[rgba(190,72,26,0.22)] bg-white/80 px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
+              >
+                Open Overdue Drawer
+              </button>
+            ) : null}
           </article>
         ))}
       </section>
+
+      {isEmployeeSession ? (
+        <section className="accent-card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow">My Work Today</p>
+              <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+                Your assigned follow-up focus for today
+              </h2>
+              <p className="muted-copy mt-2 text-sm leading-6">
+                Open overdue, today, and tomorrow follow-ups without changing the wider dashboard view.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/admin/clients/existing")}
+              className="rounded-xl border border-[var(--color-line)] px-4 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+            >
+              Open My Clients
+            </button>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {[
+              {
+                label: "Overdue",
+                value: overdueFollowUps.length,
+                onClick: () => setIsOverdueDrawerOpen(true),
+              },
+              {
+                label: "Due Today",
+                value: todayFollowUps.length,
+                onClick: () => openDateDetails(todayKey),
+              },
+              {
+                label: "Due Tomorrow",
+                value: tomorrowFollowUps.length,
+                onClick: () => openDateDetails(tomorrowKey),
+              },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={item.onClick}
+                className={`rounded-[1.15rem] border p-4 text-left transition hover:-translate-y-0.5 ${followUpMetricClassName(item.label)}`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]">{item.label}</p>
+                <p className="mt-2 text-3xl font-semibold">{item.value}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="accent-card flex flex-wrap items-center justify-between gap-4 p-5">
         <div>
@@ -1621,7 +1724,7 @@ export function AdminDashboardOverview() {
                         </div>
                         <div className="mt-0.5">
                           {count > 0 ? (
-                            <span className="inline-flex rounded-full bg-[rgba(190,72,26,0.12)] px-1 py-0.5 text-[8px] font-semibold text-[var(--color-accent-strong)]">
+                            <span className="inline-flex min-w-5 justify-center rounded-full bg-[rgba(190,72,26,0.14)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--color-accent-strong)] ring-1 ring-[rgba(190,72,26,0.18)]">
                               {count}
                             </span>
                           ) : null}
@@ -1918,6 +2021,84 @@ export function AdminDashboardOverview() {
           )}
         </article>
       </section>
+
+      {isOverdueDrawerOpen ? (
+        <div className="fixed inset-0 z-[135] flex justify-end bg-slate-950/45">
+          <aside className="flex h-full w-full max-w-xl flex-col border-l border-[var(--color-line)] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+            <div className="border-b border-[var(--color-line)] px-5 py-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="eyebrow">Overdue Follow-Ups</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">
+                    {overdueFollowUps.length} pending actions
+                  </h3>
+                  <p className="muted-copy mt-2 text-sm leading-6">
+                    Review overdue client commitments from the current dashboard filters.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsOverdueDrawerOpen(false)}
+                  className="rounded-full border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 space-y-3 overflow-y-auto p-5">
+              {overdueFollowUps.length === 0 ? (
+                <div className="rounded-[1.25rem] border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-5">
+                  <p className="font-semibold text-[var(--color-ink)]">No overdue follow-ups</p>
+                  <p className="muted-copy mt-2 text-sm leading-6">
+                    The current employee and status filters do not have overdue client follow-ups.
+                  </p>
+                </div>
+              ) : (
+                overdueFollowUps.map((item) => (
+                  <article
+                    key={item.id}
+                    className="rounded-[1.25rem] border border-[rgba(190,72,26,0.16)] bg-[rgba(190,72,26,0.04)] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-[var(--color-ink)]">{item.clientName}</p>
+                        <p className="mt-1 text-sm text-[var(--color-muted)]">{item.ownerName}</p>
+                      </div>
+                      <FollowUpStatusPill status={item.followUpStatus} />
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm text-[var(--color-muted)] sm:grid-cols-2">
+                      <span>Due {formatDateLabel(item.nextFollowUpDate)}</span>
+                      <span>{item.contactPhone || item.contactEmail || item.contactPerson}</span>
+                    </div>
+                    <p className="mt-3 rounded-2xl bg-white px-3 py-2 text-sm leading-6 text-[var(--color-muted)]">
+                      {item.notes || "No follow-up remarks added yet."}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/admin/clients/${item.id}`)}
+                        className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                      >
+                        Open Client
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsOverdueDrawerOpen(false);
+                          openDateDetails(item.nextFollowUpDate);
+                        }}
+                        className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                      >
+                        Open Date
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       {isDateModalOpen ? (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-4">
