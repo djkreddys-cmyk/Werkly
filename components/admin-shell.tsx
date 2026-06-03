@@ -842,7 +842,7 @@ export function AdminShell({
       <div className="crm-shell-bg min-h-screen">
         <div className="min-h-screen">
           <header className="crm-topbar text-white">
-            <div className="mx-auto w-full max-w-[1800px] px-5 py-4 sm:px-8">
+            <div className="mx-auto w-full max-w-none px-3 py-4 sm:px-4 lg:px-5 2xl:px-6">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-5 lg:gap-8">
                   <div className="flex items-center">
@@ -862,7 +862,7 @@ export function AdminShell({
             </div>
           </header>
 
-        <main className="mx-auto w-full max-w-[1800px] px-5 py-6 sm:px-8 sm:py-8">
+        <main className="mx-auto w-full max-w-none px-3 py-5 sm:px-4 sm:py-6 lg:px-5 2xl:px-6">
           <section className="crm-panel overflow-hidden">
             <div className="crm-page-header border-b border-[var(--color-line)] px-6 py-6 sm:px-8">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
@@ -880,7 +880,7 @@ export function AdminShell({
                 </div>
               </div>
 
-              <div className="px-5 py-8 sm:px-8 sm:py-10">
+              <div className="px-4 py-6 sm:px-5 sm:py-8 lg:px-6">
                 <div className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-6">
                   <p className="muted-copy text-sm">Loading workspace...</p>
                 </div>
@@ -1114,7 +1114,7 @@ export function AdminShell({
     <div className="crm-shell-bg min-h-screen">
       <div className="min-h-screen">
         <header className="crm-topbar text-white">
-          <div className="mx-auto w-full max-w-[1800px] px-5 py-4 sm:px-8">
+          <div className="mx-auto w-full max-w-none px-3 py-4 sm:px-4 lg:px-5 2xl:px-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-wrap items-center gap-4 lg:gap-8 xl:min-w-[620px]">
                 <div className="flex items-center gap-4">
@@ -1523,7 +1523,7 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1800px] px-5 py-6 sm:px-8 sm:py-8">
+        <main className="mx-auto w-full max-w-none px-3 py-5 sm:px-4 sm:py-6 lg:px-5 2xl:px-6">
           <section className="crm-panel overflow-hidden">
             <div className="crm-page-header border-b border-[var(--color-line)] px-6 py-5 sm:px-8">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
@@ -1550,7 +1550,7 @@ export function AdminShell({
               </div>
             </div>
 
-            <div className="px-5 py-8 sm:px-8 sm:py-10">{children}</div>
+            <div className="px-4 py-6 sm:px-5 sm:py-8 lg:px-6">{children}</div>
           </section>
         </main>
         {isChangePasswordOpen ? (
