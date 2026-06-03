@@ -313,6 +313,8 @@ export function AdminShell({
   const [isSearchIndexLoading, setIsSearchIndexLoading] = useState(false);
   const [hasLoadedSearchIndex, setHasLoadedSearchIndex] = useState(false);
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
+  const [isRunningReminderCheck, setIsRunningReminderCheck] = useState(false);
+  const [notificationReloadTick, setNotificationReloadTick] = useState(0);
   const [notificationError, setNotificationError] = useState("");
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("unread");
   const [notificationCategoryFilter, setNotificationCategoryFilter] = useState("all");
@@ -654,7 +656,7 @@ export function AdminShell({
       isMounted = false;
       window.clearInterval(refreshId);
     };
-  }, [isHydrated, pathname, showMenu, token]);
+  }, [isHydrated, notificationReloadTick, pathname, showMenu, token]);
 
   useEffect(() => {
     const normalizedQuery = searchQuery.trim();
@@ -1008,6 +1010,38 @@ export function AdminShell({
     }
   }
 
+  async function runReminderCheck() {
+    if (!token) {
+      setNotificationError("Please sign in again to refresh reminders.");
+      return;
+    }
+
+    setIsRunningReminderCheck(true);
+    setNotificationError("");
+
+    try {
+      const response = await fetch("/api/admin/workflows/run-sla", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to run reminder check.");
+      }
+
+      setNotificationReloadTick((current) => current + 1);
+    } catch (reminderError) {
+      setNotificationError(
+        reminderError instanceof Error ? reminderError.message : "Unable to run reminder check."
+      );
+    } finally {
+      setIsRunningReminderCheck(false);
+    }
+  }
+
   async function handleProfilePasswordChange() {
     if (!token || authType !== "employee") {
       return;
@@ -1242,9 +1276,21 @@ export function AdminShell({
                               Saved reminders and activity alerts
                             </p>
                           </div>
-                          <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
-                            {unreadNotifications} unread
-                          </span>
+                          <div className="flex flex-col items-end gap-2">
+                            <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
+                              {unreadNotifications} unread
+                            </span>
+                            {isAdminView ? (
+                              <button
+                                type="button"
+                                onClick={() => void runReminderCheck()}
+                                disabled={isRunningReminderCheck}
+                                className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isRunningReminderCheck ? "Checking..." : "Run Check"}
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                         <div className="mt-4 flex gap-2">
                           {[

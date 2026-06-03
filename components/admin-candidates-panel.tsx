@@ -782,6 +782,18 @@ export function AdminCandidatesPanel() {
     }, {} as Record<JobApplicationStage, number>);
   }, [visibleApplications]);
 
+  const duplicateCandidateCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    visibleApplications.forEach((application) => {
+      const key = candidateIdentityKey(application);
+      if (key.startsWith("application:")) {
+        return;
+      }
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+    return counts;
+  }, [visibleApplications]);
+
   useEffect(() => {
     setPage(1);
   }, [query, stageFilter, visibleApplications.length]);
@@ -1659,7 +1671,7 @@ export function AdminCandidatesPanel() {
             </p>
           </div>
 
-          <div className="grid w-full gap-3 md:grid-cols-2 xl:min-w-[1040px] xl:grid-cols-[minmax(260px,1fr)_190px_190px_auto_auto] xl:items-end">
+          <div className="grid w-full gap-3 md:grid-cols-2 xl:min-w-[1040px] xl:grid-cols-[minmax(260px,1fr)_190px_190px_auto_auto_auto] xl:items-end">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -1700,6 +1712,13 @@ export function AdminCandidatesPanel() {
                 Download Applicant Details
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={resetAdvancedFilters}
+              className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+            >
+              Reset Filters
+            </button>
             <button
               type="button"
               onClick={() => void saveCurrentCandidatesView()}
@@ -1824,7 +1843,7 @@ export function AdminCandidatesPanel() {
             <div className="overflow-x-auto">
               <table className="min-w-[1360px] border-collapse">
                 <thead>
-                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                  <tr className="sticky top-0 z-10 bg-[#f3f8f9] text-left shadow-[0_1px_0_var(--color-line)]">
                     {[
                       "Candidate",
                       "Contact",
@@ -1838,7 +1857,7 @@ export function AdminCandidatesPanel() {
                     ].map((heading) => (
                       <th
                         key={heading}
-                        className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
+                        className={`whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
                           heading === "Actions" ? "w-[240px] min-w-[240px]" : ""
                         }`}
                       >
@@ -1850,6 +1869,8 @@ export function AdminCandidatesPanel() {
                 <tbody>
                   {paginatedApplications.map((application, index) => {
                     const shouldOpenUp = index >= paginatedApplications.length - 2;
+                    const duplicateCount =
+                      duplicateCandidateCounts.get(candidateIdentityKey(application)) ?? 0;
 
                     return (
                     <tr
@@ -1881,6 +1902,11 @@ export function AdminCandidatesPanel() {
                         <p>{application.candidateEmail}</p>
                         {application.candidatePhone ? (
                           <p className="mt-1">{application.candidatePhone}</p>
+                        ) : null}
+                        {duplicateCount > 1 ? (
+                          <p className="mt-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                            Duplicate contact in {duplicateCount} applications
+                          </p>
                         ) : null}
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">

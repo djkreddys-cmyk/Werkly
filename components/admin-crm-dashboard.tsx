@@ -204,6 +204,16 @@ function normalizePhoneMatch(value?: string) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function normalizeCompanyMatch(value?: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(private|pvt|limited|ltd|llp|inc|company|co)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function dateInputValue(value?: string) {
   if (!value) {
     return "";
@@ -215,6 +225,45 @@ function dateInputValue(value?: string) {
 
 function trimmedOptional(value: string) {
   return value.trim() || undefined;
+}
+
+function buildOnboardingChecklist(
+  form: Pick<
+    ClientFormState,
+    | "contactPerson"
+    | "contactEmail"
+    | "contactPhone"
+    | "assignedEmployeeId"
+    | "agreementFileData"
+    | "agreementFileName"
+    | "notes"
+  >,
+  linkedJobsCount = 0
+) {
+  return [
+    {
+      label: "Agreement",
+      complete: Boolean(form.agreementFileData && form.agreementFileName),
+    },
+    {
+      label: "SPOC",
+      complete: Boolean(
+        form.contactPerson.trim() && (form.contactEmail.trim() || form.contactPhone.trim())
+      ),
+    },
+    {
+      label: "Billing terms",
+      complete: /\bbilling\b|\bpayment\b|\bterms?\b|\bcommercial\b/i.test(form.notes),
+    },
+    {
+      label: "First job",
+      complete: linkedJobsCount > 0,
+    },
+    {
+      label: "Assigned owner",
+      complete: Boolean(form.assignedEmployeeId),
+    },
+  ];
 }
 
 function buildClientPayload(form: ClientFormState, overrides: Partial<ClientFormState> = {}) {
@@ -1476,6 +1525,15 @@ function CrmClientsList({
     }
   }
 
+  function resetFilters() {
+    setQuery("");
+    setStatusFilter("all");
+    setOnboardingFilter(viewMode === "leads" ? "lead-only" : "onboarded");
+    setFollowUpFilter("all");
+    setSelectedLeadIds([]);
+    setPage(1);
+  }
+
   return (
     <>
       <section className="accent-card p-6">
@@ -1488,7 +1546,7 @@ function CrmClientsList({
             <p className="muted-copy mt-2 text-sm">
               {viewMode === "leads"
                 ? "Track lead-stage clients, next follow-up dates, and ownership before they become fully onboarded accounts."
-                : "Review onboarded clients, follow-up ownership, linked jobs, and agreement status in one table."}
+                : "Review onboarded clients, account ownership, linked jobs, and agreement status in one table."}
             </p>
           </div>
           <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
@@ -1539,8 +1597,8 @@ function CrmClientsList({
         <div
           className={`mt-5 grid gap-3 md:grid-cols-2 xl:items-end ${
             viewMode === "leads"
-              ? "xl:grid-cols-[minmax(240px,1fr)_180px_220px_220px_auto_auto]"
-              : "xl:grid-cols-[minmax(240px,1fr)_180px_220px_auto_auto]"
+              ? "xl:grid-cols-[minmax(240px,1fr)_180px_220px_220px_auto_auto_auto]"
+              : "xl:grid-cols-[minmax(240px,1fr)_180px_auto_auto_auto]"
           }`}
         >
           <input
@@ -1601,6 +1659,13 @@ function CrmClientsList({
           ) : null}
           <button
             type="button"
+            onClick={resetFilters}
+            className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+          >
+            Reset Filters
+          </button>
+          <button
+            type="button"
             onClick={exportCurrentView}
             disabled={filteredClients.length === 0}
             className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
@@ -1659,6 +1724,44 @@ function CrmClientsList({
           </div>
         ) : null}
 
+        {viewMode === "leads" ? (
+          <div className="mt-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              Lead Pipeline
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {clientLeadStatuses.map((stage) => {
+                const count = clients.filter(
+                  (client) => (client.onboardingStatus || "new-lead") === stage
+                ).length;
+
+                return (
+                  <button
+                    key={stage}
+                    type="button"
+                    onClick={() => {
+                      setOnboardingFilter(stage);
+                      setPage(1);
+                    }}
+                    className={`rounded-[1.35rem] border px-4 py-3 text-left transition ${
+                      onboardingFilter === stage
+                        ? "border-[var(--color-dark)] bg-[rgba(8,96,108,0.08)]"
+                        : "border-[var(--color-line)] bg-white hover:border-[var(--color-dark)]"
+                    }`}
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+                      {formatClientStageLabel(stage)}
+                    </span>
+                    <span className="mt-2 block text-2xl font-semibold text-[var(--color-ink)]">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-5 rounded-[1.35rem] border border-[var(--color-line)] bg-white">
           {filteredClients.length === 0 ? (
             <p className="muted-copy p-5 text-sm">
@@ -1670,7 +1773,7 @@ function CrmClientsList({
             <div className="overflow-x-auto pb-4">
               <table className="min-w-full border-collapse">
                 <thead>
-                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                  <tr className="sticky top-0 z-10 bg-[#f3f8f9] text-left shadow-[0_1px_0_var(--color-line)]">
                     {[
                       ...(viewMode === "leads" && isSuperAdmin ? ["Select"] : []),
                       "Client",
@@ -1685,7 +1788,7 @@ function CrmClientsList({
                     ].map((heading) => (
                       <th
                         key={heading}
-                        className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
+                        className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]"
                       >
                         {heading === "Select" ? (
                           <input
@@ -3326,6 +3429,7 @@ export function AdminClientsPanel({
     );
   }, [clients, currentEmployeeId, isSuperAdmin]);
   const duplicateClientMatches = useMemo(() => {
+    const companyName = normalizeCompanyMatch(clientForm.companyName);
     const emails = [
       normalizeEmailMatch(clientForm.contactEmail),
       normalizeEmailMatch(clientForm.secondaryContactEmail),
@@ -3335,11 +3439,12 @@ export function AdminClientsPanel({
       normalizePhoneMatch(clientForm.secondaryContactPhone),
     ].filter(Boolean);
 
-    if (emails.length === 0 && phones.length === 0) {
+    if (!companyName && emails.length === 0 && phones.length === 0) {
       return [];
     }
 
     return clients.filter((client) => {
+      const clientCompanyName = normalizeCompanyMatch(client.companyName);
       const clientEmails = [
         normalizeEmailMatch(client.contactEmail),
         normalizeEmailMatch(client.secondaryContactEmail),
@@ -3350,11 +3455,13 @@ export function AdminClientsPanel({
       ].filter(Boolean);
 
       return (
+        Boolean(companyName && clientCompanyName && companyName === clientCompanyName) ||
         emails.some((email) => clientEmails.includes(email)) ||
         phones.some((phone) => clientPhones.includes(phone))
       );
     });
   }, [
+    clientForm.companyName,
     clientForm.contactEmail,
     clientForm.contactPhone,
     clientForm.secondaryContactEmail,
@@ -3575,8 +3682,8 @@ export function AdminClientsPanel({
     if (duplicateClientMatches.length > 0) {
       setError(
         viewMode === "leads"
-          ? "Client lead already exists with the same mail ID or mobile number."
-          : "Client already exists with the same mail ID or mobile number."
+          ? "Client lead already exists with the same company name, mail ID, or mobile number."
+          : "Client already exists with the same company name, mail ID, or mobile number."
       );
       setIsSavingClient(false);
       return;
@@ -3667,6 +3774,10 @@ export function AdminClientsPanel({
       const existingKeys = new Set<string>();
 
       clients.forEach((client) => {
+        const companyKey = normalizeCompanyMatch(client.companyName);
+        if (companyKey) {
+          existingKeys.add(`company:${companyKey}`);
+        }
         [
           normalizeEmailMatch(client.contactEmail),
           normalizeEmailMatch(client.secondaryContactEmail),
@@ -3714,6 +3825,7 @@ export function AdminClientsPanel({
         }
 
         const importKeys = [
+          normalizeCompanyMatch(companyName) ? `company:${normalizeCompanyMatch(companyName)}` : "",
           normalizeEmailMatch(contactEmail) ? `email:${normalizeEmailMatch(contactEmail)}` : "",
           normalizeEmailMatch(secondaryContactEmail)
             ? `email:${normalizeEmailMatch(secondaryContactEmail)}`
@@ -4346,13 +4458,7 @@ export function AdminClientsPanel({
             <div className="mb-5 rounded-2xl border border-[rgba(241,166,75,0.32)] bg-[rgba(241,166,75,0.14)] px-4 py-3 text-sm text-white">
               <p className="font-semibold">
                 Client {viewMode === "leads" ? "lead " : ""}already exists with the same
-                {(clientForm.contactEmail.trim() || clientForm.secondaryContactEmail.trim()) &&
-                (clientForm.contactPhone.trim() || clientForm.secondaryContactPhone.trim())
-                  ? " mail ID or mobile number"
-                  : clientForm.contactEmail.trim() || clientForm.secondaryContactEmail.trim()
-                    ? " mail ID"
-                    : " mobile number"}
-                .
+                company name, mail ID, or mobile number.
               </p>
               <div className="mt-3 grid gap-2">
                 {duplicateClientMatches.slice(0, 4).map((client) => (
@@ -4377,6 +4483,28 @@ export function AdminClientsPanel({
               <p className="mt-3 text-xs text-white/78">
                 This record cannot be saved again while the duplicate match is present.
               </p>
+            </div>
+          ) : null}
+          {viewMode !== "leads" ? (
+            <div className="mb-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/72">
+                Onboarding Checklist
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-5">
+                {buildOnboardingChecklist(clientForm).map((item) => (
+                  <div
+                    key={item.label}
+                    className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
+                      item.complete
+                        ? "border-emerald-200/40 bg-emerald-300/15 text-emerald-50"
+                        : "border-white/15 bg-white/10 text-white/68"
+                    }`}
+                  >
+                    <span className="mr-2">{item.complete ? "Done" : "Pending"}</span>
+                    {item.label}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
@@ -4685,6 +4813,29 @@ export function AdminClientsPanel({
             </div>
 
             <form className="mt-6" onSubmit={handleSaveAndConvertLead}>
+              <div className="mb-5 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Onboarding Checklist
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-5">
+                  {buildOnboardingChecklist(
+                    leadOnboardingForm,
+                    leadOnboardingClient.linkedJobsCount
+                  ).map((item) => (
+                    <div
+                      key={item.label}
+                      className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
+                        item.complete
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-[var(--color-line)] bg-white text-[var(--color-muted)]"
+                      }`}
+                    >
+                      <span className="mr-2">{item.complete ? "Done" : "Pending"}</span>
+                      {item.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">

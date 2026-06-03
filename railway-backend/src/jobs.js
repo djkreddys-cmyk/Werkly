@@ -37,6 +37,7 @@ export function mapRow(row) {
     packagePerAnnum: row.package_per_annum,
     positionsCount: Math.max(1, Number(row.positions_count ?? 1) || 1),
     status: row.status,
+    statusReason: row.status_reason,
     isHidden: Boolean(row.is_hidden),
     postedAt: row.posted_at,
     lastDateToApply: row.last_date_to_apply,
@@ -198,6 +199,7 @@ export async function listJobs() {
       jobs.package_per_annum,
       jobs.positions_count,
       jobs.status,
+      jobs.status_reason,
       jobs.is_hidden,
       jobs.posted_at,
       jobs.last_date_to_apply,
@@ -262,6 +264,7 @@ export async function listAdminJobs(employeeId = null) {
       jobs.package_per_annum,
       jobs.positions_count,
       jobs.status,
+      jobs.status_reason,
       jobs.is_hidden,
       jobs.posted_at,
       jobs.last_date_to_apply,
@@ -309,6 +312,7 @@ export async function getJobBySlug(slug) {
       jobs.package_per_annum,
       jobs.positions_count,
       jobs.status,
+      jobs.status_reason,
       jobs.is_hidden,
       jobs.posted_at,
       jobs.last_date_to_apply,
@@ -341,6 +345,7 @@ export async function ensureJobsSchema() {
   await query(`update jobs set positions_count = 1 where positions_count is null or positions_count < 1`);
   await query(`alter table jobs add column if not exists applications_count integer not null default 0`);
   await query(`alter table jobs add column if not exists is_hidden boolean not null default false`);
+  await query(`alter table jobs add column if not exists status_reason text`);
   await query(`alter table jobs add column if not exists client_id uuid references clients(id) on delete set null`);
   await query(
     `alter table jobs add column if not exists assigned_employee_id uuid references employees(id) on delete set null`
@@ -594,7 +599,7 @@ export async function createJob(payload) {
       client,
       payload.slug || payload.title || jobCode
     );
-    const allowedStatuses = new Set(["draft", "open", "closed"]);
+    const allowedStatuses = new Set(["draft", "open", "paused", "closed"]);
     const normalizedStatus = allowedStatuses.has(payload.status) ? payload.status : "open";
     const result = await client.query(
       `insert into jobs (
@@ -611,6 +616,7 @@ export async function createJob(payload) {
         package_per_annum,
         positions_count,
         status,
+        status_reason,
         is_hidden,
         posted_at,
         last_date_to_apply,
@@ -621,7 +627,7 @@ export async function createJob(payload) {
         requirements,
         apply_url
       ) values (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,coalesce($15::date, current_date),$16::date,$17,$18,$19,$20,$21,$22
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,coalesce($16::date, current_date),$17::date,$18,$19,$20,$21,$22,$23
       )
       returning *`,
       [
@@ -638,6 +644,7 @@ export async function createJob(payload) {
         payload.packagePerAnnum || null,
         normalizePositionsCount(payload),
         normalizedStatus,
+        payload.statusReason || null,
         payload.isHidden ?? false,
         payload.postedAt || null,
         payload.lastDateToApply || null,
@@ -683,13 +690,14 @@ export async function updateJob(id, payload) {
       package_per_annum = $11,
       positions_count = $12,
       status = $13,
-      is_hidden = $14,
-      last_date_to_apply = $15,
-      summary = $16,
-      description = $17,
-      skills = $18,
-      responsibilities = $19,
-      requirements = $20,
+      status_reason = $14,
+      is_hidden = $15,
+      last_date_to_apply = $16,
+      summary = $17,
+      description = $18,
+      skills = $19,
+      responsibilities = $20,
+      requirements = $21,
       updated_at = now()
     where id = $1
     returning *`,
@@ -706,7 +714,8 @@ export async function updateJob(id, payload) {
       payload.salary || null,
       payload.packagePerAnnum || null,
       normalizePositionsCount(payload),
-      payload.status,
+      new Set(["draft", "open", "paused", "closed"]).has(payload.status) ? payload.status : "open",
+      payload.statusReason || null,
       payload.isHidden ?? false,
       payload.lastDateToApply || null,
       payload.summary || "",
@@ -745,6 +754,7 @@ export async function getAdminJobById(id) {
       jobs.package_per_annum,
       jobs.positions_count,
       jobs.status,
+      jobs.status_reason,
       jobs.is_hidden,
       jobs.posted_at,
       jobs.last_date_to_apply,

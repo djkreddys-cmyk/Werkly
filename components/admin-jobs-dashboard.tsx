@@ -29,6 +29,7 @@ type JobEditorState = {
   packagePerAnnum: string;
   positionsCount: string;
   status: JobStatus;
+  statusReason: string;
   isHidden: boolean;
   lastDateToApply: string;
   responsibilities: string;
@@ -82,6 +83,19 @@ type ShortlistDraft = {
   profiles: JobApplication[];
 };
 
+type ShortlistHistoryEntry = {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  sentAt: string;
+  fromDate: string;
+  toDate: string;
+  toEmails: string[];
+  ccEmails: string[];
+  candidatesCount: number;
+  resumeAttachmentsCount: number;
+};
+
 const emptyForm: JobEditorState = {
   clientId: "",
   recruiterId: "",
@@ -94,6 +108,7 @@ const emptyForm: JobEditorState = {
   packagePerAnnum: "",
   positionsCount: "1",
   status: "open",
+  statusReason: "",
   isHidden: false,
   lastDateToApply: "",
   responsibilities: "",
@@ -413,7 +428,7 @@ function buildShortlistTextTable(jobTitle: string, applications: JobApplication[
   return [headers.join("\t"), ...rows].join("\n");
 }
 
-function formatStageLabel(stage: JobApplicationStage) {
+function formatStageLabel(stage: string) {
   return stage
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -478,6 +493,18 @@ export function AdminJobsDashboard({
   const [actionMenuJobId, setActionMenuJobId] = useState("");
   const [viewMessage, setViewMessage] = useState("");
   const [shortlistDraft, setShortlistDraft] = useState<ShortlistDraft | null>(null);
+  const [shortlistHistory, setShortlistHistory] = useState<ShortlistHistoryEntry[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem("werklyShortlistHistory") || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [isSendingShortlist, setIsSendingShortlist] = useState(false);
   const [shortlistError, setShortlistError] = useState("");
 
@@ -983,6 +1010,16 @@ Werkly Team`;
     });
   }
 
+  function recordShortlistHistory(entry: ShortlistHistoryEntry) {
+    setShortlistHistory((current) => {
+      const next = [entry, ...current].slice(0, 50);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("werklyShortlistHistory", JSON.stringify(next));
+      }
+      return next;
+    });
+  }
+
   async function sendShortlistEmail() {
     if (!shortlistDraft) {
       return;
@@ -1045,6 +1082,18 @@ Werkly Team`;
         throw new Error(result.message || "Unable to send shortlist mail.");
       }
 
+      recordShortlistHistory({
+        id: `${shortlistDraft.jobId}-${Date.now()}`,
+        jobId: shortlistDraft.jobId,
+        jobTitle: shortlistDraft.jobTitle,
+        sentAt: new Date().toISOString(),
+        fromDate: shortlistDraft.fromDate,
+        toDate: shortlistDraft.toDate,
+        toEmails,
+        ccEmails,
+        candidatesCount: result.candidatesCount ?? shortlistDraft.count,
+        resumeAttachmentsCount: result.resumeAttachmentsCount ?? shortlistDraft.resumeCount,
+      });
       setShortlistDraft(null);
       setMessage(
         result.message ||
@@ -1130,6 +1179,12 @@ Werkly Team`;
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  function resetJobFilters() {
+    setRecruiterFilter("all");
+    setClientFilter("all");
+    setJobsPage(1);
   }
 
   async function saveCurrentJobsView() {
@@ -1299,8 +1354,27 @@ Werkly Team`;
           >
             <option value="draft">Draft</option>
             <option value="open">Open</option>
+            <option value="paused">Paused</option>
             <option value="closed">Closed</option>
           </select>
+          {form.status === "paused" || form.status === "closed" ? (
+            <label className="block sm:col-span-2">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                {form.status === "paused" ? "Pause Reason" : "Close Reason"}
+              </span>
+              <textarea
+                className={`${fieldClassName} min-h-[92px] resize-y`}
+                placeholder={
+                  form.status === "paused"
+                    ? "Add why this role is paused."
+                    : "Add why this role is closed."
+                }
+                value={form.statusReason}
+                onChange={(event) => updateForm("statusReason", event.target.value)}
+                required
+              />
+            </label>
+          ) : null}
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
               Last Date To Apply
@@ -1350,6 +1424,7 @@ Werkly Team`;
       packagePerAnnum: job.packagePerAnnum ?? "",
       positionsCount: String(job.positionsCount ?? 1),
       status: job.status,
+      statusReason: job.statusReason ?? "",
       isHidden: Boolean(job.isHidden),
       lastDateToApply: job.lastDateToApply ?? "",
       responsibilities: (job.responsibilities ?? []).join("\n"),
@@ -1426,6 +1501,12 @@ Werkly Team`;
     setMessage("");
     const wasEditing = Boolean(form.id);
 
+    if ((form.status === "paused" || form.status === "closed") && !form.statusReason.trim()) {
+      setError(`Please add a ${form.status === "paused" ? "pause" : "close"} reason.`);
+      setIsSaving(false);
+      return;
+    }
+
     try {
       const payload = shouldAutoAssignRecruiter
         ? { ...form, recruiterId: currentEmployeeId }
@@ -1488,6 +1569,7 @@ Werkly Team`;
           packagePerAnnum: job.packagePerAnnum ?? "",
           positionsCount: String(job.positionsCount ?? 1),
           status: job.status,
+          statusReason: job.statusReason ?? "",
           isHidden: !job.isHidden,
           postedAt: job.postedAt,
           lastDateToApply: job.lastDateToApply ?? "",
@@ -1536,6 +1618,7 @@ Werkly Team`;
           packagePerAnnum: job.packagePerAnnum ?? "",
           positionsCount: String(job.positionsCount ?? 1),
           status: "open",
+          statusReason: "",
           isHidden: false,
           postedAt: job.postedAt,
           lastDateToApply: job.lastDateToApply ?? "",
@@ -1550,6 +1633,67 @@ Werkly Team`;
       setMessage("Job is live now.");
     } catch (liveError) {
       setError(liveError instanceof Error ? liveError.message : "Unable to make job live.");
+    }
+  }
+
+  async function handleJobStatusChange(job: JobSummary, nextStatus: JobStatus) {
+    if (!token) {
+      setError("Please sign in again. Admin token is missing.");
+      return;
+    }
+
+    const statusReason =
+      nextStatus === "paused" || nextStatus === "closed"
+        ? window.prompt(
+            nextStatus === "paused"
+              ? "Add the pause reason for this job."
+              : "Add the close reason for this job.",
+            job.statusReason || ""
+          )
+        : "";
+
+    if ((nextStatus === "paused" || nextStatus === "closed") && !statusReason?.trim()) {
+      setError(`Please add a ${nextStatus === "paused" ? "pause" : "close"} reason.`);
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setActionMenuJobId("");
+
+    try {
+      const response = await fetch(`/api/admin/jobs/${job.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          clientId: job.clientId ?? "",
+          recruiterId: job.recruiterId ?? "",
+          title: job.title,
+          location: job.location,
+          sector: job.sector,
+          experience: job.experience,
+          employmentType: job.employmentType,
+          salary: job.salary ?? "",
+          packagePerAnnum: job.packagePerAnnum ?? "",
+          positionsCount: String(job.positionsCount ?? 1),
+          status: nextStatus,
+          statusReason: statusReason?.trim() || "",
+          isHidden: nextStatus === "open" ? false : Boolean(job.isHidden),
+          postedAt: job.postedAt,
+          lastDateToApply: job.lastDateToApply ?? "",
+          responsibilities: (job.responsibilities ?? []).join("\n"),
+          requirements: (job.requirements ?? []).join("\n"),
+        }),
+      });
+
+      await readAdminJsonResponse<JobSummary>(response, "Unable to update job status.");
+      await refreshJobs();
+      setMessage(`Job status updated to ${formatStageLabel(nextStatus)}.`);
+    } catch (statusError) {
+      setError(statusError instanceof Error ? statusError.message : "Unable to update job status.");
     }
   }
 
@@ -2065,7 +2209,7 @@ Werkly Team`;
           <div className="w-full max-w-5xl lg:sticky lg:top-24">
             {canManageJobs ? (
               <>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto_auto] xl:items-end">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto_auto_auto] xl:items-end">
                   <label className="block">
                     <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                       Filter by Recruiter
@@ -2116,6 +2260,13 @@ Werkly Team`;
                   ) : null}
                   <button
                     type="button"
+                    onClick={resetJobFilters}
+                    className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                  >
+                    Reset Filters
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void saveCurrentJobsView()}
                     className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                   >
@@ -2124,7 +2275,7 @@ Werkly Team`;
                 </div>
               </>
             ) : (
-              <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_auto_auto] md:items-end">
+              <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_auto_auto_auto] md:items-end">
                 <div className="rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.04)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)]">
                   Assigned jobs only
                 </div>
@@ -2136,8 +2287,15 @@ Werkly Team`;
                     className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Export Current View
-                    </button>
-                  ) : null}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={resetJobFilters}
+                  className="h-[50px] rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                >
+                  Reset Filters
+                </button>
                   <button
                     type="button"
                     onClick={() => void saveCurrentJobsView()}
@@ -2158,7 +2316,7 @@ Werkly Team`;
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1220px] table-fixed border-collapse">
                 <thead>
-                  <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+                  <tr className="sticky top-0 z-10 bg-[#f3f8f9] text-left shadow-[0_1px_0_var(--color-line)]">
                     {[
                       "Job",
                       "Client",
@@ -2171,7 +2329,7 @@ Werkly Team`;
                     ].map((heading) => (
                       <th
                         key={heading}
-                        className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${jobsTableColumnClassName[heading]}`}
+                        className={`whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${jobsTableColumnClassName[heading]}`}
                       >
                         {heading}
                       </th>
@@ -2235,6 +2393,11 @@ Werkly Team`;
                         <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-dark)]">
                           {job.isHidden ? "hidden" : job.status}
                         </span>
+                        {(job.status === "paused" || job.status === "closed") && job.statusReason ? (
+                          <p className="mt-2 max-w-[180px] text-xs leading-5 text-[var(--color-muted)]">
+                            {job.statusReason}
+                          </p>
+                        ) : null}
                         <p
                           className={`mt-2 text-xs font-semibold ${
                             isLiveOnWebsite(job)
@@ -2289,6 +2452,34 @@ Werkly Team`;
                                             label: "Make Live",
                                             onClick: () => {
                                               void handleMakeJobLive(job);
+                                            },
+                                            tone: "accent" as const,
+                                          },
+                                        ]
+                                      : []),
+                                    ...(job.status === "open"
+                                      ? [
+                                          {
+                                            label: "Pause Job",
+                                            onClick: () => {
+                                              void handleJobStatusChange(job, "paused");
+                                            },
+                                          },
+                                          {
+                                            label: "Close Job",
+                                            onClick: () => {
+                                              void handleJobStatusChange(job, "closed");
+                                            },
+                                            tone: "danger" as const,
+                                          },
+                                        ]
+                                      : []),
+                                    ...(job.status === "paused" || job.status === "closed"
+                                      ? [
+                                          {
+                                            label: "Reopen Job",
+                                            onClick: () => {
+                                              void handleJobStatusChange(job, "open");
                                             },
                                             tone: "accent" as const,
                                           },
@@ -3231,6 +3422,37 @@ Werkly Team`;
                   No shortlisted candidates found for the selected date range.
                 </p>
               ) : null}
+              <div className="mb-4 rounded-2xl border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Shortlist Send History
+                </p>
+                {shortlistHistory.filter((entry) => entry.jobId === shortlistDraft.jobId).length === 0 ? (
+                  <p className="mt-2 text-sm text-[var(--color-muted)]">
+                    No shortlist mails have been logged for this job in this browser yet.
+                  </p>
+                ) : (
+                  <div className="mt-3 grid gap-2">
+                    {shortlistHistory
+                      .filter((entry) => entry.jobId === shortlistDraft.jobId)
+                      .slice(0, 5)
+                      .map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2 text-xs text-[var(--color-muted)]"
+                        >
+                          <p className="font-semibold text-[var(--color-ink)]">
+                            {new Date(entry.sentAt).toLocaleString("en-IN")} | {entry.candidatesCount} profile
+                            {entry.candidatesCount === 1 ? "" : "s"} | {entry.resumeAttachmentsCount} resume
+                            {entry.resumeAttachmentsCount === 1 ? "" : "s"}
+                          </p>
+                          <p className="mt-1">
+                            {entry.fromDate} to {entry.toDate} | To: {entry.toEmails.join(", ")}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                   Plain Text Body

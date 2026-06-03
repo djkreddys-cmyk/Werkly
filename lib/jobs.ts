@@ -1,4 +1,4 @@
-export type JobStatus = "draft" | "open" | "closed";
+export type JobStatus = "draft" | "open" | "paused" | "closed";
 
 export type JobSummary = {
   id: string;
@@ -20,6 +20,7 @@ export type JobSummary = {
   packagePerAnnum?: string;
   positionsCount: number;
   status: JobStatus;
+  statusReason?: string;
   isHidden?: boolean;
   postedAt: string;
   lastDateToApply?: string;
@@ -267,6 +268,7 @@ export type JobFormPayload = {
   packagePerAnnum?: string;
   positionsCount?: number;
   status: JobStatus;
+  statusReason?: string;
   isHidden?: boolean;
   postedAt?: string;
   lastDateToApply?: string;

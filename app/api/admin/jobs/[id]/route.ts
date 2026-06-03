@@ -46,6 +46,7 @@ function normalizePayload(body: Record<string, unknown>): JobFormPayload {
     packagePerAnnum: body.packagePerAnnum ? String(body.packagePerAnnum) : undefined,
     positionsCount,
     status: (body.status as JobStatus) ?? "draft",
+    statusReason: body.statusReason ? String(body.statusReason) : undefined,
     isHidden: Boolean(body.isHidden),
     postedAt: body.postedAt ? String(body.postedAt) : undefined,
     lastDateToApply: body.lastDateToApply ? String(body.lastDateToApply) : undefined,
