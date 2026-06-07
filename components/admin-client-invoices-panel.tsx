@@ -171,6 +171,18 @@ function formatInrText(value: number) {
   }).format(Number.isFinite(value) ? value : 0)}`;
 }
 
+function formatJobDesignations(lines: InvoiceLine[]) {
+  const designations = Array.from(
+    new Set(
+      lines
+        .map((line) => line.department.trim())
+        .filter(Boolean)
+    )
+  );
+
+  return designations.length > 0 ? designations.join(", ") : "Recruitment placement";
+}
+
 function buildInvoicePdfBytes(params: {
   invoiceNo: string;
   invoiceDate: string;
@@ -181,6 +193,7 @@ function buildInvoicePdfBytes(params: {
   letterheadImageBytes?: Uint8Array;
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
+  const jobDesignations = formatJobDesignations(selectedLines);
   const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
   const cgst = (taxable * gstRate) / 100;
   const sgst = (taxable * gstRate) / 100;
@@ -204,7 +217,7 @@ function buildInvoicePdfBytes(params: {
   text(392, 644, 10, `Due Date: ${formatDate(params.dueDate)}`);
   text(235, 676, 16, "TAX INVOICE", "F2");
   line(40, 628, 555, 628);
-  text(40, 608, 9, "Supplier Details", "F2");
+  text(40, 608, 9, "Werkly Billing Details", "F2");
   text(40, 592, 10, werklyLegalDetails.legalName, "F2");
   werklyAddressLines.slice(0, 3).forEach((lineText, index) => {
     text(40, 578 - index * 12, 7, lineText);
@@ -217,20 +230,21 @@ function buildInvoicePdfBytes(params: {
   text(320, 544, 8, params.selectedClient.contactPhone || "");
   text(320, 528, 8, `GST: ${params.selectedClient.gstNumber || ""}`);
   text(320, 512, 8, `CIN: ${params.selectedClient.cinNumber || ""} | PAN: ${params.selectedClient.panNumber || ""}`);
+  text(40, 500, 8, `Recruitment Billing: ${selectedLines.length} candidate(s)`);
+  text(40, 488, 8, `Job Designation: ${jobDesignations.slice(0, 80)}`);
 
-  let y = 488;
+  let y = 466;
   text(34, y, 6, "#", "F2");
-  text(48, y, 6, "Item", "F2");
-  text(120, y, 6, "CTC", "F2");
-  text(178, y, 6, "DOJ", "F2");
-  text(228, y, 6, "Department", "F2");
-  text(292, y, 6, "HSN/SAC", "F2");
-  text(340, y, 6, "Rate", "F2");
-  text(390, y, 6, "Qty", "F2");
-  text(414, y, 6, "Taxable", "F2");
-  text(462, y, 6, "CGST", "F2");
-  text(505, y, 6, "SGST", "F2");
-  text(546, y, 6, "Amount", "F2");
+  text(48, y, 6, "Candidate Name", "F2");
+  text(130, y, 6, "CTC", "F2");
+  text(190, y, 6, "DOJ", "F2");
+  text(238, y, 6, "Job Designation", "F2");
+  text(318, y, 6, "Rate", "F2");
+  text(364, y, 6, "Qty", "F2");
+  text(390, y, 6, "Taxable", "F2");
+  text(438, y, 6, "CGST", "F2");
+  text(486, y, 6, "SGST", "F2");
+  text(530, y, 6, "Amount", "F2");
   line(40, y - 8, 555, y - 8);
   y -= 26;
 
@@ -240,23 +254,22 @@ function buildInvoicePdfBytes(params: {
     const rowSgst = (rowTaxable * gstRate) / 100;
     const rowAmount = rowTaxable + rowCgst + rowSgst;
     text(34, y, 6, String(index + 1));
-    text(48, y, 6, item.candidateName.slice(0, 17));
-    text(120, y, 6, formatInrText(parseMoney(item.ctc)).replace("INR ", ""));
-    text(178, y, 6, formatDate(item.doj));
-    text(228, y, 6, item.department.slice(0, 13));
-    text(292, y, 6, item.hsnSac);
-    text(340, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
-    text(390, y, 6, "1");
-    text(414, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
-    text(462, y, 6, formatInrText(rowCgst).replace("INR ", ""));
-    text(505, y, 6, formatInrText(rowSgst).replace("INR ", ""));
-    text(546, y, 6, formatInrText(rowAmount).replace("INR ", ""));
+    text(48, y, 6, item.candidateName.slice(0, 21));
+    text(130, y, 6, formatInrText(parseMoney(item.ctc)).replace("INR ", ""));
+    text(190, y, 6, formatDate(item.doj));
+    text(238, y, 6, item.department.slice(0, 18));
+    text(318, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
+    text(364, y, 6, "1");
+    text(390, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
+    text(438, y, 6, formatInrText(rowCgst).replace("INR ", ""));
+    text(486, y, 6, formatInrText(rowSgst).replace("INR ", ""));
+    text(530, y, 6, formatInrText(rowAmount).replace("INR ", ""));
     y -= 22;
   });
 
   line(40, y, 555, y);
   y -= 24;
-  text(40, y, 9, `Total Items / Qty: ${selectedLines.length} / ${selectedLines.length}`, "F2");
+  text(40, y, 9, `Total Candidates / Qty: ${selectedLines.length} / ${selectedLines.length}`, "F2");
   y -= 18;
   text(40, y, 9, `Amount in words: ${amountInWords(total)}`);
   y -= 32;
@@ -352,6 +365,7 @@ function buildInvoiceHtml(params: {
   notes: string;
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
+  const jobDesignations = formatJobDesignations(selectedLines);
   const rows = selectedLines
     .map((line, index) => {
       const taxable = lineTaxableValue(line);
@@ -364,7 +378,6 @@ function buildInvoiceHtml(params: {
         <td>${formatCurrency(parseMoney(line.ctc))}</td>
         <td>${formatDate(line.doj)}</td>
         <td>${escapeHtml(line.department)}</td>
-        <td>${escapeHtml(line.hsnSac)}</td>
         <td>${formatCurrency(taxable)}</td>
         <td>1</td>
         <td>${formatCurrency(taxable)}</td>
@@ -389,7 +402,7 @@ function buildInvoiceHtml(params: {
   <style>
     @page { size: A4; margin: 0; }
     html, body { width: 210mm; min-height: 297mm; }
-    body { font-family: Arial, sans-serif; color: #102f3a; margin: 0; font-size: 11px; background: #d9dde1; }
+    body { font-family: Arial, sans-serif; color: #102f3a; margin: 0; font-size: 10.5px; line-height: 1.35; background: #d9dde1; }
     h1, h2, p { margin: 0; }
     .invoice-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; margin: 0 auto; overflow: hidden; background: #fff; }
     .letterhead-bg { position: absolute; inset: 0; width: 210mm; height: 297mm; object-fit: cover; z-index: 0; }
@@ -402,18 +415,20 @@ function buildInvoiceHtml(params: {
     .brand .tax-line { margin-top: 6px; font-weight: 700; color: #24424a; }
     .invoice-meta { text-align: left; padding-top: 4px; min-width: 250px; }
     .invoice-meta p { margin-bottom: 5px; white-space: nowrap; }
-    .title { text-align: center; margin: 14px 0; letter-spacing: 0.22em; font-size: 17px; font-weight: 700; }
-    .grid { display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 18px; margin-bottom: 14px; }
-    .box { border: 1px solid #cfdde2; padding: 10px; border-radius: 8px; }
-    .box h2 { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #0a7684; margin-bottom: 8px; }
+    .title { text-align: center; margin: 13px 0; letter-spacing: 0.22em; font-size: 17px; font-weight: 700; }
+    .grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 14px; margin-bottom: 12px; }
+    .stacked { display: grid; gap: 9px; }
+    .box { border: 1px solid #cfdde2; padding: 9px; border-radius: 8px; }
+    .box h2 { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #0a7684; margin-bottom: 6px; }
+    .box p { margin-top: 2px; }
     table { border-collapse: collapse; width: 100%; }
-    th { background: #eef5f6; color: #24424a; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
-    th, td { border: 1px solid #d9e5e8; padding: 6px; vertical-align: top; text-align: left; }
+    th { background: #eef5f6; color: #24424a; font-size: 8.6px; letter-spacing: 0.07em; text-transform: uppercase; }
+    th, td { border: 1px solid #d9e5e8; padding: 5px; vertical-align: top; text-align: left; }
     td span { color: #52666d; font-size: 10px; }
     .summary { display: grid; grid-template-columns: 1fr 72mm; gap: 18px; margin-top: 13px; align-items: start; }
     .totals td:first-child { font-weight: 700; }
     .totals td:last-child { text-align: right; }
-    .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 22px; }
+    .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 18px; }
     .sign { text-align: right; min-width: 220px; }
     .sign-space { height: 54px; }
     .notes { margin-top: 10px; white-space: pre-line; }
@@ -458,17 +473,25 @@ function buildInvoiceHtml(params: {
       <p><strong>CIN:</strong> ${escapeHtml(client?.cinNumber || "")}</p>
       <p><strong>PAN:</strong> ${escapeHtml(client?.panNumber || "")}</p>
     </div>
-    <div class="box">
-      <h2>Recruitment Billing</h2>
-      <p><strong>Total Items / Qty:</strong> ${selectedLines.length} / ${selectedLines.length}</p>
-      <p><strong>Service:</strong> Permanent recruitment placement</p>
-      <p><strong>HSN/SAC:</strong> 998512</p>
+    <div class="stacked">
+      <div class="box">
+        <h2>Recruitment Billing</h2>
+        <p><strong>Total Candidates / Qty:</strong> ${selectedLines.length} / ${selectedLines.length}</p>
+        <p><strong>Service:</strong> Permanent recruitment placement</p>
+        <p><strong>Job Designation:</strong> ${escapeHtml(jobDesignations)}</p>
+      </div>
+      <div class="box">
+        <h2>Werkly Billing Details</h2>
+        <p><strong>${escapeHtml(werklyLegalDetails.legalName)}</strong></p>
+        <p>${werklyAddressLines.map((line) => escapeHtml(line)).join("<br />")}</p>
+        <p><strong>GST:</strong> ${escapeHtml(werklyLegalDetails.gstNumber)} | <strong>PAN:</strong> ${escapeHtml(werklyLegalDetails.panNumber)}</p>
+      </div>
     </div>
   </div>
   <table>
     <thead>
       <tr>
-        <th>#</th><th>Item</th><th>CTC</th><th>DOJ</th><th>Department</th><th>HSN/SAC</th><th>Rate / Item</th><th>Qty</th><th>Taxable Value</th><th>CGST ${gstRate}%</th><th>SGST ${gstRate}%</th><th>Amount</th>
+        <th>#</th><th>Candidate Name</th><th>CTC</th><th>DOJ</th><th>Job Designation</th><th>Rate / Candidate</th><th>Qty</th><th>Taxable Value</th><th>CGST ${gstRate}%</th><th>SGST ${gstRate}%</th><th>Amount</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -1045,7 +1068,7 @@ export function AdminClientInvoicesPanel() {
         </div>
 
         <div className="mt-6 overflow-x-auto">
-          <table className="min-w-[1180px] w-full border-collapse text-left text-sm">
+          <table className="min-w-[1040px] w-full border-collapse text-left text-sm">
             <thead>
               <tr className="bg-[rgba(10,118,132,0.08)] text-xs uppercase tracking-[0.18em] text-[var(--color-muted)]">
                 {[
@@ -1053,8 +1076,7 @@ export function AdminClientInvoicesPanel() {
                   "Candidate",
                   "CTC",
                   "DOJ from Stage",
-                  "Department",
-                  "HSN/SAC",
+                  "Job Designation",
                   "Fee %",
                   "Taxable",
                   "GST",
@@ -1069,7 +1091,7 @@ export function AdminClientInvoicesPanel() {
             <tbody className="divide-y divide-[var(--color-border)] bg-white">
               {lines.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-[var(--color-muted)]" colSpan={10}>
+                  <td className="px-4 py-8 text-center text-[var(--color-muted)]" colSpan={9}>
                     {selectedClient
                       ? "No joined candidates found for this client yet."
                       : "Select a client to load joined candidate fillups."}
@@ -1117,13 +1139,6 @@ export function AdminClientInvoicesPanel() {
                           onChange={(event) =>
                             updateLine(line.applicationId, { department: event.target.value })
                           }
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <input
-                          className="w-28 rounded-xl border border-[var(--color-border)] px-3 py-2"
-                          value={line.hsnSac}
-                          onChange={(event) => updateLine(line.applicationId, { hsnSac: event.target.value })}
                         />
                       </td>
                       <td className="px-4 py-4">
