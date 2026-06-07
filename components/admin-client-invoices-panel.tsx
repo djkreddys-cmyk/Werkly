@@ -387,10 +387,13 @@ function buildInvoiceHtml(params: {
   <meta charset="utf-8" />
   <title>${escapeHtml(params.invoiceNo)} - ${escapeHtml(client?.companyName || "Client")}</title>
   <style>
-    @page { size: A4; margin: 14mm; }
-    body { font-family: Arial, sans-serif; color: #102f3a; margin: 0; font-size: 12px; background: #f3f6f7; }
+    @page { size: A4; margin: 0; }
+    html, body { width: 210mm; min-height: 297mm; }
+    body { font-family: Arial, sans-serif; color: #102f3a; margin: 0; font-size: 11px; background: #d9dde1; }
     h1, h2, p { margin: 0; }
-    .invoice-page { width: 210mm; min-height: 297mm; box-sizing: border-box; margin: 0 auto; padding: 42mm 15mm 32mm; background: #fff url("${letterheadImageUrl}") center top / 100% 100% no-repeat; }
+    .invoice-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; margin: 0 auto; overflow: hidden; background: #fff; }
+    .letterhead-bg { position: absolute; inset: 0; width: 210mm; height: 297mm; object-fit: cover; z-index: 0; }
+    .invoice-content { position: relative; z-index: 1; box-sizing: border-box; width: 100%; height: 100%; padding: 38mm 14mm 28mm; }
     .top { display: flex; justify-content: flex-end; border-bottom: 2px solid #0a7684; padding-bottom: 12px; align-items: start; }
     .brand { display: none; }
     .brand h1 { font-size: 22px; letter-spacing: 0.04em; }
@@ -399,25 +402,26 @@ function buildInvoiceHtml(params: {
     .brand .tax-line { margin-top: 6px; font-weight: 700; color: #24424a; }
     .invoice-meta { text-align: left; padding-top: 4px; min-width: 250px; }
     .invoice-meta p { margin-bottom: 5px; white-space: nowrap; }
-    .title { text-align: center; margin: 16px 0; letter-spacing: 0.22em; font-size: 18px; font-weight: 700; }
+    .title { text-align: center; margin: 14px 0; letter-spacing: 0.22em; font-size: 17px; font-weight: 700; }
     .grid { display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 18px; margin-bottom: 14px; }
-    .box { border: 1px solid #cfdde2; padding: 12px; border-radius: 8px; }
+    .box { border: 1px solid #cfdde2; padding: 10px; border-radius: 8px; }
     .box h2 { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: #0a7684; margin-bottom: 8px; }
     table { border-collapse: collapse; width: 100%; }
     th { background: #eef5f6; color: #24424a; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
-    th, td { border: 1px solid #d9e5e8; padding: 7px; vertical-align: top; text-align: left; }
+    th, td { border: 1px solid #d9e5e8; padding: 6px; vertical-align: top; text-align: left; }
     td span { color: #52666d; font-size: 10px; }
-    .summary { display: grid; grid-template-columns: 1fr 280px; gap: 18px; margin-top: 14px; align-items: start; }
+    .summary { display: grid; grid-template-columns: 1fr 72mm; gap: 18px; margin-top: 13px; align-items: start; }
     .totals td:first-child { font-weight: 700; }
     .totals td:last-child { text-align: right; }
-    .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 26px; }
+    .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 22px; }
     .sign { text-align: right; min-width: 220px; }
     .sign-space { height: 54px; }
     .notes { margin-top: 10px; white-space: pre-line; }
     .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }
     .toolbar button { border: 1px solid #cfdde2; border-radius: 999px; background: #fff; color: #102f3a; cursor: pointer; font-weight: 700; padding: 9px 14px; }
     .toolbar button.primary { background: #0a7684; border-color: #0a7684; color: #fff; }
-    @media print { body { background: #fff; } .no-print { display: none; } .invoice-page { width: auto; min-height: 297mm; margin: 0; box-shadow: none; } }
+    @media screen { .invoice-page { box-shadow: 0 8px 26px rgba(16, 47, 58, 0.16); } }
+    @media print { html, body { width: 210mm; height: 297mm; background: #fff; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none; } .invoice-page { width: 210mm; height: 297mm; margin: 0; box-shadow: none; page-break-after: avoid; } }
   </style>
 </head>
 <body>
@@ -426,6 +430,8 @@ function buildInvoiceHtml(params: {
     <button type="button" class="primary" onclick="window.print()">Print / Save PDF</button>
   </div>
   <main class="invoice-page">
+  <img class="letterhead-bg" src="${letterheadImageUrl}" alt="" />
+  <div class="invoice-content">
   <div class="top">
     <div class="brand">
       <h1>${escapeHtml(werklyLegalDetails.legalName)}</h1>
@@ -495,6 +501,7 @@ function buildInvoiceHtml(params: {
       <p><strong>For Werkly Consulting</strong></p>
       <p>Authorized Signatory</p>
     </div>
+  </div>
   </div>
   </main>
 </body>
