@@ -41,12 +41,11 @@ const werklyLegalDetails = {
   panNumber: "AAECW4103F",
 };
 const werklyAddressLines = [
-  "Building No./Flat No: 2-155, Veerapanenigudem,",
-  "Peerla Punja Centre,",
-  "Near Veerapanenigudem Branch Post Office,",
-  "Gannavaram Mandal, Krishna Dist,",
-  "Andhra Pradesh - 521286",
+  "Building No./Flat No: 2-155, Peerla Punja Centre,",
+  "Veerapanenigudem, Gannavaram Mandal,",
+  "Krishna Dist, Andhra Pradesh - 521286",
 ];
+const werklyTaxLine = "GST: 37AAECW4103F1ZL | PAN: AAECW4103F";
 
 function escapeHtml(value: string) {
   return String(value || "")
@@ -170,11 +169,6 @@ function lineTaxableValue(line: PrintableInvoiceLine) {
   return line.taxable ?? (parseMoney(line.ctc) * Number(line.feePercent || 0)) / 100;
 }
 
-function formatJobDesignations(lines: PrintableInvoiceLine[]) {
-  const designations = Array.from(new Set(lines.map((line) => line.department.trim()).filter(Boolean)));
-  return designations.length > 0 ? designations.join(", ") : "Recruitment placement";
-}
-
 export function financeInvoiceToPrintableInvoice(invoice: FinanceInvoiceRecord): PrintableInvoice {
   return {
     invoiceNo: invoice.invoiceNo,
@@ -194,7 +188,6 @@ export function financeInvoiceToPrintableInvoice(invoice: FinanceInvoiceRecord):
 
 export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
   const selectedLines = params.lines.filter((line) => line.selected !== false);
-  const jobDesignations = formatJobDesignations(selectedLines);
   const invoiceDensityClass =
     selectedLines.length > 10 ? "very-dense" : selectedLines.length > 5 ? "dense" : "normal";
   const rows = selectedLines
@@ -306,7 +299,7 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
     <div class="brand">
       <h1>${escapeHtml(werklyLegalDetails.legalName)}</h1>
       <p class="address">${werklyAddressLines.map((line) => escapeHtml(line)).join("<br />")}</p>
-      <p class="tax-line">GST: ${escapeHtml(werklyLegalDetails.gstNumber)} | PAN: ${escapeHtml(werklyLegalDetails.panNumber)}</p>
+      <p class="tax-line">${escapeHtml(werklyTaxLine)}</p>
       <p>Email: hr@werkly.in</p>
     </div>
     <div class="invoice-meta">
@@ -332,8 +325,7 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
       <h2>Werkly Billing Details</h2>
       <p><strong>${escapeHtml(werklyLegalDetails.legalName)}</strong></p>
       <p>${werklyAddressLines.map((line) => escapeHtml(line)).join("<br />")}</p>
-      <p><strong>GST:</strong> ${escapeHtml(werklyLegalDetails.gstNumber)} | <strong>PAN:</strong> ${escapeHtml(werklyLegalDetails.panNumber)}</p>
-      <p><strong>Job Details:</strong> ${escapeHtml(jobDesignations)}</p>
+      <p>${escapeHtml(werklyTaxLine)}</p>
     </div>
   </div>
   <table>

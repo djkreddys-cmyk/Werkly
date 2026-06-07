@@ -70,7 +70,6 @@ const moduleSections: Array<{
     description: "Client onboarding and existing clients",
     items: [
       { href: "/admin/clients", label: "Clients" },
-      { href: "/admin/clients/invoices", label: "Client Invoices" },
       { href: "/admin/reports/clients", label: "Reports" },
     ],
   },
@@ -78,8 +77,8 @@ const moduleSections: Array<{
     key: "finance",
     label: "Finance",
     href: "/admin/finance",
-    description: "Generated invoices and billing",
-    items: [{ href: "/admin/finance", label: "Generated Invoices" }],
+    description: "Invoices, income, and expenditure",
+    items: [{ href: "/admin/finance", label: "Invoices & Accounts" }],
   },
 ];
 
@@ -1170,28 +1169,16 @@ export function AdminShell({
 
                         {section.items.length && isExpanded ? (
                           <div className="absolute left-0 top-full z-30 mt-3 min-w-[220px] overflow-hidden rounded-[1rem] border border-[rgba(255,255,255,0.14)] bg-[linear-gradient(180deg,rgba(9,68,76,0.99),rgba(7,52,59,0.99))] p-2 shadow-[0_22px_44px_rgba(3,18,22,0.34)] backdrop-blur">
-                            {section.items.map((item) => {
-                              const itemPath = item.href.split("?")[0];
-                              const isItemActive =
-                                itemPath === "/admin"
-                                  ? pathname === "/admin"
-                                  : pathname.startsWith(itemPath);
-
-                              return (
-                                <Link
-                                  key={item.href}
-                                  href={item.href}
-                                  className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                                    isItemActive
-                                      ? "bg-[rgba(241,166,75,0.92)] text-[var(--color-ink)] shadow-[0_10px_20px_rgba(15,23,42,0.12)]"
-                                      : "text-white/92 hover:bg-[rgba(255,255,255,0.08)] hover:text-white"
-                                  }`}
-                                  onClick={() => setExpandedModuleKey(null)}
-                                >
-                                  {item.label}
-                                </Link>
-                              );
-                            })}
+                            {section.items.map((item) => (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                className="block rounded-xl px-4 py-3 text-sm font-semibold text-white/92 transition hover:bg-[rgba(255,255,255,0.08)] hover:text-white"
+                                onClick={() => setExpandedModuleKey(null)}
+                              >
+                                {item.label}
+                              </Link>
+                            ))}
                           </div>
                         ) : null}
                       </div>

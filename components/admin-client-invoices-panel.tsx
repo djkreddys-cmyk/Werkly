@@ -170,7 +170,11 @@ function lineTaxableValue(line: InvoiceLine) {
 }
 
 
-export function AdminClientInvoicesPanel() {
+export function AdminClientInvoicesPanel({
+  onFinanceInvoiceChange,
+}: {
+  onFinanceInvoiceChange?: () => void;
+}) {
   const [token, setToken] = useState("");
   const [authType, setAuthType] = useState("");
   const [authRole, setAuthRole] = useState("");
@@ -398,6 +402,7 @@ export function AdminClientInvoicesPanel() {
   function pushInvoiceToFinance(invoiceClient: ClientRecord) {
     const selectedLines = lines.filter((line) => line.selected);
     const financeInvoiceId = buildFinanceInvoiceId(invoiceClient.id);
+    const existingInvoice = readFinanceInvoices().find((invoice) => invoice.id === financeInvoiceId);
     const generatedBy =
       window.localStorage.getItem("werklyAdminEmail") ||
       window.localStorage.getItem("werklyAuthName") ||
@@ -424,6 +429,12 @@ export function AdminClientInvoicesPanel() {
       status: "generated",
       generatedAt: new Date().toISOString(),
       generatedBy,
+      paymentStatus: existingInvoice?.paymentStatus || "unpaid",
+      amountReceived: existingInvoice?.amountReceived || 0,
+      paymentDate: existingInvoice?.paymentDate || "",
+      paymentMode: existingInvoice?.paymentMode || "Bank Transfer",
+      paymentReference: existingInvoice?.paymentReference || "",
+      paymentNotes: existingInvoice?.paymentNotes || "",
       lines: selectedLines.map((line) => {
         const taxable = lineTaxableValue(line);
         const cgst = (taxable * gstRate) / 100;
@@ -444,6 +455,7 @@ export function AdminClientInvoicesPanel() {
       }),
     });
     setGeneratedInvoiceId(financeInvoiceId);
+    onFinanceInvoiceChange?.();
   }
 
   function handleGenerateInvoice() {
@@ -459,7 +471,7 @@ export function AdminClientInvoicesPanel() {
 
     pushInvoiceToFinance(selectedClient);
     setIsInvoiceGenerated(true);
-    setMessage("Invoice generated and pushed to Finance. Review below, then print when ready.");
+    setMessage("Invoice generated. Review below, print when ready, or update payment details in Finance.");
   }
 
   function handleDeleteGeneratedInvoice() {
@@ -478,6 +490,7 @@ export function AdminClientInvoicesPanel() {
     setIsInvoiceGenerated(false);
     removeFinanceInvoice(generatedInvoiceId || buildFinanceInvoiceId(selectedClientId));
     setGeneratedInvoiceId("");
+    onFinanceInvoiceChange?.();
     setMessage("Generated invoice deleted from Finance. Review the details and generate again when ready.");
     setError("");
   }
@@ -536,9 +549,9 @@ export function AdminClientInvoicesPanel() {
       <section className="accent-card p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="section-eyebrow">Client Invoices</p>
+            <p className="section-eyebrow">Finance Invoices</p>
             <h2 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-              Generate invoice from joined recruitments.
+              Generate invoices from joined recruitments.
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-muted)]">
               Select a client to pull joined candidates from CRM, review billing values, and create

@@ -31,30 +31,73 @@ export type FinanceInvoiceRecord = {
   status: "generated";
   generatedAt: string;
   generatedBy: string;
+  paymentStatus?: "unpaid" | "partial" | "paid";
+  amountReceived?: number;
+  paymentDate?: string;
+  paymentMode?: string;
+  paymentReference?: string;
+  paymentNotes?: string;
   lines: FinanceInvoiceLine[];
 };
 
-const financeInvoicesStorageKey = "werklyFinanceInvoices";
+export type FinanceIncomeRecord = {
+  id: string;
+  date: string;
+  source: string;
+  category: string;
+  amount: number;
+  mode: string;
+  reference: string;
+  notes: string;
+  invoiceId?: string;
+  invoiceNo?: string;
+  clientName?: string;
+  createdAt: string;
+};
 
-export function readFinanceInvoices() {
+export type FinanceExpenditureRecord = {
+  id: string;
+  date: string;
+  vendor: string;
+  category: string;
+  amount: number;
+  mode: string;
+  reference: string;
+  notes: string;
+  createdAt: string;
+};
+
+const financeInvoicesStorageKey = "werklyFinanceInvoices";
+const financeIncomeStorageKey = "werklyFinanceIncome";
+const financeExpenditureStorageKey = "werklyFinanceExpenditure";
+
+function readStorageList<T>(key: string) {
   if (typeof window === "undefined") {
-    return [] as FinanceInvoiceRecord[];
+    return [] as T[];
   }
 
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(financeInvoicesStorageKey) || "[]");
-    return Array.isArray(parsed) ? (parsed as FinanceInvoiceRecord[]) : [];
+    const parsed = JSON.parse(window.localStorage.getItem(key) || "[]");
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
   } catch {
-    return [] as FinanceInvoiceRecord[];
+    return [] as T[];
   }
 }
 
-export function writeFinanceInvoices(invoices: FinanceInvoiceRecord[]) {
+function writeStorageList<T>(key: string, records: T[]) {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(financeInvoicesStorageKey, JSON.stringify(invoices));
+  window.localStorage.setItem(key, JSON.stringify(records));
+}
+
+export function readFinanceInvoices() {
+  return readStorageList<FinanceInvoiceRecord>(financeInvoicesStorageKey);
+}
+
+export function writeFinanceInvoices(invoices: FinanceInvoiceRecord[]) {
+  writeStorageList(financeInvoicesStorageKey, invoices);
 }
 
 export function upsertFinanceInvoice(invoice: FinanceInvoiceRecord) {
@@ -66,4 +109,43 @@ export function upsertFinanceInvoice(invoice: FinanceInvoiceRecord) {
 
 export function removeFinanceInvoice(invoiceId: string) {
   writeFinanceInvoices(readFinanceInvoices().filter((item) => item.id !== invoiceId));
+  removeFinanceIncome(`invoice-income-${invoiceId}`);
+}
+
+export function readFinanceIncome() {
+  return readStorageList<FinanceIncomeRecord>(financeIncomeStorageKey);
+}
+
+export function writeFinanceIncome(records: FinanceIncomeRecord[]) {
+  writeStorageList(financeIncomeStorageKey, records);
+}
+
+export function upsertFinanceIncome(record: FinanceIncomeRecord) {
+  const current = readFinanceIncome();
+  const next = [record, ...current.filter((item) => item.id !== record.id)];
+  writeFinanceIncome(next);
+  return record;
+}
+
+export function removeFinanceIncome(recordId: string) {
+  writeFinanceIncome(readFinanceIncome().filter((item) => item.id !== recordId));
+}
+
+export function readFinanceExpenditure() {
+  return readStorageList<FinanceExpenditureRecord>(financeExpenditureStorageKey);
+}
+
+export function writeFinanceExpenditure(records: FinanceExpenditureRecord[]) {
+  writeStorageList(financeExpenditureStorageKey, records);
+}
+
+export function upsertFinanceExpenditure(record: FinanceExpenditureRecord) {
+  const current = readFinanceExpenditure();
+  const next = [record, ...current.filter((item) => item.id !== record.id)];
+  writeFinanceExpenditure(next);
+  return record;
+}
+
+export function removeFinanceExpenditure(recordId: string) {
+  writeFinanceExpenditure(readFinanceExpenditure().filter((item) => item.id !== recordId));
 }

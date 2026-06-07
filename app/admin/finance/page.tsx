@@ -5,8 +5,8 @@ export default function AdminFinancePage() {
   return (
     <AdminShell
       eyebrow="Finance"
-      title="Review generated invoices and receivables."
-      description="Track every generated recruitment invoice after it is pushed from Client Invoices."
+      title="Manage invoices, income, and expenditure."
+      description="Generate recruitment invoices, update payment details, and track complete finance records in one place."
     >
       <AdminFinancePanel />
     </AdminShell>
