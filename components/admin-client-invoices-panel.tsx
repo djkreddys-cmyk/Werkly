@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
+import { removeFinanceInvoice, upsertFinanceInvoice } from "@/lib/finance";
 import { formatPersonName } from "@/lib/format";
 
 type InvoiceLine = {
@@ -76,7 +77,7 @@ function parseMoney(value?: string) {
     return 0;
   }
 
-  if (raw.includes("lpa") || raw.includes("lakh") || raw.includes("lac")) {
+  if (raw.includes("lpa") || raw.includes("lakh") || raw.includes("lac") || /\d\s*l\b/.test(raw)) {
     return firstNumber * 100000;
   }
 
@@ -268,8 +269,8 @@ function defaultLine(application: JobApplication): InvoiceLine {
     candidateName: formatPersonName(application.candidateName),
     ctc: formatNumberInput(ctc),
     doj:
-      joinedStageDate ||
       application.dateOfJoining ||
+      joinedStageDate ||
       application.stageUpdatedAt?.slice(0, 10) ||
       todayKey(),
     department: application.sector || application.jobTitle || "Recruitment",
@@ -435,6 +436,8 @@ function buildInvoiceHtml(params: {
 
 export function AdminClientInvoicesPanel() {
   const [token, setToken] = useState("");
+  const [authType, setAuthType] = useState("");
+  const [authRole, setAuthRole] = useState("");
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
@@ -451,10 +454,16 @@ export function AdminClientInvoicesPanel() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState(false);
+  const [generatedInvoiceId, setGeneratedInvoiceId] = useState("");
 
   useEffect(() => {
     setToken(window.localStorage.getItem("werklyAdminToken") ?? "");
+    setAuthType(window.localStorage.getItem("werklyAuthType") ?? "");
+    setAuthRole(window.localStorage.getItem("werklyAuthRole") ?? "");
   }, []);
+
+  const canDeleteInvoice =
+    authType === "admin" || String(authRole).trim().toLowerCase() === "super-admin";
 
   useEffect(() => {
     if (!token) {
@@ -639,14 +648,95 @@ export function AdminClientInvoicesPanel() {
     return true;
   }
 
+  function buildFinanceInvoiceId(clientId: string) {
+    return `${invoiceNo.trim() || invoiceNumber()}-${clientId}`;
+  }
+
+  function pushInvoiceToFinance(invoiceClient: ClientRecord) {
+    const selectedLines = lines.filter((line) => line.selected);
+    const financeInvoiceId = buildFinanceInvoiceId(invoiceClient.id);
+    const generatedBy =
+      window.localStorage.getItem("werklyAdminEmail") ||
+      window.localStorage.getItem("werklyAuthName") ||
+      authRole ||
+      authType ||
+      "Werkly User";
+
+    upsertFinanceInvoice({
+      id: financeInvoiceId,
+      invoiceNo,
+      invoiceDate,
+      dueDate,
+      clientId: invoiceClient.id,
+      clientName: invoiceClient.companyName,
+      clientGstNumber: invoiceClient.gstNumber || "",
+      clientCinNumber: invoiceClient.cinNumber || "",
+      clientPanNumber: invoiceClient.panNumber || "",
+      clientAddress: invoiceClient.communicationAddress || invoiceClient.branch || "",
+      taxable: totals.taxable,
+      cgst: totals.cgst,
+      sgst: totals.sgst,
+      total: totals.total,
+      notes,
+      status: "generated",
+      generatedAt: new Date().toISOString(),
+      generatedBy,
+      lines: selectedLines.map((line) => {
+        const taxable = lineTaxableValue(line);
+        const cgst = (taxable * gstRate) / 100;
+        const sgst = (taxable * gstRate) / 100;
+        return {
+          applicationId: line.applicationId,
+          candidateName: line.candidateName,
+          ctc: line.ctc,
+          doj: line.doj,
+          department: line.department,
+          hsnSac: line.hsnSac,
+          feePercent: line.feePercent,
+          taxable,
+          cgst,
+          sgst,
+          amount: taxable + cgst + sgst,
+        };
+      }),
+    });
+    setGeneratedInvoiceId(financeInvoiceId);
+  }
+
   function handleGenerateInvoice() {
     if (!validateInvoiceReady()) {
       setIsInvoiceGenerated(false);
       return;
     }
 
+    if (!selectedClient) {
+      setError("Select a client before generating invoice.");
+      return;
+    }
+
+    pushInvoiceToFinance(selectedClient);
     setIsInvoiceGenerated(true);
-    setMessage("Invoice generated. Review the details below, then download PDF or print.");
+    setMessage("Invoice generated and pushed to Finance. Review below, then download PDF or print.");
+  }
+
+  function handleDeleteGeneratedInvoice() {
+    if (!canDeleteInvoice) {
+      setError("Only admin users can delete generated invoices.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete generated invoice "${invoiceNo}"? You can regenerate it again from the current details.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsInvoiceGenerated(false);
+    removeFinanceInvoice(generatedInvoiceId || buildFinanceInvoiceId(selectedClientId));
+    setGeneratedInvoiceId("");
+    setMessage("Generated invoice deleted from Finance. Review the details and generate again when ready.");
+    setError("");
   }
 
   function generateInvoice(action: "print" | "download") {
@@ -856,6 +946,15 @@ export function AdminClientInvoicesPanel() {
                 >
                   Print / Save PDF
                 </button>
+                {canDeleteInvoice ? (
+                  <button
+                    type="button"
+                    className="rounded-full border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100"
+                    onClick={handleDeleteGeneratedInvoice}
+                  >
+                    Delete Invoice
+                  </button>
+                ) : null}
               </>
             ) : null}
           </div>
@@ -1020,6 +1119,15 @@ export function AdminClientInvoicesPanel() {
                   >
                     Print
                   </button>
+                  {canDeleteInvoice ? (
+                    <button
+                      type="button"
+                      className="rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100 sm:col-span-2"
+                      onClick={handleDeleteGeneratedInvoice}
+                    >
+                      Delete Invoice
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
             </div>

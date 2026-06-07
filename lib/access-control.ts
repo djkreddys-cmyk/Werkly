@@ -5,6 +5,7 @@ export type CrmModuleAccessKey =
   | "jobs"
   | "candidates"
   | "clients"
+  | "finance"
   | "reports"
   | "settings"
   | "activity-center";
@@ -70,6 +71,11 @@ export const crmModuleAccessDefinitions: Array<{
     description: "Applicants, enquiries, and pipeline work.",
   },
   { key: "clients", label: "Clients", description: "Client onboarding and assigned accounts." },
+  {
+    key: "finance",
+    label: "Finance",
+    description: "Generated invoices and receivable tracking.",
+  },
   { key: "reports", label: "Reports", description: "Report pages across modules." },
   { key: "activity-center", label: "Activity Center", description: "Audit and CRM activity hub." },
   { key: "settings", label: "Settings", description: "CRM settings page." },

@@ -20,7 +20,7 @@ type AdminShellProps = {
 };
 
 const moduleSections: Array<{
-  key: Extract<CrmModuleAccessKey, "hr" | "jobs" | "candidates" | "clients">;
+  key: Extract<CrmModuleAccessKey, "hr" | "jobs" | "candidates" | "clients" | "finance">;
   label: string;
   href: string;
   description: string;
@@ -73,6 +73,13 @@ const moduleSections: Array<{
       { href: "/admin/clients/invoices", label: "Client Invoices" },
       { href: "/admin/reports/clients", label: "Reports" },
     ],
+  },
+  {
+    key: "finance",
+    label: "Finance",
+    href: "/admin/finance",
+    description: "Generated invoices and billing",
+    items: [{ href: "/admin/finance", label: "Generated Invoices" }],
   },
 ];
 
@@ -234,6 +241,10 @@ function getActiveModuleKey(pathname: string) {
     return "clients";
   }
 
+  if (pathname.startsWith("/admin/finance")) {
+    return "finance";
+  }
+
   return "hr";
 }
 
@@ -338,7 +349,7 @@ export function AdminShell({
   const isAdminView = authType === "admin" || authRole === "super-admin";
   const activeModuleKey = getActiveModuleKey(pathname);
   const visibleSections = moduleSections.map((section) => {
-    const moduleKey: Extract<CrmModuleAccessKey, "hr" | "jobs" | "candidates" | "clients"> =
+    const moduleKey: Extract<CrmModuleAccessKey, "hr" | "jobs" | "candidates" | "clients" | "finance"> =
       section.key;
     if (!roleAccess.modules[moduleKey]) {
       return null;
