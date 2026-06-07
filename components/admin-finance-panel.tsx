@@ -6,6 +6,7 @@ import {
   removeFinanceInvoice,
   type FinanceInvoiceRecord,
 } from "@/lib/finance";
+import { buildPrintableInvoiceHtml, financeInvoiceToPrintableInvoice } from "@/lib/invoice-print";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -100,6 +101,24 @@ export function AdminFinancePanel() {
     removeFinanceInvoice(invoice.id);
     setInvoices(readFinanceInvoices());
     setMessage(`Invoice ${invoice.invoiceNo} deleted from Finance.`);
+  }
+
+  function handlePrint(invoice: FinanceInvoiceRecord) {
+    const html = buildPrintableInvoiceHtml(financeInvoiceToPrintableInvoice(invoice));
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      setMessage("Popup blocked. Please allow popups to print the invoice.");
+      return;
+    }
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 250);
+    setMessage(`Invoice ${invoice.invoiceNo} opened for printing.`);
   }
 
   return (
@@ -229,17 +248,24 @@ export function AdminFinancePanel() {
                       {formatCurrency(invoice.total)}
                     </td>
                     <td className="px-4 py-4">
-                      {canDeleteInvoice ? (
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          className="btn-secondary border-red-200 text-red-700 hover:bg-red-50"
-                          onClick={() => handleDelete(invoice)}
+                          className="btn-secondary"
+                          onClick={() => handlePrint(invoice)}
                         >
-                          Delete
+                          Print
                         </button>
-                      ) : (
-                        <span className="text-xs text-[var(--color-muted)]">View only</span>
-                      )}
+                        {canDeleteInvoice ? (
+                          <button
+                            type="button"
+                            className="btn-secondary border-red-200 text-red-700 hover:bg-red-50"
+                            onClick={() => handleDelete(invoice)}
+                          >
+                            Delete
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
