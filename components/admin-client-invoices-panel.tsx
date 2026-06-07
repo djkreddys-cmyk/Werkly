@@ -17,7 +17,7 @@ type InvoiceLine = {
 };
 
 const fieldClassName =
-  "w-full rounded-[1rem] border border-[var(--color-border)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-teal)] focus:ring-4 focus:ring-[rgba(10,118,132,0.12)]";
+  "w-full rounded-[1rem] border border-[var(--color-border)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)] focus:ring-4 focus:ring-[rgba(10,118,132,0.12)]";
 
 const selectClassName = `${fieldClassName} appearance-none pr-10`;
 const gstRate = 9;
@@ -729,7 +729,7 @@ export function AdminClientInvoicesPanel() {
               a tax invoice for recruitment placements.
             </p>
           </div>
-          <div className="rounded-full bg-[rgba(10,118,132,0.08)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-teal)]">
+          <div className="rounded-full bg-[rgba(10,118,132,0.08)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-dark)]">
             {totals.count} Fillups
           </div>
         </div>
@@ -740,7 +740,7 @@ export function AdminClientInvoicesPanel() {
           </p>
         ) : null}
         {message ? (
-          <p className="mt-5 rounded-[1rem] border border-[rgba(10,118,132,0.18)] bg-[rgba(10,118,132,0.06)] px-4 py-3 text-sm font-medium text-[var(--color-teal)]">
+          <p className="mt-5 rounded-[1rem] border border-[rgba(10,118,132,0.18)] bg-[rgba(10,118,132,0.06)] px-4 py-3 text-sm font-medium text-[var(--color-dark)]">
             {message}
           </p>
         ) : null}
@@ -834,7 +834,7 @@ export function AdminClientInvoicesPanel() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              className="rounded-full bg-[var(--color-teal)] px-5 py-3 text-sm font-semibold text-white"
+              className="rounded-full bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(8,96,108,0.18)] transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={handleGenerateInvoice}
               disabled={!selectedClient || totals.count === 0}
             >
@@ -906,7 +906,7 @@ export function AdminClientInvoicesPanel() {
                           onChange={(event) =>
                             updateLine(line.applicationId, { selected: event.target.checked })
                           }
-                          className="h-4 w-4 accent-[var(--color-teal)]"
+                          className="h-4 w-4 accent-[var(--color-dark)]"
                         />
                       </td>
                       <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
@@ -994,6 +994,34 @@ export function AdminClientInvoicesPanel() {
             <div className="mt-3 flex justify-between border-t border-[var(--color-border)] pt-4 text-base">
               <span className="font-semibold">Amount Payable</span>
               <strong>{formatCurrency(totals.total)}</strong>
+            </div>
+            <div className="mt-5 flex flex-col gap-2 border-t border-[var(--color-border)] pt-4">
+              <button
+                type="button"
+                className="rounded-full bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(8,96,108,0.18)] transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={handleGenerateInvoice}
+                disabled={!selectedClient || totals.count === 0}
+              >
+                Generate Invoice
+              </button>
+              {isInvoiceGenerated ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    className="rounded-full border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-ink)]"
+                    onClick={() => generateInvoice("download")}
+                  >
+                    Download PDF
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-ink)]"
+                    onClick={() => generateInvoice("print")}
+                  >
+                    Print
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
