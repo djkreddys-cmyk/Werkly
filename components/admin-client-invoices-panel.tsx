@@ -29,6 +29,16 @@ const werklyLegalDetails = {
   address:
     "Building No./Flat No: 2-155, Veerapanenigudem, Peerla Punja Centre, Near Veerapanenigudem Branch Post Office, Gannavaram Mandal, Veerapanenigudem, Krishna Dist, Andhra Pradesh - 521286",
 };
+const werklyAddressLines = [
+  "Building No./Flat No: 2-155, Veerapanenigudem,",
+  "Peerla Punja Centre,",
+  "Near Veerapanenigudem Branch Post Office,",
+  "Gannavaram Mandal, Krishna Dist,",
+  "Andhra Pradesh - 521286",
+];
+const letterheadImageUrl = "/invoice-assets/werkly-letterhead.jpg";
+const letterheadImageWidth = 2480;
+const letterheadImageHeight = 3508;
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -38,6 +48,32 @@ function addDays(dateKey: string, days: number) {
   const date = new Date(`${dateKey}T00:00:00`);
   date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+function toDateInputKey(value?: string) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  const dayFirstMatch = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dayFirstMatch) {
+    const day = dayFirstMatch[1].padStart(2, "0");
+    const month = dayFirstMatch[2].padStart(2, "0");
+    return `${dayFirstMatch[3]}-${month}-${day}`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toISOString().slice(0, 10);
 }
 
 function formatDate(value?: string) {
@@ -142,6 +178,7 @@ function buildInvoicePdfBytes(params: {
   selectedClient: ClientRecord;
   lines: InvoiceLine[];
   notes: string;
+  letterheadImageBytes?: Uint8Array;
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
   const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
@@ -158,23 +195,30 @@ function buildInvoicePdfBytes(params: {
     content.push(`${x1} ${y1} m ${x2} ${y2} l S`);
   }
 
-  text(40, 800, 14, werklyLegalDetails.legalName, "F2");
-  text(40, 782, 8, werklyLegalDetails.address.slice(0, 95));
-  text(40, 766, 9, `GST: ${werklyLegalDetails.gstNumber} | PAN: ${werklyLegalDetails.panNumber} | hr@werkly.in`);
-  text(390, 800, 10, `Invoice #: ${params.invoiceNo}`, "F2");
-  text(390, 784, 10, `Date: ${formatDate(params.invoiceDate)}`);
-  text(390, 768, 10, `Due Date: ${formatDate(params.dueDate)}`);
-  line(40, 750, 555, 750);
-  text(235, 735, 16, "TAX INVOICE", "F2");
-  text(40, 710, 10, "Customer Details", "F2");
-  text(40, 694, 11, params.selectedClient.companyName, "F2");
-  text(40, 678, 9, params.selectedClient.communicationAddress || params.selectedClient.branch || "Billing address not added");
-  text(40, 662, 9, params.selectedClient.contactEmail || "");
-  text(40, 646, 9, params.selectedClient.contactPhone || "");
-  text(40, 630, 9, `GST: ${params.selectedClient.gstNumber || ""}`);
-  text(40, 614, 9, `CIN: ${params.selectedClient.cinNumber || ""} | PAN: ${params.selectedClient.panNumber || ""}`);
+  if (params.letterheadImageBytes?.length) {
+    content.push("q 595 0 0 842 0 0 cm /LH Do Q");
+  }
 
-  let y = 590;
+  text(392, 676, 10, `Invoice #: ${params.invoiceNo}`, "F2");
+  text(392, 660, 10, `Date: ${formatDate(params.invoiceDate)}`);
+  text(392, 644, 10, `Due Date: ${formatDate(params.dueDate)}`);
+  text(235, 676, 16, "TAX INVOICE", "F2");
+  line(40, 628, 555, 628);
+  text(40, 608, 9, "Supplier Details", "F2");
+  text(40, 592, 10, werklyLegalDetails.legalName, "F2");
+  werklyAddressLines.slice(0, 3).forEach((lineText, index) => {
+    text(40, 578 - index * 12, 7, lineText);
+  });
+  text(40, 536, 8, `GST: ${werklyLegalDetails.gstNumber} | PAN: ${werklyLegalDetails.panNumber} | hr@werkly.in`);
+  text(320, 608, 9, "Customer Details", "F2");
+  text(320, 592, 10, params.selectedClient.companyName, "F2");
+  text(320, 576, 8, (params.selectedClient.communicationAddress || params.selectedClient.branch || "Billing address not added").slice(0, 52));
+  text(320, 560, 8, params.selectedClient.contactEmail || "");
+  text(320, 544, 8, params.selectedClient.contactPhone || "");
+  text(320, 528, 8, `GST: ${params.selectedClient.gstNumber || ""}`);
+  text(320, 512, 8, `CIN: ${params.selectedClient.cinNumber || ""} | PAN: ${params.selectedClient.panNumber || ""}`);
+
+  let y = 488;
   text(34, y, 6, "#", "F2");
   text(48, y, 6, "Item", "F2");
   text(120, y, 6, "CTC", "F2");
@@ -229,14 +273,29 @@ function buildInvoicePdfBytes(params: {
   text(420, 60, 9, "Authorized Signatory");
 
   const stream = `q\n${content.join("\n")}\nQ`;
+  const hasLetterhead = Boolean(params.letterheadImageBytes?.length);
+  const pageResources = hasLetterhead
+    ? "<< /Font << /F1 4 0 R /F2 5 0 R >> /XObject << /LH 7 0 R >> >>"
+    : "<< /Font << /F1 4 0 R /F2 5 0 R >> >>";
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>",
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources ${pageResources} /Contents 6 0 R >>`,
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
     `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
   ];
+
+  if (hasLetterhead && params.letterheadImageBytes) {
+    const imageBytes = params.letterheadImageBytes;
+    objects.push(
+      `<< /Type /XObject /Subtype /Image /Width ${letterheadImageWidth} /Height ${letterheadImageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.length} >>\nstream\n${Array.from(
+        imageBytes,
+        (byte) => String.fromCharCode(byte)
+      ).join("")}\nendstream`
+    );
+  }
+
   const parts = ["%PDF-1.4\n"];
   const offsets = [0];
 
@@ -254,7 +313,7 @@ function buildInvoicePdfBytes(params: {
     `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
   );
 
-  return new TextEncoder().encode(parts.join(""));
+  return Uint8Array.from(parts.join(""), (char) => char.charCodeAt(0));
 }
 
 function defaultLine(application: JobApplication): InvoiceLine {
@@ -269,9 +328,9 @@ function defaultLine(application: JobApplication): InvoiceLine {
     candidateName: formatPersonName(application.candidateName),
     ctc: formatNumberInput(ctc),
     doj:
-      application.dateOfJoining ||
-      joinedStageDate ||
-      application.stageUpdatedAt?.slice(0, 10) ||
+      toDateInputKey(application.dateOfJoining) ||
+      toDateInputKey(joinedStageDate) ||
+      toDateInputKey(application.stageUpdatedAt) ||
       todayKey(),
     department: application.sector || application.jobTitle || "Recruitment",
     hsnSac: "998512",
@@ -329,11 +388,17 @@ function buildInvoiceHtml(params: {
   <title>${escapeHtml(params.invoiceNo)} - ${escapeHtml(client?.companyName || "Client")}</title>
   <style>
     @page { size: A4; margin: 14mm; }
-    body { font-family: Arial, sans-serif; color: #102f3a; margin: 0; font-size: 12px; }
+    body { font-family: Arial, sans-serif; color: #102f3a; margin: 0; font-size: 12px; background: #f3f6f7; }
     h1, h2, p { margin: 0; }
-    .top { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #0a7684; padding-bottom: 12px; }
-    .brand h1 { font-size: 22px; letter-spacing: 0.08em; }
+    .invoice-page { width: 210mm; min-height: 297mm; box-sizing: border-box; margin: 0 auto; padding: 42mm 15mm 32mm; background: #fff url("${letterheadImageUrl}") center top / 100% 100% no-repeat; }
+    .top { display: flex; justify-content: flex-end; border-bottom: 2px solid #0a7684; padding-bottom: 12px; align-items: start; }
+    .brand { display: none; }
+    .brand h1 { font-size: 22px; letter-spacing: 0.04em; }
     .brand p, .muted { color: #52666d; line-height: 1.55; }
+    .brand .address { max-width: 420px; margin-top: 6px; }
+    .brand .tax-line { margin-top: 6px; font-weight: 700; color: #24424a; }
+    .invoice-meta { text-align: left; padding-top: 4px; min-width: 250px; }
+    .invoice-meta p { margin-bottom: 5px; white-space: nowrap; }
     .title { text-align: center; margin: 16px 0; letter-spacing: 0.22em; font-size: 18px; font-weight: 700; }
     .grid { display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 18px; margin-bottom: 14px; }
     .box { border: 1px solid #cfdde2; padding: 12px; border-radius: 8px; }
@@ -352,7 +417,7 @@ function buildInvoiceHtml(params: {
     .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }
     .toolbar button { border: 1px solid #cfdde2; border-radius: 999px; background: #fff; color: #102f3a; cursor: pointer; font-weight: 700; padding: 9px 14px; }
     .toolbar button.primary { background: #0a7684; border-color: #0a7684; color: #fff; }
-    @media print { .no-print { display: none; } }
+    @media print { body { background: #fff; } .no-print { display: none; } .invoice-page { width: auto; min-height: 297mm; margin: 0; box-shadow: none; } }
   </style>
 </head>
 <body>
@@ -360,14 +425,15 @@ function buildInvoiceHtml(params: {
     <button type="button" onclick="if (window.opener) window.opener.focus(); window.close();">Edit Invoice Details</button>
     <button type="button" class="primary" onclick="window.print()">Print / Save PDF</button>
   </div>
+  <main class="invoice-page">
   <div class="top">
     <div class="brand">
       <h1>${escapeHtml(werklyLegalDetails.legalName)}</h1>
-      <p>${escapeHtml(werklyLegalDetails.address)}</p>
-      <p>GST: ${escapeHtml(werklyLegalDetails.gstNumber)} | PAN: ${escapeHtml(werklyLegalDetails.panNumber)}</p>
+      <p class="address">${werklyAddressLines.map((line) => escapeHtml(line)).join("<br />")}</p>
+      <p class="tax-line">GST: ${escapeHtml(werklyLegalDetails.gstNumber)} | PAN: ${escapeHtml(werklyLegalDetails.panNumber)}</p>
       <p>Email: hr@werkly.in</p>
     </div>
-    <div>
+    <div class="invoice-meta">
       <p><strong>Invoice #:</strong> ${escapeHtml(params.invoiceNo)}</p>
       <p><strong>Date:</strong> ${formatDate(params.invoiceDate)}</p>
       <p><strong>Due Date:</strong> ${formatDate(params.dueDate)}</p>
@@ -430,6 +496,7 @@ function buildInvoiceHtml(params: {
       <p>Authorized Signatory</p>
     </div>
   </div>
+  </main>
 </body>
 </html>`;
 }
@@ -739,7 +806,7 @@ export function AdminClientInvoicesPanel() {
     setError("");
   }
 
-  function generateInvoice(action: "print" | "download") {
+  async function generateInvoice(action: "print" | "download") {
     if (!isInvoiceGenerated) {
       setError("Please generate the invoice before downloading or printing.");
       return;
@@ -766,6 +833,12 @@ export function AdminClientInvoicesPanel() {
     });
 
     if (action === "download") {
+      const letterheadResponse = await fetch(letterheadImageUrl);
+      if (!letterheadResponse.ok) {
+        setError("Unable to load invoice letterhead. Please try again.");
+        return;
+      }
+      const letterheadImageBytes = new Uint8Array(await letterheadResponse.arrayBuffer());
       const pdfBytes = buildInvoicePdfBytes({
         invoiceNo,
         invoiceDate,
@@ -773,6 +846,7 @@ export function AdminClientInvoicesPanel() {
         selectedClient: invoiceClient,
         lines,
         notes,
+        letterheadImageBytes,
       });
       const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -785,7 +859,7 @@ export function AdminClientInvoicesPanel() {
       return;
     }
 
-    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    const printWindow = window.open("", "_blank");
     if (!printWindow) {
       setError("Popup blocked. Please allow popups to print the invoice.");
       return;
@@ -793,7 +867,10 @@ export function AdminClientInvoicesPanel() {
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 250);
     setMessage("Invoice generated. Need changes? Edit the invoice fields and print again.");
   }
 
