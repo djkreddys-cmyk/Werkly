@@ -21,14 +21,13 @@ const fieldClassName =
 
 const selectClassName = `${fieldClassName} appearance-none pr-10`;
 const gstRate = 9;
-const werklyBillingStorageKey = "werklyInvoiceBillingDetails";
-const defaultWerklyBillingDetails = {
-  gstNumber: "",
-  panNumber: "",
-  address: "",
+const werklyLegalDetails = {
+  legalName: "Werkly Consulting (OPC) Private Limited",
+  gstNumber: "37AAECW4103F1ZL",
+  panNumber: "AAECW4103F",
+  address:
+    "Building No./Flat No: 2-155, Veerapanenigudem, Peerla Punja Centre, Near Veerapanenigudem Branch Post Office, Gannavaram Mandal, Veerapanenigudem, Krishna Dist, Andhra Pradesh - 521286",
 };
-
-type WerklyBillingDetails = typeof defaultWerklyBillingDetails;
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -142,7 +141,6 @@ function buildInvoicePdfBytes(params: {
   selectedClient: ClientRecord;
   lines: InvoiceLine[];
   notes: string;
-  werklyBilling: WerklyBillingDetails;
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
   const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
@@ -159,9 +157,9 @@ function buildInvoicePdfBytes(params: {
     content.push(`${x1} ${y1} m ${x2} ${y2} l S`);
   }
 
-  text(40, 800, 18, "WERKLY CONSULTING", "F2");
-  text(40, 782, 9, params.werklyBilling.address || "Werkly billing address not added");
-  text(40, 766, 9, `GST: ${params.werklyBilling.gstNumber} | PAN: ${params.werklyBilling.panNumber} | hr@werkly.in`);
+  text(40, 800, 14, werklyLegalDetails.legalName, "F2");
+  text(40, 782, 8, werklyLegalDetails.address.slice(0, 95));
+  text(40, 766, 9, `GST: ${werklyLegalDetails.gstNumber} | PAN: ${werklyLegalDetails.panNumber} | hr@werkly.in`);
   text(390, 800, 10, `Invoice #: ${params.invoiceNo}`, "F2");
   text(390, 784, 10, `Date: ${formatDate(params.invoiceDate)}`);
   text(390, 768, 10, `Due Date: ${formatDate(params.dueDate)}`);
@@ -263,13 +261,15 @@ function defaultLine(application: JobApplication): InvoiceLine {
     parseMoney(application.finalCtc) ||
     parseMoney(application.currentCtc) ||
     parseMoney(application.expectedCtc);
+  const joinedStageDate =
+    String(application.stage || "").toLowerCase() === "joined" ? application.stageDate : "";
   return {
     applicationId: application.id,
     candidateName: formatPersonName(application.candidateName),
     ctc: formatNumberInput(ctc),
     doj:
+      joinedStageDate ||
       application.dateOfJoining ||
-      application.stageDate ||
       application.stageUpdatedAt?.slice(0, 10) ||
       todayKey(),
     department: application.sector || application.jobTitle || "Recruitment",
@@ -290,7 +290,6 @@ function buildInvoiceHtml(params: {
   selectedClient?: ClientRecord;
   lines: InvoiceLine[];
   notes: string;
-  werklyBilling: WerklyBillingDetails;
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
   const rows = selectedLines
@@ -362,9 +361,9 @@ function buildInvoiceHtml(params: {
   </div>
   <div class="top">
     <div class="brand">
-      <h1>WERKLY CONSULTING</h1>
-      <p>${escapeHtml(params.werklyBilling.address)}</p>
-      <p>GST: ${escapeHtml(params.werklyBilling.gstNumber)} | PAN: ${escapeHtml(params.werklyBilling.panNumber)}</p>
+      <h1>${escapeHtml(werklyLegalDetails.legalName)}</h1>
+      <p>${escapeHtml(werklyLegalDetails.address)}</p>
+      <p>GST: ${escapeHtml(werklyLegalDetails.gstNumber)} | PAN: ${escapeHtml(werklyLegalDetails.panNumber)}</p>
       <p>Email: hr@werkly.in</p>
     </div>
     <div>
@@ -447,35 +446,15 @@ export function AdminClientInvoicesPanel() {
   const [notes, setNotes] = useState(
     "Payment should be made within 30 days after the candidate joins your organization."
   );
-  const [werklyBilling, setWerklyBilling] =
-    useState<WerklyBillingDetails>(defaultWerklyBillingDetails);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState(false);
 
   useEffect(() => {
     setToken(window.localStorage.getItem("werklyAdminToken") ?? "");
-    const savedBilling = window.localStorage.getItem(werklyBillingStorageKey);
-    if (savedBilling) {
-      try {
-        setWerklyBilling({
-          ...defaultWerklyBillingDetails,
-          ...(JSON.parse(savedBilling) as Partial<WerklyBillingDetails>),
-        });
-      } catch {
-        setWerklyBilling(defaultWerklyBillingDetails);
-      }
-    }
   }, []);
-
-  useEffect(() => {
-    if (!token) {
-      return;
-    }
-
-    window.localStorage.setItem(werklyBillingStorageKey, JSON.stringify(werklyBilling));
-  }, [token, werklyBilling]);
 
   useEffect(() => {
     if (!token) {
@@ -588,6 +567,8 @@ export function AdminClientInvoicesPanel() {
 
   useEffect(() => {
     setLines(clientJoinedApplications.map(defaultLine));
+    setIsInvoiceGenerated(false);
+    setMessage("");
   }, [clientJoinedApplications]);
 
   useEffect(() => {
@@ -611,6 +592,8 @@ export function AdminClientInvoicesPanel() {
   }, [lines]);
 
   function updateLine(applicationId: string, patch: Partial<InvoiceLine>) {
+    setIsInvoiceGenerated(false);
+    setMessage("");
     setLines((current) =>
       current.map((line) => (line.applicationId === applicationId ? { ...line, ...patch } : line))
     );
@@ -635,43 +618,61 @@ export function AdminClientInvoicesPanel() {
     if (!selectedClient.communicationAddress?.trim()) {
       missing.push("Client communication address");
     }
-    if (!werklyBilling.gstNumber.trim()) {
-      missing.push("Werkly GST number");
-    }
-    if (!werklyBilling.panNumber.trim()) {
-      missing.push("Werkly PAN number");
-    }
-    if (!werklyBilling.address.trim()) {
-      missing.push("Werkly billing address");
-    }
-
     return missing;
   }
 
-  function generateInvoice(action: "print" | "download") {
+  function validateInvoiceReady() {
     if (!selectedClient || totals.count === 0) {
       setError("Select a client and at least one joined candidate before generating invoice.");
-      return;
+      setMessage("");
+      return false;
     }
 
     const missing = missingInvoiceDetails();
     if (missing.length > 0) {
       setMessage("");
       setError(`Cannot generate invoice. Please add: ${missing.join(", ")}.`);
-      return;
+      return false;
     }
 
     setError("");
-    setMessage("");
+    return true;
+  }
+
+  function handleGenerateInvoice() {
+    if (!validateInvoiceReady()) {
+      setIsInvoiceGenerated(false);
+      return;
+    }
+
+    setIsInvoiceGenerated(true);
+    setMessage("Invoice generated. Review the details below, then download PDF or print.");
+  }
+
+  function generateInvoice(action: "print" | "download") {
+    if (!isInvoiceGenerated) {
+      setError("Please generate the invoice before downloading or printing.");
+      return;
+    }
+
+    if (!validateInvoiceReady()) {
+      setIsInvoiceGenerated(false);
+      return;
+    }
+    const invoiceClient = selectedClient;
+    if (!invoiceClient) {
+      setError("Select a client before generating invoice.");
+      setIsInvoiceGenerated(false);
+      return;
+    }
 
     const html = buildInvoiceHtml({
       invoiceNo,
       invoiceDate,
       dueDate,
-      selectedClient,
+      selectedClient: invoiceClient,
       lines,
       notes,
-      werklyBilling,
     });
 
     if (action === "download") {
@@ -679,16 +680,15 @@ export function AdminClientInvoicesPanel() {
         invoiceNo,
         invoiceDate,
         dueDate,
-        selectedClient,
+        selectedClient: invoiceClient,
         lines,
         notes,
-        werklyBilling,
       });
       const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${invoiceNo}_${selectedClient.companyName}.pdf`;
+      link.download = `${invoiceNo}_${invoiceClient.companyName}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
       setMessage("Invoice downloaded. Need changes? Edit the fields below and download again.");
@@ -751,7 +751,11 @@ export function AdminClientInvoicesPanel() {
             <select
               className={selectClassName}
               value={clientType}
-              onChange={(event) => setClientType(event.target.value)}
+              onChange={(event) => {
+                setClientType(event.target.value);
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
               disabled={isLoading}
             >
               <option value="onboarded">Onboarded Clients</option>
@@ -762,7 +766,11 @@ export function AdminClientInvoicesPanel() {
             <select
               className={selectClassName}
               value={selectedClientId}
-              onChange={(event) => setSelectedClientId(event.target.value)}
+              onChange={(event) => {
+                setSelectedClientId(event.target.value);
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
               disabled={isLoading}
             >
               <option value="">Select onboarded client</option>
@@ -778,7 +786,11 @@ export function AdminClientInvoicesPanel() {
             <input
               className={fieldClassName}
               value={invoiceNo}
-              onChange={(event) => setInvoiceNo(event.target.value)}
+              onChange={(event) => {
+                setInvoiceNo(event.target.value);
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
             />
           </label>
           <label className="space-y-2">
@@ -790,6 +802,8 @@ export function AdminClientInvoicesPanel() {
               onChange={(event) => {
                 setInvoiceDate(event.target.value);
                 setDueDate(addDays(event.target.value, 30));
+                setIsInvoiceGenerated(false);
+                setMessage("");
               }}
             />
           </label>
@@ -799,68 +813,11 @@ export function AdminClientInvoicesPanel() {
               type="date"
               className={fieldClassName}
               value={dueDate}
-              onChange={(event) => setDueDate(event.target.value)}
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="accent-card p-7">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="section-eyebrow">Werkly Billing Details</p>
-            <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
-              Shown on every generated invoice
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
-              Update these details here, then generate the invoice again if any correction is needed.
-            </p>
-          </div>
-          <span className="rounded-full bg-[rgba(10,118,132,0.08)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-teal)]">
-            Editable
-          </span>
-        </div>
-        <div className="mt-5 grid gap-4 lg:grid-cols-3">
-          <label className="space-y-2">
-            <span className="section-eyebrow">Werkly GST Number</span>
-            <input
-              className={fieldClassName}
-              value={werklyBilling.gstNumber}
-              onChange={(event) =>
-                setWerklyBilling((current) => ({
-                  ...current,
-                  gstNumber: event.target.value.toUpperCase(),
-                }))
-              }
-              placeholder="Werkly GST number"
-            />
-          </label>
-          <label className="space-y-2">
-            <span className="section-eyebrow">Werkly PAN Number</span>
-            <input
-              className={fieldClassName}
-              value={werklyBilling.panNumber}
-              onChange={(event) =>
-                setWerklyBilling((current) => ({
-                  ...current,
-                  panNumber: event.target.value.toUpperCase(),
-                }))
-              }
-              placeholder="Werkly PAN number"
-            />
-          </label>
-          <label className="space-y-2 lg:col-span-3">
-            <span className="section-eyebrow">Werkly Billing Address</span>
-            <textarea
-              className={`${fieldClassName} min-h-[86px] resize-y`}
-              value={werklyBilling.address}
-              onChange={(event) =>
-                setWerklyBilling((current) => ({
-                  ...current,
-                  address: event.target.value,
-                }))
-              }
-              placeholder="Werkly registered billing address"
+              onChange={(event) => {
+                setDueDate(event.target.value);
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
             />
           </label>
         </div>
@@ -877,20 +834,30 @@ export function AdminClientInvoicesPanel() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              className="rounded-full border border-[var(--color-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
-              onClick={() => generateInvoice("download")}
-              disabled={!selectedClient || totals.count === 0}
-            >
-              Download Invoice PDF
-            </button>
-            <button
-              type="button"
               className="rounded-full bg-[var(--color-teal)] px-5 py-3 text-sm font-semibold text-white"
-              onClick={() => generateInvoice("print")}
+              onClick={handleGenerateInvoice}
               disabled={!selectedClient || totals.count === 0}
             >
-              Print / Save PDF
+              Generate Invoice
             </button>
+            {isInvoiceGenerated ? (
+              <>
+                <button
+                  type="button"
+                  className="rounded-full border border-[var(--color-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                  onClick={() => generateInvoice("download")}
+                >
+                  Download PDF
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-[var(--color-border)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                  onClick={() => generateInvoice("print")}
+                >
+                  Print / Save PDF
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -902,7 +869,7 @@ export function AdminClientInvoicesPanel() {
                   "Bill",
                   "Candidate",
                   "CTC",
-                  "DOJ",
+                  "DOJ from Stage",
                   "Department",
                   "HSN/SAC",
                   "Fee %",
@@ -1004,7 +971,11 @@ export function AdminClientInvoicesPanel() {
             <textarea
               className={`${fieldClassName} min-h-[120px] resize-y`}
               value={notes}
-              onChange={(event) => setNotes(event.target.value)}
+              onChange={(event) => {
+                setNotes(event.target.value);
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
             />
           </label>
           <div className="rounded-[1rem] border border-[var(--color-border)] bg-[rgba(255,252,247,0.8)] p-5">
