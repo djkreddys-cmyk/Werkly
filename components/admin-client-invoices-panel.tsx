@@ -368,10 +368,10 @@ function buildInvoicePdfBytes(params: {
   text(350, y, 11, `Amount Payable: ${formatInrText(total)}`, "F2");
   y -= 40;
   text(40, y, 9, params.notes.slice(0, 110));
-  text(62, 36, 7, werklyLegalDetails.address.slice(0, 118), "F2");
-  text(172, 24, 7, `GST: ${werklyLegalDetails.gstNumber} | PAN: ${werklyLegalDetails.panNumber} | hr@werkly.in`, "F2");
-  text(400, 90, 10, "For Werkly Consulting", "F2");
-  text(420, 60, 9, "Authorized Signatory");
+  text(62, 46, 7, werklyLegalDetails.address.slice(0, 118), "F2");
+  text(172, 34, 7, `GST: ${werklyLegalDetails.gstNumber} | PAN: ${werklyLegalDetails.panNumber} | hr@werkly.in`, "F2");
+  text(400, 165, 10, "For Werkly Consulting", "F2");
+  text(420, 138, 9, "Authorized Signatory");
 
   const stream = `q\n${content.join("\n")}\nQ`;
   const hasLetterhead = Boolean(params.letterheadImageBytes?.length);
@@ -500,7 +500,7 @@ function buildInvoiceHtml(params: {
     h1, h2, p { margin: 0; }
     .invoice-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; margin: 0 auto; overflow: hidden; background: #fff; }
     .letterhead-bg { position: absolute; inset: 0; width: 210mm; height: 297mm; object-fit: cover; z-index: 0; }
-    .letterhead-address { position: absolute; z-index: 1; left: 18mm; right: 18mm; bottom: 8.5mm; text-align: center; font-size: 8px; line-height: 1.35; font-weight: 700; color: #102f3a; }
+    .letterhead-address { position: absolute; z-index: 1; left: 18mm; right: 18mm; bottom: 12mm; text-align: center; font-size: 8px; line-height: 1.35; font-weight: 700; color: #102f3a; }
     .invoice-content { position: relative; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 38mm 14mm 26mm; }
     .invoice-main { flex: 1 1 auto; }
     .top { display: flex; justify-content: flex-end; border-bottom: 2px solid #0a7684; padding-bottom: 12px; align-items: start; }
@@ -523,7 +523,7 @@ function buildInvoiceHtml(params: {
     .summary { break-inside: avoid; page-break-inside: avoid; }
     .totals td:first-child { font-weight: 700; }
     .totals td:last-child { text-align: right; }
-    .footer { display: flex; justify-content: flex-end; gap: 20px; margin-top: auto; padding-top: 10px; }
+    .footer { display: flex; justify-content: flex-end; gap: 20px; margin-top: auto; padding-top: 10px; padding-bottom: 26mm; }
     .sign { text-align: right; min-width: 220px; }
     .sign-space { height: 54px; }
     .notes { margin-top: 12px; white-space: pre-line; }
@@ -537,7 +537,7 @@ function buildInvoiceHtml(params: {
     .invoice-page.dense th { font-size: 7.6px; }
     .invoice-page.dense .summary { margin-top: 8px; gap: 12px; }
     .invoice-page.dense .notes { margin-top: 5px; }
-    .invoice-page.dense .footer { padding-top: 8px; }
+    .invoice-page.dense .footer { padding-top: 8px; padding-bottom: 20mm; }
     .invoice-page.dense .sign-space { height: 24px; }
     .invoice-page.very-dense .invoice-content { padding-top: 35mm; padding-bottom: 22mm; }
     .invoice-page.very-dense { font-size: 9.8px; }
@@ -551,7 +551,7 @@ function buildInvoiceHtml(params: {
     .invoice-page.very-dense th { font-size: 6.8px; }
     .invoice-page.very-dense .summary { margin-top: 6px; gap: 10px; }
     .invoice-page.very-dense .notes { margin-top: 4px; }
-    .invoice-page.very-dense .footer { padding-top: 6px; }
+    .invoice-page.very-dense .footer { padding-top: 6px; padding-bottom: 16mm; }
     .invoice-page.very-dense .sign-space { height: 16px; }
     .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }
     .toolbar button { border: 1px solid #cfdde2; border-radius: 999px; background: #fff; color: #102f3a; cursor: pointer; font-weight: 700; padding: 9px 14px; }
