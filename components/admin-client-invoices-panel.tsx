@@ -212,9 +212,9 @@ function buildInvoicePdfBytes(params: {
     content.push("q 595 0 0 842 0 0 cm /LH Do Q");
   }
 
-  text(392, 676, 10, `Invoice #: ${params.invoiceNo}`, "F2");
-  text(392, 660, 10, `Date: ${formatDate(params.invoiceDate)}`);
-  text(392, 644, 10, `Due Date: ${formatDate(params.dueDate)}`);
+  text(405, 676, 10, `Invoice #: ${params.invoiceNo}`, "F2");
+  text(405, 660, 10, `Invoice Date: ${formatDate(params.invoiceDate)}`);
+  text(405, 644, 10, `Due Date: ${formatDate(params.dueDate)}`);
   text(235, 676, 16, "TAX INVOICE", "F2");
   line(40, 628, 555, 628);
   text(40, 608, 9, "Werkly Billing Details", "F2");
@@ -230,21 +230,19 @@ function buildInvoicePdfBytes(params: {
   text(320, 544, 8, params.selectedClient.contactPhone || "");
   text(320, 528, 8, `GST: ${params.selectedClient.gstNumber || ""}`);
   text(320, 512, 8, `CIN: ${params.selectedClient.cinNumber || ""} | PAN: ${params.selectedClient.panNumber || ""}`);
-  text(40, 500, 8, `Recruitment Billing: ${selectedLines.length} candidate(s)`);
-  text(40, 488, 8, `Job Designation: ${jobDesignations.slice(0, 80)}`);
+  text(40, 500, 8, `Job Details: ${jobDesignations.slice(0, 88)}`);
 
-  let y = 466;
+  let y = 474;
   text(34, y, 6, "#", "F2");
   text(48, y, 6, "Candidate Name", "F2");
   text(130, y, 6, "CTC", "F2");
   text(190, y, 6, "DOJ", "F2");
-  text(238, y, 6, "Job Designation", "F2");
-  text(318, y, 6, "Rate", "F2");
-  text(364, y, 6, "Qty", "F2");
-  text(390, y, 6, "Taxable", "F2");
-  text(438, y, 6, "CGST", "F2");
-  text(486, y, 6, "SGST", "F2");
-  text(530, y, 6, "Amount", "F2");
+  text(238, y, 6, "Job Details", "F2");
+  text(316, y, 6, "Agreement %", "F2");
+  text(374, y, 6, "Taxable", "F2");
+  text(426, y, 6, "CGST", "F2");
+  text(478, y, 6, "SGST", "F2");
+  text(526, y, 6, "Amount", "F2");
   line(40, y - 8, 555, y - 8);
   y -= 26;
 
@@ -258,18 +256,17 @@ function buildInvoicePdfBytes(params: {
     text(130, y, 6, formatInrText(parseMoney(item.ctc)).replace("INR ", ""));
     text(190, y, 6, formatDate(item.doj));
     text(238, y, 6, item.department.slice(0, 18));
-    text(318, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
-    text(364, y, 6, "1");
-    text(390, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
-    text(438, y, 6, formatInrText(rowCgst).replace("INR ", ""));
-    text(486, y, 6, formatInrText(rowSgst).replace("INR ", ""));
-    text(530, y, 6, formatInrText(rowAmount).replace("INR ", ""));
+    text(316, y, 6, `${Number(item.feePercent || 0)}% of CTC`);
+    text(374, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
+    text(426, y, 6, formatInrText(rowCgst).replace("INR ", ""));
+    text(478, y, 6, formatInrText(rowSgst).replace("INR ", ""));
+    text(526, y, 6, formatInrText(rowAmount).replace("INR ", ""));
     y -= 22;
   });
 
   line(40, y, 555, y);
   y -= 24;
-  text(40, y, 9, `Total Candidates / Qty: ${selectedLines.length} / ${selectedLines.length}`, "F2");
+  text(40, y, 9, `Total Candidates: ${selectedLines.length}`, "F2");
   y -= 18;
   text(40, y, 9, `Amount in words: ${amountInWords(total)}`);
   y -= 32;
@@ -294,8 +291,8 @@ function buildInvoicePdfBytes(params: {
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources ${pageResources} /Contents 6 0 R >>`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Calibri >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Calibri-Bold >>",
     `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
   ];
 
@@ -378,8 +375,7 @@ function buildInvoiceHtml(params: {
         <td>${formatCurrency(parseMoney(line.ctc))}</td>
         <td>${formatDate(line.doj)}</td>
         <td>${escapeHtml(line.department)}</td>
-        <td>${formatCurrency(taxable)}</td>
-        <td>1</td>
+        <td>${escapeHtml(`${Number(line.feePercent || 0)}% of CTC`)}</td>
         <td>${formatCurrency(taxable)}</td>
         <td>${formatCurrency(cgst)}</td>
         <td>${formatCurrency(sgst)}</td>
@@ -402,7 +398,7 @@ function buildInvoiceHtml(params: {
   <style>
     @page { size: A4; margin: 0; }
     html, body { width: 210mm; min-height: 297mm; }
-    body { font-family: Arial, sans-serif; color: #102f3a; margin: 0; font-size: 10.5px; line-height: 1.35; background: #d9dde1; }
+    body { font-family: Calibri, Arial, sans-serif; color: #102f3a; margin: 0; font-size: 10.7px; line-height: 1.35; background: #d9dde1; }
     h1, h2, p { margin: 0; }
     .invoice-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; margin: 0 auto; overflow: hidden; background: #fff; }
     .letterhead-bg { position: absolute; inset: 0; width: 210mm; height: 297mm; object-fit: cover; z-index: 0; }
@@ -413,14 +409,12 @@ function buildInvoiceHtml(params: {
     .brand p, .muted { color: #52666d; line-height: 1.55; }
     .brand .address { max-width: 420px; margin-top: 6px; }
     .brand .tax-line { margin-top: 6px; font-weight: 700; color: #24424a; }
-    .invoice-meta { text-align: left; padding-top: 4px; min-width: 250px; }
+    .invoice-meta { margin-left: auto; text-align: right; padding-top: 4px; min-width: 250px; }
     .invoice-meta p { margin-bottom: 5px; white-space: nowrap; }
     .title { text-align: center; margin: 13px 0; letter-spacing: 0.22em; font-size: 17px; font-weight: 700; }
-    .grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 14px; margin-bottom: 12px; }
-    .stacked { display: grid; gap: 9px; }
-    .box { border: 1px solid #cfdde2; padding: 9px; border-radius: 8px; }
-    .box h2 { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #0a7684; margin-bottom: 6px; }
-    .box p { margin-top: 2px; }
+    .details-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 16px; margin-bottom: 12px; }
+    .section h2 { border-bottom: 1px solid #cfdde2; padding-bottom: 4px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #0a7684; margin-bottom: 6px; }
+    .section p { margin-top: 2px; }
     table { border-collapse: collapse; width: 100%; }
     th { background: #eef5f6; color: #24424a; font-size: 8.6px; letter-spacing: 0.07em; text-transform: uppercase; }
     th, td { border: 1px solid #d9e5e8; padding: 5px; vertical-align: top; text-align: left; }
@@ -456,14 +450,13 @@ function buildInvoiceHtml(params: {
     </div>
     <div class="invoice-meta">
       <p><strong>Invoice #:</strong> ${escapeHtml(params.invoiceNo)}</p>
-      <p><strong>Date:</strong> ${formatDate(params.invoiceDate)}</p>
+      <p><strong>Invoice Date:</strong> ${formatDate(params.invoiceDate)}</p>
       <p><strong>Due Date:</strong> ${formatDate(params.dueDate)}</p>
-      <p><strong>Place of Supply:</strong> Telangana</p>
     </div>
   </div>
   <div class="title">TAX INVOICE</div>
-  <div class="grid">
-    <div class="box">
+  <div class="details-grid">
+    <div class="section">
       <h2>Customer Details</h2>
       <p><strong>${escapeHtml(client?.companyName || "Client")}</strong></p>
       <p>${escapeHtml(client?.communicationAddress || client?.branch || "Billing address not added")}</p>
@@ -473,31 +466,24 @@ function buildInvoiceHtml(params: {
       <p><strong>CIN:</strong> ${escapeHtml(client?.cinNumber || "")}</p>
       <p><strong>PAN:</strong> ${escapeHtml(client?.panNumber || "")}</p>
     </div>
-    <div class="stacked">
-      <div class="box">
-        <h2>Recruitment Billing</h2>
-        <p><strong>Total Candidates / Qty:</strong> ${selectedLines.length} / ${selectedLines.length}</p>
-        <p><strong>Service:</strong> Permanent recruitment placement</p>
-        <p><strong>Job Designation:</strong> ${escapeHtml(jobDesignations)}</p>
-      </div>
-      <div class="box">
-        <h2>Werkly Billing Details</h2>
-        <p><strong>${escapeHtml(werklyLegalDetails.legalName)}</strong></p>
-        <p>${werklyAddressLines.map((line) => escapeHtml(line)).join("<br />")}</p>
-        <p><strong>GST:</strong> ${escapeHtml(werklyLegalDetails.gstNumber)} | <strong>PAN:</strong> ${escapeHtml(werklyLegalDetails.panNumber)}</p>
-      </div>
+    <div class="section">
+      <h2>Werkly Billing Details</h2>
+      <p><strong>${escapeHtml(werklyLegalDetails.legalName)}</strong></p>
+      <p>${werklyAddressLines.map((line) => escapeHtml(line)).join("<br />")}</p>
+      <p><strong>GST:</strong> ${escapeHtml(werklyLegalDetails.gstNumber)} | <strong>PAN:</strong> ${escapeHtml(werklyLegalDetails.panNumber)}</p>
+      <p><strong>Job Details:</strong> ${escapeHtml(jobDesignations)}</p>
     </div>
   </div>
   <table>
     <thead>
       <tr>
-        <th>#</th><th>Candidate Name</th><th>CTC</th><th>DOJ</th><th>Job Designation</th><th>Rate / Candidate</th><th>Qty</th><th>Taxable Value</th><th>CGST ${gstRate}%</th><th>SGST ${gstRate}%</th><th>Amount</th>
+        <th>#</th><th>Candidate Name</th><th>CTC</th><th>DOJ</th><th>Job Details</th><th>Agreement %</th><th>Taxable Value</th><th>CGST ${gstRate}%</th><th>SGST ${gstRate}%</th><th>Amount</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
   <div class="summary">
-    <div class="box">
+    <div class="section">
       <h2>Total amount in words</h2>
       <p>${escapeHtml(amountInWords(total))}</p>
       <div class="notes">${escapeHtml(params.notes)}</div>
@@ -1076,8 +1062,8 @@ export function AdminClientInvoicesPanel() {
                   "Candidate",
                   "CTC",
                   "DOJ from Stage",
-                  "Job Designation",
-                  "Fee %",
+                  "Job Details",
+                  "Agreement %",
                   "Taxable",
                   "GST",
                   "Amount",
