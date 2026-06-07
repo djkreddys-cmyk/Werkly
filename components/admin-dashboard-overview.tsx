@@ -1159,23 +1159,54 @@ export function AdminDashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-3">
-        {reminderItems.map((item) => (
-          <article key={item.label} className={`rounded-[1.25rem] border p-5 shadow-[0_14px_36px_rgba(15,23,42,0.07)] ${followUpMetricClassName(item.label)}`}>
-            <p className="eyebrow">{item.label}</p>
-            <p className="mt-3 text-3xl font-semibold">{item.value}</p>
-            <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">{item.detail}</p>
-            {item.label === "Overdue Follow-Ups" && item.value > 0 ? (
+      <section className="accent-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="eyebrow">Follow-Up Summary</p>
+            <h2 className="mt-1 text-base font-semibold text-[var(--color-ink)]">
+              Current follow-up status at a glance
+            </h2>
+          </div>
+          {metrics.overdueFollowUps > 0 ? (
+            <button
+              type="button"
+              onClick={() => setIsOverdueDrawerOpen(true)}
+              className="rounded-xl border border-[rgba(190,72,26,0.22)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
+            >
+              Open Overdue Drawer
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {reminderItems.map((item) => {
+            const openSummary =
+              item.label === "Overdue Follow-Ups"
+                ? () => setIsOverdueDrawerOpen(true)
+                : item.label === "Due Today"
+                  ? () => openDateDetails(todayKey)
+                  : item.label === "Due Tomorrow"
+                    ? () => openDateDetails(tomorrowKey)
+                    : undefined;
+
+            return (
               <button
+                key={item.label}
                 type="button"
-                onClick={() => setIsOverdueDrawerOpen(true)}
-                className="mt-4 rounded-xl border border-[rgba(190,72,26,0.22)] bg-white/80 px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
+                onClick={openSummary}
+                disabled={!openSummary}
+                className={`flex items-center justify-between gap-3 rounded-[1rem] border px-4 py-3 text-left transition enabled:hover:-translate-y-0.5 disabled:cursor-default ${followUpMetricClassName(item.label)}`}
               >
-                Open Overdue Drawer
+                <span>
+                  <span className="block text-[11px] font-semibold uppercase tracking-[0.16em]">
+                    {item.label}
+                  </span>
+                  <span className="mt-1 block text-xs text-[var(--color-muted)]">{item.detail}</span>
+                </span>
+                <span className="text-2xl font-semibold">{item.value}</span>
               </button>
-            ) : null}
-          </article>
-        ))}
+            );
+          })}
+        </div>
       </section>
 
       {isEmployeeSession ? (
@@ -1273,7 +1304,8 @@ export function AdminDashboardOverview() {
         </section>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+      <section className="accent-card overflow-hidden p-0">
+        <div className="grid md:grid-cols-2 xl:grid-cols-7">
         {[
           {
             label: isAdminView ? "Live Jobs" : "My Live Jobs",
@@ -1335,14 +1367,15 @@ export function AdminDashboardOverview() {
             key={card.label}
             type="button"
             onClick={card.onClick}
-            className="accent-card p-4 text-left transition hover:-translate-y-0.5 hover:border-[rgba(241,166,75,0.3)]"
+            className="border-b border-r border-[var(--color-line)] bg-white px-4 py-3 text-left transition hover:bg-[rgba(8,96,108,0.04)]"
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
               {card.label}
             </p>
-            <p className="mt-2 text-[1.7rem] font-semibold text-[var(--color-ink)]">{card.value}</p>
+            <p className="mt-1 text-2xl font-semibold text-[var(--color-ink)]">{card.value}</p>
           </button>
         ))}
+        </div>
       </section>
 
       {isEmployeeSession ? (
