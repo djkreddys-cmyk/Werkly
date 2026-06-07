@@ -322,7 +322,7 @@ function buildInvoicePdfBytes(params: {
   text(40, 500, 8, `Job Details: ${jobDesignations.slice(0, 88)}`);
 
   let y = 474;
-  text(34, y, 6, "#", "F2");
+  text(34, y, 6, "S.No", "F2");
   text(48, y, 6, "Candidate Name", "F2");
   text(130, y, 6, "CTC", "F2");
   text(190, y, 6, "DOJ", "F2");
@@ -368,6 +368,8 @@ function buildInvoicePdfBytes(params: {
   text(350, y, 11, `Amount Payable: ${formatInrText(total)}`, "F2");
   y -= 40;
   text(40, y, 9, params.notes.slice(0, 110));
+  text(62, 36, 7, werklyLegalDetails.address.slice(0, 118), "F2");
+  text(172, 24, 7, `GST: ${werklyLegalDetails.gstNumber} | PAN: ${werklyLegalDetails.panNumber} | hr@werkly.in`, "F2");
   text(400, 90, 10, "For Werkly Consulting", "F2");
   text(420, 60, 9, "Authorized Signatory");
 
@@ -494,10 +496,11 @@ function buildInvoiceHtml(params: {
   <style>
     @page { size: A4; margin: 0; }
     html, body { width: 210mm; min-height: 297mm; }
-    body { font-family: Calibri, Arial, sans-serif; color: #102f3a; margin: 0; font-size: 10.7px; line-height: 1.35; background: #d9dde1; }
+    body { font-family: Calibri, Arial, sans-serif; color: #102f3a; margin: 0; font-size: 10.7px; line-height: 1.55; background: #d9dde1; }
     h1, h2, p { margin: 0; }
     .invoice-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; margin: 0 auto; overflow: hidden; background: #fff; }
     .letterhead-bg { position: absolute; inset: 0; width: 210mm; height: 297mm; object-fit: cover; z-index: 0; }
+    .letterhead-address { position: absolute; z-index: 1; left: 18mm; right: 18mm; bottom: 8.5mm; text-align: center; font-size: 8px; line-height: 1.35; font-weight: 700; color: #102f3a; }
     .invoice-content { position: relative; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 38mm 14mm 26mm; }
     .invoice-main { flex: 1 1 auto; }
     .top { display: flex; justify-content: flex-end; border-bottom: 2px solid #0a7684; padding-bottom: 12px; align-items: start; }
@@ -507,24 +510,25 @@ function buildInvoiceHtml(params: {
     .brand .address { max-width: 420px; margin-top: 6px; }
     .brand .tax-line { margin-top: 6px; font-weight: 700; color: #24424a; }
     .invoice-meta { margin-left: auto; text-align: right; padding-top: 4px; min-width: 250px; }
-    .invoice-meta p { margin-bottom: 5px; white-space: nowrap; }
-    .title { text-align: center; margin: 13px 0; letter-spacing: 0.22em; font-size: 17px; font-weight: 700; }
-    .details-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 16px; margin-bottom: 12px; }
-    .section h2 { border-bottom: 1px solid #cfdde2; padding-bottom: 4px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #0a7684; margin-bottom: 6px; }
-    .section p { margin-top: 2px; }
+    .invoice-meta p { margin-bottom: 7px; white-space: nowrap; }
+    .title { text-align: center; margin: 17px 0; letter-spacing: 0.22em; font-size: 17px; font-weight: 700; }
+    .details-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 18px; margin-bottom: 16px; }
+    .section h2 { border-bottom: 1px solid #cfdde2; padding-bottom: 5px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #0a7684; margin-bottom: 9px; }
+    .section p { margin-top: 4px; }
     table { border-collapse: collapse; width: 100%; }
     th { background: #eef5f6; color: #24424a; font-size: 8.6px; letter-spacing: 0.07em; text-transform: uppercase; }
-    th, td { border: 1px solid #d9e5e8; padding: 5px; vertical-align: top; text-align: left; }
+    th, td { border: 1px solid #d9e5e8; padding: 7px 5px; vertical-align: top; text-align: left; }
     td span { color: #52666d; font-size: 10px; }
-    .summary { display: grid; grid-template-columns: 1fr 72mm; gap: 18px; margin-top: 13px; align-items: start; }
+    .summary { display: grid; grid-template-columns: 1fr 72mm; gap: 18px; margin-top: 18px; align-items: start; }
     .summary { break-inside: avoid; page-break-inside: avoid; }
     .totals td:first-child { font-weight: 700; }
     .totals td:last-child { text-align: right; }
     .footer { display: flex; justify-content: flex-end; gap: 20px; margin-top: auto; padding-top: 10px; }
     .sign { text-align: right; min-width: 220px; }
     .sign-space { height: 54px; }
-    .notes { margin-top: 10px; white-space: pre-line; }
+    .notes { margin-top: 12px; white-space: pre-line; }
     .invoice-page.dense .invoice-content { padding-top: 36mm; padding-bottom: 23mm; }
+    .invoice-page.dense { line-height: 1.35; }
     .invoice-page.dense .top { padding-bottom: 8px; }
     .invoice-page.dense .title { margin: 8px 0; font-size: 15px; }
     .invoice-page.dense .details-grid { gap: 12px; margin-bottom: 8px; }
@@ -537,6 +541,7 @@ function buildInvoiceHtml(params: {
     .invoice-page.dense .sign-space { height: 24px; }
     .invoice-page.very-dense .invoice-content { padding-top: 35mm; padding-bottom: 22mm; }
     .invoice-page.very-dense { font-size: 9.8px; }
+    .invoice-page.very-dense { line-height: 1.22; }
     .invoice-page.very-dense .top { padding-bottom: 6px; }
     .invoice-page.very-dense .title { margin: 6px 0; font-size: 14px; }
     .invoice-page.very-dense .details-grid { gap: 10px; margin-bottom: 6px; }
@@ -562,6 +567,10 @@ function buildInvoiceHtml(params: {
   </div>
   <main class="invoice-page ${invoiceDensityClass}">
   <img class="letterhead-bg" src="${letterheadImageUrl}" alt="" />
+  <div class="letterhead-address">
+    ${escapeHtml(werklyLegalDetails.address)}<br />
+    GST: ${escapeHtml(werklyLegalDetails.gstNumber)} | PAN: ${escapeHtml(werklyLegalDetails.panNumber)} | hr@werkly.in
+  </div>
   <div class="invoice-content">
   <div class="top">
     <div class="brand">
@@ -600,7 +609,7 @@ function buildInvoiceHtml(params: {
   <table>
     <thead>
       <tr>
-        <th>#</th><th>Candidate Name</th><th>CTC</th><th>DOJ</th><th>Job Details</th><th>Agreement %</th><th>Taxable Value</th><th>CGST ${gstRate}%</th><th>SGST ${gstRate}%</th><th>Amount</th>
+        <th>S.No</th><th>Candidate Name</th><th>CTC</th><th>DOJ</th><th>Job Details</th><th>Agreement %</th><th>Taxable Value</th><th>CGST ${gstRate}%</th><th>SGST ${gstRate}%</th><th>Amount</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -1189,7 +1198,7 @@ export function AdminClientInvoicesPanel() {
             <thead>
               <tr className="bg-[rgba(10,118,132,0.08)] text-xs uppercase tracking-[0.18em] text-[var(--color-muted)]">
                 {[
-                  "Bill",
+                  "S.No",
                   "Candidate",
                   "CTC",
                   "DOJ from Stage",
