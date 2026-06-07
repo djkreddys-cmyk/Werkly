@@ -172,8 +172,68 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
+function numberToIndianWords(value: number) {
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  function belowThousand(number: number) {
+    const parts: string[] = [];
+    if (number >= 100) {
+      parts.push(`${ones[Math.floor(number / 100)]} Hundred`);
+      number %= 100;
+    }
+    if (number >= 20) {
+      parts.push(tens[Math.floor(number / 10)]);
+      number %= 10;
+    }
+    if (number > 0) {
+      parts.push(ones[number]);
+    }
+    return parts.join(" ");
+  }
+
+  if (value === 0) {
+    return "Zero";
+  }
+
+  const parts: string[] = [];
+  const crore = Math.floor(value / 10000000);
+  value %= 10000000;
+  const lakh = Math.floor(value / 100000);
+  value %= 100000;
+  const thousand = Math.floor(value / 1000);
+  value %= 1000;
+
+  if (crore) parts.push(`${belowThousand(crore)} Crore`);
+  if (lakh) parts.push(`${belowThousand(lakh)} Lakh`);
+  if (thousand) parts.push(`${belowThousand(thousand)} Thousand`);
+  if (value) parts.push(belowThousand(value));
+  return parts.join(" ");
+}
+
 function amountInWords(amount: number) {
-  return `${formatCurrency(Math.round(amount)).replace("₹", "INR ")} Only`;
+  return `INR ${numberToIndianWords(Math.round(amount))} Only`;
 }
 
 function escapePdfText(value: string) {
@@ -438,7 +498,8 @@ function buildInvoiceHtml(params: {
     h1, h2, p { margin: 0; }
     .invoice-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; margin: 0 auto; overflow: hidden; background: #fff; }
     .letterhead-bg { position: absolute; inset: 0; width: 210mm; height: 297mm; object-fit: cover; z-index: 0; }
-    .invoice-content { position: relative; z-index: 1; box-sizing: border-box; width: 100%; height: 100%; padding: 38mm 14mm 28mm; }
+    .invoice-content { position: relative; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 38mm 14mm 26mm; }
+    .invoice-main { flex: 1 1 auto; }
     .top { display: flex; justify-content: flex-end; border-bottom: 2px solid #0a7684; padding-bottom: 12px; align-items: start; }
     .brand { display: none; }
     .brand h1 { font-size: 22px; letter-spacing: 0.04em; }
@@ -459,11 +520,11 @@ function buildInvoiceHtml(params: {
     .summary { break-inside: avoid; page-break-inside: avoid; }
     .totals td:first-child { font-weight: 700; }
     .totals td:last-child { text-align: right; }
-    .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 18px; }
+    .footer { display: flex; justify-content: flex-end; gap: 20px; margin-top: auto; padding-top: 10px; }
     .sign { text-align: right; min-width: 220px; }
     .sign-space { height: 54px; }
     .notes { margin-top: 10px; white-space: pre-line; }
-    .invoice-page.dense .invoice-content { padding-top: 36mm; padding-bottom: 24mm; }
+    .invoice-page.dense .invoice-content { padding-top: 36mm; padding-bottom: 23mm; }
     .invoice-page.dense .top { padding-bottom: 8px; }
     .invoice-page.dense .title { margin: 8px 0; font-size: 15px; }
     .invoice-page.dense .details-grid { gap: 12px; margin-bottom: 8px; }
@@ -472,7 +533,7 @@ function buildInvoiceHtml(params: {
     .invoice-page.dense th { font-size: 7.6px; }
     .invoice-page.dense .summary { margin-top: 8px; gap: 12px; }
     .invoice-page.dense .notes { margin-top: 5px; }
-    .invoice-page.dense .footer { margin-top: 10px; }
+    .invoice-page.dense .footer { padding-top: 8px; }
     .invoice-page.dense .sign-space { height: 24px; }
     .invoice-page.very-dense .invoice-content { padding-top: 35mm; padding-bottom: 22mm; }
     .invoice-page.very-dense { font-size: 9.8px; }
@@ -485,7 +546,7 @@ function buildInvoiceHtml(params: {
     .invoice-page.very-dense th { font-size: 6.8px; }
     .invoice-page.very-dense .summary { margin-top: 6px; gap: 10px; }
     .invoice-page.very-dense .notes { margin-top: 4px; }
-    .invoice-page.very-dense .footer { margin-top: 8px; }
+    .invoice-page.very-dense .footer { padding-top: 6px; }
     .invoice-page.very-dense .sign-space { height: 16px; }
     .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }
     .toolbar button { border: 1px solid #cfdde2; border-radius: 999px; background: #fff; color: #102f3a; cursor: pointer; font-weight: 700; padding: 9px 14px; }
@@ -515,6 +576,7 @@ function buildInvoiceHtml(params: {
       <p><strong>Due Date:</strong> ${formatDate(params.dueDate)}</p>
     </div>
   </div>
+  <div class="invoice-main">
   <div class="title">TAX INVOICE</div>
   <div class="details-grid">
     <div class="section">
@@ -564,8 +626,8 @@ function buildInvoiceHtml(params: {
       </tbody>
     </table>
   </div>
+  </div>
   <div class="footer">
-    <p class="muted">This invoice is generated from Werkly CRM based on joined recruitment records.</p>
     <div class="sign">
       <div class="sign-space"></div>
       <p><strong>For Werkly Consulting</strong></p>
