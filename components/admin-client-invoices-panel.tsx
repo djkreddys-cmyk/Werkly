@@ -37,8 +37,8 @@ const werklyAddressLines = [
   "Andhra Pradesh - 521286",
 ];
 const letterheadImageUrl = "/invoice-assets/werkly-letterhead.jpg";
-const letterheadImageWidth = 2480;
-const letterheadImageHeight = 3508;
+const letterheadImageWidth = 4958;
+const letterheadImageHeight = 7009;
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -368,8 +368,6 @@ function buildInvoicePdfBytes(params: {
   text(350, y, 11, `Amount Payable: ${formatInrText(total)}`, "F2");
   y -= 40;
   text(40, y, 9, params.notes.slice(0, 110));
-  text(62, 46, 7, werklyLegalDetails.address.slice(0, 118), "F2");
-  text(172, 34, 7, `GST: ${werklyLegalDetails.gstNumber} | PAN: ${werklyLegalDetails.panNumber} | hr@werkly.in`, "F2");
   text(400, 165, 10, "For Werkly Consulting", "F2");
   text(420, 138, 9, "Authorized Signatory");
 
@@ -500,7 +498,6 @@ function buildInvoiceHtml(params: {
     h1, h2, p { margin: 0; }
     .invoice-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; margin: 0 auto; overflow: hidden; background: #fff; }
     .letterhead-bg { position: absolute; inset: 0; width: 210mm; height: 297mm; object-fit: cover; z-index: 0; }
-    .letterhead-address { position: absolute; z-index: 1; left: 18mm; right: 18mm; bottom: 12mm; text-align: center; font-size: 8px; line-height: 1.35; font-weight: 700; color: #102f3a; }
     .invoice-content { position: relative; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 38mm 14mm 26mm; }
     .invoice-main { flex: 1 1 auto; }
     .top { display: flex; justify-content: flex-end; border-bottom: 2px solid #0a7684; padding-bottom: 12px; align-items: start; }
@@ -567,10 +564,6 @@ function buildInvoiceHtml(params: {
   </div>
   <main class="invoice-page ${invoiceDensityClass}">
   <img class="letterhead-bg" src="${letterheadImageUrl}" alt="" />
-  <div class="letterhead-address">
-    ${escapeHtml(werklyLegalDetails.address)}<br />
-    GST: ${escapeHtml(werklyLegalDetails.gstNumber)} | PAN: ${escapeHtml(werklyLegalDetails.panNumber)} | hr@werkly.in
-  </div>
   <div class="invoice-content">
   <div class="top">
     <div class="brand">
