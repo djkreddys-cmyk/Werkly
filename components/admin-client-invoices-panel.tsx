@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
-import { removeFinanceInvoice, upsertFinanceInvoice } from "@/lib/finance";
+import { readFinanceInvoices, removeFinanceInvoice, upsertFinanceInvoice } from "@/lib/finance";
 import { formatPersonName } from "@/lib/format";
 
 type InvoiceLine = {
@@ -128,12 +128,39 @@ function formatNumberInput(value: number) {
   return value > 0 ? String(Math.round(value)) : "";
 }
 
-function invoiceNumber() {
-  const date = new Date();
-  const year = String(date.getFullYear()).slice(-2);
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `INV-${year}${month}${day}`;
+function getFinancialYearRange(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  const year = date.getFullYear();
+  const fiscalStartYear = date.getMonth() >= 3 ? year : year - 1;
+  return {
+    start: `${fiscalStartYear}-04-01`,
+    end: `${fiscalStartYear + 1}-03-31`,
+  };
+}
+
+function isDateKeyInRange(dateKey: string, start: string, end: string) {
+  return dateKey >= start && dateKey <= end;
+}
+
+function invoiceNumber(dateKey = todayKey()) {
+  const invoiceDateKey = toDateInputKey(dateKey) || todayKey();
+  const { start, end } = getFinancialYearRange(invoiceDateKey);
+  const invoices = typeof window === "undefined" ? [] : readFinanceInvoices();
+  const maxSequence = invoices.reduce((max, invoice) => {
+    const match = String(invoice.invoiceNo || "").match(/^(\d{8})(\d+)$/);
+    if (!match) {
+      return max;
+    }
+
+    const invoiceKey = `${match[1].slice(0, 4)}-${match[1].slice(4, 6)}-${match[1].slice(6, 8)}`;
+    if (!isDateKeyInRange(invoiceKey, start, end)) {
+      return max;
+    }
+
+    return Math.max(max, Number(match[2]) || 0);
+  }, 0);
+  const sequence = String(maxSequence + 1).padStart(3, "0");
+  return `${invoiceDateKey.replaceAll("-", "")}${sequence}`;
 }
 
 function escapeHtml(value: string) {
@@ -194,6 +221,8 @@ function buildInvoicePdfBytes(params: {
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
   const jobDesignations = formatJobDesignations(selectedLines);
+  const pdfRowStep = selectedLines.length > 10 ? 12 : selectedLines.length > 6 ? 14 : 18;
+  const pdfRowFontSize = selectedLines.length > 6 ? 5 : 6;
   const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
   const cgst = (taxable * gstRate) / 100;
   const sgst = (taxable * gstRate) / 100;
@@ -251,25 +280,25 @@ function buildInvoicePdfBytes(params: {
     const rowCgst = (rowTaxable * gstRate) / 100;
     const rowSgst = (rowTaxable * gstRate) / 100;
     const rowAmount = rowTaxable + rowCgst + rowSgst;
-    text(34, y, 6, String(index + 1));
-    text(48, y, 6, item.candidateName.slice(0, 21));
-    text(130, y, 6, formatInrText(parseMoney(item.ctc)).replace("INR ", ""));
-    text(190, y, 6, formatDate(item.doj));
-    text(238, y, 6, item.department.slice(0, 18));
-    text(316, y, 6, `${Number(item.feePercent || 0)}% of CTC`);
-    text(374, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
-    text(426, y, 6, formatInrText(rowCgst).replace("INR ", ""));
-    text(478, y, 6, formatInrText(rowSgst).replace("INR ", ""));
-    text(526, y, 6, formatInrText(rowAmount).replace("INR ", ""));
-    y -= 22;
+    text(34, y, pdfRowFontSize, String(index + 1));
+    text(48, y, pdfRowFontSize, item.candidateName.slice(0, 21));
+    text(130, y, pdfRowFontSize, formatInrText(parseMoney(item.ctc)).replace("INR ", ""));
+    text(190, y, pdfRowFontSize, formatDate(item.doj));
+    text(238, y, pdfRowFontSize, item.department.slice(0, 18));
+    text(316, y, pdfRowFontSize, `${Number(item.feePercent || 0)}% of CTC`);
+    text(374, y, pdfRowFontSize, formatInrText(rowTaxable).replace("INR ", ""));
+    text(426, y, pdfRowFontSize, formatInrText(rowCgst).replace("INR ", ""));
+    text(478, y, pdfRowFontSize, formatInrText(rowSgst).replace("INR ", ""));
+    text(526, y, pdfRowFontSize, formatInrText(rowAmount).replace("INR ", ""));
+    y -= pdfRowStep;
   });
 
   line(40, y, 555, y);
-  y -= 24;
+  y -= selectedLines.length > 6 ? 16 : 22;
   text(40, y, 9, `Total Candidates: ${selectedLines.length}`, "F2");
-  y -= 18;
+  y -= selectedLines.length > 6 ? 14 : 18;
   text(40, y, 9, `Amount in words: ${amountInWords(total)}`);
-  y -= 32;
+  y -= selectedLines.length > 6 ? 22 : 30;
   text(350, y, 10, `Taxable Amount: ${formatInrText(taxable)}`, "F2");
   y -= 18;
   text(350, y, 10, `CGST 9%: ${formatInrText(cgst)}`);
@@ -326,7 +355,7 @@ function buildInvoicePdfBytes(params: {
   return Uint8Array.from(parts.join(""), (char) => char.charCodeAt(0));
 }
 
-function defaultLine(application: JobApplication): InvoiceLine {
+function defaultLine(application: JobApplication, job?: JobSummary): InvoiceLine {
   const ctc =
     parseMoney(application.finalCtc) ||
     parseMoney(application.currentCtc) ||
@@ -342,7 +371,12 @@ function defaultLine(application: JobApplication): InvoiceLine {
       toDateInputKey(joinedStageDate) ||
       toDateInputKey(application.stageUpdatedAt) ||
       todayKey(),
-    department: application.sector || application.jobTitle || "Recruitment",
+    department:
+      job?.title ||
+      application.jobTitle ||
+      application.preferredRole ||
+      application.currentDesignation ||
+      "Recruitment placement",
     hsnSac: "998512",
     feePercent: "8.33",
     selected: true,
@@ -363,6 +397,8 @@ function buildInvoiceHtml(params: {
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
   const jobDesignations = formatJobDesignations(selectedLines);
+  const invoiceDensityClass =
+    selectedLines.length > 10 ? "very-dense" : selectedLines.length > 5 ? "dense" : "normal";
   const rows = selectedLines
     .map((line, index) => {
       const taxable = lineTaxableValue(line);
@@ -420,12 +456,37 @@ function buildInvoiceHtml(params: {
     th, td { border: 1px solid #d9e5e8; padding: 5px; vertical-align: top; text-align: left; }
     td span { color: #52666d; font-size: 10px; }
     .summary { display: grid; grid-template-columns: 1fr 72mm; gap: 18px; margin-top: 13px; align-items: start; }
+    .summary { break-inside: avoid; page-break-inside: avoid; }
     .totals td:first-child { font-weight: 700; }
     .totals td:last-child { text-align: right; }
     .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 18px; }
     .sign { text-align: right; min-width: 220px; }
     .sign-space { height: 54px; }
     .notes { margin-top: 10px; white-space: pre-line; }
+    .invoice-page.dense .invoice-content { padding-top: 36mm; padding-bottom: 24mm; }
+    .invoice-page.dense .top { padding-bottom: 8px; }
+    .invoice-page.dense .title { margin: 8px 0; font-size: 15px; }
+    .invoice-page.dense .details-grid { gap: 12px; margin-bottom: 8px; }
+    .invoice-page.dense .section h2 { margin-bottom: 4px; padding-bottom: 3px; }
+    .invoice-page.dense th, .invoice-page.dense td { padding: 3.5px; font-size: 9px; }
+    .invoice-page.dense th { font-size: 7.6px; }
+    .invoice-page.dense .summary { margin-top: 8px; gap: 12px; }
+    .invoice-page.dense .notes { margin-top: 5px; }
+    .invoice-page.dense .footer { margin-top: 10px; }
+    .invoice-page.dense .sign-space { height: 24px; }
+    .invoice-page.very-dense .invoice-content { padding-top: 35mm; padding-bottom: 22mm; }
+    .invoice-page.very-dense { font-size: 9.8px; }
+    .invoice-page.very-dense .top { padding-bottom: 6px; }
+    .invoice-page.very-dense .title { margin: 6px 0; font-size: 14px; }
+    .invoice-page.very-dense .details-grid { gap: 10px; margin-bottom: 6px; }
+    .invoice-page.very-dense .section h2 { margin-bottom: 3px; padding-bottom: 2px; font-size: 8.6px; }
+    .invoice-page.very-dense .section p { margin-top: 1px; }
+    .invoice-page.very-dense th, .invoice-page.very-dense td { padding: 2.6px; font-size: 8px; line-height: 1.15; }
+    .invoice-page.very-dense th { font-size: 6.8px; }
+    .invoice-page.very-dense .summary { margin-top: 6px; gap: 10px; }
+    .invoice-page.very-dense .notes { margin-top: 4px; }
+    .invoice-page.very-dense .footer { margin-top: 8px; }
+    .invoice-page.very-dense .sign-space { height: 16px; }
     .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }
     .toolbar button { border: 1px solid #cfdde2; border-radius: 999px; background: #fff; color: #102f3a; cursor: pointer; font-weight: 700; padding: 9px 14px; }
     .toolbar button.primary { background: #0a7684; border-color: #0a7684; color: #fff; }
@@ -438,7 +499,7 @@ function buildInvoiceHtml(params: {
     <button type="button" onclick="if (window.opener) window.opener.focus(); window.close();">Edit Invoice Details</button>
     <button type="button" class="primary" onclick="window.print()">Print / Save PDF</button>
   </div>
-  <main class="invoice-page">
+  <main class="invoice-page ${invoiceDensityClass}">
   <img class="letterhead-bg" src="${letterheadImageUrl}" alt="" />
   <div class="invoice-content">
   <div class="top">
@@ -658,10 +719,17 @@ export function AdminClientInvoicesPanel() {
   }, [jobs, joinedApplications, selectedClient]);
 
   useEffect(() => {
-    setLines(clientJoinedApplications.map(defaultLine));
+    setLines(
+      clientJoinedApplications.map((application) =>
+        defaultLine(
+          application,
+          jobs.find((job) => job.id === application.jobId)
+        )
+      )
+    );
     setIsInvoiceGenerated(false);
     setMessage("");
-  }, [clientJoinedApplications]);
+  }, [clientJoinedApplications, jobs]);
 
   useEffect(() => {
     if (selectedClientId && !visibleClients.some((client) => client.id === selectedClientId)) {
@@ -985,6 +1053,7 @@ export function AdminClientInvoicesPanel() {
               onChange={(event) => {
                 setInvoiceDate(event.target.value);
                 setDueDate(addDays(event.target.value, 30));
+                setInvoiceNo(invoiceNumber(event.target.value));
                 setIsInvoiceGenerated(false);
                 setMessage("");
               }}
