@@ -62,6 +62,7 @@ type ClientFormState = {
   branch: string;
   billingTerms: string;
   gstNumber: string;
+  cinNumber: string;
   panNumber: string;
   assignedEmployeeId: string;
   status: ClientStatus;
@@ -176,6 +177,7 @@ const emptyClientForm: ClientFormState = {
   branch: "",
   billingTerms: "",
   gstNumber: "",
+  cinNumber: "",
   panNumber: "",
   assignedEmployeeId: "",
   status: "active",
@@ -244,6 +246,7 @@ function buildOnboardingChecklist(
     | "agreementFileName"
     | "billingTerms"
     | "gstNumber"
+    | "cinNumber"
     | "panNumber"
   >,
   linkedJobsCount = 0
@@ -261,7 +264,12 @@ function buildOnboardingChecklist(
     },
     {
       label: "Billing terms",
-      complete: Boolean(form.billingTerms.trim() && form.gstNumber.trim() && form.panNumber.trim()),
+      complete: Boolean(
+        form.billingTerms.trim() &&
+          form.gstNumber.trim() &&
+          form.cinNumber.trim() &&
+          form.panNumber.trim()
+      ),
     },
     {
       label: "First job",
@@ -290,6 +298,7 @@ function buildClientPayload(form: ClientFormState, overrides: Partial<ClientForm
     branch: trimmedOptional(merged.branch),
     billingTerms: trimmedOptional(merged.billingTerms),
     gstNumber: trimmedOptional(merged.gstNumber),
+    cinNumber: trimmedOptional(merged.cinNumber),
     panNumber: trimmedOptional(merged.panNumber),
     assignedEmployeeId: merged.assignedEmployeeId || undefined,
     onboardingSource: trimmedOptional(merged.onboardingSource),
@@ -3604,6 +3613,7 @@ export function AdminClientsPanel({
       branch: client.branch || "",
       billingTerms: client.billingTerms || "",
       gstNumber: client.gstNumber || "",
+      cinNumber: client.cinNumber || "",
       panNumber: client.panNumber || "",
       assignedEmployeeId: client.assignedEmployeeId || "",
       status: client.status || "active",
@@ -4685,6 +4695,17 @@ export function AdminClientsPanel({
                     }
                   />
                 </label>
+                <label className="block">
+                  <span className={clientFormLabelClassName}>CIN Number</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="CIN number"
+                    value={clientForm.cinNumber}
+                    onChange={(event) =>
+                      updateClientField("cinNumber", event.target.value.toUpperCase())
+                    }
+                  />
+                </label>
                 <label className="block sm:col-span-2">
                   <span className={clientFormLabelClassName}>Billing Terms / Commercial Terms</span>
                   <textarea
@@ -5076,6 +5097,19 @@ export function AdminClientsPanel({
                     value={leadOnboardingForm.panNumber}
                     onChange={(event) =>
                       updateLeadOnboardingField("panNumber", event.target.value.toUpperCase())
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    CIN Number
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadOnboardingForm.cinNumber}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("cinNumber", event.target.value.toUpperCase())
                     }
                   />
                 </label>

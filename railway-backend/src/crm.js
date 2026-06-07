@@ -225,6 +225,7 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists secondary_contact_phone text`);
   await query(`alter table clients add column if not exists billing_terms text`);
   await query(`alter table clients add column if not exists gst_number text`);
+  await query(`alter table clients add column if not exists cin_number text`);
   await query(`alter table clients add column if not exists pan_number text`);
   await query(`alter table clients add column if not exists onboarding_status text not null default 'new-lead'`);
   await query(`alter table clients add column if not exists follow_up_status text not null default 'pending'`);
@@ -694,6 +695,7 @@ function mapClientRow(row) {
     branch: row.branch,
     billingTerms: row.billing_terms,
     gstNumber: row.gst_number,
+    cinNumber: row.cin_number,
     panNumber: row.pan_number,
     assignedEmployeeId: row.assigned_employee_id,
     assignedEmployeeName: row.assigned_employee_name,
@@ -1297,6 +1299,7 @@ export async function listClients(employeeId = null, options = {}) {
       clients.branch,
       clients.billing_terms,
       clients.gst_number,
+      clients.cin_number,
       clients.pan_number,
       clients.assigned_employee_id,
       clients.follow_up_employee_id,
@@ -1371,6 +1374,7 @@ export async function getClientById(clientId) {
       clients.branch,
       clients.billing_terms,
       clients.gst_number,
+      clients.cin_number,
       clients.pan_number,
       clients.assigned_employee_id,
       clients.follow_up_employee_id,
@@ -1448,6 +1452,7 @@ export async function createClient(payload) {
       branch,
       billing_terms,
       gst_number,
+      cin_number,
       pan_number,
       assigned_employee_id,
       follow_up_employee_id,
@@ -1465,8 +1470,8 @@ export async function createClient(payload) {
       agreement_file_name,
       agreement_file_type,
       agreement_file_data
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, null, null, null, null, $15, $16, $17, $18::date, $19::date, $20, $21, $22, $23, $24, $25)
-    returning id, company_name, contact_person, contact_email, contact_phone, secondary_contact_person, secondary_contact_email, secondary_contact_phone, communication_address, sector, branch, billing_terms, gst_number, pan_number, assigned_employee_id, follow_up_employee_id, follow_up_from_date, follow_up_to_date, follow_up_assignment_note, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, null, null, null, null, $16, $17, $18, $19::date, $20::date, $21, $22, $23, $24, $25, $26)
+    returning id, company_name, contact_person, contact_email, contact_phone, secondary_contact_person, secondary_contact_email, secondary_contact_phone, communication_address, sector, branch, billing_terms, gst_number, cin_number, pan_number, assigned_employee_id, follow_up_employee_id, follow_up_from_date, follow_up_to_date, follow_up_assignment_note, status, onboarding_status, follow_up_status, next_follow_up_date, last_follow_up_date, onboarding_source, notes, follow_up_notes, agreement_file_name, agreement_file_type, agreement_file_data, created_at`,
     [
       payload.companyName,
       payload.contactPerson,
@@ -1480,6 +1485,7 @@ export async function createClient(payload) {
       payload.branch || null,
       payload.billingTerms || null,
       payload.gstNumber || null,
+      payload.cinNumber || null,
       payload.panNumber || null,
       payload.assignedEmployeeId || null,
       payload.status || "active",
@@ -1520,19 +1526,20 @@ export async function updateClient(clientId, payload) {
             branch = $11,
             billing_terms = $12,
             gst_number = $13,
-            pan_number = $14,
-            assigned_employee_id = $15,
-            status = $16,
-            onboarding_status = $17,
-            follow_up_status = $18,
-            next_follow_up_date = $19::date,
-            last_follow_up_date = $20::date,
-            onboarding_source = $21,
-            notes = $22,
-            follow_up_notes = $23,
-            agreement_file_name = $24,
-            agreement_file_type = $25,
-            agreement_file_data = $26,
+            cin_number = $14,
+            pan_number = $15,
+            assigned_employee_id = $16,
+            status = $17,
+            onboarding_status = $18,
+            follow_up_status = $19,
+            next_follow_up_date = $20::date,
+            last_follow_up_date = $21::date,
+            onboarding_source = $22,
+            notes = $23,
+            follow_up_notes = $24,
+            agreement_file_name = $25,
+            agreement_file_type = $26,
+            agreement_file_data = $27,
             updated_at = now()
       where id = $1
       returning id`,
@@ -1550,6 +1557,7 @@ export async function updateClient(clientId, payload) {
       payload.branch || null,
       payload.billingTerms || null,
       payload.gstNumber || null,
+      payload.cinNumber || null,
       payload.panNumber || null,
       payload.assignedEmployeeId || null,
       payload.status || "active",
@@ -1656,6 +1664,7 @@ export async function reassignClient(clientId, payload) {
       clients.branch,
       clients.billing_terms,
       clients.gst_number,
+      clients.cin_number,
       clients.pan_number,
       clients.assigned_employee_id,
       clients.follow_up_employee_id,
@@ -1778,6 +1787,7 @@ export async function bulkAssignClients(clientIds, payload) {
       clients.branch,
       clients.billing_terms,
       clients.gst_number,
+      clients.cin_number,
       clients.pan_number,
       clients.assigned_employee_id,
       clients.follow_up_employee_id,
@@ -1921,6 +1931,7 @@ export async function updateClientFollowUp(clientId, payload) {
       clients.branch,
       clients.billing_terms,
       clients.gst_number,
+      clients.cin_number,
       clients.pan_number,
       clients.assigned_employee_id,
       clients.follow_up_employee_id,

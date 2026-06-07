@@ -21,6 +21,14 @@ const fieldClassName =
 
 const selectClassName = `${fieldClassName} appearance-none pr-10`;
 const gstRate = 9;
+const werklyBillingStorageKey = "werklyInvoiceBillingDetails";
+const defaultWerklyBillingDetails = {
+  gstNumber: "",
+  panNumber: "",
+  address: "",
+};
+
+type WerklyBillingDetails = typeof defaultWerklyBillingDetails;
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -134,6 +142,7 @@ function buildInvoicePdfBytes(params: {
   selectedClient: ClientRecord;
   lines: InvoiceLine[];
   notes: string;
+  werklyBilling: WerklyBillingDetails;
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
   const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
@@ -151,19 +160,22 @@ function buildInvoicePdfBytes(params: {
   }
 
   text(40, 800, 18, "WERKLY CONSULTING", "F2");
-  text(40, 782, 9, "Hyderabad & Vijayawada, India | hr@werkly.in");
+  text(40, 782, 9, params.werklyBilling.address || "Werkly billing address not added");
+  text(40, 766, 9, `GST: ${params.werklyBilling.gstNumber} | PAN: ${params.werklyBilling.panNumber} | hr@werkly.in`);
   text(390, 800, 10, `Invoice #: ${params.invoiceNo}`, "F2");
   text(390, 784, 10, `Date: ${formatDate(params.invoiceDate)}`);
   text(390, 768, 10, `Due Date: ${formatDate(params.dueDate)}`);
-  line(40, 755, 555, 755);
+  line(40, 750, 555, 750);
   text(235, 735, 16, "TAX INVOICE", "F2");
   text(40, 710, 10, "Customer Details", "F2");
   text(40, 694, 11, params.selectedClient.companyName, "F2");
   text(40, 678, 9, params.selectedClient.communicationAddress || params.selectedClient.branch || "Billing address not added");
   text(40, 662, 9, params.selectedClient.contactEmail || "");
   text(40, 646, 9, params.selectedClient.contactPhone || "");
+  text(40, 630, 9, `GST: ${params.selectedClient.gstNumber || ""}`);
+  text(40, 614, 9, `CIN: ${params.selectedClient.cinNumber || ""} | PAN: ${params.selectedClient.panNumber || ""}`);
 
-  let y = 610;
+  let y = 590;
   text(34, y, 6, "#", "F2");
   text(48, y, 6, "Item", "F2");
   text(120, y, 6, "CTC", "F2");
@@ -193,8 +205,8 @@ function buildInvoicePdfBytes(params: {
     text(340, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
     text(390, y, 6, "1");
     text(414, y, 6, formatInrText(rowTaxable).replace("INR ", ""));
-    text(462, y, 6, `${formatInrText(rowCgst).replace("INR ", "")} 9%`);
-    text(505, y, 6, `${formatInrText(rowSgst).replace("INR ", "")} 9%`);
+    text(462, y, 6, formatInrText(rowCgst).replace("INR ", ""));
+    text(505, y, 6, formatInrText(rowSgst).replace("INR ", ""));
     text(546, y, 6, formatInrText(rowAmount).replace("INR ", ""));
     y -= 22;
   });
@@ -278,6 +290,7 @@ function buildInvoiceHtml(params: {
   selectedClient?: ClientRecord;
   lines: InvoiceLine[];
   notes: string;
+  werklyBilling: WerklyBillingDetails;
 }) {
   const selectedLines = params.lines.filter((line) => line.selected);
   const rows = selectedLines
@@ -296,8 +309,8 @@ function buildInvoiceHtml(params: {
         <td>${formatCurrency(taxable)}</td>
         <td>1</td>
         <td>${formatCurrency(taxable)}</td>
-        <td>${formatCurrency(cgst)}<br/><span>(${gstRate}%)</span></td>
-        <td>${formatCurrency(sgst)}<br/><span>(${gstRate}%)</span></td>
+        <td>${formatCurrency(cgst)}</td>
+        <td>${formatCurrency(sgst)}</td>
         <td>${formatCurrency(amount)}</td>
       </tr>`;
     })
@@ -336,14 +349,22 @@ function buildInvoiceHtml(params: {
     .sign { text-align: right; min-width: 220px; }
     .sign-space { height: 54px; }
     .notes { margin-top: 10px; white-space: pre-line; }
+    .toolbar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }
+    .toolbar button { border: 1px solid #cfdde2; border-radius: 999px; background: #fff; color: #102f3a; cursor: pointer; font-weight: 700; padding: 9px 14px; }
+    .toolbar button.primary { background: #0a7684; border-color: #0a7684; color: #fff; }
     @media print { .no-print { display: none; } }
   </style>
 </head>
 <body>
+  <div class="toolbar no-print">
+    <button type="button" onclick="if (window.opener) window.opener.focus(); window.close();">Edit Invoice Details</button>
+    <button type="button" class="primary" onclick="window.print()">Print / Save PDF</button>
+  </div>
   <div class="top">
     <div class="brand">
       <h1>WERKLY CONSULTING</h1>
-      <p>Hyderabad & Vijayawada, India</p>
+      <p>${escapeHtml(params.werklyBilling.address)}</p>
+      <p>GST: ${escapeHtml(params.werklyBilling.gstNumber)} | PAN: ${escapeHtml(params.werklyBilling.panNumber)}</p>
       <p>Email: hr@werkly.in</p>
     </div>
     <div>
@@ -361,6 +382,9 @@ function buildInvoiceHtml(params: {
       <p>${escapeHtml(client?.communicationAddress || client?.branch || "Billing address not added")}</p>
       <p>${escapeHtml(client?.contactEmail || "")}</p>
       <p>${escapeHtml(client?.contactPhone || "")}</p>
+      <p><strong>GST:</strong> ${escapeHtml(client?.gstNumber || "")}</p>
+      <p><strong>CIN:</strong> ${escapeHtml(client?.cinNumber || "")}</p>
+      <p><strong>PAN:</strong> ${escapeHtml(client?.panNumber || "")}</p>
     </div>
     <div class="box">
       <h2>Recruitment Billing</h2>
@@ -372,7 +396,7 @@ function buildInvoiceHtml(params: {
   <table>
     <thead>
       <tr>
-        <th>#</th><th>Item</th><th>CTC</th><th>DOJ</th><th>Department</th><th>HSN/SAC</th><th>Rate / Item</th><th>Qty</th><th>Taxable Value</th><th>CGST</th><th>SGST</th><th>Amount</th>
+        <th>#</th><th>Item</th><th>CTC</th><th>DOJ</th><th>Department</th><th>HSN/SAC</th><th>Rate / Item</th><th>Qty</th><th>Taxable Value</th><th>CGST ${gstRate}%</th><th>SGST ${gstRate}%</th><th>Amount</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -423,13 +447,35 @@ export function AdminClientInvoicesPanel() {
   const [notes, setNotes] = useState(
     "Payment should be made within 30 days after the candidate joins your organization."
   );
+  const [werklyBilling, setWerklyBilling] =
+    useState<WerklyBillingDetails>(defaultWerklyBillingDetails);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     setToken(window.localStorage.getItem("werklyAdminToken") ?? "");
+    const savedBilling = window.localStorage.getItem(werklyBillingStorageKey);
+    if (savedBilling) {
+      try {
+        setWerklyBilling({
+          ...defaultWerklyBillingDetails,
+          ...(JSON.parse(savedBilling) as Partial<WerklyBillingDetails>),
+        });
+      } catch {
+        setWerklyBilling(defaultWerklyBillingDetails);
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    window.localStorage.setItem(werklyBillingStorageKey, JSON.stringify(werklyBilling));
+  }, [token, werklyBilling]);
 
   useEffect(() => {
     if (!token) {
@@ -570,11 +616,53 @@ export function AdminClientInvoicesPanel() {
     );
   }
 
+  function missingInvoiceDetails() {
+    const missing: string[] = [];
+
+    if (!selectedClient) {
+      return ["Client"];
+    }
+
+    if (!selectedClient.gstNumber?.trim()) {
+      missing.push("Client GST number");
+    }
+    if (!selectedClient.cinNumber?.trim()) {
+      missing.push("Client CIN number");
+    }
+    if (!selectedClient.panNumber?.trim()) {
+      missing.push("Client PAN number");
+    }
+    if (!selectedClient.communicationAddress?.trim()) {
+      missing.push("Client communication address");
+    }
+    if (!werklyBilling.gstNumber.trim()) {
+      missing.push("Werkly GST number");
+    }
+    if (!werklyBilling.panNumber.trim()) {
+      missing.push("Werkly PAN number");
+    }
+    if (!werklyBilling.address.trim()) {
+      missing.push("Werkly billing address");
+    }
+
+    return missing;
+  }
+
   function generateInvoice(action: "print" | "download") {
     if (!selectedClient || totals.count === 0) {
       setError("Select a client and at least one joined candidate before generating invoice.");
       return;
     }
+
+    const missing = missingInvoiceDetails();
+    if (missing.length > 0) {
+      setMessage("");
+      setError(`Cannot generate invoice. Please add: ${missing.join(", ")}.`);
+      return;
+    }
+
+    setError("");
+    setMessage("");
 
     const html = buildInvoiceHtml({
       invoiceNo,
@@ -583,6 +671,7 @@ export function AdminClientInvoicesPanel() {
       selectedClient,
       lines,
       notes,
+      werklyBilling,
     });
 
     if (action === "download") {
@@ -593,6 +682,7 @@ export function AdminClientInvoicesPanel() {
         selectedClient,
         lines,
         notes,
+        werklyBilling,
       });
       const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -601,6 +691,7 @@ export function AdminClientInvoicesPanel() {
       link.download = `${invoiceNo}_${selectedClient.companyName}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
+      setMessage("Invoice downloaded. Need changes? Edit the fields below and download again.");
       return;
     }
 
@@ -613,6 +704,7 @@ export function AdminClientInvoicesPanel() {
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
+    setMessage("Invoice generated. Need changes? Edit the invoice fields and print again.");
   }
 
   if (!token) {
@@ -645,6 +737,11 @@ export function AdminClientInvoicesPanel() {
         {error ? (
           <p className="mt-5 rounded-[1rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
+          </p>
+        ) : null}
+        {message ? (
+          <p className="mt-5 rounded-[1rem] border border-[rgba(10,118,132,0.18)] bg-[rgba(10,118,132,0.06)] px-4 py-3 text-sm font-medium text-[var(--color-teal)]">
+            {message}
           </p>
         ) : null}
 
@@ -703,6 +800,67 @@ export function AdminClientInvoicesPanel() {
               className={fieldClassName}
               value={dueDate}
               onChange={(event) => setDueDate(event.target.value)}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="accent-card p-7">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="section-eyebrow">Werkly Billing Details</p>
+            <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
+              Shown on every generated invoice
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
+              Update these details here, then generate the invoice again if any correction is needed.
+            </p>
+          </div>
+          <span className="rounded-full bg-[rgba(10,118,132,0.08)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-teal)]">
+            Editable
+          </span>
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <label className="space-y-2">
+            <span className="section-eyebrow">Werkly GST Number</span>
+            <input
+              className={fieldClassName}
+              value={werklyBilling.gstNumber}
+              onChange={(event) =>
+                setWerklyBilling((current) => ({
+                  ...current,
+                  gstNumber: event.target.value.toUpperCase(),
+                }))
+              }
+              placeholder="Werkly GST number"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="section-eyebrow">Werkly PAN Number</span>
+            <input
+              className={fieldClassName}
+              value={werklyBilling.panNumber}
+              onChange={(event) =>
+                setWerklyBilling((current) => ({
+                  ...current,
+                  panNumber: event.target.value.toUpperCase(),
+                }))
+              }
+              placeholder="Werkly PAN number"
+            />
+          </label>
+          <label className="space-y-2 lg:col-span-3">
+            <span className="section-eyebrow">Werkly Billing Address</span>
+            <textarea
+              className={`${fieldClassName} min-h-[86px] resize-y`}
+              value={werklyBilling.address}
+              onChange={(event) =>
+                setWerklyBilling((current) => ({
+                  ...current,
+                  address: event.target.value,
+                }))
+              }
+              placeholder="Werkly registered billing address"
             />
           </label>
         </div>

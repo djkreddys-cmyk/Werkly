@@ -357,6 +357,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
               ["Sector", client.sector || "Not added"],
               ["Branch", client.branch || "Not added"],
               ["GST Number", client.gstNumber || "Not added"],
+              ["CIN Number", client.cinNumber || "Not added"],
               ["PAN Number", client.panNumber || "Not added"],
               ["Billing Terms", client.billingTerms || "Not added"],
               ["Client Status", formatFollowUpStage(client.status)],

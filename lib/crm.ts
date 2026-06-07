@@ -135,6 +135,7 @@ export type ClientRecord = {
   branch?: string;
   billingTerms?: string;
   gstNumber?: string;
+  cinNumber?: string;
   panNumber?: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
@@ -381,6 +382,7 @@ export type ClientFormPayload = {
   branch?: string;
   billingTerms?: string;
   gstNumber?: string;
+  cinNumber?: string;
   panNumber?: string;
   assignedEmployeeId?: string;
   assignedEmployeeName?: string;
