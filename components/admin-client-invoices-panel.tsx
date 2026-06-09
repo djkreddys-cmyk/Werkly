@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
-import { readFinanceBankAccounts, readFinanceInvoices, removeFinanceInvoice, upsertFinanceInvoice } from "@/lib/finance";
+import {
+  readFinanceBankAccounts,
+  readFinanceInvoices,
+  removeFinanceInvoice,
+  upsertFinanceInvoice,
+  type FinanceBankAccountRecord,
+} from "@/lib/finance";
 import { formatPersonName } from "@/lib/format";
 import { buildPrintableInvoiceHtml } from "@/lib/invoice-print";
 
@@ -185,6 +191,8 @@ export function AdminClientInvoicesPanel({
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<FinanceBankAccountRecord[]>([]);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState("");
   const [clientType, setClientType] = useState("onboarded");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState(invoiceNumber);
@@ -201,9 +209,24 @@ export function AdminClientInvoicesPanel({
   const [generatedInvoiceId, setGeneratedInvoiceId] = useState("");
 
   useEffect(() => {
+    function loadLocalFinanceDetails() {
+      const accounts = readFinanceBankAccounts();
+      const defaultAccount = accounts.find((account) => account.isPrimary) || accounts[0];
+      setBankAccounts(accounts);
+      setSelectedBankAccountId((current) =>
+        current && accounts.some((account) => account.id === current)
+          ? current
+          : defaultAccount?.id || ""
+      );
+    }
+
     setToken(window.localStorage.getItem("werklyAdminToken") ?? "");
     setAuthType(window.localStorage.getItem("werklyAuthType") ?? "");
     setAuthRole(window.localStorage.getItem("werklyAuthRole") ?? "");
+    loadLocalFinanceDetails();
+    window.addEventListener("focus", loadLocalFinanceDetails);
+
+    return () => window.removeEventListener("focus", loadLocalFinanceDetails);
   }, []);
 
   const canDeleteInvoice =
@@ -293,6 +316,13 @@ export function AdminClientInvoicesPanel({
   const selectedClient = useMemo(
     () => visibleClients.find((client) => client.id === selectedClientId),
     [selectedClientId, visibleClients]
+  );
+  const selectedBankAccount = useMemo(
+    () =>
+      bankAccounts.find((account) => account.id === selectedBankAccountId) ||
+      bankAccounts.find((account) => account.isPrimary) ||
+      bankAccounts[0],
+    [bankAccounts, selectedBankAccountId]
   );
 
   const clientJoinedApplications = useMemo(() => {
@@ -407,7 +437,7 @@ export function AdminClientInvoicesPanel({
     const selectedLines = lines.filter((line) => line.selected);
     const financeInvoiceId = buildFinanceInvoiceId(invoiceClient.id);
     const existingInvoice = readFinanceInvoices().find((invoice) => invoice.id === financeInvoiceId);
-    const defaultBankAccount = getDefaultBankAccount();
+    const defaultBankAccount = selectedBankAccount || getDefaultBankAccount();
     const generatedBy =
       window.localStorage.getItem("werklyAdminEmail") ||
       window.localStorage.getItem("werklyAuthName") ||
@@ -440,7 +470,7 @@ export function AdminClientInvoicesPanel({
       paymentMode: existingInvoice?.paymentMode || "Bank Transfer",
       paymentReference: existingInvoice?.paymentReference || "",
       paymentNotes: existingInvoice?.paymentNotes || "",
-      bankAccountId: existingInvoice?.bankAccountId || defaultBankAccount?.id || "",
+      bankAccountId: selectedBankAccount?.id || existingInvoice?.bankAccountId || defaultBankAccount?.id || "",
       lines: selectedLines.map((line) => {
         const taxable = lineTaxableValue(line);
         const cgst = (taxable * gstRate) / 100;
@@ -523,7 +553,7 @@ export function AdminClientInvoicesPanel({
       invoiceDate,
       dueDate,
       selectedClient: invoiceClient,
-      bankAccount: getDefaultBankAccount(),
+      bankAccount: selectedBankAccount || getDefaultBankAccount(),
       lines,
       notes,
     });
@@ -656,6 +686,27 @@ export function AdminClientInvoicesPanel({
                 setMessage("");
               }}
             />
+          </label>
+          <label className="space-y-2 lg:col-span-2">
+            <span className="section-eyebrow">Werkly Bank Account</span>
+            <select
+              className={selectClassName}
+              value={selectedBankAccountId}
+              onChange={(event) => {
+                setSelectedBankAccountId(event.target.value);
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
+            >
+              <option value="">
+                {bankAccounts.length === 0 ? "Add bank details in Finance > Accounts" : "Select bank account"}
+              </option>
+              {bankAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.accountName} - {account.bankName}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
       </section>
