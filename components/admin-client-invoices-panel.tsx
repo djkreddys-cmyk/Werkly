@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
-import { readFinanceInvoices, removeFinanceInvoice, upsertFinanceInvoice } from "@/lib/finance";
+import { readFinanceBankAccounts, readFinanceInvoices, removeFinanceInvoice, upsertFinanceInvoice } from "@/lib/finance";
 import { formatPersonName } from "@/lib/format";
 import { buildPrintableInvoiceHtml } from "@/lib/invoice-print";
 
@@ -169,6 +169,10 @@ function lineTaxableValue(line: InvoiceLine) {
   return (parseMoney(line.ctc) * Number(line.feePercent || 0)) / 100;
 }
 
+function getDefaultBankAccount() {
+  const bankAccounts = readFinanceBankAccounts();
+  return bankAccounts.find((account) => account.isPrimary) || bankAccounts[0];
+}
 
 export function AdminClientInvoicesPanel({
   onFinanceInvoiceChange,
@@ -403,6 +407,7 @@ export function AdminClientInvoicesPanel({
     const selectedLines = lines.filter((line) => line.selected);
     const financeInvoiceId = buildFinanceInvoiceId(invoiceClient.id);
     const existingInvoice = readFinanceInvoices().find((invoice) => invoice.id === financeInvoiceId);
+    const defaultBankAccount = getDefaultBankAccount();
     const generatedBy =
       window.localStorage.getItem("werklyAdminEmail") ||
       window.localStorage.getItem("werklyAuthName") ||
@@ -435,6 +440,7 @@ export function AdminClientInvoicesPanel({
       paymentMode: existingInvoice?.paymentMode || "Bank Transfer",
       paymentReference: existingInvoice?.paymentReference || "",
       paymentNotes: existingInvoice?.paymentNotes || "",
+      bankAccountId: existingInvoice?.bankAccountId || defaultBankAccount?.id || "",
       lines: selectedLines.map((line) => {
         const taxable = lineTaxableValue(line);
         const cgst = (taxable * gstRate) / 100;
@@ -517,6 +523,7 @@ export function AdminClientInvoicesPanel({
       invoiceDate,
       dueDate,
       selectedClient: invoiceClient,
+      bankAccount: getDefaultBankAccount(),
       lines,
       notes,
     });

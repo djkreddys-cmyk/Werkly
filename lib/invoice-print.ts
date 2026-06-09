@@ -1,4 +1,4 @@
-import type { FinanceInvoiceRecord } from "@/lib/finance";
+import { readFinanceBankAccounts, type FinanceBankAccountRecord, type FinanceInvoiceRecord } from "@/lib/finance";
 
 type PrintableInvoiceLine = {
   candidateName: string;
@@ -24,11 +24,17 @@ type PrintableInvoiceClient = {
   panNumber?: string;
 };
 
+type PrintableBankAccount = Pick<
+  FinanceBankAccountRecord,
+  "accountName" | "bankName" | "accountNumber" | "ifscCode" | "branch"
+>;
+
 export type PrintableInvoice = {
   invoiceNo: string;
   invoiceDate: string;
   dueDate: string;
   selectedClient?: PrintableInvoiceClient;
+  bankAccount?: PrintableBankAccount;
   lines: PrintableInvoiceLine[];
   notes: string;
 };
@@ -170,6 +176,12 @@ function lineTaxableValue(line: PrintableInvoiceLine) {
 }
 
 export function financeInvoiceToPrintableInvoice(invoice: FinanceInvoiceRecord): PrintableInvoice {
+  const bankAccounts = readFinanceBankAccounts();
+  const bankAccount =
+    bankAccounts.find((account) => account.id === invoice.bankAccountId) ||
+    bankAccounts.find((account) => account.isPrimary) ||
+    bankAccounts[0];
+
   return {
     invoiceNo: invoice.invoiceNo,
     invoiceDate: invoice.invoiceDate,
@@ -181,6 +193,7 @@ export function financeInvoiceToPrintableInvoice(invoice: FinanceInvoiceRecord):
       cinNumber: invoice.clientCinNumber,
       panNumber: invoice.clientPanNumber,
     },
+    bankAccount,
     lines: invoice.lines.map((line) => ({ ...line, selected: true })),
     notes: invoice.notes,
   };
@@ -216,6 +229,7 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
   const sgst = selectedLines.reduce((sum, line) => sum + (line.sgst ?? (lineTaxableValue(line) * gstRate) / 100), 0);
   const total = Math.round(taxable + cgst + sgst);
   const client = params.selectedClient;
+  const bankAccount = params.bankAccount;
 
   return `<!doctype html>
 <html>
@@ -342,10 +356,11 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
       <p>${escapeHtml(amountInWords(total))}</p>
       <div class="notes">${escapeHtml(params.notes)}</div>
       <h2 style="margin-top:14px;">Bank Details</h2>
-      <p>Bank: Add bank name</p>
-      <p>Account Holder: Werkly Consulting</p>
-      <p>Account #: Add account number</p>
-      <p>IFSC Code: Add IFSC</p>
+      <p>Bank: ${escapeHtml(bankAccount?.bankName || "Add bank name")}</p>
+      <p>Account Holder: ${escapeHtml(bankAccount?.accountName || "Werkly Consulting")}</p>
+      <p>Account #: ${escapeHtml(bankAccount?.accountNumber || "Add account number")}</p>
+      <p>IFSC Code: ${escapeHtml(bankAccount?.ifscCode || "Add IFSC")}</p>
+      ${bankAccount?.branch ? `<p>Branch: ${escapeHtml(bankAccount.branch)}</p>` : ""}
     </div>
     <table class="totals">
       <tbody>

@@ -88,7 +88,7 @@ function parseAmount(value: string) {
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
 
-function makePaymentDraft(invoice: FinanceInvoiceRecord): PaymentDraft {
+function makePaymentDraft(invoice: FinanceInvoiceRecord, defaultBankAccountId = ""): PaymentDraft {
   return {
     paymentStatus: invoice.paymentStatus || "unpaid",
     amountReceived: String(invoice.amountReceived || ""),
@@ -96,7 +96,7 @@ function makePaymentDraft(invoice: FinanceInvoiceRecord): PaymentDraft {
     paymentMode: invoice.paymentMode || "Bank Transfer",
     paymentReference: invoice.paymentReference || "",
     paymentNotes: invoice.paymentNotes || "",
-    bankAccountId: invoice.bankAccountId || "",
+    bankAccountId: invoice.bankAccountId || defaultBankAccountId,
   };
 }
 
@@ -150,7 +150,8 @@ export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "
     setExpenditure(readFinanceExpenditure());
     setPaymentDrafts(
       nextInvoices.reduce<Record<string, PaymentDraft>>((drafts, invoice) => {
-        drafts[invoice.id] = makePaymentDraft(invoice);
+        const defaultBankAccountId = nextBankAccounts.find((account) => account.isPrimary)?.id || nextBankAccounts[0]?.id || "";
+        drafts[invoice.id] = makePaymentDraft(invoice, defaultBankAccountId);
         return drafts;
       }, {})
     );
@@ -233,14 +234,14 @@ export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "
     setPaymentDrafts((current) => ({
       ...current,
       [invoiceId]: {
-        ...(current[invoiceId] || makePaymentDraft(invoices.find((invoice) => invoice.id === invoiceId)!)),
+        ...(current[invoiceId] || makePaymentDraft(invoices.find((invoice) => invoice.id === invoiceId)!, primaryBankAccountId)),
         ...patch,
       },
     }));
   }
 
   function handleSavePayment(invoice: FinanceInvoiceRecord) {
-    const draft = paymentDrafts[invoice.id] || makePaymentDraft(invoice);
+    const draft = paymentDrafts[invoice.id] || makePaymentDraft(invoice, primaryBankAccountId);
     const amountReceived = Math.min(parseAmount(draft.amountReceived), invoice.total);
     const paymentStatus = amountReceived <= 0 ? "unpaid" : amountReceived >= invoice.total ? "paid" : "partial";
     const updatedInvoice: FinanceInvoiceRecord = {
@@ -603,7 +604,7 @@ export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "
         ) : (
           <div className="mt-6 space-y-4">
             {filteredInvoices.map((invoice) => {
-              const draft = paymentDrafts[invoice.id] || makePaymentDraft(invoice);
+              const draft = paymentDrafts[invoice.id] || makePaymentDraft(invoice, primaryBankAccountId);
               return (
                 <div key={invoice.id} className="rounded-[1rem] border border-[var(--color-border)] bg-white p-5">
                   <div className="grid gap-4 xl:grid-cols-[1fr_1.6fr_auto]">
