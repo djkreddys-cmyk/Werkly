@@ -37,7 +37,20 @@ export type FinanceInvoiceRecord = {
   paymentMode?: string;
   paymentReference?: string;
   paymentNotes?: string;
+  bankAccountId?: string;
   lines: FinanceInvoiceLine[];
+};
+
+export type FinanceBankAccountRecord = {
+  id: string;
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  branch: string;
+  openingBalance: number;
+  isPrimary: boolean;
+  createdAt: string;
 };
 
 export type FinanceIncomeRecord = {
@@ -49,6 +62,7 @@ export type FinanceIncomeRecord = {
   mode: string;
   reference: string;
   notes: string;
+  bankAccountId?: string;
   invoiceId?: string;
   invoiceNo?: string;
   clientName?: string;
@@ -64,10 +78,12 @@ export type FinanceExpenditureRecord = {
   mode: string;
   reference: string;
   notes: string;
+  bankAccountId?: string;
   createdAt: string;
 };
 
 const financeInvoicesStorageKey = "werklyFinanceInvoices";
+const financeBankAccountsStorageKey = "werklyFinanceBankAccounts";
 const financeIncomeStorageKey = "werklyFinanceIncome";
 const financeExpenditureStorageKey = "werklyFinanceExpenditure";
 
@@ -110,6 +126,28 @@ export function upsertFinanceInvoice(invoice: FinanceInvoiceRecord) {
 export function removeFinanceInvoice(invoiceId: string) {
   writeFinanceInvoices(readFinanceInvoices().filter((item) => item.id !== invoiceId));
   removeFinanceIncome(`invoice-income-${invoiceId}`);
+}
+
+export function readFinanceBankAccounts() {
+  return readStorageList<FinanceBankAccountRecord>(financeBankAccountsStorageKey);
+}
+
+export function writeFinanceBankAccounts(records: FinanceBankAccountRecord[]) {
+  writeStorageList(financeBankAccountsStorageKey, records);
+}
+
+export function upsertFinanceBankAccount(record: FinanceBankAccountRecord) {
+  const current = readFinanceBankAccounts();
+  const normalizedCurrent = record.isPrimary
+    ? current.map((item) => ({ ...item, isPrimary: false }))
+    : current;
+  const next = [record, ...normalizedCurrent.filter((item) => item.id !== record.id)];
+  writeFinanceBankAccounts(next);
+  return record;
+}
+
+export function removeFinanceBankAccount(recordId: string) {
+  writeFinanceBankAccounts(readFinanceBankAccounts().filter((item) => item.id !== recordId));
 }
 
 export function readFinanceIncome() {

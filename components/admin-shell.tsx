@@ -78,7 +78,10 @@ const moduleSections: Array<{
     label: "Finance",
     href: "/admin/finance",
     description: "Invoices, income, and expenditure",
-    items: [{ href: "/admin/finance", label: "Invoices & Accounts" }],
+    items: [
+      { href: "/admin/finance", label: "Invoices" },
+      { href: "/admin/finance/accounts", label: "Accounts" },
+    ],
   },
 ];
 

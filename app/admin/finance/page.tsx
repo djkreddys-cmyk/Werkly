@@ -6,9 +6,9 @@ export default function AdminFinancePage() {
     <AdminShell
       eyebrow="Finance"
       title="Manage invoices, income, and expenditure."
-      description="Generate recruitment invoices, update payment details, and track complete finance records in one place."
+      description="Generate recruitment invoices and update payment details."
     >
-      <AdminFinancePanel />
+      <AdminFinancePanel view="invoices" />
     </AdminShell>
   );
 }

@@ -3,15 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminClientInvoicesPanel } from "@/components/admin-client-invoices-panel";
 import {
+  readFinanceBankAccounts,
   readFinanceExpenditure,
   readFinanceIncome,
   readFinanceInvoices,
+  removeFinanceBankAccount,
   removeFinanceExpenditure,
   removeFinanceIncome,
   removeFinanceInvoice,
+  upsertFinanceBankAccount,
   upsertFinanceExpenditure,
   upsertFinanceIncome,
   writeFinanceInvoices,
+  type FinanceBankAccountRecord,
   type FinanceExpenditureRecord,
   type FinanceIncomeRecord,
   type FinanceInvoiceRecord,
@@ -25,6 +29,7 @@ type PaymentDraft = {
   paymentMode: string;
   paymentReference: string;
   paymentNotes: string;
+  bankAccountId: string;
 };
 
 type FinanceForm = {
@@ -35,6 +40,17 @@ type FinanceForm = {
   mode: string;
   reference: string;
   notes: string;
+  bankAccountId: string;
+};
+
+type BankAccountForm = {
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  branch: string;
+  openingBalance: string;
+  isPrimary: boolean;
 };
 
 function todayKey() {
@@ -80,6 +96,7 @@ function makePaymentDraft(invoice: FinanceInvoiceRecord): PaymentDraft {
     paymentMode: invoice.paymentMode || "Bank Transfer",
     paymentReference: invoice.paymentReference || "",
     paymentNotes: invoice.paymentNotes || "",
+    bankAccountId: invoice.bankAccountId || "",
   };
 }
 
@@ -92,11 +109,25 @@ function emptyFinanceForm(): FinanceForm {
     mode: "Bank Transfer",
     reference: "",
     notes: "",
+    bankAccountId: "",
   };
 }
 
-export function AdminFinancePanel() {
+function emptyBankAccountForm(): BankAccountForm {
+  return {
+    accountName: "",
+    bankName: "",
+    accountNumber: "",
+    ifscCode: "",
+    branch: "",
+    openingBalance: "",
+    isPrimary: false,
+  };
+}
+
+export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "accounts" }) {
   const [invoices, setInvoices] = useState<FinanceInvoiceRecord[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<FinanceBankAccountRecord[]>([]);
   const [income, setIncome] = useState<FinanceIncomeRecord[]>([]);
   const [expenditure, setExpenditure] = useState<FinanceExpenditureRecord[]>([]);
   const [paymentDrafts, setPaymentDrafts] = useState<Record<string, PaymentDraft>>({});
@@ -105,6 +136,7 @@ export function AdminFinancePanel() {
     ...emptyFinanceForm(),
     mode: "UPI",
   }));
+  const [bankForm, setBankForm] = useState<BankAccountForm>(() => emptyBankAccountForm());
   const [search, setSearch] = useState("");
   const [authType, setAuthType] = useState("");
   const [authRole, setAuthRole] = useState("");
@@ -112,6 +144,8 @@ export function AdminFinancePanel() {
 
   function refreshFinanceData(nextInvoices = readFinanceInvoices()) {
     setInvoices(nextInvoices);
+    const nextBankAccounts = readFinanceBankAccounts();
+    setBankAccounts(nextBankAccounts);
     setIncome(readFinanceIncome());
     setExpenditure(readFinanceExpenditure());
     setPaymentDrafts(
@@ -160,6 +194,7 @@ export function AdminFinancePanel() {
     const invoiceReceived = invoices.reduce((sum, invoice) => sum + (invoice.amountReceived || 0), 0);
     const incomeTotal = income.reduce((sum, item) => sum + item.amount, 0);
     const expenseTotal = expenditure.reduce((sum, item) => sum + item.amount, 0);
+    const bankOpening = bankAccounts.reduce((sum, account) => sum + account.openingBalance, 0);
     return {
       invoices: invoices.length,
       candidates: invoices.reduce((sum, invoice) => sum + invoice.lines.length, 0),
@@ -169,8 +204,30 @@ export function AdminFinancePanel() {
       incomeTotal,
       expenseTotal,
       net: incomeTotal - expenseTotal,
+      bankBalance: bankOpening + incomeTotal - expenseTotal,
     };
-  }, [expenditure, income, invoices]);
+  }, [bankAccounts, expenditure, income, invoices]);
+
+  const primaryBankAccountId = bankAccounts.find((account) => account.isPrimary)?.id || bankAccounts[0]?.id || "";
+
+  const bankAccountTotals = useMemo(
+    () =>
+      bankAccounts.map((account) => {
+        const accountIncome = income
+          .filter((item) => item.bankAccountId === account.id)
+          .reduce((sum, item) => sum + item.amount, 0);
+        const accountExpense = expenditure
+          .filter((item) => item.bankAccountId === account.id)
+          .reduce((sum, item) => sum + item.amount, 0);
+        return {
+          ...account,
+          income: accountIncome,
+          expenditure: accountExpense,
+          balance: account.openingBalance + accountIncome - accountExpense,
+        };
+      }),
+    [bankAccounts, expenditure, income]
+  );
 
   function updatePaymentDraft(invoiceId: string, patch: Partial<PaymentDraft>) {
     setPaymentDrafts((current) => ({
@@ -194,6 +251,7 @@ export function AdminFinancePanel() {
       paymentMode: draft.paymentMode,
       paymentReference: draft.paymentReference,
       paymentNotes: draft.paymentNotes,
+      bankAccountId: draft.bankAccountId || primaryBankAccountId,
     };
     const nextInvoices = [updatedInvoice, ...invoices.filter((item) => item.id !== invoice.id)];
     writeFinanceInvoices(nextInvoices);
@@ -210,6 +268,7 @@ export function AdminFinancePanel() {
         mode: updatedInvoice.paymentMode || "Bank Transfer",
         reference: updatedInvoice.paymentReference || updatedInvoice.invoiceNo,
         notes: updatedInvoice.paymentNotes || `Payment against invoice ${updatedInvoice.invoiceNo}`,
+        bankAccountId: updatedInvoice.bankAccountId || primaryBankAccountId,
         invoiceId: updatedInvoice.id,
         invoiceNo: updatedInvoice.invoiceNo,
         clientName: updatedInvoice.clientName,
@@ -273,6 +332,7 @@ export function AdminFinancePanel() {
       mode: incomeForm.mode,
       reference: incomeForm.reference.trim(),
       notes: incomeForm.notes.trim(),
+      bankAccountId: incomeForm.bankAccountId || primaryBankAccountId,
       createdAt: new Date().toISOString(),
     });
     setIncomeForm(emptyFinanceForm());
@@ -296,6 +356,7 @@ export function AdminFinancePanel() {
       mode: expenseForm.mode,
       reference: expenseForm.reference.trim(),
       notes: expenseForm.notes.trim(),
+      bankAccountId: expenseForm.bankAccountId || primaryBankAccountId,
       createdAt: new Date().toISOString(),
     });
     setExpenseForm({ ...emptyFinanceForm(), mode: "UPI" });
@@ -311,24 +372,54 @@ export function AdminFinancePanel() {
     setExpenseForm((current) => ({ ...current, ...patch }));
   }
 
+  function updateBankForm(patch: Partial<BankAccountForm>) {
+    setBankForm((current) => ({ ...current, ...patch }));
+  }
+
+  function handleAddBankAccount() {
+    if (!bankForm.accountName.trim() || !bankForm.bankName.trim() || !bankForm.accountNumber.trim()) {
+      setMessage("Add account name, bank name, and account number before saving bank details.");
+      return;
+    }
+
+    upsertFinanceBankAccount({
+      id: `bank-${Date.now()}`,
+      accountName: bankForm.accountName.trim(),
+      bankName: bankForm.bankName.trim(),
+      accountNumber: bankForm.accountNumber.trim(),
+      ifscCode: bankForm.ifscCode.trim(),
+      branch: bankForm.branch.trim(),
+      openingBalance: parseAmount(bankForm.openingBalance),
+      isPrimary: bankForm.isPrimary || bankAccounts.length === 0,
+      createdAt: new Date().toISOString(),
+    });
+    setBankForm(emptyBankAccountForm());
+    refreshFinanceData();
+    setMessage("Werkly bank account saved.");
+  }
+
   return (
     <div className="space-y-6">
-      <AdminClientInvoicesPanel
-        onFinanceInvoiceChange={() => {
-          refreshFinanceData();
-          setMessage("Invoice register updated.");
-        }}
-      />
+      {view === "invoices" ? (
+        <AdminClientInvoicesPanel
+          onFinanceInvoiceChange={() => {
+            refreshFinanceData();
+            setMessage("Invoice register updated.");
+          }}
+        />
+      ) : null}
 
       <section className="accent-card p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="section-eyebrow">Finance</p>
             <h2 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-              Income, expenditure, and receivables.
+              {view === "invoices" ? "Invoice receivables." : "Bank accounts, income, and expenditure."}
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-muted)]">
-              Generated invoice payments flow into income automatically, while manual income and expenditure records keep the finance register complete.
+              {view === "invoices"
+                ? "Generate invoices and update payment details. Saved payments flow into income on the Accounts screen."
+                : "Add Werkly bank details and track income, expenditure, and account balances."}
             </p>
           </div>
           <button type="button" className="btn-secondary" onClick={() => {
@@ -351,6 +442,7 @@ export function AdminFinancePanel() {
             ["Invoice Value", formatCurrency(totals.invoiceTotal)],
             ["Received", formatCurrency(totals.invoiceReceived)],
             ["Outstanding", formatCurrency(totals.outstanding)],
+            ["Bank Balance", formatCurrency(totals.bankBalance)],
             ["Expenditure", formatCurrency(totals.expenseTotal)],
             ["Net Balance", formatCurrency(totals.net)],
           ].map(([label, value]) => (
@@ -359,6 +451,55 @@ export function AdminFinancePanel() {
               <p className="mt-2 text-xl font-semibold text-[var(--color-ink)]">{value}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {view === "accounts" ? (
+        <>
+      <section className="accent-card p-7">
+        <p className="section-eyebrow">Werkly Bank Details</p>
+        <h3 className="mt-3 text-xl font-semibold text-[var(--color-ink)]">Add bank account</h3>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Account name" value={bankForm.accountName} onChange={(event) => updateBankForm({ accountName: event.target.value })} />
+          <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Bank name" value={bankForm.bankName} onChange={(event) => updateBankForm({ bankName: event.target.value })} />
+          <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Account number" value={bankForm.accountNumber} onChange={(event) => updateBankForm({ accountNumber: event.target.value })} />
+          <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="IFSC code" value={bankForm.ifscCode} onChange={(event) => updateBankForm({ ifscCode: event.target.value })} />
+          <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Branch" value={bankForm.branch} onChange={(event) => updateBankForm({ branch: event.target.value })} />
+          <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Opening balance" inputMode="decimal" value={bankForm.openingBalance} onChange={(event) => updateBankForm({ openingBalance: event.target.value })} />
+          <label className="flex items-center gap-2 text-sm font-semibold text-[var(--color-ink)]">
+            <input type="checkbox" checked={bankForm.isPrimary} onChange={(event) => updateBankForm({ isPrimary: event.target.checked })} />
+            Primary account
+          </label>
+        </div>
+        <button type="button" className="mt-4 rounded-full bg-[var(--color-dark)] px-5 py-2.5 text-sm font-semibold text-white" onClick={handleAddBankAccount}>
+          Save Bank Details
+        </button>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {bankAccountTotals.length === 0 ? (
+            <p className="rounded-[1rem] border border-dashed border-[var(--color-border)] bg-[var(--color-soft)] p-5 text-sm text-[var(--color-muted)]">No bank accounts added yet.</p>
+          ) : (
+            bankAccountTotals.map((account) => (
+              <div key={account.id} className="rounded-[1rem] border border-[var(--color-border)] bg-white p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-[var(--color-ink)]">{account.accountName}</p>
+                    <p className="mt-1 text-sm text-[var(--color-muted)]">{account.bankName} | {account.accountNumber}</p>
+                    <p className="mt-1 text-xs text-[var(--color-muted)]">IFSC {account.ifscCode || "-"} | {account.branch || "-"}</p>
+                  </div>
+                  {account.isPrimary ? <span className="rounded-full bg-[rgba(10,118,132,0.1)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">Primary</span> : null}
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                  <div><p className="section-eyebrow">Income</p><strong>{formatCurrency(account.income)}</strong></div>
+                  <div><p className="section-eyebrow">Expense</p><strong>{formatCurrency(account.expenditure)}</strong></div>
+                  <div><p className="section-eyebrow">Balance</p><strong>{formatCurrency(account.balance)}</strong></div>
+                </div>
+                <button type="button" className="mt-4 text-sm font-semibold text-red-700" onClick={() => { removeFinanceBankAccount(account.id); refreshFinanceData(); }}>
+                  Delete
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -377,6 +518,10 @@ export function AdminFinancePanel() {
               <option>Cash</option>
               <option>Cheque</option>
               <option>Card</option>
+            </select>
+            <select className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" value={incomeForm.bankAccountId} onChange={(event) => updateIncomeForm({ bankAccountId: event.target.value })}>
+              <option value="">Select bank account</option>
+              {bankAccounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
             </select>
             <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Reference" value={incomeForm.reference} onChange={(event) => updateIncomeForm({ reference: event.target.value })} />
             <textarea className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm md:col-span-2" placeholder="Notes" value={incomeForm.notes} onChange={(event) => updateIncomeForm({ notes: event.target.value })} />
@@ -401,6 +546,10 @@ export function AdminFinancePanel() {
               <option>Cheque</option>
               <option>Card</option>
             </select>
+            <select className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" value={expenseForm.bankAccountId} onChange={(event) => updateExpenseForm({ bankAccountId: event.target.value })}>
+              <option value="">Select bank account</option>
+              {bankAccounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
+            </select>
             <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Reference" value={expenseForm.reference} onChange={(event) => updateExpenseForm({ reference: event.target.value })} />
             <textarea className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm md:col-span-2" placeholder="Notes" value={expenseForm.notes} onChange={(event) => updateExpenseForm({ notes: event.target.value })} />
           </div>
@@ -410,6 +559,30 @@ export function AdminFinancePanel() {
         </div>
       </section>
 
+      <section className="grid gap-6 xl:grid-cols-2">
+        <FinanceRecordTable
+          title="Income Records"
+          records={income.map((record) => ({ ...record, accountName: bankAccounts.find((account) => account.id === record.bankAccountId)?.accountName || "-" }))}
+          emptyText="No income records yet."
+          onDelete={(id) => {
+            removeFinanceIncome(id);
+            refreshFinanceData();
+          }}
+        />
+        <FinanceRecordTable
+          title="Expenditure Records"
+          records={expenditure.map((record) => ({ ...record, source: record.vendor, accountName: bankAccounts.find((account) => account.id === record.bankAccountId)?.accountName || "-" }))}
+          emptyText="No expenditure records yet."
+          onDelete={(id) => {
+            removeFinanceExpenditure(id);
+            refreshFinanceData();
+          }}
+        />
+      </section>
+        </>
+      ) : null}
+
+      {view === "invoices" ? (
       <section className="accent-card p-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -455,6 +628,10 @@ export function AdminFinancePanel() {
                         <option>Cheque</option>
                         <option>Card</option>
                       </select>
+                      <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={draft.bankAccountId} onChange={(event) => updatePaymentDraft(invoice.id, { bankAccountId: event.target.value })}>
+                        <option value="">Select bank account</option>
+                        {bankAccounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
+                      </select>
                       <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Reference" value={draft.paymentReference} onChange={(event) => updatePaymentDraft(invoice.id, { paymentReference: event.target.value })} />
                       <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Payment notes" value={draft.paymentNotes} onChange={(event) => updatePaymentDraft(invoice.id, { paymentNotes: event.target.value })} />
                     </div>
@@ -472,27 +649,7 @@ export function AdminFinancePanel() {
           </div>
         )}
       </section>
-
-      <section className="grid gap-6 xl:grid-cols-2">
-        <FinanceRecordTable
-          title="Income Records"
-          records={income}
-          emptyText="No income records yet."
-          onDelete={(id) => {
-            removeFinanceIncome(id);
-            refreshFinanceData();
-          }}
-        />
-        <FinanceRecordTable
-          title="Expenditure Records"
-          records={expenditure.map((record) => ({ ...record, source: record.vendor }))}
-          emptyText="No expenditure records yet."
-          onDelete={(id) => {
-            removeFinanceExpenditure(id);
-            refreshFinanceData();
-          }}
-        />
-      </section>
+      ) : null}
     </div>
   );
 }
@@ -504,7 +661,7 @@ function FinanceRecordTable({
   onDelete,
 }: {
   title: string;
-  records: Array<(FinanceIncomeRecord | FinanceExpenditureRecord) & { source: string }>;
+  records: Array<(FinanceIncomeRecord | FinanceExpenditureRecord) & { source: string; accountName?: string }>;
   emptyText: string;
   onDelete: (id: string) => void;
 }) {
@@ -520,6 +677,7 @@ function FinanceRecordTable({
               <tr>
                 <th className="px-3 py-3">Date</th>
                 <th className="px-3 py-3">Source</th>
+                <th className="px-3 py-3">Bank Account</th>
                 <th className="px-3 py-3">Category</th>
                 <th className="px-3 py-3">Amount</th>
                 <th className="px-3 py-3">Mode</th>
@@ -531,6 +689,7 @@ function FinanceRecordTable({
                 <tr key={record.id}>
                   <td className="px-3 py-3">{formatDate(record.date)}</td>
                   <td className="px-3 py-3 font-semibold text-[var(--color-ink)]">{record.source}</td>
+                  <td className="px-3 py-3">{record.accountName || "-"}</td>
                   <td className="px-3 py-3">{record.category}</td>
                   <td className="px-3 py-3 font-semibold text-[var(--color-ink)]">{formatCurrency(record.amount)}</td>
                   <td className="px-3 py-3">{record.mode}</td>
