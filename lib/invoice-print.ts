@@ -239,7 +239,7 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
   <style>
     @page { size: A4; margin: 0; }
     html, body { width: 210mm; min-height: 297mm; }
-    body { font-family: Calibri, Arial, sans-serif; color: #102f3a; margin: 0; font-size: 10.7px; line-height: 1.55; background: #d9dde1; }
+    body { font-family: Calibri, Arial, sans-serif; color: #102f3a; margin: 0; font-size: 12.7px; line-height: 1.55; background: #d9dde1; }
     h1, h2, p { margin: 0; }
     .invoice-page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; margin: 0 auto; overflow: hidden; background: #fff; }
     .letterhead-bg { position: absolute; inset: 0; width: 210mm; height: 297mm; object-fit: cover; z-index: 0; }
@@ -247,20 +247,20 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
     .invoice-main { flex: 1 1 auto; }
     .top { display: flex; justify-content: flex-end; border-bottom: 2px solid #0a7684; padding-bottom: 12px; align-items: start; }
     .brand { display: none; }
-    .brand h1 { font-size: 22px; letter-spacing: 0.04em; }
+    .brand h1 { font-size: 24px; letter-spacing: 0.04em; }
     .brand p, .muted { color: #52666d; line-height: 1.55; }
     .brand .address { max-width: 420px; margin-top: 6px; }
     .brand .tax-line { margin-top: 6px; font-weight: 700; color: #24424a; }
     .invoice-meta { margin-left: auto; text-align: right; padding-top: 4px; min-width: 250px; }
     .invoice-meta p { margin-bottom: 7px; white-space: nowrap; }
-    .title { text-align: center; margin: 17px 0; letter-spacing: 0.22em; font-size: 17px; font-weight: 700; }
+    .title { text-align: center; margin: 17px 0; letter-spacing: 0.22em; font-size: 19px; font-weight: 700; }
     .details-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 18px; margin-bottom: 16px; }
-    .section h2 { border-bottom: 1px solid #cfdde2; padding-bottom: 5px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #0a7684; margin-bottom: 9px; }
+    .section h2 { border-bottom: 1px solid #cfdde2; padding-bottom: 5px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #0a7684; margin-bottom: 9px; }
     .section p { margin-top: 4px; }
     table { border-collapse: collapse; width: 100%; }
-    th { background: #eef5f6; color: #24424a; font-size: 8.6px; letter-spacing: 0.07em; text-transform: uppercase; }
+    th { background: #eef5f6; color: #24424a; font-size: 10.6px; letter-spacing: 0.07em; text-transform: uppercase; }
     th, td { border: 1px solid #d9e5e8; padding: 7px 5px; vertical-align: top; text-align: left; }
-    td span { color: #52666d; font-size: 10px; }
+    td span { color: #52666d; font-size: 12px; }
     .summary { display: grid; grid-template-columns: 1fr 72mm; gap: 18px; margin-top: 18px; align-items: start; }
     .summary { break-inside: avoid; page-break-inside: avoid; }
     .totals td:first-child { font-weight: 700; }
@@ -272,24 +272,24 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
     .invoice-page.dense .invoice-content { padding-top: 36mm; padding-bottom: 23mm; }
     .invoice-page.dense { line-height: 1.35; }
     .invoice-page.dense .top { padding-bottom: 8px; }
-    .invoice-page.dense .title { margin: 8px 0; font-size: 15px; }
+    .invoice-page.dense .title { margin: 8px 0; font-size: 17px; }
     .invoice-page.dense .details-grid { gap: 12px; margin-bottom: 8px; }
     .invoice-page.dense .section h2 { margin-bottom: 4px; padding-bottom: 3px; }
-    .invoice-page.dense th, .invoice-page.dense td { padding: 3.5px; font-size: 9px; }
-    .invoice-page.dense th { font-size: 7.6px; }
+    .invoice-page.dense th, .invoice-page.dense td { padding: 3.5px; font-size: 11px; }
+    .invoice-page.dense th { font-size: 9.6px; }
     .invoice-page.dense .summary { margin-top: 8px; gap: 12px; }
     .invoice-page.dense .notes { margin-top: 5px; }
     .invoice-page.dense .footer { padding-top: 8px; padding-bottom: 20mm; }
     .invoice-page.dense .sign-space { height: 24px; }
     .invoice-page.very-dense .invoice-content { padding-top: 35mm; padding-bottom: 22mm; }
-    .invoice-page.very-dense { font-size: 9.8px; line-height: 1.22; }
+    .invoice-page.very-dense { font-size: 11.8px; line-height: 1.22; }
     .invoice-page.very-dense .top { padding-bottom: 6px; }
-    .invoice-page.very-dense .title { margin: 6px 0; font-size: 14px; }
+    .invoice-page.very-dense .title { margin: 6px 0; font-size: 16px; }
     .invoice-page.very-dense .details-grid { gap: 10px; margin-bottom: 6px; }
-    .invoice-page.very-dense .section h2 { margin-bottom: 3px; padding-bottom: 2px; font-size: 8.6px; }
+    .invoice-page.very-dense .section h2 { margin-bottom: 3px; padding-bottom: 2px; font-size: 10.6px; }
     .invoice-page.very-dense .section p { margin-top: 1px; }
-    .invoice-page.very-dense th, .invoice-page.very-dense td { padding: 2.6px; font-size: 8px; line-height: 1.15; }
-    .invoice-page.very-dense th { font-size: 6.8px; }
+    .invoice-page.very-dense th, .invoice-page.very-dense td { padding: 2.6px; font-size: 10px; line-height: 1.15; }
+    .invoice-page.very-dense th { font-size: 8.8px; }
     .invoice-page.very-dense .summary { margin-top: 6px; gap: 10px; }
     .invoice-page.very-dense .notes { margin-top: 4px; }
     .invoice-page.very-dense .footer { padding-top: 6px; padding-bottom: 16mm; }
