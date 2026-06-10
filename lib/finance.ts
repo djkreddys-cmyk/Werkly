@@ -132,6 +132,16 @@ export function readFinanceBankAccounts() {
   return readStorageList<FinanceBankAccountRecord>(financeBankAccountsStorageKey);
 }
 
+export function formatFinanceBankAccountLabel(account?: Pick<FinanceBankAccountRecord, "bankName" | "accountNumber">) {
+  if (!account) {
+    return "";
+  }
+
+  const bankName = account.bankName.trim();
+  const accountNumber = account.accountNumber.trim();
+  return [bankName, accountNumber].filter(Boolean).join(" - ") || "Bank account";
+}
+
 export function writeFinanceBankAccounts(records: FinanceBankAccountRecord[]) {
   writeStorageList(financeBankAccountsStorageKey, records);
 }

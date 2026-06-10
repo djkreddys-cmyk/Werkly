@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 import {
+  formatFinanceBankAccountLabel,
   readFinanceBankAccounts,
   readFinanceInvoices,
   removeFinanceInvoice,
@@ -683,7 +684,7 @@ export function AdminClientInvoicesPanel({
               </option>
               {bankAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.accountName} - {account.bankName}
+                  {formatFinanceBankAccountLabel(account)}
                 </option>
               ))}
             </select>

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function AdminClientInvoicesPage() {
-  redirect("/admin/finance");
+  redirect("/admin/finance/invoices");
 }

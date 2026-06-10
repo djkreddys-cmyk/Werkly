@@ -125,7 +125,9 @@ function emptyBankAccountForm(): BankAccountForm {
   };
 }
 
-export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "accounts" }) {
+type FinancePanelView = "core" | "invoices" | "accounts";
+
+export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }) {
   const [invoices, setInvoices] = useState<FinanceInvoiceRecord[]>([]);
   const [bankAccounts, setBankAccounts] = useState<FinanceBankAccountRecord[]>([]);
   const [income, setIncome] = useState<FinanceIncomeRecord[]>([]);
@@ -399,9 +401,13 @@ export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "
     setMessage("Werkly bank account saved.");
   }
 
+  const isCoreView = view === "core";
+  const isInvoicesView = view === "invoices";
+  const showAccountsDetails = view === "core" || view === "accounts";
+
   return (
     <div className="space-y-6">
-      {view === "invoices" ? (
+      {isInvoicesView ? (
         <AdminClientInvoicesPanel
           onFinanceInvoiceChange={() => {
             refreshFinanceData();
@@ -410,17 +416,22 @@ export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "
         />
       ) : null}
 
+      {!isCoreView && message ? (
+        <p className="rounded-[1rem] border border-[rgba(10,118,132,0.18)] bg-[rgba(10,118,132,0.06)] px-4 py-3 text-sm font-medium text-[var(--color-dark)]">
+          {message}
+        </p>
+      ) : null}
+
+      {isCoreView ? (
       <section className="accent-card p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="section-eyebrow">Finance</p>
             <h2 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-              {view === "invoices" ? "Invoice receivables." : "Bank accounts, income, and expenditure."}
+              Core finance overview.
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--color-muted)]">
-              {view === "invoices"
-                ? "Generate invoices and update payment details. Saved payments flow into income on the Accounts screen."
-                : "Add Werkly bank details and track income, expenditure, and account balances."}
+              Review invoice receivables, bank balances, income, expenditure, and net position.
             </p>
           </div>
           <button type="button" className="btn-secondary" onClick={() => {
@@ -454,8 +465,9 @@ export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "
           ))}
         </div>
       </section>
+      ) : null}
 
-      {view === "accounts" ? (
+      {showAccountsDetails ? (
         <>
       <section className="accent-card p-7">
         <p className="section-eyebrow">Werkly Bank Details</p>
@@ -583,7 +595,7 @@ export function AdminFinancePanel({ view = "invoices" }: { view?: "invoices" | "
         </>
       ) : null}
 
-      {view === "invoices" ? (
+      {isInvoicesView ? (
       <section className="accent-card p-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
