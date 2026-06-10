@@ -81,7 +81,6 @@ const moduleSections: Array<{
     items: [
       { href: "/admin/finance", label: "Core Finance" },
       { href: "/admin/finance/invoices", label: "Invoices" },
-      { href: "/admin/finance/accounts", label: "Accounts" },
     ],
   },
 ];

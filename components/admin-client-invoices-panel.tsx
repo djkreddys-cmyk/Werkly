@@ -680,7 +680,7 @@ export function AdminClientInvoicesPanel({
               }}
             >
               <option value="">
-                {bankAccounts.length === 0 ? "Add bank details in Finance > Accounts" : "Select bank account"}
+                {bankAccounts.length === 0 ? "Add bank details in Core Finance" : "Select bank account"}
               </option>
               {bankAccounts.map((account) => (
                 <option key={account.id} value={account.id}>

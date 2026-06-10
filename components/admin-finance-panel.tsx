@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminClientInvoicesPanel } from "@/components/admin-client-invoices-panel";
 import {
+  formatFinanceBankAccountLabel,
   readFinanceBankAccounts,
   readFinanceExpenditure,
   readFinanceIncome,
@@ -125,7 +126,7 @@ function emptyBankAccountForm(): BankAccountForm {
   };
 }
 
-type FinancePanelView = "core" | "invoices" | "accounts";
+type FinancePanelView = "core" | "invoices";
 
 export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }) {
   const [invoices, setInvoices] = useState<FinanceInvoiceRecord[]>([]);
@@ -403,7 +404,6 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
 
   const isCoreView = view === "core";
   const isInvoicesView = view === "invoices";
-  const showAccountsDetails = view === "core" || view === "accounts";
 
   return (
     <div className="space-y-6">
@@ -467,7 +467,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       </section>
       ) : null}
 
-      {showAccountsDetails ? (
+      {isCoreView ? (
         <>
       <section className="accent-card p-7">
         <p className="section-eyebrow">Werkly Bank Details</p>
@@ -534,7 +534,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
             </select>
             <select className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" value={incomeForm.bankAccountId} onChange={(event) => updateIncomeForm({ bankAccountId: event.target.value })}>
               <option value="">Select bank account</option>
-              {bankAccounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
+              {bankAccounts.map((account) => <option key={account.id} value={account.id}>{formatFinanceBankAccountLabel(account)}</option>)}
             </select>
             <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Reference" value={incomeForm.reference} onChange={(event) => updateIncomeForm({ reference: event.target.value })} />
             <textarea className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm md:col-span-2" placeholder="Notes" value={incomeForm.notes} onChange={(event) => updateIncomeForm({ notes: event.target.value })} />
@@ -561,7 +561,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
             </select>
             <select className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" value={expenseForm.bankAccountId} onChange={(event) => updateExpenseForm({ bankAccountId: event.target.value })}>
               <option value="">Select bank account</option>
-              {bankAccounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
+              {bankAccounts.map((account) => <option key={account.id} value={account.id}>{formatFinanceBankAccountLabel(account)}</option>)}
             </select>
             <input className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm" placeholder="Reference" value={expenseForm.reference} onChange={(event) => updateExpenseForm({ reference: event.target.value })} />
             <textarea className="rounded-[1rem] border border-[var(--color-border)] px-4 py-3 text-sm md:col-span-2" placeholder="Notes" value={expenseForm.notes} onChange={(event) => updateExpenseForm({ notes: event.target.value })} />
@@ -643,7 +643,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                       </select>
                       <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={draft.bankAccountId} onChange={(event) => updatePaymentDraft(invoice.id, { bankAccountId: event.target.value })}>
                         <option value="">Select bank account</option>
-                        {bankAccounts.map((account) => <option key={account.id} value={account.id}>{account.accountName}</option>)}
+                        {bankAccounts.map((account) => <option key={account.id} value={account.id}>{formatFinanceBankAccountLabel(account)}</option>)}
                       </select>
                       <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Reference" value={draft.paymentReference} onChange={(event) => updatePaymentDraft(invoice.id, { paymentReference: event.target.value })} />
                       <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Payment notes" value={draft.paymentNotes} onChange={(event) => updatePaymentDraft(invoice.id, { paymentNotes: event.target.value })} />
