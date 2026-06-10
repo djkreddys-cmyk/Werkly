@@ -27,7 +27,9 @@ type InvoiceLine = {
 const fieldClassName =
   "w-full rounded-[1rem] border border-[var(--color-border)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)] focus:ring-4 focus:ring-[rgba(10,118,132,0.12)]";
 
-const selectClassName = `${fieldClassName} appearance-none pr-10`;
+const compactFieldClassName =
+  "h-10 w-full rounded-xl border border-[var(--color-border)] bg-white px-3 text-xs text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)] focus:ring-4 focus:ring-[rgba(10,118,132,0.12)]";
+const compactSelectClassName = `${compactFieldClassName} appearance-none pr-9`;
 const compactPrimaryButtonClassName =
   "h-10 rounded-full bg-[var(--color-dark)] px-4 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(8,96,108,0.16)] transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-50";
 const compactSecondaryButtonClassName =
@@ -193,7 +195,6 @@ export function AdminClientInvoicesPanel({
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [bankAccounts, setBankAccounts] = useState<FinanceBankAccountRecord[]>([]);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState("");
-  const [clientType, setClientType] = useState("onboarded");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState(invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(todayKey);
@@ -305,13 +306,7 @@ export function AdminClientInvoicesPanel({
     [clients]
   );
 
-  const visibleClients = useMemo(() => {
-    if (clientType === "onboarded") {
-      return onboardedClients;
-    }
-
-    return onboardedClients;
-  }, [clientType, onboardedClients]);
+  const visibleClients = onboardedClients;
 
   const selectedClient = useMemo(
     () => visibleClients.find((client) => client.id === selectedClientId),
@@ -611,26 +606,11 @@ export function AdminClientInvoicesPanel({
           </p>
         ) : null}
 
-        <div className="mt-7 grid gap-4 lg:grid-cols-5">
-          <label className="space-y-2">
-            <span className="section-eyebrow">Client Type</span>
-            <select
-              className={selectClassName}
-              value={clientType}
-              onChange={(event) => {
-                setClientType(event.target.value);
-                setIsInvoiceGenerated(false);
-                setMessage("");
-              }}
-              disabled={isLoading}
-            >
-              <option value="onboarded">Onboarded Clients</option>
-            </select>
-          </label>
-          <label className="space-y-2 lg:col-span-2">
+        <div className="mt-6 grid gap-3 xl:grid-cols-[minmax(260px,2fr)_minmax(145px,1fr)_minmax(145px,1fr)_minmax(160px,1fr)_minmax(260px,2fr)]">
+          <label className="space-y-1.5">
             <span className="section-eyebrow">Client</span>
             <select
-              className={selectClassName}
+              className={compactSelectClassName}
               value={selectedClientId}
               onChange={(event) => {
                 setSelectedClientId(event.target.value);
@@ -647,23 +627,11 @@ export function AdminClientInvoicesPanel({
               ))}
             </select>
           </label>
-          <label className="space-y-2">
-            <span className="section-eyebrow">Invoice #</span>
-            <input
-              className={fieldClassName}
-              value={invoiceNo}
-              onChange={(event) => {
-                setInvoiceNo(event.target.value);
-                setIsInvoiceGenerated(false);
-                setMessage("");
-              }}
-            />
-          </label>
-          <label className="space-y-2">
+          <label className="space-y-1.5">
             <span className="section-eyebrow">Invoice Date</span>
             <input
               type="date"
-              className={fieldClassName}
+              className={compactFieldClassName}
               value={invoiceDate}
               onChange={(event) => {
                 setInvoiceDate(event.target.value);
@@ -674,11 +642,11 @@ export function AdminClientInvoicesPanel({
               }}
             />
           </label>
-          <label className="space-y-2">
+          <label className="space-y-1.5">
             <span className="section-eyebrow">Due Date</span>
             <input
               type="date"
-              className={fieldClassName}
+              className={compactFieldClassName}
               value={dueDate}
               onChange={(event) => {
                 setDueDate(event.target.value);
@@ -687,10 +655,22 @@ export function AdminClientInvoicesPanel({
               }}
             />
           </label>
-          <label className="space-y-2 lg:col-span-2">
+          <label className="space-y-1.5">
+            <span className="section-eyebrow">Invoice #</span>
+            <input
+              className={compactFieldClassName}
+              value={invoiceNo}
+              onChange={(event) => {
+                setInvoiceNo(event.target.value);
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
+            />
+          </label>
+          <label className="space-y-1.5">
             <span className="section-eyebrow">Werkly Bank Account</span>
             <select
-              className={selectClassName}
+              className={compactSelectClassName}
               value={selectedBankAccountId}
               onChange={(event) => {
                 setSelectedBankAccountId(event.target.value);
