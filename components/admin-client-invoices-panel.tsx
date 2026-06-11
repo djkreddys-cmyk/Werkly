@@ -10,6 +10,7 @@ import {
   removeFinanceInvoice,
   upsertFinanceInvoice,
   type FinanceBankAccountRecord,
+  type FinanceInvoiceRecord,
 } from "@/lib/finance";
 import { formatPersonName } from "@/lib/format";
 import { buildPrintableInvoiceHtml } from "@/lib/invoice-print";
@@ -184,8 +185,10 @@ function getDefaultBankAccount() {
 }
 
 export function AdminClientInvoicesPanel({
+  invoiceToLoad,
   onFinanceInvoiceChange,
 }: {
+  invoiceToLoad?: FinanceInvoiceRecord | null;
   onFinanceInvoiceChange?: () => void;
 }) {
   const [token, setToken] = useState("");
@@ -309,10 +312,33 @@ export function AdminClientInvoicesPanel({
 
   const visibleClients = onboardedClients;
 
-  const selectedClient = useMemo(
-    () => visibleClients.find((client) => client.id === selectedClientId),
-    [selectedClientId, visibleClients]
-  );
+  const selectedClient = useMemo(() => {
+    const visibleClient = visibleClients.find((client) => client.id === selectedClientId);
+    if (visibleClient) {
+      return visibleClient;
+    }
+
+    if (invoiceToLoad?.clientId === selectedClientId) {
+      const fallbackClient: ClientRecord = {
+        id: invoiceToLoad.clientId,
+        companyName: invoiceToLoad.clientName,
+        contactPerson: "",
+        gstNumber: invoiceToLoad.clientGstNumber,
+        cinNumber: invoiceToLoad.clientCinNumber,
+        panNumber: invoiceToLoad.clientPanNumber,
+        communicationAddress: invoiceToLoad.clientAddress,
+        status: "active",
+        onboardingStatus: "onboarded",
+        followUpStatus: "on-boarded",
+        linkedJobsCount: 0,
+        linkedJobs: [],
+        createdAt: invoiceToLoad.generatedAt,
+      };
+      return fallbackClient;
+    }
+
+    return undefined;
+  }, [invoiceToLoad, selectedClientId, visibleClients]);
   const selectedBankAccount = useMemo(
     () =>
       bankAccounts.find((account) => account.id === selectedBankAccountId) ||
@@ -345,6 +371,10 @@ export function AdminClientInvoicesPanel({
   }, [jobs, joinedApplications, selectedClient]);
 
   useEffect(() => {
+    if (generatedInvoiceId) {
+      return;
+    }
+
     setLines(
       clientJoinedApplications.map((application) =>
         defaultLine(
@@ -355,13 +385,47 @@ export function AdminClientInvoicesPanel({
     );
     setIsInvoiceGenerated(false);
     setMessage("");
-  }, [clientJoinedApplications, jobs]);
+  }, [clientJoinedApplications, generatedInvoiceId, jobs]);
 
   useEffect(() => {
-    if (selectedClientId && !visibleClients.some((client) => client.id === selectedClientId)) {
+    if (
+      !isLoading &&
+      !generatedInvoiceId &&
+      selectedClientId &&
+      !visibleClients.some((client) => client.id === selectedClientId)
+    ) {
       setSelectedClientId("");
     }
-  }, [selectedClientId, visibleClients]);
+  }, [generatedInvoiceId, isLoading, selectedClientId, visibleClients]);
+
+  useEffect(() => {
+    if (!invoiceToLoad) {
+      return;
+    }
+
+    setSelectedClientId(invoiceToLoad.clientId);
+    setInvoiceNo(invoiceToLoad.invoiceNo);
+    setInvoiceDate(toDateInputKey(invoiceToLoad.invoiceDate) || todayKey());
+    setDueDate(toDateInputKey(invoiceToLoad.dueDate) || addDays(toDateInputKey(invoiceToLoad.invoiceDate) || todayKey(), 30));
+    setSelectedBankAccountId(invoiceToLoad.bankAccountId || "");
+    setNotes(invoiceToLoad.notes || "");
+    setLines(
+      invoiceToLoad.lines.map((line, index) => ({
+        applicationId: line.applicationId || `${invoiceToLoad.id}-${index}`,
+        candidateName: line.candidateName,
+        ctc: line.ctc,
+        doj: toDateInputKey(line.doj) || todayKey(),
+        department: line.department,
+        hsnSac: line.hsnSac || "998512",
+        feePercent: line.feePercent || "8.33",
+        selected: true,
+      }))
+    );
+    setGeneratedInvoiceId(invoiceToLoad.id);
+    setIsInvoiceGenerated(true);
+    setError("");
+    setMessage(`Loaded invoice ${invoiceToLoad.invoiceNo}. You can review, edit, print, or regenerate it.`);
+  }, [invoiceToLoad]);
 
   const totals = useMemo(() => {
     const selectedLines = lines.filter((line) => line.selected);
@@ -615,12 +679,17 @@ export function AdminClientInvoicesPanel({
               value={selectedClientId}
               onChange={(event) => {
                 setSelectedClientId(event.target.value);
+                setGeneratedInvoiceId("");
                 setIsInvoiceGenerated(false);
                 setMessage("");
               }}
               disabled={isLoading}
             >
               <option value="">Select onboarded client</option>
+              {invoiceToLoad?.clientId === selectedClientId &&
+              !visibleClients.some((client) => client.id === selectedClientId) ? (
+                <option value={invoiceToLoad.clientId}>{invoiceToLoad.clientName} - Generated invoice</option>
+              ) : null}
               {visibleClients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.companyName} - Onboarded

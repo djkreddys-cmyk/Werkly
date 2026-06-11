@@ -377,7 +377,6 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
     <div class="sign">
       <div class="sign-space"></div>
       <p><strong>For Werkly Consulting</strong></p>
-      <p>Authorized Signatory</p>
     </div>
   </div>
   </div>

@@ -144,6 +144,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
   const [authType, setAuthType] = useState("");
   const [authRole, setAuthRole] = useState("");
   const [message, setMessage] = useState("");
+  const [invoiceToLoad, setInvoiceToLoad] = useState<FinanceInvoiceRecord | null>(null);
 
   function refreshFinanceData(nextInvoices = readFinanceInvoices()) {
     setInvoices(nextInvoices);
@@ -320,6 +321,12 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
     setMessage(`Invoice ${invoice.invoiceNo} opened for printing.`);
   }
 
+  function handleLoadInvoice(invoice: FinanceInvoiceRecord) {
+    setInvoiceToLoad({ ...invoice });
+    setMessage(`Invoice ${invoice.invoiceNo} loaded into the invoice form.`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function handleAddIncome() {
     const amount = parseAmount(incomeForm.amount);
     if (!incomeForm.source.trim() || amount <= 0) {
@@ -409,6 +416,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
     <div className="space-y-6">
       {isInvoicesView ? (
         <AdminClientInvoicesPanel
+          invoiceToLoad={invoiceToLoad}
           onFinanceInvoiceChange={() => {
             refreshFinanceData();
             setMessage("Invoice register updated.");
@@ -649,6 +657,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                       <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Payment notes" value={draft.paymentNotes} onChange={(event) => updatePaymentDraft(invoice.id, { paymentNotes: event.target.value })} />
                     </div>
                     <div className="flex flex-wrap items-start gap-2 xl:justify-end">
+                      <button type="button" className="btn-secondary" onClick={() => handleLoadInvoice(invoice)}>Load Data</button>
                       <button type="button" className="btn-secondary" onClick={() => handleSavePayment(invoice)}>Save Payment</button>
                       <button type="button" className="btn-secondary" onClick={() => handlePrint(invoice)}>Print</button>
                       {canDeleteInvoice ? (
