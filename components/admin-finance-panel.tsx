@@ -140,6 +140,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
   const [message, setMessage] = useState("");
   const [invoiceToLoad, setInvoiceToLoad] = useState<FinanceInvoiceRecord | null>(null);
   const [paymentModalInvoiceId, setPaymentModalInvoiceId] = useState("");
+  const [editingInvoice, setEditingInvoice] = useState<FinanceInvoiceRecord | null>(null);
 
   function applyFinanceStore(store: FinanceStore) {
     setInvoices(store.invoices);
@@ -384,9 +385,68 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
   }
 
   function handleLoadInvoice(invoice: FinanceInvoiceRecord) {
-    setInvoiceToLoad({ ...invoice });
-    setMessage(`Invoice ${invoice.invoiceNo} loaded into the invoice form.`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setEditingInvoice({ ...invoice, lines: invoice.lines.map((line) => ({ ...line })) });
+    setMessage("");
+  }
+
+  function updateEditingInvoice(patch: Partial<FinanceInvoiceRecord>) {
+    setEditingInvoice((current) => (current ? { ...current, ...patch } : current));
+  }
+
+  function updateEditingInvoiceLine(index: number, patch: Partial<FinanceInvoiceRecord["lines"][number]>) {
+    setEditingInvoice((current) =>
+      current
+        ? {
+            ...current,
+            lines: current.lines.map((line, lineIndex) =>
+              lineIndex === index ? { ...line, ...patch } : line
+            ),
+          }
+        : current
+    );
+  }
+
+  function recalculateInvoice(invoice: FinanceInvoiceRecord): FinanceInvoiceRecord {
+    const lines = invoice.lines.map((line) => {
+      const taxable = (parseAmount(line.ctc) * Number(line.feePercent || 0)) / 100;
+      const cgst = (taxable * 9) / 100;
+      const sgst = (taxable * 9) / 100;
+      return {
+        ...line,
+        taxable,
+        cgst,
+        sgst,
+        amount: taxable + cgst + sgst,
+      };
+    });
+    const taxable = lines.reduce((sum, line) => sum + line.taxable, 0);
+    const cgst = lines.reduce((sum, line) => sum + line.cgst, 0);
+    const sgst = lines.reduce((sum, line) => sum + line.sgst, 0);
+    return {
+      ...invoice,
+      lines,
+      taxable,
+      cgst,
+      sgst,
+      total: Math.round(taxable + cgst + sgst),
+    };
+  }
+
+  function handleUpdateInvoice() {
+    if (!editingInvoice) {
+      return;
+    }
+
+    const updatedInvoice = recalculateInvoice(editingInvoice);
+    const nextInvoices = [
+      updatedInvoice,
+      ...invoices.filter((invoice) => invoice.id !== updatedInvoice.id),
+    ];
+    void persistFinanceStore(
+      { ...currentFinanceStore(), invoices: nextInvoices },
+      `Invoice ${updatedInvoice.invoiceNo} updated.`
+    );
+    setEditingInvoice(null);
   }
 
   function handleAddIncome() {
@@ -499,6 +559,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
   const paymentModalDraft = paymentModalInvoice
     ? paymentDrafts[paymentModalInvoice.id] || makePaymentDraft(paymentModalInvoice, primaryBankAccountId)
     : undefined;
+  const editingInvoicePreview = editingInvoice ? recalculateInvoice(editingInvoice) : undefined;
 
   return (
     <div className="space-y-6">
@@ -800,6 +861,121 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
               <button type="button" className="btn-secondary" onClick={() => setPaymentModalInvoiceId("")}>Cancel</button>
               <button type="button" className="rounded-full bg-[var(--color-dark)] px-5 py-2.5 text-sm font-semibold text-white" onClick={() => handleSavePayment(paymentModalInvoice)}>
                 Save Transaction
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {editingInvoice && editingInvoicePreview ? (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4">
+          <div className="my-4 flex max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[1.5rem] border border-[var(--color-border)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-border)] p-6">
+              <div>
+                <p className="section-eyebrow">Edit Invoice</p>
+                <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
+                  Invoice {editingInvoice.invoiceNo}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">{editingInvoice.clientName}</p>
+              </div>
+              <button type="button" className="btn-secondary" onClick={() => setEditingInvoice(null)}>
+                Close
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
+              <div className="grid gap-3 md:grid-cols-4">
+                <label className="space-y-1.5">
+                  <span className="section-eyebrow">Invoice #</span>
+                  <input className="h-10 w-full rounded-xl border border-[var(--color-border)] px-3 text-sm" value={editingInvoice.invoiceNo} onChange={(event) => updateEditingInvoice({ invoiceNo: event.target.value })} />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="section-eyebrow">Invoice Date</span>
+                  <input className="h-10 w-full rounded-xl border border-[var(--color-border)] px-3 text-sm" type="date" value={editingInvoice.invoiceDate} onChange={(event) => updateEditingInvoice({ invoiceDate: event.target.value })} />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="section-eyebrow">Due Date</span>
+                  <input className="h-10 w-full rounded-xl border border-[var(--color-border)] px-3 text-sm" type="date" value={editingInvoice.dueDate} onChange={(event) => updateEditingInvoice({ dueDate: event.target.value })} />
+                </label>
+                <label className="space-y-1.5">
+                  <span className="section-eyebrow">Bank Account</span>
+                  <select className="h-10 w-full rounded-xl border border-[var(--color-border)] px-3 text-sm" value={editingInvoice.bankAccountId || ""} onChange={(event) => updateEditingInvoice({ bankAccountId: event.target.value })}>
+                    <option value="">Select bank account</option>
+                    {bankAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>{formatFinanceBankAccountLabel(account)}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="mt-4 block space-y-1.5">
+                <span className="section-eyebrow">Notes</span>
+                <textarea className="min-h-20 w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm" value={editingInvoice.notes} onChange={(event) => updateEditingInvoice({ notes: event.target.value })} />
+              </label>
+
+              <div className="mt-5 overflow-x-auto rounded-[1rem] border border-[var(--color-border)]">
+                <table className="min-w-[980px] w-full text-left text-sm">
+                  <thead className="bg-[var(--color-soft)] text-[0.66rem] uppercase tracking-[0.18em] text-[var(--color-muted)]">
+                    <tr>
+                      {["Candidate", "CTC", "DOJ", "Job Details", "Agreement %", "Taxable", "GST", "Amount"].map((heading) => (
+                        <th key={heading} className="px-3 py-3">{heading}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-border)]">
+                    {editingInvoice.lines.map((line, index) => {
+                      const taxable = (parseAmount(line.ctc) * Number(line.feePercent || 0)) / 100;
+                      const gst = (taxable * 18) / 100;
+                      return (
+                        <tr key={`${line.applicationId}-${index}`}>
+                          <td className="px-3 py-3">
+                            <input className="w-44 rounded-lg border border-[var(--color-border)] px-2 py-2" value={line.candidateName} onChange={(event) => updateEditingInvoiceLine(index, { candidateName: event.target.value })} />
+                          </td>
+                          <td className="px-3 py-3">
+                            <input className="w-32 rounded-lg border border-[var(--color-border)] px-2 py-2" value={line.ctc} onChange={(event) => updateEditingInvoiceLine(index, { ctc: event.target.value })} />
+                          </td>
+                          <td className="px-3 py-3">
+                            <input className="w-36 rounded-lg border border-[var(--color-border)] px-2 py-2" type="date" value={line.doj} onChange={(event) => updateEditingInvoiceLine(index, { doj: event.target.value })} />
+                          </td>
+                          <td className="px-3 py-3">
+                            <input className="w-48 rounded-lg border border-[var(--color-border)] px-2 py-2" value={line.department} onChange={(event) => updateEditingInvoiceLine(index, { department: event.target.value })} />
+                          </td>
+                          <td className="px-3 py-3">
+                            <input className="w-24 rounded-lg border border-[var(--color-border)] px-2 py-2" value={line.feePercent} onChange={(event) => updateEditingInvoiceLine(index, { feePercent: event.target.value })} />
+                          </td>
+                          <td className="px-3 py-3">{formatCurrency(taxable)}</td>
+                          <td className="px-3 py-3">{formatCurrency(gst)}</td>
+                          <td className="px-3 py-3 font-semibold text-[var(--color-ink)]">{formatCurrency(taxable + gst)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-4">
+                <div className="rounded-xl border border-[var(--color-border)] p-4">
+                  <p className="section-eyebrow">Taxable</p>
+                  <p className="mt-2 font-semibold">{formatCurrency(editingInvoicePreview.taxable)}</p>
+                </div>
+                <div className="rounded-xl border border-[var(--color-border)] p-4">
+                  <p className="section-eyebrow">CGST</p>
+                  <p className="mt-2 font-semibold">{formatCurrency(editingInvoicePreview.cgst)}</p>
+                </div>
+                <div className="rounded-xl border border-[var(--color-border)] p-4">
+                  <p className="section-eyebrow">SGST</p>
+                  <p className="mt-2 font-semibold">{formatCurrency(editingInvoicePreview.sgst)}</p>
+                </div>
+                <div className="rounded-xl border border-[var(--color-border)] p-4">
+                  <p className="section-eyebrow">Total</p>
+                  <p className="mt-2 font-semibold">{formatCurrency(editingInvoicePreview.total)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--color-border)] p-5">
+              <button type="button" className="btn-secondary" onClick={() => setEditingInvoice(null)}>Cancel</button>
+              <button type="button" className="rounded-full bg-[var(--color-dark)] px-5 py-2.5 text-sm font-semibold text-white" onClick={handleUpdateInvoice}>
+                Update Invoice
               </button>
             </div>
           </div>
