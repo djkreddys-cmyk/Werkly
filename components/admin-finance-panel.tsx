@@ -721,39 +721,39 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
             {filteredInvoices.map((invoice) => {
               const draft = paymentDrafts[invoice.id] || makePaymentDraft(invoice, primaryBankAccountId);
               return (
-                <div key={invoice.id} className="rounded-[1rem] border border-[var(--color-border)] bg-white p-5">
-                  <div className="grid gap-4 xl:grid-cols-[1fr_1.6fr_auto]">
-                    <div>
+                <div key={invoice.id} className="rounded-[1rem] border border-[var(--color-border)] bg-white p-4">
+                  <div className="grid items-center gap-4 xl:grid-cols-[minmax(260px,1fr)_minmax(420px,1.35fr)_auto]">
+                    <div className="min-w-0">
                       <p className="font-semibold text-[var(--color-ink)]">{invoice.invoiceNo}</p>
                       <p className="mt-1 text-sm text-[var(--color-muted)]">{invoice.clientName}</p>
                       <p className="mt-2 text-xs text-[var(--color-muted)]">Invoice: {formatDate(invoice.invoiceDate)} | Due: {formatDate(invoice.dueDate)}</p>
                       <p className="mt-3 text-lg font-semibold text-[var(--color-ink)]">{formatCurrency(invoice.total)}</p>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={draft.paymentStatus} onChange={(event) => handlePaymentStatusChange(invoice, event.target.value as PaymentDraft["paymentStatus"])}>
+                    <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center">
+                      <select className="h-10 w-full rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm md:w-40" value={draft.paymentStatus} onChange={(event) => handlePaymentStatusChange(invoice, event.target.value as PaymentDraft["paymentStatus"])}>
                         <option value="unpaid">Unpaid</option>
                         <option value="partial">Partial</option>
                         <option value="paid">Paid</option>
                       </select>
-                      <div className="rounded-[1rem] border border-[var(--color-border)] bg-[var(--color-soft)] px-3 py-2 text-sm text-[var(--color-muted)] md:col-span-2">
+                      <div className="flex min-h-10 flex-1 items-center rounded-xl border border-[var(--color-border)] bg-[var(--color-soft)] px-3 text-sm text-[var(--color-muted)]">
                         {draft.paymentStatus === "paid"
                           ? `Paid ${formatCurrency(parseAmount(draft.amountReceived) || invoice.total)}${draft.paymentReference ? ` | ${draft.paymentReference}` : ""}`
                           : "Transaction details open only after selecting Paid."}
                       </div>
                       {draft.paymentStatus === "paid" ? (
-                        <button type="button" className="btn-secondary" onClick={() => setPaymentModalInvoiceId(invoice.id)}>
+                        <button type="button" className="h-10 shrink-0 rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]" onClick={() => setPaymentModalInvoiceId(invoice.id)}>
                           Edit Transaction
                         </button>
                       ) : null}
                     </div>
-                    <div className="flex flex-wrap items-start gap-2 xl:justify-end">
-                      <button type="button" className="btn-secondary" onClick={() => handleLoadInvoice(invoice)}>Edit Invoice</button>
-                      <button type="button" className="btn-secondary" onClick={() => handleSavePayment(invoice)}>
+                    <div className="flex min-w-[250px] flex-wrap items-center gap-2 xl:justify-end">
+                      <button type="button" className="h-10 rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]" onClick={() => handleLoadInvoice(invoice)}>Edit Invoice</button>
+                      <button type="button" className="h-10 rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]" onClick={() => handleSavePayment(invoice)}>
                         {draft.paymentStatus === "paid" ? "Save Payment" : "Save Status"}
                       </button>
-                      <button type="button" className="btn-secondary" onClick={() => handlePrint(invoice)}>Print</button>
+                      <button type="button" className="h-10 rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]" onClick={() => handlePrint(invoice)}>Print</button>
                       {canDeleteInvoice ? (
-                        <button type="button" className="btn-secondary border-red-200 text-red-700 hover:bg-red-50" onClick={() => handleDelete(invoice)}>Delete</button>
+                        <button type="button" className="h-10 rounded-xl border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100" onClick={() => handleDelete(invoice)}>Delete</button>
                       ) : null}
                     </div>
                   </div>
