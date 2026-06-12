@@ -248,6 +248,15 @@ function normalizeFinanceStore(store?: Partial<FinanceStore> | null): FinanceSto
   };
 }
 
+export function mergeFinanceStoreWithFallback(primary: FinanceStore, fallback: FinanceStore): FinanceStore {
+  return {
+    invoices: primary.invoices.length ? primary.invoices : fallback.invoices,
+    bankAccounts: primary.bankAccounts.length ? primary.bankAccounts : fallback.bankAccounts,
+    income: primary.income.length ? primary.income : fallback.income,
+    expenditure: primary.expenditure.length ? primary.expenditure : fallback.expenditure,
+  };
+}
+
 export function invoiceNumberFromInvoices(invoices: FinanceInvoiceRecord[], dateKey: string) {
   const invoiceDateKey = dateKey || new Date().toISOString().slice(0, 10);
   const date = new Date(`${invoiceDateKey}T00:00:00`);
@@ -284,7 +293,7 @@ export async function readFinanceStoreFromBackend(token?: string): Promise<Finan
   if (!response.ok) {
     throw new Error(result.message || "Unable to load finance records.");
   }
-  const store = normalizeFinanceStore(result);
+  const store = mergeFinanceStoreWithFallback(normalizeFinanceStore(result), readLocalFinanceStore());
   writeLocalFinanceStore(store);
   return store;
 }
@@ -295,6 +304,7 @@ export async function writeFinanceStoreToBackend(store: FinanceStore, token?: st
   }
 
   const normalizedStore = normalizeFinanceStore(store);
+  writeLocalFinanceStore(normalizedStore);
   const response = await fetch("/api/admin/finance", {
     method: "PUT",
     headers: {

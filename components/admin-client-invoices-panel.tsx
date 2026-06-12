@@ -6,6 +6,7 @@ import type { JobApplication, JobSummary } from "@/lib/jobs";
 import {
   formatFinanceBankAccountLabel,
   invoiceNumberFromInvoices,
+  mergeFinanceStoreWithFallback,
   readFinanceBankAccounts,
   readFinanceInvoices,
   readFinanceStoreFromBackend,
@@ -219,7 +220,13 @@ export function AdminClientInvoicesPanel({
 
   async function loadFinanceDetails(nextToken = token) {
     try {
-      const store = await readFinanceStoreFromBackend(nextToken);
+      const loadedStore = await readFinanceStoreFromBackend(nextToken);
+      const store = mergeFinanceStoreWithFallback(loadedStore, {
+        invoices: financeInvoices,
+        bankAccounts,
+        income: [],
+        expenditure: [],
+      });
       setFinanceInvoices(store.invoices);
       setBankAccounts(store.bankAccounts);
       const defaultAccount = store.bankAccounts.find((account) => account.isPrimary) || store.bankAccounts[0];
