@@ -218,35 +218,28 @@ export function AdminClientInvoicesPanel({
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState(false);
   const [generatedInvoiceId, setGeneratedInvoiceId] = useState("");
 
+  function applyFinanceDetails(store: FinanceStore) {
+    setFinanceInvoices(store.invoices);
+    setBankAccounts(store.bankAccounts);
+    const defaultAccount = store.bankAccounts.find((account) => account.isPrimary) || store.bankAccounts[0];
+    setSelectedBankAccountId((current) =>
+      current && store.bankAccounts.some((account) => account.id === current)
+        ? current
+        : defaultAccount?.id || ""
+    );
+  }
+
   async function loadFinanceDetails(nextToken = token) {
+    const recoveryStore = readFinanceStoreRecovery();
+    applyFinanceDetails(recoveryStore);
+
     try {
       const loadedStore = await readFinanceStoreFromBackend(nextToken);
-      const store = mergeFinanceStoreWithFallback(loadedStore, {
-        invoices: financeInvoices,
-        bankAccounts,
-        income: [],
-        expenditure: [],
-      });
-      setFinanceInvoices(store.invoices);
-      setBankAccounts(store.bankAccounts);
-      const defaultAccount = store.bankAccounts.find((account) => account.isPrimary) || store.bankAccounts[0];
-      setSelectedBankAccountId((current) =>
-        current && store.bankAccounts.some((account) => account.id === current)
-          ? current
-          : defaultAccount?.id || ""
-      );
+      const store = mergeFinanceStoreWithFallback(loadedStore, recoveryStore);
+      applyFinanceDetails(store);
       return store;
     } catch {
-      const store = readFinanceStoreRecovery();
-      setFinanceInvoices(store.invoices);
-      setBankAccounts(store.bankAccounts);
-      const defaultAccount = store.bankAccounts.find((account) => account.isPrimary) || store.bankAccounts[0];
-      setSelectedBankAccountId((current) =>
-        current && store.bankAccounts.some((account) => account.id === current)
-          ? current
-          : defaultAccount?.id || ""
-      );
-      return store;
+      return recoveryStore;
     }
   }
 
@@ -257,9 +250,16 @@ export function AdminClientInvoicesPanel({
     setAuthRole(window.localStorage.getItem("werklyAuthRole") ?? "");
     void loadFinanceDetails(nextToken);
     const handleFocus = () => void loadFinanceDetails(nextToken);
+    const handleFinanceStoreUpdate = () => void loadFinanceDetails(nextToken);
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleFinanceStoreUpdate);
+    window.addEventListener("werkly-finance-store-updated", handleFinanceStoreUpdate);
 
-    return () => window.removeEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleFinanceStoreUpdate);
+      window.removeEventListener("werkly-finance-store-updated", handleFinanceStoreUpdate);
+    };
   }, []);
 
   const canDeleteInvoice =

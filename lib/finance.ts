@@ -224,13 +224,16 @@ export function readLocalFinanceStore(): FinanceStore {
   };
 }
 
-export function writeLocalFinanceStore(store: FinanceStore) {
+export function writeLocalFinanceStore(store: FinanceStore, options: { notify?: boolean } = {}) {
   writeFinanceInvoices(store.invoices);
   writeFinanceBankAccounts(store.bankAccounts);
   writeFinanceIncome(store.income);
   writeFinanceExpenditure(store.expenditure);
   if (typeof window !== "undefined") {
     window.localStorage.setItem(financeStoreBackupStorageKey, JSON.stringify(store));
+    if (options.notify) {
+      window.dispatchEvent(new CustomEvent("werkly-finance-store-updated"));
+    }
   }
 }
 
@@ -324,7 +327,7 @@ export async function writeFinanceStoreToBackend(store: FinanceStore, token?: st
   }
 
   const normalizedStore = normalizeFinanceStore(store);
-  writeLocalFinanceStore(normalizedStore);
+  writeLocalFinanceStore(normalizedStore, { notify: true });
   try {
     const response = await fetch("/api/admin/finance", {
       method: "PUT",
@@ -339,7 +342,7 @@ export async function writeFinanceStoreToBackend(store: FinanceStore, token?: st
       throw new Error(result.message || "Unable to save finance records.");
     }
     const savedStore = mergeFinanceStoreWithFallback(normalizeFinanceStore(result), normalizedStore);
-    writeLocalFinanceStore(savedStore);
+    writeLocalFinanceStore(savedStore, { notify: true });
     return savedStore;
   } catch {
     return normalizedStore;
