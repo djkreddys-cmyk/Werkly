@@ -1,8 +1,11 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
+import { tmpdir } from "os";
 import path from "path";
 import { emptyFinanceStore, type FinanceStore } from "@/lib/finance";
 
-const financeStorePath = path.join(process.cwd(), "data", "finance-records.json");
+const financeStorePath = path.join("data", "finance-records.json");
+const fallbackFinanceStorePath = path.join(tmpdir(), "werkly-finance-records.json");
+let memoryFinanceStore: FinanceStore | null = null;
 
 function normalizeFinanceStore(store?: Partial<FinanceStore> | null): FinanceStore {
   return {
@@ -14,21 +17,37 @@ function normalizeFinanceStore(store?: Partial<FinanceStore> | null): FinanceSto
 }
 
 export async function readServerFinanceStore(): Promise<FinanceStore> {
-  try {
-    const content = await readFile(financeStorePath, "utf8");
-    return normalizeFinanceStore(JSON.parse(content) as Partial<FinanceStore>);
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") {
-      return emptyFinanceStore();
+  for (const storePath of [financeStorePath, fallbackFinanceStorePath]) {
+    try {
+      const content = await readFile(storePath, "utf8");
+      const store = normalizeFinanceStore(JSON.parse(content) as Partial<FinanceStore>);
+      memoryFinanceStore = store;
+      return store;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT") {
+        continue;
+      }
     }
-    throw error;
   }
+
+  return memoryFinanceStore ?? emptyFinanceStore();
 }
 
 export async function writeServerFinanceStore(store: FinanceStore): Promise<FinanceStore> {
   const normalizedStore = normalizeFinanceStore(store);
-  await mkdir(path.dirname(financeStorePath), { recursive: true });
-  await writeFile(financeStorePath, JSON.stringify(normalizedStore, null, 2), "utf8");
+  memoryFinanceStore = normalizedStore;
+  const payload = JSON.stringify(normalizedStore, null, 2);
+
+  for (const storePath of [financeStorePath, fallbackFinanceStorePath]) {
+    try {
+      await mkdir(path.dirname(storePath), { recursive: true });
+      await writeFile(storePath, payload, "utf8");
+      return normalizedStore;
+    } catch {
+      // Deployed hosts may make the app directory read-only; try the next store.
+    }
+  }
+
   return normalizedStore;
 }
