@@ -9,8 +9,8 @@ import {
   mergeFinanceStoreWithFallback,
   readFinanceBankAccounts,
   readFinanceInvoices,
+  readFinanceStoreRecovery,
   readFinanceStoreFromBackend,
-  readLocalFinanceStore,
   writeFinanceStoreToBackend,
   type FinanceBankAccountRecord,
   type FinanceInvoiceRecord,
@@ -237,7 +237,7 @@ export function AdminClientInvoicesPanel({
       );
       return store;
     } catch {
-      const store = readLocalFinanceStore();
+      const store = readFinanceStoreRecovery();
       setFinanceInvoices(store.invoices);
       setBankAccounts(store.bankAccounts);
       const defaultAccount = store.bankAccounts.find((account) => account.isPrimary) || store.bankAccounts[0];

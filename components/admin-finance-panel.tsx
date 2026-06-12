@@ -5,8 +5,8 @@ import { AdminClientInvoicesPanel } from "@/components/admin-client-invoices-pan
 import {
   formatFinanceBankAccountLabel,
   hasFinanceStoreData,
+  readFinanceStoreRecovery,
   readFinanceStoreFromBackend,
-  readLocalFinanceStore,
   writeFinanceStoreToBackend,
   type FinanceBankAccountRecord,
   type FinanceExpenditureRecord,
@@ -163,7 +163,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       const store = await readFinanceStoreFromBackend(token || window.localStorage.getItem("werklyAdminToken") || "");
       applyFinanceStore(store);
       if (!hasFinanceStoreData(store)) {
-        const localStore = readLocalFinanceStore();
+        const localStore = readFinanceStoreRecovery();
         if (hasFinanceStoreData(localStore)) {
           const migratedStore = await writeFinanceStoreToBackend(localStore, token || window.localStorage.getItem("werklyAdminToken") || "");
           applyFinanceStore(migratedStore);
@@ -173,7 +173,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
         setMessage(nextMessage);
       }
     } catch (error) {
-      const fallbackStore = readLocalFinanceStore();
+      const fallbackStore = readFinanceStoreRecovery();
       applyFinanceStore(fallbackStore);
       setMessage(error instanceof Error ? error.message : "Unable to load finance records.");
     }

@@ -93,6 +93,7 @@ const financeInvoicesStorageKey = "werklyFinanceInvoices";
 const financeBankAccountsStorageKey = "werklyFinanceBankAccounts";
 const financeIncomeStorageKey = "werklyFinanceIncome";
 const financeExpenditureStorageKey = "werklyFinanceExpenditure";
+const financeStoreBackupStorageKey = "werklyFinanceStoreBackup";
 
 export function emptyFinanceStore(): FinanceStore {
   return {
@@ -228,6 +229,9 @@ export function writeLocalFinanceStore(store: FinanceStore) {
   writeFinanceBankAccounts(store.bankAccounts);
   writeFinanceIncome(store.income);
   writeFinanceExpenditure(store.expenditure);
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(financeStoreBackupStorageKey, JSON.stringify(store));
+  }
 }
 
 export function hasFinanceStoreData(store: FinanceStore) {
@@ -255,6 +259,22 @@ export function mergeFinanceStoreWithFallback(primary: FinanceStore, fallback: F
     income: primary.income.length ? primary.income : fallback.income,
     expenditure: primary.expenditure.length ? primary.expenditure : fallback.expenditure,
   };
+}
+
+export function readFinanceStoreBackup(): FinanceStore {
+  if (typeof window === "undefined") {
+    return emptyFinanceStore();
+  }
+
+  try {
+    return normalizeFinanceStore(JSON.parse(window.localStorage.getItem(financeStoreBackupStorageKey) || "{}") as Partial<FinanceStore>);
+  } catch {
+    return emptyFinanceStore();
+  }
+}
+
+export function readFinanceStoreRecovery(): FinanceStore {
+  return mergeFinanceStoreWithFallback(readLocalFinanceStore(), readFinanceStoreBackup());
 }
 
 export function invoiceNumberFromInvoices(invoices: FinanceInvoiceRecord[], dateKey: string) {
@@ -293,7 +313,7 @@ export async function readFinanceStoreFromBackend(token?: string): Promise<Finan
   if (!response.ok) {
     throw new Error(result.message || "Unable to load finance records.");
   }
-  const store = mergeFinanceStoreWithFallback(normalizeFinanceStore(result), readLocalFinanceStore());
+  const store = mergeFinanceStoreWithFallback(normalizeFinanceStore(result), readFinanceStoreRecovery());
   writeLocalFinanceStore(store);
   return store;
 }
@@ -305,19 +325,23 @@ export async function writeFinanceStoreToBackend(store: FinanceStore, token?: st
 
   const normalizedStore = normalizeFinanceStore(store);
   writeLocalFinanceStore(normalizedStore);
-  const response = await fetch("/api/admin/finance", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(normalizedStore),
-  });
-  const result = (await response.json()) as Partial<FinanceStore> & { message?: string };
-  if (!response.ok) {
-    throw new Error(result.message || "Unable to save finance records.");
+  try {
+    const response = await fetch("/api/admin/finance", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(normalizedStore),
+    });
+    const result = (await response.json()) as Partial<FinanceStore> & { message?: string };
+    if (!response.ok) {
+      throw new Error(result.message || "Unable to save finance records.");
+    }
+    const savedStore = mergeFinanceStoreWithFallback(normalizeFinanceStore(result), normalizedStore);
+    writeLocalFinanceStore(savedStore);
+    return savedStore;
+  } catch {
+    return normalizedStore;
   }
-  const savedStore = normalizeFinanceStore(result);
-  writeLocalFinanceStore(savedStore);
-  return savedStore;
 }
