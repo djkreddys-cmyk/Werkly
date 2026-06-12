@@ -137,7 +137,7 @@ export function AdminSavedViewsPanel() {
           can reopen their preferred work queues without rebuilding the same filters every time.
         </p>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
           <select
             value={moduleFilter}
             onChange={(event) => setModuleFilter(event.target.value)}
@@ -158,6 +158,18 @@ export function AdminSavedViewsPanel() {
             <option value="all">All visible views</option>
             <option value="mine">My views</option>
           </select>
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+              Automatic Retention
+            </span>
+            <select
+              value="2"
+              disabled
+              className="w-full rounded-2xl border border-[var(--color-line)] bg-[var(--color-soft)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] outline-none"
+            >
+              <option value="2">2 days</option>
+            </select>
+          </label>
         </div>
       </section>
 

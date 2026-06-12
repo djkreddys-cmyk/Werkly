@@ -9,6 +9,7 @@ import type { CrmModuleAccessKey } from "@/lib/access-control";
 import type { ClientRecord, EmployeeRecord, NotificationLogRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 import type { UniversalCandidateProfile } from "@/lib/candidate-profiles";
+import type { FinanceInvoiceRecord } from "@/lib/finance";
 import { formatPersonName } from "@/lib/format";
 
 type AdminShellProps = {
@@ -321,6 +322,7 @@ export function AdminShell({
   const [employeesIndex, setEmployeesIndex] = useState<EmployeeRecord[]>([]);
   const [applicationsIndex, setApplicationsIndex] = useState<JobApplication[]>([]);
   const [candidateProfilesIndex, setCandidateProfilesIndex] = useState<UniversalCandidateProfile[]>([]);
+  const [invoicesIndex, setInvoicesIndex] = useState<FinanceInvoiceRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSearchIndexLoading, setIsSearchIndexLoading] = useState(false);
@@ -693,13 +695,15 @@ export function AdminShell({
       fetch("/api/admin/employees", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
       fetch("/api/admin/applications?slim=1", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
       fetch("/api/admin/candidate-profiles?slim=1", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
+      fetch("/api/admin/finance", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }),
     ])
-      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse, profilesResponse]) => {
+      .then(async ([jobsResponse, clientsResponse, employeesResponse, applicationsResponse, profilesResponse, financeResponse]) => {
         const jobsResult = (await jobsResponse.json()) as { jobs?: JobSummary[] };
         const clientsResult = (await clientsResponse.json()) as { clients?: ClientRecord[] };
         const employeesResult = (await employeesResponse.json()) as { employees?: EmployeeRecord[] };
         const applicationsResult = (await applicationsResponse.json()) as { applications?: JobApplication[] };
         const profilesResult = (await profilesResponse.json()) as { profiles?: UniversalCandidateProfile[] };
+        const financeResult = (await financeResponse.json()) as { invoices?: FinanceInvoiceRecord[] };
 
         if (!isMounted) {
           return;
@@ -710,6 +714,7 @@ export function AdminShell({
         setEmployeesIndex(employeesResult.employees ?? []);
         setApplicationsIndex(applicationsResult.applications ?? []);
         setCandidateProfilesIndex(profilesResult.profiles ?? []);
+        setInvoicesIndex(financeResult.invoices ?? []);
         setHasLoadedSearchIndex(true);
       })
       .catch(() => {
@@ -919,7 +924,7 @@ export function AdminShell({
             id: `job-${job.id}`,
             label: job.title,
             sublabel: `${job.jobCode || "Pending ID"} • ${job.clientName || "No client"}`,
-            href: "/admin/jobs/existing",
+            href: `/admin/jobs/${job.id}`,
             type: "Job",
           })),
         ...clientsIndex
@@ -965,8 +970,33 @@ export function AdminShell({
             id: `employee-${employee.id}`,
             label: employee.fullName,
             sublabel: `${employee.employeeCode || "Pending"} • ${employee.role}`,
-            href: "/admin/employees/existing",
+            href: `/admin/employees/${employee.id}`,
             type: "Employee",
+          })),
+        ...invoicesIndex
+          .filter((invoice) =>
+            [
+              invoice.invoiceNo,
+              invoice.clientName,
+              invoice.clientGstNumber,
+              invoice.clientPanNumber,
+              invoice.lines.map((line) => line.candidateName).join(" "),
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(searchQuery.trim().toLowerCase())
+          )
+          .slice(0, 4)
+          .map((invoice) => ({
+            id: `invoice-${invoice.id}`,
+            label: `Invoice ${invoice.invoiceNo}`,
+            sublabel: `${invoice.clientName} - ${new Intl.NumberFormat("en-IN", {
+              style: "currency",
+              currency: "INR",
+              maximumFractionDigits: 0,
+            }).format(invoice.total || 0)}`,
+            href: "/admin/finance/invoices",
+            type: "Invoice",
           })),
       ].slice(0, 10)
     : [];
@@ -1201,7 +1231,7 @@ export function AdminShell({
                           setSearchQuery(event.target.value);
                           setIsSearchOpen(true);
                         }}
-                        placeholder="Search jobs, clients, candidates, employees"
+                        placeholder="Search candidates, clients, jobs, employees, invoices"
                         className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/58"
                       />
                     </div>

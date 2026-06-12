@@ -5,12 +5,15 @@ import type { ClientRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 import {
   formatFinanceBankAccountLabel,
+  invoiceNumberFromInvoices,
   readFinanceBankAccounts,
   readFinanceInvoices,
-  removeFinanceInvoice,
-  upsertFinanceInvoice,
+  readFinanceStoreFromBackend,
+  readLocalFinanceStore,
+  writeFinanceStoreToBackend,
   type FinanceBankAccountRecord,
   type FinanceInvoiceRecord,
+  type FinanceStore,
 } from "@/lib/finance";
 import { formatPersonName } from "@/lib/format";
 import { buildPrintableInvoiceHtml } from "@/lib/invoice-print";
@@ -179,8 +182,8 @@ function lineTaxableValue(line: InvoiceLine) {
   return (parseMoney(line.ctc) * Number(line.feePercent || 0)) / 100;
 }
 
-function getDefaultBankAccount() {
-  const bankAccounts = readFinanceBankAccounts();
+function getDefaultBankAccount(financeBankAccounts?: FinanceBankAccountRecord[]) {
+  const bankAccounts = financeBankAccounts ?? readFinanceBankAccounts();
   return bankAccounts.find((account) => account.isPrimary) || bankAccounts[0];
 }
 
@@ -198,6 +201,7 @@ export function AdminClientInvoicesPanel({
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [bankAccounts, setBankAccounts] = useState<FinanceBankAccountRecord[]>([]);
+  const [financeInvoices, setFinanceInvoices] = useState<FinanceInvoiceRecord[]>([]);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState(invoiceNumber);
@@ -213,29 +217,54 @@ export function AdminClientInvoicesPanel({
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState(false);
   const [generatedInvoiceId, setGeneratedInvoiceId] = useState("");
 
-  useEffect(() => {
-    function loadLocalFinanceDetails() {
-      const accounts = readFinanceBankAccounts();
-      const defaultAccount = accounts.find((account) => account.isPrimary) || accounts[0];
-      setBankAccounts(accounts);
+  async function loadFinanceDetails(nextToken = token) {
+    try {
+      const store = await readFinanceStoreFromBackend(nextToken);
+      setFinanceInvoices(store.invoices);
+      setBankAccounts(store.bankAccounts);
+      const defaultAccount = store.bankAccounts.find((account) => account.isPrimary) || store.bankAccounts[0];
       setSelectedBankAccountId((current) =>
-        current && accounts.some((account) => account.id === current)
+        current && store.bankAccounts.some((account) => account.id === current)
           ? current
           : defaultAccount?.id || ""
       );
+      return store;
+    } catch {
+      const store = readLocalFinanceStore();
+      setFinanceInvoices(store.invoices);
+      setBankAccounts(store.bankAccounts);
+      const defaultAccount = store.bankAccounts.find((account) => account.isPrimary) || store.bankAccounts[0];
+      setSelectedBankAccountId((current) =>
+        current && store.bankAccounts.some((account) => account.id === current)
+          ? current
+          : defaultAccount?.id || ""
+      );
+      return store;
     }
+  }
 
-    setToken(window.localStorage.getItem("werklyAdminToken") ?? "");
+  useEffect(() => {
+    const nextToken = window.localStorage.getItem("werklyAdminToken") ?? "";
+    setToken(nextToken);
     setAuthType(window.localStorage.getItem("werklyAuthType") ?? "");
     setAuthRole(window.localStorage.getItem("werklyAuthRole") ?? "");
-    loadLocalFinanceDetails();
-    window.addEventListener("focus", loadLocalFinanceDetails);
+    void loadFinanceDetails(nextToken);
+    const handleFocus = () => void loadFinanceDetails(nextToken);
+    window.addEventListener("focus", handleFocus);
 
-    return () => window.removeEventListener("focus", loadLocalFinanceDetails);
+    return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
   const canDeleteInvoice =
     authType === "admin" || String(authRole).trim().toLowerCase() === "super-admin";
+
+  useEffect(() => {
+    if (generatedInvoiceId || invoiceToLoad) {
+      return;
+    }
+
+    setInvoiceNo(invoiceNumberFromInvoices(financeInvoices, invoiceDate));
+  }, [financeInvoices, generatedInvoiceId, invoiceDate, invoiceToLoad]);
 
   useEffect(() => {
     if (!token) {
@@ -490,11 +519,12 @@ export function AdminClientInvoicesPanel({
     return `${invoiceNo.trim() || invoiceNumber()}-${clientId}`;
   }
 
-  function pushInvoiceToFinance(invoiceClient: ClientRecord) {
+  async function pushInvoiceToFinance(invoiceClient: ClientRecord) {
     const selectedLines = lines.filter((line) => line.selected);
     const financeInvoiceId = buildFinanceInvoiceId(invoiceClient.id);
-    const existingInvoice = readFinanceInvoices().find((invoice) => invoice.id === financeInvoiceId);
-    const defaultBankAccount = selectedBankAccount || getDefaultBankAccount();
+    const store = await loadFinanceDetails();
+    const existingInvoice = store.invoices.find((invoice) => invoice.id === financeInvoiceId);
+    const defaultBankAccount = selectedBankAccount || getDefaultBankAccount(store.bankAccounts);
     const generatedBy =
       window.localStorage.getItem("werklyAdminEmail") ||
       window.localStorage.getItem("werklyAuthName") ||
@@ -502,7 +532,7 @@ export function AdminClientInvoicesPanel({
       authType ||
       "Werkly User";
 
-    upsertFinanceInvoice({
+    const nextInvoice: FinanceInvoiceRecord = {
       id: financeInvoiceId,
       invoiceNo,
       invoiceDate,
@@ -546,12 +576,19 @@ export function AdminClientInvoicesPanel({
           amount: taxable + cgst + sgst,
         };
       }),
-    });
+    };
+    const nextStore: FinanceStore = {
+      ...store,
+      invoices: [nextInvoice, ...store.invoices.filter((invoice) => invoice.id !== financeInvoiceId)],
+    };
+    const savedStore = await writeFinanceStoreToBackend(nextStore, token);
+    setFinanceInvoices(savedStore.invoices);
+    setBankAccounts(savedStore.bankAccounts);
     setGeneratedInvoiceId(financeInvoiceId);
     onFinanceInvoiceChange?.();
   }
 
-  function handleGenerateInvoice() {
+  async function handleGenerateInvoice() {
     if (!validateInvoiceReady()) {
       setIsInvoiceGenerated(false);
       return;
@@ -562,12 +599,17 @@ export function AdminClientInvoicesPanel({
       return;
     }
 
-    pushInvoiceToFinance(selectedClient);
-    setIsInvoiceGenerated(true);
-    setMessage("Invoice generated. Review below, print when ready, or update payment details in Finance.");
+    try {
+      await pushInvoiceToFinance(selectedClient);
+      setIsInvoiceGenerated(true);
+      setMessage("Invoice generated. Review below, print when ready, or update payment details in Finance.");
+    } catch (saveError) {
+      setIsInvoiceGenerated(false);
+      setError(saveError instanceof Error ? saveError.message : "Unable to save invoice.");
+    }
   }
 
-  function handleDeleteGeneratedInvoice() {
+  async function handleDeleteGeneratedInvoice() {
     if (!canDeleteInvoice) {
       setError("Only admin users can delete generated invoices.");
       return;
@@ -580,12 +622,27 @@ export function AdminClientInvoicesPanel({
       return;
     }
 
-    setIsInvoiceGenerated(false);
-    removeFinanceInvoice(generatedInvoiceId || buildFinanceInvoiceId(selectedClientId));
-    setGeneratedInvoiceId("");
-    onFinanceInvoiceChange?.();
-    setMessage("Generated invoice deleted from Finance. Review the details and generate again when ready.");
-    setError("");
+    try {
+      const store = await loadFinanceDetails();
+      const invoiceId = generatedInvoiceId || buildFinanceInvoiceId(selectedClientId);
+      const savedStore = await writeFinanceStoreToBackend(
+        {
+          ...store,
+          invoices: store.invoices.filter((invoice) => invoice.id !== invoiceId),
+          income: store.income.filter((item) => item.id !== `invoice-income-${invoiceId}`),
+        },
+        token
+      );
+      setFinanceInvoices(savedStore.invoices);
+      setBankAccounts(savedStore.bankAccounts);
+      setIsInvoiceGenerated(false);
+      setGeneratedInvoiceId("");
+      onFinanceInvoiceChange?.();
+      setMessage("Generated invoice deleted from Finance. Review the details and generate again when ready.");
+      setError("");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete invoice.");
+    }
   }
 
   async function generateInvoice() {
@@ -610,7 +667,7 @@ export function AdminClientInvoicesPanel({
       invoiceDate,
       dueDate,
       selectedClient: invoiceClient,
-      bankAccount: selectedBankAccount || getDefaultBankAccount(),
+      bankAccount: selectedBankAccount || getDefaultBankAccount(bankAccounts),
       lines,
       notes,
     });
@@ -703,7 +760,7 @@ export function AdminClientInvoicesPanel({
               onChange={(event) => {
                 setInvoiceDate(event.target.value);
                 setDueDate(addDays(event.target.value, 30));
-                setInvoiceNo(invoiceNumber(event.target.value));
+                setInvoiceNo(invoiceNumberFromInvoices(financeInvoices, event.target.value));
                 setIsInvoiceGenerated(false);
                 setMessage("");
               }}
@@ -899,7 +956,7 @@ export function AdminClientInvoicesPanel({
                 <button
                   type="button"
                   className={`${compactPrimaryButtonClassName} ${isInvoiceGenerated ? "" : "sm:col-span-2"}`}
-                  onClick={handleGenerateInvoice}
+                  onClick={() => void handleGenerateInvoice()}
                   disabled={!selectedClient || totals.count === 0}
                 >
                   Generate Invoice
@@ -917,7 +974,7 @@ export function AdminClientInvoicesPanel({
                   <button
                     type="button"
                     className={`${compactDangerButtonClassName} sm:col-span-2`}
-                    onClick={handleDeleteGeneratedInvoice}
+                    onClick={() => void handleDeleteGeneratedInvoice()}
                   >
                     Delete Invoice
                   </button>

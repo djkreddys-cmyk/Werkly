@@ -175,8 +175,11 @@ function lineTaxableValue(line: PrintableInvoiceLine) {
   return line.taxable ?? (parseMoney(line.ctc) * Number(line.feePercent || 0)) / 100;
 }
 
-export function financeInvoiceToPrintableInvoice(invoice: FinanceInvoiceRecord): PrintableInvoice {
-  const bankAccounts = readFinanceBankAccounts();
+export function financeInvoiceToPrintableInvoice(
+  invoice: FinanceInvoiceRecord,
+  financeBankAccounts?: FinanceBankAccountRecord[]
+): PrintableInvoice {
+  const bankAccounts = financeBankAccounts ?? readFinanceBankAccounts();
   const bankAccount =
     bankAccounts.find((account) => account.id === invoice.bankAccountId) ||
     bankAccounts.find((account) => account.isPrimary) ||

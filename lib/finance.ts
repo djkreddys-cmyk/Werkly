@@ -82,10 +82,26 @@ export type FinanceExpenditureRecord = {
   createdAt: string;
 };
 
+export type FinanceStore = {
+  invoices: FinanceInvoiceRecord[];
+  bankAccounts: FinanceBankAccountRecord[];
+  income: FinanceIncomeRecord[];
+  expenditure: FinanceExpenditureRecord[];
+};
+
 const financeInvoicesStorageKey = "werklyFinanceInvoices";
 const financeBankAccountsStorageKey = "werklyFinanceBankAccounts";
 const financeIncomeStorageKey = "werklyFinanceIncome";
 const financeExpenditureStorageKey = "werklyFinanceExpenditure";
+
+export function emptyFinanceStore(): FinanceStore {
+  return {
+    invoices: [],
+    bankAccounts: [],
+    income: [],
+    expenditure: [],
+  };
+}
 
 function readStorageList<T>(key: string) {
   if (typeof window === "undefined") {
@@ -196,4 +212,102 @@ export function upsertFinanceExpenditure(record: FinanceExpenditureRecord) {
 
 export function removeFinanceExpenditure(recordId: string) {
   writeFinanceExpenditure(readFinanceExpenditure().filter((item) => item.id !== recordId));
+}
+
+export function readLocalFinanceStore(): FinanceStore {
+  return {
+    invoices: readFinanceInvoices(),
+    bankAccounts: readFinanceBankAccounts(),
+    income: readFinanceIncome(),
+    expenditure: readFinanceExpenditure(),
+  };
+}
+
+export function writeLocalFinanceStore(store: FinanceStore) {
+  writeFinanceInvoices(store.invoices);
+  writeFinanceBankAccounts(store.bankAccounts);
+  writeFinanceIncome(store.income);
+  writeFinanceExpenditure(store.expenditure);
+}
+
+export function hasFinanceStoreData(store: FinanceStore) {
+  return (
+    store.invoices.length > 0 ||
+    store.bankAccounts.length > 0 ||
+    store.income.length > 0 ||
+    store.expenditure.length > 0
+  );
+}
+
+function normalizeFinanceStore(store?: Partial<FinanceStore> | null): FinanceStore {
+  return {
+    invoices: Array.isArray(store?.invoices) ? store.invoices : [],
+    bankAccounts: Array.isArray(store?.bankAccounts) ? store.bankAccounts : [],
+    income: Array.isArray(store?.income) ? store.income : [],
+    expenditure: Array.isArray(store?.expenditure) ? store.expenditure : [],
+  };
+}
+
+export function invoiceNumberFromInvoices(invoices: FinanceInvoiceRecord[], dateKey: string) {
+  const invoiceDateKey = dateKey || new Date().toISOString().slice(0, 10);
+  const date = new Date(`${invoiceDateKey}T00:00:00`);
+  const year = date.getFullYear();
+  const fiscalStartYear = date.getMonth() >= 3 ? year : year - 1;
+  const start = `${fiscalStartYear}-04-01`;
+  const end = `${fiscalStartYear + 1}-03-31`;
+  const maxSequence = invoices.reduce((max, invoice) => {
+    const match = String(invoice.invoiceNo || "").match(/^(\d{8})(\d+)$/);
+    if (!match) {
+      return max;
+    }
+
+    const invoiceKey = `${match[1].slice(0, 4)}-${match[1].slice(4, 6)}-${match[1].slice(6, 8)}`;
+    if (invoiceKey < start || invoiceKey > end) {
+      return max;
+    }
+
+    return Math.max(max, Number(match[2]) || 0);
+  }, 0);
+  return `${invoiceDateKey.replaceAll("-", "")}${String(maxSequence + 1).padStart(3, "0")}`;
+}
+
+export async function readFinanceStoreFromBackend(token?: string): Promise<FinanceStore> {
+  if (typeof window === "undefined") {
+    return emptyFinanceStore();
+  }
+
+  const response = await fetch("/api/admin/finance", {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    cache: "no-store",
+  });
+  const result = (await response.json()) as Partial<FinanceStore> & { message?: string };
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to load finance records.");
+  }
+  const store = normalizeFinanceStore(result);
+  writeLocalFinanceStore(store);
+  return store;
+}
+
+export async function writeFinanceStoreToBackend(store: FinanceStore, token?: string): Promise<FinanceStore> {
+  if (typeof window === "undefined") {
+    return normalizeFinanceStore(store);
+  }
+
+  const normalizedStore = normalizeFinanceStore(store);
+  const response = await fetch("/api/admin/finance", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(normalizedStore),
+  });
+  const result = (await response.json()) as Partial<FinanceStore> & { message?: string };
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to save finance records.");
+  }
+  const savedStore = normalizeFinanceStore(result);
+  writeLocalFinanceStore(savedStore);
+  return savedStore;
 }

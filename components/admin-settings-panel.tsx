@@ -846,6 +846,41 @@ export function AdminSettingsPanel({ section = "index" }: { section?: SettingsSe
         </div>
       ) : null}
 
+      {section === "access" && selectedEmployee ? (
+        <section className="accent-card p-7">
+          <p className="eyebrow">Permission Preview</p>
+          <h2 className="mt-4 text-2xl font-semibold text-[var(--color-ink)]">
+            What this role can access before saving.
+          </h2>
+          <p className="muted-copy mt-3 text-sm leading-6">
+            {selectedEmployee.fullName} will use the {selectedEmployeeRoleKey} role defaults
+            {currentEmployeeOverride ? " with the selected employee override." : "."}
+          </p>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Modules
+              </p>
+              <p className="mt-3 text-sm leading-6 text-[var(--color-ink)]">
+                {effectiveModuleDefinitions.length
+                  ? effectiveModuleDefinitions.map((definition) => definition.label).join(", ")
+                  : "No modules enabled."}
+              </p>
+            </div>
+            <div className="rounded-[1.25rem] border border-[var(--color-line)] bg-white p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Fields and Actions
+              </p>
+              <p className="mt-3 text-sm leading-6 text-[var(--color-ink)]">
+                {effectiveFieldDefinitions.length
+                  ? effectiveFieldDefinitions.map((definition) => definition.label).join(", ")
+                  : "No field-level permissions enabled."}
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {error ? (
         <div className="rounded-[1.25rem] border border-[rgba(190,72,26,0.18)] bg-[rgba(190,72,26,0.08)] px-4 py-3 text-sm text-[var(--color-accent-strong)]">
           {error}

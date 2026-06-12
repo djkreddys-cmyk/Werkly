@@ -4,22 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminClientInvoicesPanel } from "@/components/admin-client-invoices-panel";
 import {
   formatFinanceBankAccountLabel,
-  readFinanceBankAccounts,
-  readFinanceExpenditure,
-  readFinanceIncome,
-  readFinanceInvoices,
-  removeFinanceBankAccount,
-  removeFinanceExpenditure,
-  removeFinanceIncome,
-  removeFinanceInvoice,
-  upsertFinanceBankAccount,
-  upsertFinanceExpenditure,
-  upsertFinanceIncome,
-  writeFinanceInvoices,
+  hasFinanceStoreData,
+  readFinanceStoreFromBackend,
+  readLocalFinanceStore,
+  writeFinanceStoreToBackend,
   type FinanceBankAccountRecord,
   type FinanceExpenditureRecord,
   type FinanceIncomeRecord,
   type FinanceInvoiceRecord,
+  type FinanceStore,
 } from "@/lib/finance";
 import { buildPrintableInvoiceHtml, financeInvoiceToPrintableInvoice } from "@/lib/invoice-print";
 
@@ -141,29 +134,67 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
   }));
   const [bankForm, setBankForm] = useState<BankAccountForm>(() => emptyBankAccountForm());
   const [search, setSearch] = useState("");
+  const [token, setToken] = useState("");
   const [authType, setAuthType] = useState("");
   const [authRole, setAuthRole] = useState("");
   const [message, setMessage] = useState("");
   const [invoiceToLoad, setInvoiceToLoad] = useState<FinanceInvoiceRecord | null>(null);
 
-  function refreshFinanceData(nextInvoices = readFinanceInvoices()) {
-    setInvoices(nextInvoices);
-    const nextBankAccounts = readFinanceBankAccounts();
-    setBankAccounts(nextBankAccounts);
-    setIncome(readFinanceIncome());
-    setExpenditure(readFinanceExpenditure());
+  function applyFinanceStore(store: FinanceStore) {
+    setInvoices(store.invoices);
+    setBankAccounts(store.bankAccounts);
+    setIncome(store.income);
+    setExpenditure(store.expenditure);
     setPaymentDrafts(
-      nextInvoices.reduce<Record<string, PaymentDraft>>((drafts, invoice) => {
-        const defaultBankAccountId = nextBankAccounts.find((account) => account.isPrimary)?.id || nextBankAccounts[0]?.id || "";
+      store.invoices.reduce<Record<string, PaymentDraft>>((drafts, invoice) => {
+        const defaultBankAccountId = store.bankAccounts.find((account) => account.isPrimary)?.id || store.bankAccounts[0]?.id || "";
         drafts[invoice.id] = makePaymentDraft(invoice, defaultBankAccountId);
         return drafts;
       }, {})
     );
   }
 
+  function currentFinanceStore(): FinanceStore {
+    return { invoices, bankAccounts, income, expenditure };
+  }
+
+  async function refreshFinanceData(nextMessage?: string) {
+    try {
+      const store = await readFinanceStoreFromBackend(token || window.localStorage.getItem("werklyAdminToken") || "");
+      applyFinanceStore(store);
+      if (!hasFinanceStoreData(store)) {
+        const localStore = readLocalFinanceStore();
+        if (hasFinanceStoreData(localStore)) {
+          const migratedStore = await writeFinanceStoreToBackend(localStore, token || window.localStorage.getItem("werklyAdminToken") || "");
+          applyFinanceStore(migratedStore);
+        }
+      }
+      if (nextMessage) {
+        setMessage(nextMessage);
+      }
+    } catch (error) {
+      const fallbackStore = readLocalFinanceStore();
+      applyFinanceStore(fallbackStore);
+      setMessage(error instanceof Error ? error.message : "Unable to load finance records.");
+    }
+  }
+
+  async function persistFinanceStore(store: FinanceStore, nextMessage: string) {
+    try {
+      const savedStore = await writeFinanceStoreToBackend(store, token || window.localStorage.getItem("werklyAdminToken") || "");
+      applyFinanceStore(savedStore);
+      setMessage(nextMessage);
+    } catch (error) {
+      applyFinanceStore(store);
+      setMessage(error instanceof Error ? error.message : "Unable to save finance records.");
+    }
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      refreshFinanceData();
+      const nextToken = window.localStorage.getItem("werklyAdminToken") ?? "";
+      setToken(nextToken);
+      void refreshFinanceData();
       setAuthType(window.localStorage.getItem("werklyAuthType") ?? "");
       setAuthRole(window.localStorage.getItem("werklyAuthRole") ?? "");
     }, 0);
@@ -259,12 +290,13 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       bankAccountId: draft.bankAccountId || primaryBankAccountId,
     };
     const nextInvoices = [updatedInvoice, ...invoices.filter((item) => item.id !== invoice.id)];
-    writeFinanceInvoices(nextInvoices);
 
     const incomeId = `invoice-income-${invoice.id}`;
+    let nextIncome = income.filter((item) => item.id !== incomeId);
     if (amountReceived > 0) {
-      const existingIncome = readFinanceIncome().find((item) => item.id === incomeId);
-      upsertFinanceIncome({
+      const existingIncome = income.find((item) => item.id === incomeId);
+      nextIncome = [
+        {
         id: incomeId,
         date: updatedInvoice.paymentDate || todayKey(),
         source: updatedInvoice.clientName,
@@ -278,13 +310,15 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
         invoiceNo: updatedInvoice.invoiceNo,
         clientName: updatedInvoice.clientName,
         createdAt: existingIncome?.createdAt || new Date().toISOString(),
-      });
-    } else {
-      removeFinanceIncome(incomeId);
+        },
+        ...nextIncome,
+      ];
     }
 
-    refreshFinanceData(nextInvoices);
-    setMessage(`Payment details saved for invoice ${invoice.invoiceNo}.`);
+    void persistFinanceStore(
+      { ...currentFinanceStore(), invoices: nextInvoices, income: nextIncome },
+      `Payment details saved for invoice ${invoice.invoiceNo}.`
+    );
   }
 
   function handleDelete(invoice: FinanceInvoiceRecord) {
@@ -298,13 +332,18 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       return;
     }
 
-    removeFinanceInvoice(invoice.id);
-    refreshFinanceData();
-    setMessage(`Invoice ${invoice.invoiceNo} deleted from Finance.`);
+    void persistFinanceStore(
+      {
+        ...currentFinanceStore(),
+        invoices: invoices.filter((item) => item.id !== invoice.id),
+        income: income.filter((item) => item.id !== `invoice-income-${invoice.id}`),
+      },
+      `Invoice ${invoice.invoiceNo} deleted from Finance.`
+    );
   }
 
   function handlePrint(invoice: FinanceInvoiceRecord) {
-    const html = buildPrintableInvoiceHtml(financeInvoiceToPrintableInvoice(invoice));
+    const html = buildPrintableInvoiceHtml(financeInvoiceToPrintableInvoice(invoice, bankAccounts));
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       setMessage("Popup blocked. Please allow popups to print the invoice.");
@@ -334,7 +373,11 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       return;
     }
 
-    upsertFinanceIncome({
+    void persistFinanceStore(
+      {
+        ...currentFinanceStore(),
+        income: [
+          {
       id: `income-${Date.now()}`,
       date: incomeForm.date || todayKey(),
       source: incomeForm.source.trim(),
@@ -345,10 +388,13 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       notes: incomeForm.notes.trim(),
       bankAccountId: incomeForm.bankAccountId || primaryBankAccountId,
       createdAt: new Date().toISOString(),
-    });
+          },
+          ...income,
+        ],
+      },
+      "Income record saved."
+    );
     setIncomeForm(emptyFinanceForm());
-    refreshFinanceData();
-    setMessage("Income record saved.");
   }
 
   function handleAddExpense() {
@@ -358,7 +404,11 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       return;
     }
 
-    upsertFinanceExpenditure({
+    void persistFinanceStore(
+      {
+        ...currentFinanceStore(),
+        expenditure: [
+          {
       id: `expense-${Date.now()}`,
       date: expenseForm.date || todayKey(),
       vendor: expenseForm.source.trim(),
@@ -369,10 +419,13 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       notes: expenseForm.notes.trim(),
       bankAccountId: expenseForm.bankAccountId || primaryBankAccountId,
       createdAt: new Date().toISOString(),
-    });
+          },
+          ...expenditure,
+        ],
+      },
+      "Expenditure record saved."
+    );
     setExpenseForm({ ...emptyFinanceForm(), mode: "UPI" });
-    refreshFinanceData();
-    setMessage("Expenditure record saved.");
   }
 
   function updateIncomeForm(patch: Partial<FinanceForm>) {
@@ -393,7 +446,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       return;
     }
 
-    upsertFinanceBankAccount({
+    const nextRecord: FinanceBankAccountRecord = {
       id: `bank-${Date.now()}`,
       accountName: bankForm.accountName.trim(),
       bankName: bankForm.bankName.trim(),
@@ -403,10 +456,16 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       openingBalance: parseAmount(bankForm.openingBalance),
       isPrimary: bankForm.isPrimary || bankAccounts.length === 0,
       createdAt: new Date().toISOString(),
-    });
+    };
+    const nextBankAccounts = [
+      nextRecord,
+      ...(nextRecord.isPrimary ? bankAccounts.map((account) => ({ ...account, isPrimary: false })) : bankAccounts),
+    ];
+    void persistFinanceStore(
+      { ...currentFinanceStore(), bankAccounts: nextBankAccounts },
+      "Werkly bank account saved."
+    );
     setBankForm(emptyBankAccountForm());
-    refreshFinanceData();
-    setMessage("Werkly bank account saved.");
   }
 
   const isCoreView = view === "core";
@@ -418,8 +477,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
         <AdminClientInvoicesPanel
           invoiceToLoad={invoiceToLoad}
           onFinanceInvoiceChange={() => {
-            refreshFinanceData();
-            setMessage("Invoice register updated.");
+            void refreshFinanceData("Invoice register updated.");
           }}
         />
       ) : null}
@@ -443,8 +501,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
             </p>
           </div>
           <button type="button" className="btn-secondary" onClick={() => {
-            refreshFinanceData();
-            setMessage("Finance records refreshed.");
+            void refreshFinanceData("Finance records refreshed.");
           }}>
             Refresh
           </button>
@@ -515,7 +572,12 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                   <div><p className="section-eyebrow">Expense</p><strong>{formatCurrency(account.expenditure)}</strong></div>
                   <div><p className="section-eyebrow">Balance</p><strong>{formatCurrency(account.balance)}</strong></div>
                 </div>
-                <button type="button" className="mt-4 text-sm font-semibold text-red-700" onClick={() => { removeFinanceBankAccount(account.id); refreshFinanceData(); }}>
+                <button type="button" className="mt-4 text-sm font-semibold text-red-700" onClick={() => {
+                  void persistFinanceStore(
+                    { ...currentFinanceStore(), bankAccounts: bankAccounts.filter((item) => item.id !== account.id) },
+                    "Werkly bank account deleted."
+                  );
+                }}>
                   Delete
                 </button>
               </div>
@@ -586,8 +648,10 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
           records={income.map((record) => ({ ...record, accountName: bankAccounts.find((account) => account.id === record.bankAccountId)?.accountName || "-" }))}
           emptyText="No income records yet."
           onDelete={(id) => {
-            removeFinanceIncome(id);
-            refreshFinanceData();
+            void persistFinanceStore(
+              { ...currentFinanceStore(), income: income.filter((item) => item.id !== id) },
+              "Income record deleted."
+            );
           }}
         />
         <FinanceRecordTable
@@ -595,8 +659,10 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
           records={expenditure.map((record) => ({ ...record, source: record.vendor, accountName: bankAccounts.find((account) => account.id === record.bankAccountId)?.accountName || "-" }))}
           emptyText="No expenditure records yet."
           onDelete={(id) => {
-            removeFinanceExpenditure(id);
-            refreshFinanceData();
+            void persistFinanceStore(
+              { ...currentFinanceStore(), expenditure: expenditure.filter((item) => item.id !== id) },
+              "Expenditure record deleted."
+            );
           }}
         />
       </section>
