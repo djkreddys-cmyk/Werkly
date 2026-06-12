@@ -32,10 +32,11 @@ function getApprovalActionHref(approval: ApprovalRequestRecord) {
   switch (approval.entityType) {
     case "client":
       return approval.entityId ? `/admin/clients/${approval.entityId}` : "";
-    case "candidate":
-    case "job-application":
     case "application":
-      return "/admin/candidates/job-applicants";
+    case "job-application":
+      return approval.entityId ? `/admin/candidates/${approval.entityId}` : "/admin/candidates?type=applicants#job-applicants";
+    case "candidate":
+      return "/admin/candidates?type=applicants#job-applicants";
     case "leave-request":
       return "/admin/leaves";
     default:
@@ -54,7 +55,7 @@ export function AdminWorkflowSettings() {
   const [isRunningWorkflow, setIsRunningWorkflow] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | ApprovalRequestRecord["requestStatus"]>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | ApprovalRequestRecord["requestStatus"]>("pending");
   const [entityFilter, setEntityFilter] = useState("all");
   const [requestTypeFilter, setRequestTypeFilter] = useState("all");
   const [approvalQuery, setApprovalQuery] = useState("");
@@ -165,7 +166,7 @@ export function AdminWorkflowSettings() {
       setApprovals((current) =>
         current.map((approval) => (approval.id === id ? result : approval))
       );
-      setSuccess(`Approval request ${requestStatus}.`);
+      setSuccess(`Approval request ${requestStatus} and removed from the pending queue.`);
     } catch (approvalError) {
       setError(approvalError instanceof Error ? approvalError.message : "Unable to update approval.");
     }

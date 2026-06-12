@@ -115,6 +115,17 @@ function getMeetingUrl(roomCode: string) {
   return `${window.location.origin}/meet/${roomCode}`;
 }
 
+function getDisplayMessage(error: unknown, fallback: string) {
+  const rawMessage = error instanceof Error ? error.message : fallback;
+
+  try {
+    const parsed = JSON.parse(rawMessage) as { message?: string };
+    return parsed.message || rawMessage;
+  } catch {
+    return rawMessage;
+  }
+}
+
 export function AdminMeetingsPanel() {
   const [token] = useState(
     typeof window !== "undefined"
@@ -240,9 +251,7 @@ export function AdminMeetingsPanel() {
         setCalendarMessage(`${result.connectedEmail || "Calendar"} connected.`);
       })
       .catch((connectError) => {
-        setCalendarMessage(
-          connectError instanceof Error ? connectError.message : "Unable to connect calendar."
-        );
+        setCalendarMessage(getDisplayMessage(connectError, "Unable to connect calendar."));
       })
       .finally(() => {
         setCalendarBusy("");
@@ -384,9 +393,7 @@ export function AdminMeetingsPanel() {
       window.location.href = result.url;
     } catch (connectError) {
       setCalendarBusy("");
-      setCalendarMessage(
-        connectError instanceof Error ? connectError.message : "Unable to start calendar sync."
-      );
+      setCalendarMessage(getDisplayMessage(connectError, "Unable to start calendar sync."));
     }
   }
 
@@ -414,9 +421,7 @@ export function AdminMeetingsPanel() {
       );
       setCalendarMessage("Calendar disconnected.");
     } catch (disconnectError) {
-      setCalendarMessage(
-        disconnectError instanceof Error ? disconnectError.message : "Unable to disconnect calendar."
-      );
+      setCalendarMessage(getDisplayMessage(disconnectError, "Unable to disconnect calendar."));
     } finally {
       setCalendarBusy("");
     }
@@ -450,9 +455,7 @@ export function AdminMeetingsPanel() {
           : "No calendars are connected yet."
       );
     } catch (syncError) {
-      setCalendarMessage(
-        syncError instanceof Error ? syncError.message : "Unable to sync meeting calendars."
-      );
+      setCalendarMessage(getDisplayMessage(syncError, "Unable to sync meeting calendars."));
     } finally {
       setCalendarBusy("");
     }
