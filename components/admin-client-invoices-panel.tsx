@@ -43,6 +43,8 @@ const compactSecondaryButtonClassName =
 const compactDangerButtonClassName =
   "h-10 rounded-full border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100";
 const gstRate = 9;
+const defaultInvoiceNotes =
+  "Payment should be made within 30 days after the candidate joins your organization.";
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -208,9 +210,7 @@ export function AdminClientInvoicesPanel({
   const [invoiceNo, setInvoiceNo] = useState(invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(todayKey);
   const [dueDate, setDueDate] = useState(addDays(todayKey(), 30));
-  const [notes, setNotes] = useState(
-    "Payment should be made within 30 days after the candidate joins your organization."
-  );
+  const [notes, setNotes] = useState(defaultInvoiceNotes);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -526,6 +526,18 @@ export function AdminClientInvoicesPanel({
     return `${invoiceNo.trim() || invoiceNumber()}-${clientId}`;
   }
 
+  function resetInvoiceForm(nextInvoices: FinanceInvoiceRecord[]) {
+    const nextInvoiceDate = todayKey();
+    setSelectedClientId("");
+    setInvoiceDate(nextInvoiceDate);
+    setDueDate(addDays(nextInvoiceDate, 30));
+    setInvoiceNo(invoiceNumberFromInvoices(nextInvoices, nextInvoiceDate));
+    setNotes(defaultInvoiceNotes);
+    setLines([]);
+    setGeneratedInvoiceId("");
+    setIsInvoiceGenerated(false);
+  }
+
   async function pushInvoiceToFinance(invoiceClient: ClientRecord) {
     const selectedLines = lines.filter((line) => line.selected);
     const financeInvoiceId = buildFinanceInvoiceId(invoiceClient.id);
@@ -608,8 +620,9 @@ export function AdminClientInvoicesPanel({
 
     try {
       await pushInvoiceToFinance(selectedClient);
-      setIsInvoiceGenerated(true);
-      setMessage("Invoice generated. Review below, print when ready, or update payment details in Finance.");
+      const refreshedStore = await loadFinanceDetails();
+      resetInvoiceForm(refreshedStore.invoices);
+      setMessage("Invoice generated and saved. The form is ready for a new invoice.");
     } catch (saveError) {
       setIsInvoiceGenerated(false);
       setError(saveError instanceof Error ? saveError.message : "Unable to save invoice.");

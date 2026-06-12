@@ -139,6 +139,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
   const [authRole, setAuthRole] = useState("");
   const [message, setMessage] = useState("");
   const [invoiceToLoad, setInvoiceToLoad] = useState<FinanceInvoiceRecord | null>(null);
+  const [paymentModalInvoiceId, setPaymentModalInvoiceId] = useState("");
 
   function applyFinanceStore(store: FinanceStore) {
     setInvoices(store.invoices);
@@ -275,10 +276,31 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
     }));
   }
 
+  function handlePaymentStatusChange(invoice: FinanceInvoiceRecord, paymentStatus: PaymentDraft["paymentStatus"]) {
+    if (paymentStatus === "paid") {
+      updatePaymentDraft(invoice.id, {
+        paymentStatus,
+        amountReceived: String(invoice.total),
+        paymentDate: todayKey(),
+        bankAccountId: invoice.bankAccountId || primaryBankAccountId,
+      });
+      setPaymentModalInvoiceId(invoice.id);
+      return;
+    }
+
+    updatePaymentDraft(invoice.id, {
+      paymentStatus,
+      amountReceived: "",
+      paymentReference: "",
+      paymentNotes: "",
+    });
+  }
+
   function handleSavePayment(invoice: FinanceInvoiceRecord) {
     const draft = paymentDrafts[invoice.id] || makePaymentDraft(invoice, primaryBankAccountId);
-    const amountReceived = Math.min(parseAmount(draft.amountReceived), invoice.total);
-    const paymentStatus = amountReceived <= 0 ? "unpaid" : amountReceived >= invoice.total ? "paid" : "partial";
+    const amountReceived =
+      draft.paymentStatus === "paid" ? Math.min(parseAmount(draft.amountReceived) || invoice.total, invoice.total) : 0;
+    const paymentStatus = draft.paymentStatus === "paid" ? "paid" : draft.paymentStatus;
     const updatedInvoice: FinanceInvoiceRecord = {
       ...invoice,
       paymentStatus,
@@ -319,6 +341,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
       { ...currentFinanceStore(), invoices: nextInvoices, income: nextIncome },
       `Payment details saved for invoice ${invoice.invoiceNo}.`
     );
+    setPaymentModalInvoiceId("");
   }
 
   function handleDelete(invoice: FinanceInvoiceRecord) {
@@ -470,6 +493,12 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
 
   const isCoreView = view === "core";
   const isInvoicesView = view === "invoices";
+  const paymentModalInvoice = paymentModalInvoiceId
+    ? invoices.find((invoice) => invoice.id === paymentModalInvoiceId)
+    : undefined;
+  const paymentModalDraft = paymentModalInvoice
+    ? paymentDrafts[paymentModalInvoice.id] || makePaymentDraft(paymentModalInvoice, primaryBankAccountId)
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -701,30 +730,27 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                       <p className="mt-3 text-lg font-semibold text-[var(--color-ink)]">{formatCurrency(invoice.total)}</p>
                     </div>
                     <div className="grid gap-3 md:grid-cols-3">
-                      <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={draft.paymentStatus} onChange={(event) => updatePaymentDraft(invoice.id, { paymentStatus: event.target.value as PaymentDraft["paymentStatus"] })}>
+                      <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={draft.paymentStatus} onChange={(event) => handlePaymentStatusChange(invoice, event.target.value as PaymentDraft["paymentStatus"])}>
                         <option value="unpaid">Unpaid</option>
                         <option value="partial">Partial</option>
                         <option value="paid">Paid</option>
                       </select>
-                      <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Amount received" inputMode="decimal" value={draft.amountReceived} onChange={(event) => updatePaymentDraft(invoice.id, { amountReceived: event.target.value })} />
-                      <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" type="date" value={draft.paymentDate} onChange={(event) => updatePaymentDraft(invoice.id, { paymentDate: event.target.value })} />
-                      <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={draft.paymentMode} onChange={(event) => updatePaymentDraft(invoice.id, { paymentMode: event.target.value })}>
-                        <option>Bank Transfer</option>
-                        <option>UPI</option>
-                        <option>Cash</option>
-                        <option>Cheque</option>
-                        <option>Card</option>
-                      </select>
-                      <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={draft.bankAccountId} onChange={(event) => updatePaymentDraft(invoice.id, { bankAccountId: event.target.value })}>
-                        <option value="">Select bank account</option>
-                        {bankAccounts.map((account) => <option key={account.id} value={account.id}>{formatFinanceBankAccountLabel(account)}</option>)}
-                      </select>
-                      <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Reference" value={draft.paymentReference} onChange={(event) => updatePaymentDraft(invoice.id, { paymentReference: event.target.value })} />
-                      <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Payment notes" value={draft.paymentNotes} onChange={(event) => updatePaymentDraft(invoice.id, { paymentNotes: event.target.value })} />
+                      <div className="rounded-[1rem] border border-[var(--color-border)] bg-[var(--color-soft)] px-3 py-2 text-sm text-[var(--color-muted)] md:col-span-2">
+                        {draft.paymentStatus === "paid"
+                          ? `Paid ${formatCurrency(parseAmount(draft.amountReceived) || invoice.total)}${draft.paymentReference ? ` | ${draft.paymentReference}` : ""}`
+                          : "Transaction details open only after selecting Paid."}
+                      </div>
+                      {draft.paymentStatus === "paid" ? (
+                        <button type="button" className="btn-secondary" onClick={() => setPaymentModalInvoiceId(invoice.id)}>
+                          Edit Transaction
+                        </button>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap items-start gap-2 xl:justify-end">
-                      <button type="button" className="btn-secondary" onClick={() => handleLoadInvoice(invoice)}>Load Data</button>
-                      <button type="button" className="btn-secondary" onClick={() => handleSavePayment(invoice)}>Save Payment</button>
+                      <button type="button" className="btn-secondary" onClick={() => handleLoadInvoice(invoice)}>Edit Invoice</button>
+                      <button type="button" className="btn-secondary" onClick={() => handleSavePayment(invoice)}>
+                        {draft.paymentStatus === "paid" ? "Save Payment" : "Save Status"}
+                      </button>
                       <button type="button" className="btn-secondary" onClick={() => handlePrint(invoice)}>Print</button>
                       {canDeleteInvoice ? (
                         <button type="button" className="btn-secondary border-red-200 text-red-700 hover:bg-red-50" onClick={() => handleDelete(invoice)}>Delete</button>
@@ -737,6 +763,47 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
           </div>
         )}
       </section>
+      ) : null}
+      {paymentModalInvoice && paymentModalDraft ? (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-2xl rounded-[1.5rem] border border-[var(--color-border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="section-eyebrow">Transaction Details</p>
+                <h3 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">
+                  Invoice {paymentModalInvoice.invoiceNo}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">{paymentModalInvoice.clientName}</p>
+              </div>
+              <button type="button" className="btn-secondary" onClick={() => setPaymentModalInvoiceId("")}>
+                Close
+              </button>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Amount received" inputMode="decimal" value={paymentModalDraft.amountReceived} onChange={(event) => updatePaymentDraft(paymentModalInvoice.id, { amountReceived: event.target.value })} />
+              <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" type="date" value={paymentModalDraft.paymentDate} onChange={(event) => updatePaymentDraft(paymentModalInvoice.id, { paymentDate: event.target.value })} />
+              <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={paymentModalDraft.paymentMode} onChange={(event) => updatePaymentDraft(paymentModalInvoice.id, { paymentMode: event.target.value })}>
+                <option>Bank Transfer</option>
+                <option>UPI</option>
+                <option>Cash</option>
+                <option>Cheque</option>
+                <option>Card</option>
+              </select>
+              <select className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" value={paymentModalDraft.bankAccountId} onChange={(event) => updatePaymentDraft(paymentModalInvoice.id, { bankAccountId: event.target.value })}>
+                <option value="">Select bank account</option>
+                {bankAccounts.map((account) => <option key={account.id} value={account.id}>{formatFinanceBankAccountLabel(account)}</option>)}
+              </select>
+              <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Transaction reference" value={paymentModalDraft.paymentReference} onChange={(event) => updatePaymentDraft(paymentModalInvoice.id, { paymentReference: event.target.value })} />
+              <input className="rounded-[1rem] border border-[var(--color-border)] px-3 py-2 text-sm" placeholder="Payment notes" value={paymentModalDraft.paymentNotes} onChange={(event) => updatePaymentDraft(paymentModalInvoice.id, { paymentNotes: event.target.value })} />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="btn-secondary" onClick={() => setPaymentModalInvoiceId("")}>Cancel</button>
+              <button type="button" className="rounded-full bg-[var(--color-dark)] px-5 py-2.5 text-sm font-semibold text-white" onClick={() => handleSavePayment(paymentModalInvoice)}>
+                Save Transaction
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
