@@ -18,6 +18,8 @@ type ActivityCenterState = {
   transfers: ClientTransferRequestRecord[];
 };
 
+type ActivityDatePreset = "today" | "yesterday" | "last-week" | "last-month" | "range";
+
 function formatDateTime(value?: string) {
   if (!value) {
     return "Not added";
@@ -49,6 +51,58 @@ function getDateKey(value?: string) {
   return `${year}-${month}-${day}`;
 }
 
+function getTodayDateKey() {
+  return getDateKey(new Date().toISOString());
+}
+
+function addDays(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return getDateKey(date.toISOString());
+}
+
+function getDatePresetRange(
+  preset: ActivityDatePreset,
+  customStartDate: string,
+  customEndDate: string
+) {
+  const today = getTodayDateKey();
+
+  switch (preset) {
+    case "today":
+      return { start: today, end: today };
+    case "yesterday": {
+      const yesterday = addDays(today, -1);
+      return { start: yesterday, end: yesterday };
+    }
+    case "last-week":
+      return { start: addDays(today, -6), end: today };
+    case "last-month":
+      return { start: addDays(today, -29), end: today };
+    case "range":
+      return {
+        start: customStartDate || "",
+        end: customEndDate || customStartDate || "",
+      };
+    default:
+      return { start: "", end: "" };
+  }
+}
+
+function isDateInRange(value: string | undefined, start: string, end: string) {
+  const dateKey = getDateKey(value);
+  if (!dateKey) {
+    return false;
+  }
+  if (start && dateKey < start) {
+    return false;
+  }
+  if (end && dateKey > end) {
+    return false;
+  }
+  return true;
+}
+
 export function AdminActivityCenter() {
   const [token] = useState(
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
@@ -64,7 +118,9 @@ export function AdminActivityCenter() {
   const [error, setError] = useState("");
   const [category, setCategory] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("");
+  const [datePreset, setDatePreset] = useState<ActivityDatePreset>("today");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -156,6 +212,7 @@ export function AdminActivityCenter() {
   );
 
   const feedItems = useMemo(() => {
+    const dateRange = getDatePresetRange(datePreset, customStartDate, customEndDate);
     const auditItems = state.auditLogs.map((log) => ({
       id: `audit-${log.id}`,
       category: "audit",
@@ -219,11 +276,13 @@ export function AdminActivityCenter() {
           item.employeeIds.includes(employeeFilter) ||
           item.actorName === employeeLookup.get(employeeFilter)?.fullName
       )
-      .filter((item) => !dateFilter || getDateKey(item.createdAt) === dateFilter)
+      .filter((item) => isDateInRange(item.createdAt, dateRange.start, dateRange.end))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [
     category,
-    dateFilter,
+    customEndDate,
+    customStartDate,
+    datePreset,
     employeeFilter,
     employeeLookup,
     state.auditLogs,
@@ -272,15 +331,46 @@ export function AdminActivityCenter() {
             </select>
             <label className="block">
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                Activity Date
+                Activity Period
               </span>
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(event) => setDateFilter(event.target.value)}
+              <select
+                value={datePreset}
+                onChange={(event) => setDatePreset(event.target.value as ActivityDatePreset)}
                 className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-              />
+              >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="last-week">Last Week</option>
+                <option value="last-month">Last Month</option>
+                <option value="range">Date Range</option>
+              </select>
             </label>
+            {datePreset === "range" ? (
+              <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    From Date
+                  </span>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(event) => setCustomStartDate(event.target.value)}
+                    className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    To Date
+                  </span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(event) => setCustomEndDate(event.target.value)}
+                    className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                  />
+                </label>
+              </div>
+            ) : null}
             <Link
               href="/admin/settings"
               className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-center text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"

@@ -54,11 +54,20 @@ export function AdminSavedViewsPanel() {
       }
     )
       .then(async (response) => {
-        const result = (await response.json()) as { views?: SavedViewRecord[]; message?: string };
+        const result = (await response.json()) as {
+          views?: SavedViewRecord[];
+          removedCount?: number;
+          message?: string;
+        };
         if (!response.ok) {
           throw new Error(result.message || "Unable to load saved views.");
         }
         setViews(result.views ?? []);
+        setMessage(
+          result.removedCount
+            ? `${result.removedCount} saved filter${result.removedCount === 1 ? "" : "s"} older than 2 days removed.`
+            : ""
+        );
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load saved views.");

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Children, useEffect, useMemo, useState } from "react";
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import type {
@@ -501,6 +501,42 @@ function getDateKey(value?: string) {
   return value?.slice(0, 10) || "";
 }
 
+type ReportDatePreset = "today" | "yesterday" | "last-week" | "last-month" | "range";
+
+function getTodayDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function getPresetDateRange(preset: ReportDatePreset, rangeStartDate: string, rangeEndDate: string) {
+  const today = getTodayDateKey();
+
+  switch (preset) {
+    case "today":
+      return { startDate: today, endDate: today };
+    case "yesterday": {
+      const yesterday = addDays(today, -1);
+      return { startDate: yesterday, endDate: yesterday };
+    }
+    case "last-week":
+      return { startDate: addDays(today, -6), endDate: today };
+    case "last-month":
+      return { startDate: addDays(today, -29), endDate: today };
+    case "range":
+      return {
+        startDate: rangeStartDate,
+        endDate: rangeEndDate || rangeStartDate,
+      };
+    default:
+      return { startDate: "", endDate: "" };
+  }
+}
+
 function isWithinDateRange(value: string | undefined, startDate: string, endDate: string) {
   if (!value) {
     return false;
@@ -607,11 +643,23 @@ function ReportTable({
   headings: string[];
   children: React.ReactNode;
 }) {
+  const rows = Children.toArray(children);
+  const rowsPerPage = 10;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * rowsPerPage;
+  const visibleRows = rows.slice(startIndex, startIndex + rowsPerPage);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rows.length]);
+
   return (
     <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
-      <div className="overflow-x-auto">
+      <div className="max-h-[620px] overflow-auto">
         <table className="min-w-full border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="bg-[rgba(8,96,108,0.05)] text-left">
               {headings.map((heading) => (
                 <th
@@ -623,9 +671,37 @@ function ReportTable({
               ))}
             </tr>
           </thead>
-          <tbody>{children}</tbody>
+          <tbody>{visibleRows}</tbody>
         </table>
       </div>
+      {rows.length > rowsPerPage ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-line)] bg-white px-4 py-3 text-sm">
+          <p className="text-[var(--color-muted)]">
+            Showing {startIndex + 1}-{Math.min(startIndex + rowsPerPage, rows.length)} of {rows.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={safePage === 1}
+              className="rounded-xl border border-[var(--color-line)] px-3 py-2 font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <span className="px-2 font-semibold text-[var(--color-ink)]">
+              {safePage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={safePage === totalPages}
+              className="rounded-xl border border-[var(--color-line)] px-3 py-2 font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -685,46 +761,102 @@ function ReportFilterBar({
   onSaveView?: () => void;
   saveFeedback?: string;
 }) {
+  const [datePreset, setDatePreset] = useState<ReportDatePreset>("today");
+  const [rangeStartDate, setRangeStartDate] = useState(startDate);
+  const [rangeEndDate, setRangeEndDate] = useState(endDate);
+
+  useEffect(() => {
+    if (startDate || endDate || exactDate) {
+      setDatePreset("range");
+      setRangeStartDate(startDate);
+      setRangeEndDate(endDate);
+      return;
+    }
+
+    const range = getPresetDateRange("today", "", "");
+    onStartDateChange(range.startDate);
+    onEndDateChange(range.endDate);
+    onExactDateChange?.("");
+    setRangeStartDate(range.startDate);
+    setRangeEndDate(range.endDate);
+    // Run once on mount so each report starts with the Today period.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function applyDatePreset(nextPreset: ReportDatePreset) {
+    setDatePreset(nextPreset);
+    onExactDateChange?.("");
+
+    if (nextPreset === "range") {
+      onStartDateChange(rangeStartDate);
+      onEndDateChange(rangeEndDate || rangeStartDate);
+      return;
+    }
+
+    const range = getPresetDateRange(nextPreset, rangeStartDate, rangeEndDate);
+    onStartDateChange(range.startDate);
+    onEndDateChange(range.endDate);
+  }
+
+  function updateRangeStartDate(value: string) {
+    setRangeStartDate(value);
+    onExactDateChange?.("");
+    onStartDateChange(value);
+    onEndDateChange(rangeEndDate || value);
+  }
+
+  function updateRangeEndDate(value: string) {
+    setRangeEndDate(value);
+    onExactDateChange?.("");
+    onEndDateChange(value || rangeStartDate);
+  }
+
   return (
     <section className="accent-card p-5">
       <div className="space-y-3">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(6,minmax(0,1fr))_auto_auto] xl:items-end">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-              Start Date
+              Date Period
             </span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(event) => onStartDateChange(event.target.value)}
+            <select
+              value={datePreset}
+              onChange={(event) => applyDatePreset(event.target.value as ReportDatePreset)}
               className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-            />
+            >
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="last-week">Last Week</option>
+              <option value="last-month">Last Month</option>
+              <option value="range">Date Range</option>
+            </select>
           </label>
 
-          <label className="block">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-              End Date
-            </span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(event) => onEndDateChange(event.target.value)}
-              className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
-            />
-          </label>
-
-          {onExactDateChange ? (
+          {datePreset === "range" ? (
+            <>
             <label className="block">
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                Day Filter
+                From Date
               </span>
               <input
                 type="date"
-                value={exactDate ?? ""}
-                onChange={(event) => onExactDateChange(event.target.value)}
+                value={rangeStartDate}
+                onChange={(event) => updateRangeStartDate(event.target.value)}
                 className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
               />
             </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                To Date
+              </span>
+              <input
+                type="date"
+                value={rangeEndDate}
+                onChange={(event) => updateRangeEndDate(event.target.value)}
+                className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+              />
+            </label>
+            </>
           ) : null}
 
           {recruiterOptions && onRecruiterChange ? (
