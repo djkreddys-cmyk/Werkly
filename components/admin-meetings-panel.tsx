@@ -344,10 +344,16 @@ export function AdminMeetingsPanel() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function copyMeetingLink(roomCode: string) {
-    const url = getMeetingUrl(roomCode);
-    await navigator.clipboard.writeText(url);
-    setCopiedRoomCode(roomCode);
+  async function copyMeetingLink(meeting: InternalMeetingRecord) {
+    const url = getMeetingUrl(meeting.roomCode);
+    await navigator.clipboard.writeText(
+      [
+        `Meeting Name: ${meeting.title}`,
+        `Scheduled Time: ${formatMeetingDate(meeting.startsAt)}`,
+        `Meeting Link: ${url}`,
+      ].join("\n")
+    );
+    setCopiedRoomCode(meeting.roomCode);
     window.setTimeout(() => setCopiedRoomCode(""), 1800);
   }
 
@@ -510,7 +516,7 @@ export function AdminMeetingsPanel() {
         }
       }
       if (!editingRoomCode) {
-        await copyMeetingLink(result.roomCode);
+        await copyMeetingLink(result);
       }
       setSuccessMessage(
         editingRoomCode
@@ -970,7 +976,7 @@ export function AdminMeetingsPanel() {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => copyMeetingLink(meeting.roomCode)}
+                    onClick={() => copyMeetingLink(meeting)}
                     className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
                   >
                     {copiedRoomCode === meeting.roomCode ? "Copied" : "Copy link"}
