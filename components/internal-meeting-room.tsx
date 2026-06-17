@@ -207,53 +207,17 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const latestSignalIdRef = useRef(0);
   const hasJoinedRef = useRef(false);
   const requestedApprovalHostKeysRef = useRef<Set<string>>(new Set());
-  const [token] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAdminToken") ?? ""
-      : ""
-  );
-  const [authType] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAuthType") ?? ""
-      : ""
-  );
-  const [authName] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAuthName") ?? ""
-      : ""
-  );
-  const [authEmail] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyAdminEmail") ?? ""
-      : ""
-  );
-  const [authEmployeeCode] = useState(
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("werklyEmployeeCode") ?? ""
-      : ""
-  );
-  const [participantKey] = useState(() => {
-    if (typeof window === "undefined") {
-      return "server";
-    }
-
-    const storageKey = `werklyMeetingParticipant-${roomCode}`;
-    const existing = window.localStorage.getItem(storageKey);
-    if (existing) {
-      return existing;
-    }
-
-    const nextKey =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    window.localStorage.setItem(storageKey, nextKey);
-    return nextKey;
-  });
-  const [displayName, setDisplayName] = useState(authName || authEmail || "");
+  const [token, setToken] = useState("");
+  const [authType, setAuthType] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authEmployeeCode, setAuthEmployeeCode] = useState("");
+  const [participantKey, setParticipantKey] = useState("server");
+  const [displayName, setDisplayName] = useState("");
   const [meeting, setMeeting] = useState<InternalMeetingRecord | null>(null);
   const [participants, setParticipants] = useState<InternalMeetingParticipant[]>([]);
-  const [isLoading, setIsLoading] = useState(Boolean(token));
+  const [isClientReady, setIsClientReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [micEnabled, setMicEnabled] = useState(false);
@@ -268,20 +232,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [copyLabel, setCopyLabel] = useState("Copy link");
   const [joinAccessStatus, setJoinAccessStatus] = useState<JoinAccessStatus>("idle");
   const [pendingJoinRequests, setPendingJoinRequests] = useState<PendingJoinRequest[]>([]);
-  const [hasLocalHostAccess] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    try {
-      const hostRooms = JSON.parse(
-        window.localStorage.getItem("werklyMeetingHostRooms") || "[]"
-      ) as string[];
-      return hostRooms.includes(roomCode);
-    } catch {
-      return false;
-    }
-  });
+  const [hasLocalHostAccess, setHasLocalHostAccess] = useState(false);
   const isMeetingCreator = Boolean(
     token &&
       meeting &&
@@ -337,10 +288,53 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }, [participants]);
 
   useEffect(() => {
+    const nextToken = window.localStorage.getItem("werklyAdminToken") ?? "";
+    const nextAuthType = window.localStorage.getItem("werklyAuthType") ?? "";
+    const nextAuthName = window.localStorage.getItem("werklyAuthName") ?? "";
+    const nextAuthEmail = window.localStorage.getItem("werklyAdminEmail") ?? "";
+    const nextEmployeeCode = window.localStorage.getItem("werklyEmployeeCode") ?? "";
+    const storageKey = `werklyMeetingParticipant-${roomCode}`;
+    const existingKey = window.localStorage.getItem(storageKey);
+    const nextParticipantKey =
+      existingKey ||
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+
+    if (!existingKey) {
+      window.localStorage.setItem(storageKey, nextParticipantKey);
+    }
+
+    let nextHasLocalHostAccess = false;
+    try {
+      const hostRooms = JSON.parse(
+        window.localStorage.getItem("werklyMeetingHostRooms") || "[]"
+      ) as string[];
+      nextHasLocalHostAccess = hostRooms.includes(roomCode);
+    } catch {
+      nextHasLocalHostAccess = false;
+    }
+
+    setToken(nextToken);
+    setAuthType(nextAuthType);
+    setAuthName(nextAuthName);
+    setAuthEmail(nextAuthEmail);
+    setAuthEmployeeCode(nextEmployeeCode);
+    setParticipantKey(nextParticipantKey);
+    setHasLocalHostAccess(nextHasLocalHostAccess);
+    setDisplayName((current) => current || nextAuthName || nextAuthEmail || "");
+    setIsClientReady(true);
+  }, [roomCode]);
+
+  useEffect(() => {
     hasJoinedRef.current = hasJoined;
   }, [hasJoined]);
 
   useEffect(() => {
+    if (!isClientReady) {
+      return;
+    }
+
     setIsLoading(true);
     setError("");
 
@@ -364,9 +358,13 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         setError(loadError instanceof Error ? loadError.message : "Unable to load meeting.");
       })
       .finally(() => setIsLoading(false));
-  }, [roomCode, token]);
+  }, [isClientReady, roomCode, token]);
 
   useEffect(() => {
+    if (!isClientReady) {
+      return;
+    }
+
     const interval = window.setInterval(() => {
       fetch(token ? `/api/admin/meetings/${roomCode}` : `/api/meetings/${roomCode}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -387,7 +385,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     }, 5000);
 
     return () => window.clearInterval(interval);
-  }, [roomCode, token]);
+  }, [isClientReady, roomCode, token]);
 
   useEffect(() => {
     connectToParticipants(participants);
@@ -820,26 +818,58 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         throw new Error("Camera and microphone are not available in this browser.");
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+      } catch (cameraError) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+          setMediaError("Camera is unavailable. Joined with microphone only.");
+        } catch {
+          setMediaError(
+            cameraError instanceof Error
+              ? `${cameraError.message}. Joined without camera or microphone.`
+              : "Camera or microphone permission was blocked. Joined without media."
+          );
+          setCameraEnabled(false);
+          setMicEnabled(false);
+          return {
+            cameraEnabled: false,
+            micEnabled: false,
+          };
+        }
+      }
       streamRef.current = stream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
 
-      setCameraEnabled(true);
-      setMicEnabled(true);
-      return true;
+      const nextCameraEnabled = stream.getVideoTracks().length > 0;
+      const nextMicEnabled = stream.getAudioTracks().length > 0;
+      setCameraEnabled(nextCameraEnabled);
+      setMicEnabled(nextMicEnabled);
+      return {
+        cameraEnabled: nextCameraEnabled,
+        micEnabled: nextMicEnabled,
+      };
     } catch (previewError) {
       setMediaError(
         previewError instanceof Error
           ? previewError.message
           : "Camera or microphone permission was blocked."
       );
-      return false;
+      setCameraEnabled(false);
+      setMicEnabled(false);
+      return {
+        cameraEnabled: false,
+        micEnabled: false,
+      };
     }
   }
 
@@ -985,13 +1015,11 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
-    const previewStarted = await startPreview();
-    if (previewStarted) {
-      setHasJoined(true);
-      await registerParticipant(false, true, true);
-      sendMediaState();
-      window.setTimeout(() => connectToParticipants(), 0);
-    }
+    const previewState = await startPreview();
+    setHasJoined(true);
+    await registerParticipant(false, previewState.cameraEnabled, previewState.micEnabled);
+    sendMediaState();
+    window.setTimeout(() => connectToParticipants(), 0);
   }
 
   async function joinMeeting() {
