@@ -48,6 +48,10 @@ type JoinDecisionPayload = {
   meetingControl?: "join-approved" | "join-rejected";
 };
 
+function normalizeIdentity(value?: string | null) {
+  return value?.trim().toLowerCase() || "";
+}
+
 function formatMeetingDate(value?: string | null) {
   if (!value) {
     return "Open room";
@@ -264,14 +268,28 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [copyLabel, setCopyLabel] = useState("Copy link");
   const [joinAccessStatus, setJoinAccessStatus] = useState<JoinAccessStatus>("idle");
   const [pendingJoinRequests, setPendingJoinRequests] = useState<PendingJoinRequest[]>([]);
-  const isHost = Boolean(
+  const [hasLocalHostAccess] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      const hostRooms = JSON.parse(
+        window.localStorage.getItem("werklyMeetingHostRooms") || "[]"
+      ) as string[];
+      return hostRooms.includes(roomCode);
+    } catch {
+      return false;
+    }
+  });
+  const isMeetingCreator = Boolean(
     token &&
       meeting &&
-      (authType === "admin" ||
-        meeting.createdByIdentifier === authEmail ||
-        meeting.createdByIdentifier === authEmployeeCode ||
-        meeting.createdByName === authName)
+      (normalizeIdentity(meeting.createdByIdentifier) === normalizeIdentity(authEmail) ||
+        normalizeIdentity(meeting.createdByIdentifier) === normalizeIdentity(authEmployeeCode) ||
+        normalizeIdentity(meeting.createdByName) === normalizeIdentity(authName))
   );
+  const isHost = Boolean(meeting && (hasLocalHostAccess || isMeetingCreator));
   const isMeetingLive = meeting?.status === "live";
   const hasMeetingEnded = meeting?.status === "ended";
   const canJoin = Boolean((isMeetingLive || isHost) && !hasMeetingEnded);
@@ -1462,13 +1480,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               </div>
             ) : null}
 
-            <div
-              className={`flex max-h-[42dvh] flex-wrap items-center justify-center gap-2 overflow-y-auto border-t border-white/10 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 ${
-                hasJoined
-                  ? "absolute bottom-0 left-0 right-0 z-20 bg-black/82 backdrop-blur"
-                  : "bg-[#0b1e22]"
-              }`}
-            >
+            {hasJoined ? (
+            <div className="absolute bottom-0 left-0 right-0 z-20 flex max-h-[42dvh] flex-wrap items-center justify-center gap-2 overflow-y-auto border-t border-white/10 bg-black/82 px-3 py-3 backdrop-blur sm:gap-3 sm:px-4 sm:py-4">
               <button
                 type="button"
                 onClick={toggleMic}
@@ -1498,42 +1511,36 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               >
                 Leave meeting
               </button>
-              {hasJoined ? (
-                <button
-                  type="button"
-                  onClick={isScreenSharing ? stopScreenShare : startScreenShare}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                    isScreenSharing
-                      ? "bg-white text-[#0b1e22]"
-                      : "bg-white/10 text-white hover:bg-white/16"
-                  }`}
-                >
-                  {isScreenSharing ? "Stop sharing" : "Share screen"}
-                </button>
-              ) : null}
-              {hasJoined ? (
-                <button
-                  type="button"
-                  onClick={toggleFullscreen}
-                  className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/16"
-                >
-                  {isFullscreen ? "Exit full screen" : "Full screen"}
-                </button>
-              ) : null}
-              {hasJoined ? (
-                <button
-                  type="button"
-                  onClick={isRecording ? stopRecording : startRecording}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                    isRecording
-                      ? "bg-red-100 text-red-700 hover:bg-red-200"
-                      : "bg-white/10 text-white hover:bg-white/16"
-                  }`}
-                >
-                  {isRecording ? "Stop recording" : "Record"}
-                </button>
-              ) : null}
-              {isHost && hasJoined ? (
+              <button
+                type="button"
+                onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  isScreenSharing
+                    ? "bg-white text-[#0b1e22]"
+                    : "bg-white/10 text-white hover:bg-white/16"
+                }`}
+              >
+                {isScreenSharing ? "Stop sharing" : "Share screen"}
+              </button>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/16"
+              >
+                {isFullscreen ? "Exit full screen" : "Full screen"}
+              </button>
+              <button
+                type="button"
+                onClick={isRecording ? stopRecording : startRecording}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  isRecording
+                    ? "bg-red-100 text-red-700 hover:bg-red-200"
+                    : "bg-white/10 text-white hover:bg-white/16"
+                }`}
+              >
+                {isRecording ? "Stop recording" : "Record"}
+              </button>
+              {isHost ? (
                 <button
                   type="button"
                   onClick={endMeetingForAll}
@@ -1543,6 +1550,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                 </button>
               ) : null}
             </div>
+            ) : null}
           </div>
 
           <aside className={`crm-panel p-5 ${hasJoined || activeScreenShare ? "hidden" : ""}`}>

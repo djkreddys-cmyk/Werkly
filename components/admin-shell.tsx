@@ -1568,6 +1568,7 @@ export function AdminShell({
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--color-muted)] sm:text-base">
                   {description}
                 </p>
+                <div id="admin-page-header-actions" />
               </div>
 
                 <div className="flex flex-wrap gap-2 xl:max-w-[360px] xl:justify-end">

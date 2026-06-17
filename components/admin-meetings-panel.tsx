@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   EmployeeRecord,
   InternalMeetingRecord,
@@ -108,6 +109,56 @@ function getMeetingUrl(roomCode: string) {
   return `${window.location.origin}/meet/${roomCode}`;
 }
 
+function rememberHostRoom(roomCode: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const current = JSON.parse(
+      window.localStorage.getItem("werklyMeetingHostRooms") || "[]"
+    ) as string[];
+    window.localStorage.setItem(
+      "werklyMeetingHostRooms",
+      JSON.stringify(Array.from(new Set([roomCode, ...current])))
+    );
+  } catch {
+    window.localStorage.setItem("werklyMeetingHostRooms", JSON.stringify([roomCode]));
+  }
+}
+
+function MeetingCreateAction({
+  error,
+  isMeetingModalOpen,
+  onCreate,
+  successMessage,
+}: {
+  error: string;
+  isMeetingModalOpen: boolean;
+  onCreate: () => void;
+  successMessage: string;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={onCreate}
+        className="rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56]"
+      >
+        Create new meeting
+      </button>
+      {successMessage ? (
+        <span className="text-sm font-semibold text-[var(--color-dark)]">
+          {successMessage}
+        </span>
+      ) : null}
+      {error && !isMeetingModalOpen ? (
+        <span className="text-sm font-semibold text-red-700">{error}</span>
+      ) : null}
+    </div>
+  );
+}
+
 export function AdminMeetingsPanel() {
   const [token] = useState(
     typeof window !== "undefined"
@@ -129,6 +180,7 @@ export function AdminMeetingsPanel() {
   const [successMessage, setSuccessMessage] = useState("");
   const [copiedRoomCode, setCopiedRoomCode] = useState("");
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
+  const [headerActionTarget, setHeaderActionTarget] = useState<HTMLElement | null>(null);
   const todayKey = getTodayKey();
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
@@ -172,6 +224,10 @@ export function AdminMeetingsPanel() {
       })
       .finally(() => setIsLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    setHeaderActionTarget(document.getElementById("admin-page-header-actions"));
+  }, []);
 
   const activeEmployees = useMemo(
     () => employees.filter((employee) => employee.status === "active"),
@@ -341,6 +397,7 @@ export function AdminMeetingsPanel() {
           ? current.map((meeting) => (meeting.roomCode === result.roomCode ? result : meeting))
           : [result, ...current]
       );
+      rememberHostRoom(result.roomCode);
       resetForm();
       setIsMeetingModalOpen(false);
       if (result.startsAt) {
@@ -412,23 +469,24 @@ export function AdminMeetingsPanel() {
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={openCreateMeeting}
-          className="rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56]"
-        >
-          Create new meeting
-        </button>
-        {successMessage ? (
-          <span className="text-sm font-semibold text-[var(--color-dark)]">
-            {successMessage}
-          </span>
-        ) : null}
-        {error && !isMeetingModalOpen ? (
-          <span className="text-sm font-semibold text-red-700">{error}</span>
-        ) : null}
-      </div>
+      {headerActionTarget ? (
+        createPortal(
+          <MeetingCreateAction
+            error={error}
+            isMeetingModalOpen={isMeetingModalOpen}
+            onCreate={openCreateMeeting}
+            successMessage={successMessage}
+          />,
+          headerActionTarget
+        )
+      ) : (
+        <MeetingCreateAction
+          error={error}
+          isMeetingModalOpen={isMeetingModalOpen}
+          onCreate={openCreateMeeting}
+          successMessage={successMessage}
+        />
+      )}
 
       {isMeetingModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm">
