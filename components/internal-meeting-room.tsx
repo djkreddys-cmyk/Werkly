@@ -30,6 +30,19 @@ type PeerState = {
   negotiateAgain: boolean;
 };
 
+type JoinAccessStatus = "idle" | "requested" | "approved" | "rejected";
+
+type PendingJoinRequest = {
+  participantKey: string;
+  displayName: string;
+  requestedAt: string;
+};
+
+type JoinRequestPayload = {
+  displayName?: string;
+  requestedAt?: string;
+};
+
 function formatMeetingDate(value?: string | null) {
   if (!value) {
     return "Open room";
@@ -123,7 +136,11 @@ function MeetingTile({
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const stream = media instanceof MediaStream ? media : media?.stream;
   const hasVideo = showVideo && Boolean(stream?.getVideoTracks().length);
-  const tileHeight = large ? "h-full min-h-[calc(100vh-8rem)]" : compact ? "min-h-32" : "min-h-48";
+  const tileHeight = large
+    ? "h-full min-h-[calc(100dvh-8rem)]"
+    : compact
+      ? "min-h-32 min-w-36 lg:min-w-0"
+      : "min-h-48";
   const avatarSize = compact ? "h-14 w-14 text-lg" : "h-20 w-20 text-2xl";
   const tileLabel =
     !isScreenShare && !(media instanceof MediaStream) && media?.mediaType === "screen"
@@ -180,6 +197,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const mediaTypesRef = useRef<Map<string, Map<string, "camera" | "screen">>>(new Map());
   const latestSignalIdRef = useRef(0);
   const hasJoinedRef = useRef(false);
+  const requestedApprovalHostKeysRef = useRef<Set<string>>(new Set());
   const [token] = useState(
     typeof window !== "undefined"
       ? window.localStorage.getItem("werklyAdminToken") ?? ""
@@ -239,6 +257,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [remoteMedia, setRemoteMedia] = useState<RemoteMedia[]>([]);
   const [mediaError, setMediaError] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy link");
+  const [joinAccessStatus, setJoinAccessStatus] = useState<JoinAccessStatus>("idle");
+  const [pendingJoinRequests, setPendingJoinRequests] = useState<PendingJoinRequest[]>([]);
   const isHost = Boolean(
     token &&
       meeting &&
@@ -250,6 +270,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const isMeetingLive = meeting?.status === "live";
   const hasMeetingEnded = meeting?.status === "ended";
   const canJoin = Boolean((isMeetingLive || isHost) && !hasMeetingEnded);
+  const canEnterMeeting = Boolean(isHost || joinAccessStatus === "approved");
+  const hostParticipants = participants.filter((participant) => participant.isHost);
   const otherParticipants = participants.filter(
     (participant) => participant.participantKey !== participantKey
   );
@@ -349,7 +371,15 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }, [participants]);
 
   useEffect(() => {
-    if (!hasJoined) {
+    if (joinAccessStatus !== "requested" || hasJoined || isHost) {
+      return;
+    }
+
+    void sendJoinRequestsToHosts();
+  }, [hasJoined, isHost, joinAccessStatus, participants]);
+
+  useEffect(() => {
+    if (!hasJoined && joinAccessStatus !== "requested" && !(isHost && isMeetingLive)) {
       return;
     }
 
@@ -404,7 +434,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [hasJoined, participantKey, roomCode]);
+  }, [hasJoined, isHost, isMeetingLive, joinAccessStatus, participantKey, roomCode]);
 
   useEffect(() => {
     return () => {
@@ -638,7 +668,42 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }
 
   async function handleSignal(signal: InternalMeetingSignal) {
-    if (signal.fromParticipantKey === participantKey || !hasJoinedRef.current) {
+    if (signal.fromParticipantKey === participantKey) {
+      return;
+    }
+
+    if (signal.type === "join-request") {
+      if (isHost) {
+        const payload = (signal.payload || {}) as JoinRequestPayload;
+        setPendingJoinRequests((current) => {
+          const request: PendingJoinRequest = {
+            participantKey: signal.fromParticipantKey,
+            displayName: payload.displayName?.trim() || "Meeting guest",
+            requestedAt: payload.requestedAt || signal.createdAt || new Date().toISOString(),
+          };
+          return [
+            request,
+            ...current.filter((item) => item.participantKey !== request.participantKey),
+          ];
+        });
+      }
+      return;
+    }
+
+    if (signal.type === "join-approved") {
+      setJoinAccessStatus("approved");
+      setMediaError("");
+      await enterMeeting();
+      return;
+    }
+
+    if (signal.type === "join-rejected") {
+      setJoinAccessStatus("rejected");
+      setMediaError("The host declined your request to join.");
+      return;
+    }
+
+    if (!hasJoinedRef.current) {
       return;
     }
 
@@ -810,10 +875,95 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
       setMeeting(result);
       setParticipants(result.participants ?? participants);
+      await registerParticipant(false, false, false);
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : "Unable to start meeting.");
     } finally {
       setIsStarting(false);
+    }
+  }
+
+  async function sendJoinRequestsToHosts() {
+    const hostKeys = hostParticipants
+      .map((participant) => participant.participantKey)
+      .filter(
+        (key) => key !== participantKey && !requestedApprovalHostKeysRef.current.has(key)
+      );
+
+    if (hostKeys.length === 0) {
+      return false;
+    }
+
+    await Promise.all(
+      hostKeys.map(async (hostKey) => {
+        await sendSignal(hostKey, "join-request", {
+          displayName:
+            displayName.trim() || authName || authEmail || authEmployeeCode || "Meeting guest",
+          requestedAt: new Date().toISOString(),
+        });
+        requestedApprovalHostKeysRef.current.add(hostKey);
+      })
+    );
+    return true;
+  }
+
+  async function requestJoinApproval() {
+    if (!canJoin) {
+      setMediaError("The host has not started this meeting yet.");
+      return;
+    }
+
+    if (joinAccessStatus === "rejected") {
+      requestedApprovalHostKeysRef.current.clear();
+    }
+    setJoinAccessStatus("requested");
+    const sent = await sendJoinRequestsToHosts();
+    setMediaError(
+      sent
+        ? "Request sent. Waiting for the host to accept."
+        : "Waiting for the host to join the room and accept your request."
+    );
+  }
+
+  async function approveJoinRequest(request: PendingJoinRequest) {
+    if (!isHost) {
+      return;
+    }
+
+    await sendSignal(request.participantKey, "join-approved", {
+      approvedAt: new Date().toISOString(),
+      approvedBy: localDisplayName,
+    });
+    setPendingJoinRequests((current) =>
+      current.filter((item) => item.participantKey !== request.participantKey)
+    );
+  }
+
+  async function rejectJoinRequest(request: PendingJoinRequest) {
+    if (!isHost) {
+      return;
+    }
+
+    await sendSignal(request.participantKey, "join-rejected", {
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: localDisplayName,
+    });
+    setPendingJoinRequests((current) =>
+      current.filter((item) => item.participantKey !== request.participantKey)
+    );
+  }
+
+  async function enterMeeting() {
+    if (hasJoinedRef.current) {
+      return;
+    }
+
+    const previewStarted = await startPreview();
+    if (previewStarted) {
+      setHasJoined(true);
+      await registerParticipant(false, true, true);
+      sendMediaState();
+      window.setTimeout(() => connectToParticipants(), 0);
     }
   }
 
@@ -830,12 +980,10 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setIsJoining(true);
 
     try {
-      const previewStarted = await startPreview();
-      if (previewStarted) {
-        setHasJoined(true);
-        await registerParticipant(false, true, true);
-        sendMediaState();
-        window.setTimeout(() => connectToParticipants(), 0);
+      if (canEnterMeeting) {
+        await enterMeeting();
+      } else {
+        await requestJoinApproval();
       }
     } finally {
       setIsJoining(false);
@@ -1085,9 +1233,9 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }
 
   return (
-    <main className={`min-h-screen ${hasJoined ? "bg-black" : "bg-[#eef3f6]"}`}>
+    <main className={`min-h-[100dvh] ${hasJoined ? "bg-black" : "bg-[#eef3f6]"}`}>
       <div
-        className={`mx-auto flex min-h-screen w-full flex-col ${
+        className={`mx-auto flex min-h-[100dvh] w-full flex-col ${
           hasJoined
             ? "max-w-none p-0"
             : `px-4 py-5 sm:px-6 lg:px-8 ${activeScreenShare ? "max-w-none" : "max-w-7xl"}`
@@ -1128,7 +1276,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
             ref={meetingStageRef}
             className={`flex overflow-hidden bg-[#10262b] ${
               hasJoined
-                ? "relative h-screen min-h-screen flex-col rounded-none shadow-none"
+                ? "relative h-[100dvh] min-h-[100dvh] flex-col rounded-none shadow-none"
                 : "min-h-[28rem] flex-col rounded-2xl shadow-[0_18px_44px_rgba(15,23,42,0.18)]"
             }`}
           >
@@ -1151,8 +1299,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
             >
               {hasJoined ? (
                 activeScreenShare ? (
-                  <div className="grid h-full w-full gap-3 lg:grid-cols-[13rem_minmax(0,1fr)]">
-                    <div className="flex max-h-[calc(100vh-8rem)] flex-col gap-3 overflow-y-auto pr-1">
+                  <div className="grid h-full min-h-0 w-full gap-2 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-3">
+                    <div className="flex max-h-36 min-h-0 gap-2 overflow-x-auto pb-1 lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:gap-3 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0 lg:pr-1">
                       <MeetingTile
                         label={localDisplayName}
                         media={streamRef.current || undefined}
@@ -1181,7 +1329,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                         );
                       })}
                     </div>
-                    <div className="h-full min-h-[calc(100vh-8rem)]">
+                    <div className="h-full min-h-0">
                       <MeetingTile
                         media={activeScreenShare}
                         label={getParticipantLabel(activeScreenShare)}
@@ -1242,13 +1390,22 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     <button
                       type="button"
                       onClick={joinMeeting}
-                      disabled={isLoading || isJoining || !canJoin}
+                      disabled={
+                        isLoading ||
+                        isJoining ||
+                        !canJoin ||
+                        (joinAccessStatus === "requested" && !canEnterMeeting)
+                      }
                       className="mt-5 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0b1e22] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isJoining
                         ? "Requesting access..."
                         : canJoin
-                          ? "Join with camera and mic"
+                          ? isHost || joinAccessStatus === "approved"
+                            ? "Join with camera and mic"
+                            : joinAccessStatus === "requested"
+                              ? "Waiting for host approval"
+                              : "Request to join"
                           : "Waiting for host"}
                     </button>
                   ) : null}
@@ -1256,8 +1413,48 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
               )}
             </div>
 
+            {isHost && pendingJoinRequests.length > 0 ? (
+              <div className="absolute right-3 top-16 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-xl border border-white/14 bg-black/78 p-3 text-white shadow-2xl backdrop-blur">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">Waiting to join</p>
+                  <span className="rounded-full bg-white/12 px-2 py-0.5 text-xs font-semibold">
+                    {pendingJoinRequests.length}
+                  </span>
+                </div>
+                <div className="mt-3 max-h-52 space-y-2 overflow-y-auto pr-1">
+                  {pendingJoinRequests.map((request) => (
+                    <div
+                      key={request.participantKey}
+                      className="rounded-lg border border-white/10 bg-white/10 p-2"
+                    >
+                      <p className="truncate text-sm font-semibold">{request.displayName}</p>
+                      <p className="mt-0.5 text-xs text-white/55">
+                        {formatMeetingDate(request.requestedAt)}
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => approveJoinRequest(request)}
+                          className="flex-1 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#0b1e22] transition hover:bg-white/90"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectJoinRequest(request)}
+                          className="flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/16"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div
-              className={`flex flex-wrap items-center justify-center gap-3 border-t border-white/10 px-4 py-4 ${
+              className={`flex max-h-[42dvh] flex-wrap items-center justify-center gap-2 overflow-y-auto border-t border-white/10 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 ${
                 hasJoined
                   ? "absolute bottom-0 left-0 right-0 z-20 bg-black/82 backdrop-blur"
                   : "bg-[#0b1e22]"
@@ -1408,13 +1605,21 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                   <button
                     type="button"
                     onClick={joinMeeting}
-                    disabled={isJoining || !canJoin}
+                    disabled={
+                      isJoining ||
+                      !canJoin ||
+                      (joinAccessStatus === "requested" && !canEnterMeeting)
+                    }
                     className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isJoining
                       ? "Requesting camera and mic..."
                       : canJoin
-                        ? "Join with camera and mic"
+                        ? isHost || joinAccessStatus === "approved"
+                          ? "Join with camera and mic"
+                          : joinAccessStatus === "requested"
+                            ? "Waiting for host approval"
+                            : "Request to join"
                         : "Waiting for host to start"}
                   </button>
                 ) : (
