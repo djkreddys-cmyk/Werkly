@@ -594,41 +594,25 @@ export function AdminMeetingsPanel() {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <section className="crm-panel p-5">
-          <div className="flex h-full flex-col justify-between gap-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="eyebrow">Meeting links</p>
-                <h2 className="mt-2 text-xl font-semibold text-slate-950">
-                  Internal meetings
-                </h2>
-              </div>
-              <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
-                Team only
-              </span>
-            </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={openCreateMeeting}
+          className="rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56]"
+        >
+          Create new meeting
+        </button>
+        {successMessage ? (
+          <span className="text-sm font-semibold text-[var(--color-dark)]">
+            {successMessage}
+          </span>
+        ) : null}
+        {error && !isMeetingModalOpen ? (
+          <span className="text-sm font-semibold text-red-700">{error}</span>
+        ) : null}
+      </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={openCreateMeeting}
-                className="rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56]"
-              >
-                Create new meeting
-              </button>
-              {successMessage ? (
-                <span className="text-sm font-semibold text-[var(--color-dark)]">
-                  {successMessage}
-                </span>
-              ) : null}
-              {error && !isMeetingModalOpen ? (
-                <span className="text-sm font-semibold text-red-700">{error}</span>
-              ) : null}
-            </div>
-          </div>
-        </section>
-
+      <div className="grid gap-6">
         <section className="crm-panel p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

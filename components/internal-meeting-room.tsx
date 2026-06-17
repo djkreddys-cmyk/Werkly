@@ -39,8 +39,13 @@ type PendingJoinRequest = {
 };
 
 type JoinRequestPayload = {
+  meetingControl?: "join-request";
   displayName?: string;
   requestedAt?: string;
+};
+
+type JoinDecisionPayload = {
+  meetingControl?: "join-approved" | "join-rejected";
 };
 
 function formatMeetingDate(value?: string | null) {
@@ -379,7 +384,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }, [hasJoined, isHost, joinAccessStatus, participants]);
 
   useEffect(() => {
-    if (!hasJoined && joinAccessStatus !== "requested" && !(isHost && isMeetingLive)) {
+    if (!hasJoined) {
       return;
     }
 
@@ -400,7 +405,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }, [hasJoined, participantKey, participants, remoteMedia]);
 
   useEffect(() => {
-    if (!hasJoined) {
+    if (!hasJoined && joinAccessStatus !== "requested" && !(isHost && isMeetingLive)) {
       return;
     }
 
@@ -672,14 +677,15 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
-    if (signal.type === "join-request") {
+    const controlPayload = (signal.payload || {}) as JoinRequestPayload & JoinDecisionPayload;
+
+    if (signal.type === "media-state" && controlPayload.meetingControl === "join-request") {
       if (isHost) {
-        const payload = (signal.payload || {}) as JoinRequestPayload;
         setPendingJoinRequests((current) => {
           const request: PendingJoinRequest = {
             participantKey: signal.fromParticipantKey,
-            displayName: payload.displayName?.trim() || "Meeting guest",
-            requestedAt: payload.requestedAt || signal.createdAt || new Date().toISOString(),
+            displayName: controlPayload.displayName?.trim() || "Meeting guest",
+            requestedAt: controlPayload.requestedAt || signal.createdAt || new Date().toISOString(),
           };
           return [
             request,
@@ -690,14 +696,14 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
-    if (signal.type === "join-approved") {
+    if (signal.type === "media-state" && controlPayload.meetingControl === "join-approved") {
       setJoinAccessStatus("approved");
       setMediaError("");
       await enterMeeting();
       return;
     }
 
-    if (signal.type === "join-rejected") {
+    if (signal.type === "media-state" && controlPayload.meetingControl === "join-rejected") {
       setJoinAccessStatus("rejected");
       setMediaError("The host declined your request to join.");
       return;
@@ -896,7 +902,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
     await Promise.all(
       hostKeys.map(async (hostKey) => {
-        await sendSignal(hostKey, "join-request", {
+        await sendSignal(hostKey, "media-state", {
+          meetingControl: "join-request",
           displayName:
             displayName.trim() || authName || authEmail || authEmployeeCode || "Meeting guest",
           requestedAt: new Date().toISOString(),
@@ -930,7 +937,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
-    await sendSignal(request.participantKey, "join-approved", {
+    await sendSignal(request.participantKey, "media-state", {
+      meetingControl: "join-approved",
       approvedAt: new Date().toISOString(),
       approvedBy: localDisplayName,
     });
@@ -944,7 +952,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
-    await sendSignal(request.participantKey, "join-rejected", {
+    await sendSignal(request.participantKey, "media-state", {
+      meetingControl: "join-rejected",
       rejectedAt: new Date().toISOString(),
       rejectedBy: localDisplayName,
     });

@@ -286,15 +286,7 @@ export type InternalMeetingSignal = {
   roomCode: string;
   fromParticipantKey: string;
   toParticipantKey: string;
-  type:
-    | "offer"
-    | "answer"
-    | "candidate"
-    | "media-state"
-    | "mute-audio"
-    | "join-request"
-    | "join-approved"
-    | "join-rejected";
+  type: "offer" | "answer" | "candidate" | "media-state" | "mute-audio";
   payload: unknown;
   createdAt: string;
 };
