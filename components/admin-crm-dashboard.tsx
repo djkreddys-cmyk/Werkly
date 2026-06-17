@@ -317,6 +317,7 @@ const clientLeadStatuses: ClientOnboardingStatus[] = [
   "contacted",
   "proposal-shared",
   "negotiation",
+  "non-functional",
   "hold",
 ];
 
@@ -1657,6 +1658,7 @@ function CrmClientsList({
               <option value="contacted">Contacted</option>
               <option value="proposal-shared">Proposal Shared</option>
               <option value="negotiation">Negotiation</option>
+              <option value="non-functional">Non Functional</option>
               <option value="hold">Hold</option>
             </select>
           ) : null}
@@ -4769,6 +4771,7 @@ export function AdminClientsPanel({
                     <option value="contacted" style={clientSelectOptionStyle}>Contacted</option>
                     <option value="proposal-shared" style={clientSelectOptionStyle}>Proposal Shared</option>
                     <option value="negotiation" style={clientSelectOptionStyle}>Negotiation</option>
+                    <option value="non-functional" style={clientSelectOptionStyle}>Non Functional</option>
                     <option value="onboarded" style={clientSelectOptionStyle}>Onboarded</option>
                     <option value="hold" style={clientSelectOptionStyle}>Hold</option>
                   </select>
@@ -5180,6 +5183,7 @@ export function AdminClientsPanel({
                       <option value="contacted">Contacted</option>
                       <option value="proposal-shared">Proposal Shared</option>
                       <option value="negotiation">Negotiation</option>
+                      <option value="non-functional">Non Functional</option>
                       <option value="onboarded">Onboarded</option>
                       <option value="hold">Hold</option>
                     </select>

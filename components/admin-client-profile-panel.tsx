@@ -58,6 +58,23 @@ function dateInputValue(value?: string) {
 }
 
 function formatFollowUpStage(stage?: string, isLeadFlow = false) {
+  const onboardingStages = [
+    "new-lead",
+    "contacted",
+    "proposal-shared",
+    "negotiation",
+    "non-functional",
+    "onboarded",
+    "hold",
+  ];
+  if (onboardingStages.includes(String(stage || "").toLowerCase())) {
+    return String(stage || "")
+      .split(/[\s_-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }
+
   const safeStage = isLeadFlow
     ? normalizeClientFollowUpStatus(stage)
     : normalizeGeneralClientFollowUpStatus(stage);
@@ -413,6 +430,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
                 <option value="contacted">Contacted</option>
                 <option value="proposal-shared">Proposal Shared</option>
                 <option value="negotiation">Negotiation</option>
+                <option value="non-functional">Non Functional</option>
                 <option value="onboarded">Onboarded</option>
                 <option value="hold">Hold</option>
               </select>

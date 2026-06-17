@@ -50,6 +50,7 @@ export type ClientOnboardingStatus =
   | "contacted"
   | "proposal-shared"
   | "negotiation"
+  | "non-functional"
   | "onboarded"
   | "hold";
 export type ClientFollowUpStatus =
@@ -116,7 +117,7 @@ export function normalizeGeneralClientFollowUpStatus(value?: string): ClientFoll
 }
 
 export function isLeadOnboardingStatus(value?: string): boolean {
-  return ["new-lead", "contacted", "proposal-shared", "negotiation", "hold"].includes(
+  return ["new-lead", "contacted", "proposal-shared", "negotiation", "non-functional", "hold"].includes(
     String(value || "").toLowerCase()
   );
 }
