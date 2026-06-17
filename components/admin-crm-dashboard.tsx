@@ -3434,6 +3434,7 @@ export function AdminClientsPanel({
   const [transferEffectiveToDate, setTransferEffectiveToDate] = useState("");
   const [transferReason, setTransferReason] = useState("");
   const [followUpStatus, setFollowUpStatus] = useState<ClientFollowUpStatus>("awaiting-response");
+  const [leadStage, setLeadStage] = useState<ClientOnboardingStatus>("new-lead");
   const [followUpNextDate, setFollowUpNextDate] = useState("");
   const [followUpLastDate, setFollowUpLastDate] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
@@ -3531,6 +3532,7 @@ export function AdminClientsPanel({
 
       if (selectedFollowUpClient) {
         setSelectedFollowUpClient(null);
+        setLeadStage("new-lead");
         return;
       }
 
@@ -4356,6 +4358,29 @@ export function AdminClientsPanel({
     setMessage("");
 
     try {
+      const isLeadFlow = isLeadOnboardingStatus(selectedFollowUpClient.onboardingStatus);
+      if (isLeadFlow && leadStage !== selectedFollowUpClient.onboardingStatus) {
+        const onboardingResponse = await fetch(
+          `/api/admin/clients/${selectedFollowUpClient.id}/onboarding`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              onboardingStatus: leadStage,
+              notes: selectedFollowUpClient.notes || "",
+            }),
+          }
+        );
+
+        const onboardingResult = (await onboardingResponse.json()) as { message?: string };
+        if (!onboardingResponse.ok) {
+          throw new Error(onboardingResult.message || "Unable to update lead stage.");
+        }
+      }
+
       const response = await fetch(`/api/admin/clients/${selectedFollowUpClient.id}/follow-up`, {
         method: "PUT",
         headers: {
@@ -4377,6 +4402,7 @@ export function AdminClientsPanel({
 
       await refreshCrm(token);
       setSelectedFollowUpClient(null);
+      setLeadStage("new-lead");
       setFollowUpStatus("pending");
       setFollowUpNextDate("");
       setFollowUpLastDate("");
@@ -4866,6 +4892,7 @@ export function AdminClientsPanel({
             onFollowUp={(client) => {
               const isLeadFlow = isLeadOnboardingStatus(client.onboardingStatus);
               setSelectedFollowUpClient(client);
+              setLeadStage((client.onboardingStatus || "new-lead") as ClientOnboardingStatus);
               setFollowUpStatus(
                 isLeadFlow
                   ? normalizeClientFollowUpStatus(client.followUpStatus)
@@ -5286,6 +5313,7 @@ export function AdminClientsPanel({
                 onClick={() => {
                   const isLeadFlow = isLeadOnboardingStatus(selectedFollowUpClient.onboardingStatus);
                   setSelectedFollowUpClient(null);
+                  setLeadStage("new-lead");
                   setFollowUpStatus(isLeadFlow ? "awaiting-response" : "pending");
                   setFollowUpNextDate("");
                   setFollowUpLastDate("");
@@ -5298,6 +5326,27 @@ export function AdminClientsPanel({
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {isLeadOnboardingStatus(selectedFollowUpClient.onboardingStatus) ? (
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Lead Stage
+                  </span>
+                  <select
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    value={leadStage}
+                    onChange={(event) =>
+                      setLeadStage(event.target.value as ClientOnboardingStatus)
+                    }
+                  >
+                    {clientLeadStatuses.map((stage) => (
+                      <option key={stage} value={stage}>
+                        {formatClientStageLabel(stage)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
                   Follow-Up Status
@@ -5370,6 +5419,7 @@ export function AdminClientsPanel({
                 onClick={() => {
                   const isLeadFlow = isLeadOnboardingStatus(selectedFollowUpClient.onboardingStatus);
                   setSelectedFollowUpClient(null);
+                  setLeadStage("new-lead");
                   setFollowUpStatus(isLeadFlow ? "awaiting-response" : "pending");
                   setFollowUpNextDate("");
                   setFollowUpLastDate("");
