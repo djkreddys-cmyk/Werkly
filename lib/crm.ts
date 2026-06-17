@@ -287,7 +287,7 @@ export type InternalMeetingSignal = {
   roomCode: string;
   fromParticipantKey: string;
   toParticipantKey: string;
-  type: "offer" | "answer" | "candidate" | "media-state" | "mute-audio";
+  type: "offer" | "answer" | "candidate" | "media-state" | "mute-audio" | "chat-message";
   payload: unknown;
   createdAt: string;
 };

@@ -48,8 +48,22 @@ type JoinDecisionPayload = {
   meetingControl?: "join-approved" | "join-rejected";
 };
 
+type MeetingChatMessage = {
+  id: string;
+  participantKey: string;
+  displayName: string;
+  text: string;
+  sentAt: string;
+};
+
 function normalizeIdentity(value?: string | null) {
   return value?.trim().toLowerCase() || "";
+}
+
+function identityMatches(left?: string | null, right?: string | null) {
+  const safeLeft = normalizeIdentity(left);
+  const safeRight = normalizeIdentity(right);
+  return Boolean(safeLeft && safeRight && safeLeft === safeRight);
 }
 
 function formatMeetingDate(value?: string | null) {
@@ -196,6 +210,7 @@ function MeetingTile({
 export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const meetingStageRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -233,14 +248,20 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [joinAccessStatus, setJoinAccessStatus] = useState<JoinAccessStatus>("idle");
   const [pendingJoinRequests, setPendingJoinRequests] = useState<PendingJoinRequest[]>([]);
   const [hasLocalHostAccess, setHasLocalHostAccess] = useState(false);
+  const [chatMessages, setChatMessages] = useState<MeetingChatMessage[]>([]);
+  const [chatDraft, setChatDraft] = useState("");
+  const [chatError, setChatError] = useState("");
   const isMeetingCreator = Boolean(
     token &&
       meeting &&
-      (normalizeIdentity(meeting.createdByIdentifier) === normalizeIdentity(authEmail) ||
-        normalizeIdentity(meeting.createdByIdentifier) === normalizeIdentity(authEmployeeCode) ||
-        normalizeIdentity(meeting.createdByName) === normalizeIdentity(authName))
+      (identityMatches(meeting.createdByIdentifier, authEmail) ||
+        identityMatches(meeting.createdByIdentifier, authEmployeeCode) ||
+        identityMatches(meeting.createdById, authEmployeeCode) ||
+        identityMatches(meeting.createdByName, authName))
   );
-  const isHost = Boolean(meeting && (hasLocalHostAccess || isMeetingCreator));
+  const hasCreatorFallback =
+    token && hasLocalHostAccess && identityMatches(meeting?.createdByName, authName);
+  const isHost = Boolean(meeting && (isMeetingCreator || hasCreatorFallback));
   const isMeetingLive = meeting?.status === "live";
   const hasMeetingEnded = meeting?.status === "ended";
   const canJoin = Boolean((isMeetingLive || isHost) && !hasMeetingEnded);
@@ -271,6 +292,18 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const secondaryScreenShares = screenShareMedia.slice(1);
   const tileCount = 1 + participantMedia.length + screenShareMedia.length;
   const localDisplayName = displayName.trim() || authName || authEmail || "You";
+
+  function resetJoinRequestState() {
+    requestedApprovalHostKeysRef.current.clear();
+    setJoinAccessStatus("idle");
+    setPendingJoinRequests([]);
+  }
+
+  function appendChatMessage(message: MeetingChatMessage) {
+    setChatMessages((current) =>
+      current.some((item) => item.id === message.id) ? current : [...current, message]
+    );
+  }
 
   function getParticipantLabel(media: RemoteMedia) {
     if (media.participantKey === participantKey) {
@@ -473,6 +506,12 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       videoRef.current.srcObject = streamRef.current;
     }
   }, [cameraEnabled]);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages.length, hasJoined]);
 
   useEffect(() => {
     const updateFullscreenState = () => {
@@ -729,6 +768,21 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
+    if (signal.type === "chat-message") {
+      const payload = signal.payload as Partial<MeetingChatMessage>;
+      const text = String(payload.text || "").trim();
+      if (text) {
+        appendChatMessage({
+          id: payload.id || `${signal.id}`,
+          participantKey: signal.fromParticipantKey,
+          displayName: payload.displayName || "Participant",
+          text,
+          sentAt: payload.sentAt || signal.createdAt || new Date().toISOString(),
+        });
+      }
+      return;
+    }
+
     const peer = getPeer(signal.fromParticipantKey);
 
     if (signal.type === "candidate") {
@@ -902,7 +956,11 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         participant,
         ...current.filter((item) => item.participantKey !== participant.participantKey),
       ]);
+      return participant;
     }
+
+    const result = (await response.json().catch(() => ({}))) as { message?: string };
+    throw new Error(result.message || "Unable to update meeting participant.");
   }
 
   async function startMeeting() {
@@ -930,6 +988,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       setMeeting(result);
       setParticipants(result.participants ?? participants);
       await registerParticipant(false, false, false);
+      resetJoinRequestState();
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : "Unable to start meeting.");
     } finally {
@@ -993,6 +1052,20 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setPendingJoinRequests((current) =>
       current.filter((item) => item.participantKey !== request.participantKey)
     );
+    window.setTimeout(() => {
+      void fetch(token ? `/api/admin/meetings/${roomCode}` : `/api/meetings/${roomCode}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        cache: "no-store",
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            return;
+          }
+          const result = (await response.json()) as InternalMeetingRecord;
+          setParticipants(result.participants ?? []);
+        })
+        .catch(() => undefined);
+    }, 1200);
   }
 
   async function rejectJoinRequest(request: PendingJoinRequest) {
@@ -1008,6 +1081,9 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setPendingJoinRequests((current) =>
       current.filter((item) => item.participantKey !== request.participantKey)
     );
+    void fetch(`/api/meetings/${roomCode}/participants/${request.participantKey}`, {
+      method: "DELETE",
+    }).catch(() => undefined);
   }
 
   async function enterMeeting() {
@@ -1175,6 +1251,9 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setMicEnabled(false);
     setIsScreenSharing(false);
     setHasJoined(false);
+    if (!isHost) {
+      setJoinAccessStatus("idle");
+    }
     void fetch(`/api/meetings/${roomCode}/participants/${participantKey}`, {
       method: "DELETE",
     });
@@ -1243,7 +1322,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   function toggleCamera() {
     const videoTrack = streamRef.current?.getVideoTracks()[0];
     if (!videoTrack) {
-      void startPreview();
+      setMediaError("No camera track is available for this meeting.");
       return;
     }
 
@@ -1256,7 +1335,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   function toggleMic() {
     const audioTrack = streamRef.current?.getAudioTracks()[0];
     if (!audioTrack) {
-      void startPreview();
+      setMediaError("No microphone track is available for this meeting.");
       return;
     }
 
@@ -1282,9 +1361,57 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(window.location.href);
+    await navigator.clipboard.writeText(
+      [
+        `Meeting Name: ${meeting?.title || "Internal meeting"}`,
+        `Scheduled Time: ${formatMeetingDate(meeting?.startsAt)}`,
+        `Meeting Link: ${window.location.href}`,
+      ].join("\n")
+    );
     setCopyLabel("Copied");
     window.setTimeout(() => setCopyLabel("Copy link"), 1600);
+  }
+
+  async function sendChatMessage() {
+    const text = chatDraft.trim();
+    if (!text || !hasJoined) {
+      return;
+    }
+
+    const message: MeetingChatMessage = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      participantKey,
+      displayName: localDisplayName,
+      text,
+      sentAt: new Date().toISOString(),
+    };
+    const recipients = participantsRef.current
+      .map((participant) => participant.participantKey)
+      .filter((key) => key !== participantKey);
+
+    appendChatMessage(message);
+    setChatDraft("");
+    setChatError("");
+
+    try {
+      await Promise.all(
+        recipients.map((recipientKey) =>
+          sendSignal(recipientKey, "chat-message", {
+            id: message.id,
+            displayName: message.displayName,
+            text: message.text,
+            sentAt: message.sentAt,
+          })
+        )
+      );
+    } catch (sendError) {
+      setChatError(
+        sendError instanceof Error ? sendError.message : "Unable to send chat message."
+      );
+    }
   }
 
   return (
@@ -1323,7 +1450,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         <section
           className={`grid flex-1 ${
             hasJoined
-              ? "gap-0 py-0 lg:grid-cols-1"
+              ? "gap-0 py-0 lg:grid-cols-[minmax(0,1fr)_22rem]"
               : `gap-5 py-4 ${activeScreenShare ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_22rem]"}`
           }`}
         >
@@ -1580,6 +1707,93 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
             </div>
             ) : null}
           </div>
+
+          {hasJoined ? (
+            <aside className="flex h-[46dvh] min-h-0 flex-col border-t border-white/10 bg-[#f8fbfc] lg:h-[100dvh] lg:border-l lg:border-t-0">
+              <div className="border-b border-[var(--color-line)] bg-white px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="eyebrow">Meeting chat</p>
+                    <h2 className="mt-1 text-base font-semibold text-slate-950">Chat</h2>
+                  </div>
+                  <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-2.5 py-1 text-xs font-semibold text-[var(--color-dark)]">
+                    {chatMessages.length}
+                  </span>
+                </div>
+              </div>
+
+              <div ref={chatScrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                {chatMessages.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-[var(--color-line)] bg-white p-3 text-sm text-[var(--color-muted)]">
+                    No messages yet.
+                  </p>
+                ) : (
+                  chatMessages.map((message) => {
+                    const isOwnMessage = message.participantKey === participantKey;
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                            isOwnMessage
+                              ? "bg-[var(--color-dark)] text-white"
+                              : "border border-[var(--color-line)] bg-white text-slate-900"
+                          }`}
+                        >
+                          <div className="mb-1 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
+                            <span className="truncate">
+                              {isOwnMessage ? "You" : message.displayName}
+                            </span>
+                            <span>
+                              {new Date(message.sentAt).toLocaleTimeString("en-IN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                          <p className="whitespace-pre-wrap break-words leading-5">{message.text}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <form
+                className="border-t border-[var(--color-line)] bg-white p-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void sendChatMessage();
+                }}
+              >
+                {chatError ? (
+                  <p className="mb-2 text-xs font-semibold text-red-700">{chatError}</p>
+                ) : null}
+                <textarea
+                  value={chatDraft}
+                  onChange={(event) => setChatDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendChatMessage();
+                    }
+                  }}
+                  rows={3}
+                  placeholder="Type a message"
+                  className="w-full resize-none rounded-xl border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]"
+                />
+                <button
+                  type="submit"
+                  disabled={!chatDraft.trim()}
+                  className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-dark)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  Send
+                </button>
+              </form>
+            </aside>
+          ) : null}
 
           <aside className={`crm-panel p-5 ${hasJoined || activeScreenShare ? "hidden" : ""}`}>
             {isLoading ? (

@@ -16,8 +16,8 @@ export default function AdminDashboardPage() {
   return (
     <AdminShell
       eyebrow="Werkly CRM"
-      title="Run jobs, clients, and employee operations from one workspace."
-      description="This dashboard gives you a cleaner CRM starting point for hiring activity, client onboarding, team access, and day-to-day recruitment execution."
+      title="Command center for hiring, clients, and follow-ups."
+      description="Monitor live work, overdue client commitments, approvals, and team execution from one operational dashboard."
     >
       <AdminDashboardOverview />
     </AdminShell>

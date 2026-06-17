@@ -1159,53 +1159,146 @@ export function AdminDashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <section className="accent-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="eyebrow">Follow-Up Summary</p>
-            <h2 className="mt-1 text-base font-semibold text-[var(--color-ink)]">
-              Current follow-up status at a glance
-            </h2>
-          </div>
-          {metrics.overdueFollowUps > 0 ? (
-            <button
-              type="button"
-              onClick={() => setIsOverdueDrawerOpen(true)}
-              className="rounded-xl border border-[rgba(190,72,26,0.22)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-accent-strong)] transition hover:border-[var(--color-accent-strong)]"
-            >
-              Open Overdue Drawer
-            </button>
-          ) : null}
-        </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {reminderItems.map((item) => {
-            const openSummary =
-              item.label === "Overdue Follow-Ups"
-                ? () => setIsOverdueDrawerOpen(true)
-                : item.label === "Due Today"
-                  ? () => openDateDetails(todayKey)
-                  : item.label === "Due Tomorrow"
-                    ? () => openDateDetails(tomorrowKey)
-                    : undefined;
+      <section className="overflow-hidden rounded-[1.5rem] border border-[var(--color-line)] bg-white shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+          <div className="bg-[linear-gradient(135deg,#073d46,#0f6571)] p-5 text-white sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-3xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">
+                  Live Operations
+                </p>
+                <h2 className="mt-3 max-w-2xl text-2xl font-semibold leading-tight sm:text-3xl">
+                  {metrics.overdueFollowUps > 0
+                    ? "Overdue client commitments need attention."
+                    : metrics.dueTodayFollowUps > 0
+                      ? "Today's follow-ups are ready for action."
+                      : "Your CRM workspace is clear and organized."}
+                </h2>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-white/76">
+                  Review jobs, client follow-ups, pending approvals, and recruiter workload without
+                  jumping between modules.
+                </p>
+              </div>
+              <span className="rounded-full border border-white/18 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white">
+                {isAdminView ? "Admin View" : "My View"}
+              </span>
+            </div>
 
-            return (
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Live Jobs",
+                  value: metrics.liveJobs,
+                  detail: "Published mandates",
+                  onClick: () => router.push("/admin/jobs/existing"),
+                },
+                {
+                  label: "Active Clients",
+                  value: metrics.activeClients,
+                  detail: "Open accounts",
+                  onClick: () => router.push("/admin/clients/existing"),
+                },
+                {
+                  label: "Due Today",
+                  value: metrics.dueTodayFollowUps,
+                  detail: "Client reminders",
+                  onClick: () => openDateDetails(todayKey),
+                },
+                {
+                  label: "Pending Approvals",
+                  value: metrics.pendingApprovalCount,
+                  detail: "Needs decision",
+                  onClick: () => router.push("/admin/settings/workflows"),
+                },
+              ].map((card) => (
+                <button
+                  key={card.label}
+                  type="button"
+                  onClick={card.onClick}
+                  className="rounded-[1rem] border border-white/14 bg-white/10 p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/14"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/64">
+                    {card.label}
+                  </p>
+                  <p className="mt-2 text-3xl font-semibold text-white">{card.value}</p>
+                  <p className="mt-1 text-xs text-white/68">{card.detail}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-l border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="eyebrow">Action Focus</p>
+                <h2 className="mt-2 text-lg font-semibold text-[var(--color-ink)]">
+                  What needs attention now
+                </h2>
+              </div>
+              {metrics.overdueFollowUps > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setIsOverdueDrawerOpen(true)}
+                  className="rounded-xl bg-[var(--color-accent-strong)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#9f3914]"
+                >
+                  Open overdue
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {reminderItems.map((item) => {
+                const openSummary =
+                  item.label === "Overdue Follow-Ups"
+                    ? () => setIsOverdueDrawerOpen(true)
+                    : item.label === "Due Today"
+                      ? () => openDateDetails(todayKey)
+                      : item.label === "Due Tomorrow"
+                        ? () => openDateDetails(tomorrowKey)
+                        : undefined;
+
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={openSummary}
+                    disabled={!openSummary}
+                    className={`flex w-full items-center justify-between gap-4 rounded-[1rem] border px-4 py-3 text-left transition enabled:hover:-translate-y-0.5 disabled:cursor-default ${followUpMetricClassName(item.label)}`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-semibold uppercase tracking-[0.16em]">
+                        {item.label}
+                      </span>
+                      <span className="mt-1 block truncate text-xs text-[var(--color-muted)]">
+                        {item.detail}
+                      </span>
+                    </span>
+                    <span className="text-2xl font-semibold">{item.value}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
               <button
-                key={item.label}
                 type="button"
-                onClick={openSummary}
-                disabled={!openSummary}
-                className={`flex items-center justify-between gap-3 rounded-[1rem] border px-4 py-3 text-left transition enabled:hover:-translate-y-0.5 disabled:cursor-default ${followUpMetricClassName(item.label)}`}
+                onClick={() => void saveCurrentDashboardView()}
+                className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm font-semibold text-[var(--color-dark)] transition hover:border-[var(--color-dark)]"
               >
-                <span>
-                  <span className="block text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    {item.label}
-                  </span>
-                  <span className="mt-1 block text-xs text-[var(--color-muted)]">{item.detail}</span>
-                </span>
-                <span className="text-2xl font-semibold">{item.value}</span>
+                Save View
               </button>
-            );
-          })}
+              <button
+                type="button"
+                onClick={() => scrollToSection(calendarSectionRef)}
+                className="rounded-xl border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm font-semibold text-[var(--color-dark)] transition hover:border-[var(--color-dark)]"
+              >
+                Calendar
+              </button>
+            </div>
+            {viewMessage ? (
+              <p className="mt-3 text-sm font-medium text-[var(--color-dark)]">{viewMessage}</p>
+            ) : null}
+          </div>
         </div>
       </section>
 
