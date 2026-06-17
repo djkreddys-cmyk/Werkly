@@ -3,16 +3,9 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type {
-  CalendarConnection,
-  CalendarProvider,
   EmployeeRecord,
   InternalMeetingRecord,
 } from "@/lib/crm";
-
-const CALENDAR_PROVIDERS: { provider: CalendarProvider; label: string }[] = [
-  { provider: "google", label: "Google Calendar" },
-  { provider: "microsoft", label: "Outlook Calendar" },
-];
 
 function formatLocalDateKey(value: Date) {
   const year = value.getFullYear();
@@ -115,17 +108,6 @@ function getMeetingUrl(roomCode: string) {
   return `${window.location.origin}/meet/${roomCode}`;
 }
 
-function getDisplayMessage(error: unknown, fallback: string) {
-  const rawMessage = error instanceof Error ? error.message : fallback;
-
-  try {
-    const parsed = JSON.parse(rawMessage) as { message?: string };
-    return parsed.message || rawMessage;
-  } catch {
-    return rawMessage;
-  }
-}
-
 export function AdminMeetingsPanel() {
   const [token] = useState(
     typeof window !== "undefined"
@@ -134,7 +116,6 @@ export function AdminMeetingsPanel() {
   );
   const [meetings, setMeetings] = useState<InternalMeetingRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
-  const [calendarConnections, setCalendarConnections] = useState<CalendarConnection[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startsAt, setStartsAt] = useState("");
@@ -146,8 +127,6 @@ export function AdminMeetingsPanel() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [calendarMessage, setCalendarMessage] = useState("");
-  const [calendarBusy, setCalendarBusy] = useState("");
   const [copiedRoomCode, setCopiedRoomCode] = useState("");
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const todayKey = getTodayKey();
@@ -167,21 +146,14 @@ export function AdminMeetingsPanel() {
       fetch("/api/admin/employees", {
         headers: { Authorization: `Bearer ${token}` },
       }),
-      fetch("/api/admin/calendar-connections", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
     ])
-      .then(async ([meetingsResponse, employeesResponse, calendarResponse]) => {
+      .then(async ([meetingsResponse, employeesResponse]) => {
         const meetingsResult = (await meetingsResponse.json()) as {
           meetings?: InternalMeetingRecord[];
           message?: string;
         };
         const employeesResult = (await employeesResponse.json()) as {
           employees?: EmployeeRecord[];
-          message?: string;
-        };
-        const calendarResult = (await calendarResponse.json()) as {
-          connections?: CalendarConnection[];
           message?: string;
         };
 
@@ -191,73 +163,14 @@ export function AdminMeetingsPanel() {
         if (!employeesResponse.ok) {
           throw new Error(employeesResult.message || "Unable to load employees.");
         }
-        if (!calendarResponse.ok) {
-          throw new Error(calendarResult.message || "Unable to load calendar sync.");
-        }
 
         setMeetings(meetingsResult.meetings ?? []);
         setEmployees(employeesResult.employees ?? []);
-        setCalendarConnections(calendarResult.connections ?? []);
       })
       .catch((loadError) => {
         setError(loadError instanceof Error ? loadError.message : "Unable to load meetings.");
       })
       .finally(() => setIsLoading(false));
-  }, [token]);
-
-  useEffect(() => {
-    if (!token || typeof window === "undefined") {
-      return;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const provider = params.get("calendarProvider") as CalendarProvider | null;
-    const code = params.get("code");
-    const errorDescription = params.get("error_description") || params.get("error");
-
-    if (errorDescription) {
-      setCalendarMessage(`Calendar connection failed: ${errorDescription}`);
-      window.history.replaceState(null, "", window.location.pathname);
-      return;
-    }
-
-    if (!provider || !code || !CALENDAR_PROVIDERS.some((item) => item.provider === provider)) {
-      return;
-    }
-
-    const redirectUri = `${window.location.origin}${window.location.pathname}?calendarProvider=${provider}`;
-    setCalendarBusy(provider);
-    setCalendarMessage("Connecting calendar...");
-
-    fetch(`/api/admin/calendar-connections/${provider}/callback`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ code, redirectUri }),
-    })
-      .then(async (response) => {
-        const result = (await response.json()) as CalendarConnection & {
-          message?: string;
-        };
-        if (!response.ok) {
-          throw new Error(result.message || "Unable to connect calendar.");
-        }
-
-        setCalendarConnections((current) => [
-          result,
-          ...current.filter((connection) => connection.provider !== result.provider),
-        ]);
-        setCalendarMessage(`${result.connectedEmail || "Calendar"} connected.`);
-      })
-      .catch((connectError) => {
-        setCalendarMessage(getDisplayMessage(connectError, "Unable to connect calendar."));
-      })
-      .finally(() => {
-        setCalendarBusy("");
-        window.history.replaceState(null, "", window.location.pathname);
-      });
   }, [token]);
 
   const activeEmployees = useMemo(
@@ -377,101 +290,6 @@ export function AdminMeetingsPanel() {
     );
     setCopiedRoomCode(meeting.roomCode);
     window.setTimeout(() => setCopiedRoomCode(""), 1800);
-  }
-
-  async function connectCalendar(provider: CalendarProvider) {
-    if (!token || typeof window === "undefined") {
-      return;
-    }
-
-    setCalendarBusy(provider);
-    setCalendarMessage("");
-
-    try {
-      const redirectUri = `${window.location.origin}${window.location.pathname}?calendarProvider=${provider}`;
-      const response = await fetch(
-        `/api/admin/calendar-connections/${provider}/auth-url?redirectUri=${encodeURIComponent(
-          redirectUri
-        )}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const result = (await response.json()) as { url?: string; message?: string };
-
-      if (!response.ok || !result.url) {
-        throw new Error(result.message || "Unable to start calendar sync.");
-      }
-
-      window.location.href = result.url;
-    } catch (connectError) {
-      setCalendarBusy("");
-      setCalendarMessage(getDisplayMessage(connectError, "Unable to start calendar sync."));
-    }
-  }
-
-  async function disconnectCalendar(provider: CalendarProvider) {
-    if (!token || calendarBusy) {
-      return;
-    }
-
-    setCalendarBusy(provider);
-    setCalendarMessage("");
-
-    try {
-      const response = await fetch(`/api/admin/calendar-connections/${provider}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = (await response.json()) as { message?: string };
-
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to disconnect calendar.");
-      }
-
-      setCalendarConnections((current) =>
-        current.filter((connection) => connection.provider !== provider)
-      );
-      setCalendarMessage("Calendar disconnected.");
-    } catch (disconnectError) {
-      setCalendarMessage(getDisplayMessage(disconnectError, "Unable to disconnect calendar."));
-    } finally {
-      setCalendarBusy("");
-    }
-  }
-
-  async function syncMeetingCalendars(roomCode: string) {
-    if (!token || calendarBusy) {
-      return;
-    }
-
-    setCalendarBusy(`sync-${roomCode}`);
-    setCalendarMessage("");
-
-    try {
-      const response = await fetch(`/api/admin/meetings/${roomCode}/calendar-sync`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = (await response.json()) as {
-        syncs?: { provider: CalendarProvider; eventId: string }[];
-        message?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(result.message || "Unable to sync meeting calendars.");
-      }
-
-      setCalendarMessage(
-        result.syncs?.length
-          ? `Synced with ${result.syncs.length} connected calendar${result.syncs.length === 1 ? "" : "s"}.`
-          : "No calendars are connected yet."
-      );
-    } catch (syncError) {
-      setCalendarMessage(getDisplayMessage(syncError, "Unable to sync meeting calendars."));
-    } finally {
-      setCalendarBusy("");
-    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -610,82 +428,6 @@ export function AdminMeetingsPanel() {
         {error && !isMeetingModalOpen ? (
           <span className="text-sm font-semibold text-red-700">{error}</span>
         ) : null}
-      </div>
-
-      <div className="grid gap-6">
-        <section className="crm-panel p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="eyebrow">Calendar sync</p>
-              <h2 className="mt-2 text-xl font-semibold text-slate-950">Google and Outlook</h2>
-            </div>
-            <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
-              {calendarConnections.length}/2 connected
-            </span>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {CALENDAR_PROVIDERS.map(({ provider, label }) => {
-              const connection = calendarConnections.find((item) => item.provider === provider);
-              const isBusy = calendarBusy === provider;
-
-              return (
-                <div
-                  key={provider}
-                  className="rounded-xl border border-[var(--color-line)] bg-white p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-950">{label}</p>
-                      <p className="mt-1 truncate text-xs text-[var(--color-muted)]">
-                        {connection
-                          ? connection.connectedEmail || "Connected"
-                          : "Not connected"}
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                        connection
-                          ? "bg-[rgba(8,96,108,0.08)] text-[var(--color-dark)]"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {connection ? "On" : "Off"}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {connection ? (
-                      <button
-                        type="button"
-                        onClick={() => disconnectCalendar(provider)}
-                        disabled={Boolean(calendarBusy)}
-                        className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isBusy ? "Disconnecting..." : "Disconnect"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => connectCalendar(provider)}
-                        disabled={Boolean(calendarBusy)}
-                        className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isBusy ? "Opening..." : "Connect"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {calendarMessage ? (
-            <p className="mt-4 text-sm font-semibold text-[var(--color-dark)]">
-              {calendarMessage}
-            </p>
-          ) : null}
-        </section>
       </div>
 
       {isMeetingModalOpen ? (
@@ -1029,14 +771,6 @@ export function AdminMeetingsPanel() {
                   >
                     Add to calendar
                   </a>
-                  <button
-                    type="button"
-                    onClick={() => syncMeetingCalendars(meeting.roomCode)}
-                    disabled={Boolean(calendarBusy)}
-                    className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {calendarBusy === `sync-${meeting.roomCode}` ? "Syncing..." : "Sync calendars"}
-                  </button>
                   <button
                     type="button"
                     onClick={() => startEditingMeeting(meeting)}
