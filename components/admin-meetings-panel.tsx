@@ -149,6 +149,7 @@ export function AdminMeetingsPanel() {
   const [calendarMessage, setCalendarMessage] = useState("");
   const [calendarBusy, setCalendarBusy] = useState("");
   const [copiedRoomCode, setCopiedRoomCode] = useState("");
+  const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const todayKey = getTodayKey();
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
   const [visibleMonth, setVisibleMonth] = useState(() => parseDateKey(todayKey));
@@ -332,12 +333,25 @@ export function AdminMeetingsPanel() {
     setEditingRoomCode("");
   }
 
+  function openCreateMeeting() {
+    resetForm();
+    setError("");
+    setSuccessMessage("");
+    setIsMeetingModalOpen(true);
+  }
+
+  function closeMeetingModal() {
+    resetForm();
+    setIsMeetingModalOpen(false);
+  }
+
   function startEditingMeeting(meeting: InternalMeetingRecord) {
     setTitle(meeting.title);
     setDescription(meeting.description || "");
     setStartsAt(toDateTimeLocalValue(meeting.startsAt));
     setParticipantEmployeeIds(meeting.participantEmployeeIds);
     setEditingRoomCode(meeting.roomCode);
+    setIsMeetingModalOpen(true);
     setError("");
     setSuccessMessage("");
 
@@ -350,7 +364,6 @@ export function AdminMeetingsPanel() {
       setDurationMinutes("30");
     }
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function copyMeetingLink(meeting: InternalMeetingRecord) {
@@ -511,6 +524,7 @@ export function AdminMeetingsPanel() {
           : [result, ...current]
       );
       resetForm();
+      setIsMeetingModalOpen(false);
       if (result.startsAt) {
         const savedDateKey = normalizeDateKey(result.startsAt);
         if (savedDateKey) {
@@ -568,7 +582,7 @@ export function AdminMeetingsPanel() {
 
       setMeetings((current) => current.filter((meeting) => meeting.roomCode !== roomCode));
       if (editingRoomCode === roomCode) {
-        resetForm();
+        closeMeetingModal();
       }
       setSuccessMessage("Meeting link deleted.");
     } catch (deleteError) {
@@ -579,8 +593,123 @@ export function AdminMeetingsPanel() {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <form onSubmit={handleSubmit} className="crm-panel p-5">
+    <div className="grid gap-6">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <section className="crm-panel p-5">
+          <div className="flex h-full flex-col justify-between gap-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Meeting links</p>
+                <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                  Internal meetings
+                </h2>
+              </div>
+              <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
+                Team only
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={openCreateMeeting}
+                className="rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56]"
+              >
+                Create new meeting
+              </button>
+              {successMessage ? (
+                <span className="text-sm font-semibold text-[var(--color-dark)]">
+                  {successMessage}
+                </span>
+              ) : null}
+              {error && !isMeetingModalOpen ? (
+                <span className="text-sm font-semibold text-red-700">{error}</span>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        <section className="crm-panel p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="eyebrow">Calendar sync</p>
+              <h2 className="mt-2 text-xl font-semibold text-slate-950">Google and Outlook</h2>
+            </div>
+            <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
+              {calendarConnections.length}/2 connected
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {CALENDAR_PROVIDERS.map(({ provider, label }) => {
+              const connection = calendarConnections.find((item) => item.provider === provider);
+              const isBusy = calendarBusy === provider;
+
+              return (
+                <div
+                  key={provider}
+                  className="rounded-xl border border-[var(--color-line)] bg-white p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-950">{label}</p>
+                      <p className="mt-1 truncate text-xs text-[var(--color-muted)]">
+                        {connection
+                          ? connection.connectedEmail || "Connected"
+                          : "Not connected"}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        connection
+                          ? "bg-[rgba(8,96,108,0.08)] text-[var(--color-dark)]"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {connection ? "On" : "Off"}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {connection ? (
+                      <button
+                        type="button"
+                        onClick={() => disconnectCalendar(provider)}
+                        disabled={Boolean(calendarBusy)}
+                        className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isBusy ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => connectCalendar(provider)}
+                        disabled={Boolean(calendarBusy)}
+                        className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isBusy ? "Opening..." : "Connect"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {calendarMessage ? (
+            <p className="mt-4 text-sm font-semibold text-[var(--color-dark)]">
+              {calendarMessage}
+            </p>
+          ) : null}
+        </section>
+      </div>
+
+      {isMeetingModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm">
+          <form
+            onSubmit={handleSubmit}
+            className="max-h-[calc(100dvh-3rem)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--color-line)] bg-white p-5 shadow-2xl"
+          >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow">{editingRoomCode ? "Edit link" : "Create link"}</p>
@@ -687,94 +816,20 @@ export function AdminMeetingsPanel() {
                 ? "Saving..."
                 : "Creating..."
               : editingRoomCode
-                ? "Save meeting link"
+                ? "Update"
                 : "Create and copy meeting link"}
           </button>
-          {editingRoomCode ? (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
-            >
-              Cancel
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={closeMeetingModal}
+            className="inline-flex items-center justify-center rounded-xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+          >
+            Cancel
+          </button>
         </div>
-      </form>
-
-      <section className="crm-panel p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="eyebrow">Calendar sync</p>
-            <h2 className="mt-2 text-xl font-semibold text-slate-950">Google and Outlook</h2>
-          </div>
-          <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-xs font-semibold text-[var(--color-dark)]">
-            {calendarConnections.length}/2 connected
-          </span>
+          </form>
         </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {CALENDAR_PROVIDERS.map(({ provider, label }) => {
-            const connection = calendarConnections.find((item) => item.provider === provider);
-            const isBusy = calendarBusy === provider;
-
-            return (
-              <div
-                key={provider}
-                className="rounded-xl border border-[var(--color-line)] bg-white p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-950">{label}</p>
-                    <p className="mt-1 truncate text-xs text-[var(--color-muted)]">
-                      {connection
-                        ? connection.connectedEmail || "Connected"
-                        : "Not connected"}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                      connection
-                        ? "bg-[rgba(8,96,108,0.08)] text-[var(--color-dark)]"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {connection ? "On" : "Off"}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {connection ? (
-                    <button
-                      type="button"
-                      onClick={() => disconnectCalendar(provider)}
-                      disabled={Boolean(calendarBusy)}
-                      className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isBusy ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => connectCalendar(provider)}
-                      disabled={Boolean(calendarBusy)}
-                      className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isBusy ? "Opening..." : "Connect"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {calendarMessage ? (
-          <p className="mt-4 text-sm font-semibold text-[var(--color-dark)]">
-            {calendarMessage}
-          </p>
-        ) : null}
-      </section>
+      ) : null}
 
       <section className="crm-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
