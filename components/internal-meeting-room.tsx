@@ -56,6 +56,10 @@ type MeetingChatMessage = {
   sentAt: string;
 };
 
+type ChatMessagePayload = Partial<MeetingChatMessage> & {
+  meetingControl?: "chat-message";
+};
+
 function normalizeIdentity(value?: string | null) {
   return value?.trim().toLowerCase() || "";
 }
@@ -599,7 +603,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     type: InternalMeetingSignal["type"],
     payload: unknown
   ) {
-    await fetch(`/api/meetings/${roomCode}/signals`, {
+    const response = await fetch(`/api/meetings/${roomCode}/signals`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -611,6 +615,10 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         payload,
       }),
     });
+    if (!response.ok) {
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+      throw new Error(result.message || "Unable to send meeting signal.");
+    }
   }
 
   function sendMediaState(toParticipantKey?: string) {
@@ -732,7 +740,9 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
-    const controlPayload = (signal.payload || {}) as JoinRequestPayload & JoinDecisionPayload;
+    const controlPayload = (signal.payload || {}) as JoinRequestPayload &
+      JoinDecisionPayload &
+      ChatMessagePayload;
 
     if (signal.type === "media-state" && controlPayload.meetingControl === "join-request") {
       if (isHost) {
@@ -768,16 +778,15 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
-    if (signal.type === "chat-message") {
-      const payload = signal.payload as Partial<MeetingChatMessage>;
-      const text = String(payload.text || "").trim();
+    if (signal.type === "media-state" && controlPayload.meetingControl === "chat-message") {
+      const text = String(controlPayload.text || "").trim();
       if (text) {
         appendChatMessage({
-          id: payload.id || `${signal.id}`,
+          id: controlPayload.id || `${signal.id}`,
           participantKey: signal.fromParticipantKey,
-          displayName: payload.displayName || "Participant",
+          displayName: controlPayload.displayName || "Participant",
           text,
-          sentAt: payload.sentAt || signal.createdAt || new Date().toISOString(),
+          sentAt: controlPayload.sentAt || signal.createdAt || new Date().toISOString(),
         });
       }
       return;
@@ -861,6 +870,20 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         if (!peerExists && participantKey < participant.participantKey) {
           void negotiateWith(participant.participantKey);
         }
+      });
+  }
+
+  function renegotiateLocalMedia() {
+    participantsRef.current
+      .map((participant) => participant.participantKey)
+      .filter((key) => key !== participantKey)
+      .forEach((remoteParticipantKey) => {
+        const peer = getPeer(remoteParticipantKey);
+        refreshPeerTracks(peer);
+        sendMediaState(remoteParticipantKey);
+        window.setTimeout(() => {
+          void negotiateWith(remoteParticipantKey);
+        }, 100);
       });
   }
 
@@ -1330,6 +1353,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setCameraEnabled(videoTrack.enabled);
     void registerParticipant(isScreenSharing, videoTrack.enabled, micEnabled);
     sendMediaState();
+    renegotiateLocalMedia();
   }
 
   function toggleMic() {
@@ -1343,6 +1367,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setMicEnabled(audioTrack.enabled);
     void registerParticipant(isScreenSharing, cameraEnabled, audioTrack.enabled);
     sendMediaState();
+    renegotiateLocalMedia();
   }
 
   async function toggleFullscreen() {
@@ -1399,7 +1424,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     try {
       await Promise.all(
         recipients.map((recipientKey) =>
-          sendSignal(recipientKey, "chat-message", {
+          sendSignal(recipientKey, "media-state", {
+            meetingControl: "chat-message",
             id: message.id,
             displayName: message.displayName,
             text: message.text,
