@@ -255,6 +255,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const [chatMessages, setChatMessages] = useState<MeetingChatMessage[]>([]);
   const [chatDraft, setChatDraft] = useState("");
   const [chatError, setChatError] = useState("");
+  const [joinNameError, setJoinNameError] = useState("");
   const isMeetingCreator = Boolean(
     token &&
       meeting &&
@@ -295,7 +296,10 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const activeScreenShare = screenShareMedia[0];
   const secondaryScreenShares = screenShareMedia.slice(1);
   const tileCount = 1 + participantMedia.length + screenShareMedia.length;
-  const localDisplayName = displayName.trim() || authName || authEmail || "You";
+  const participantDisplayName =
+    displayName.trim() || authName || authEmail || authEmployeeCode;
+  const localDisplayName = participantDisplayName || "You";
+  const shouldAskJoinName = !hasJoined && !isHost;
 
   function resetJoinRequestState() {
     requestedApprovalHostKeysRef.current.clear();
@@ -331,7 +335,9 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     const nextAuthEmail = window.localStorage.getItem("werklyAdminEmail") ?? "";
     const nextEmployeeCode = window.localStorage.getItem("werklyEmployeeCode") ?? "";
     const storageKey = `werklyMeetingParticipant-${roomCode}`;
+    const displayNameStorageKey = `werklyMeetingDisplayName-${roomCode}`;
     const existingKey = window.localStorage.getItem(storageKey);
+    const existingDisplayName = window.localStorage.getItem(displayNameStorageKey) || "";
     const nextParticipantKey =
       existingKey ||
       (typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -359,7 +365,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setAuthEmployeeCode(nextEmployeeCode);
     setParticipantKey(nextParticipantKey);
     setHasLocalHostAccess(nextHasLocalHostAccess);
-    setDisplayName((current) => current || nextAuthName || nextAuthEmail || "");
+    setDisplayName((current) => current || existingDisplayName || nextAuthName || nextAuthEmail || "");
     setIsClientReady(true);
   }, [roomCode]);
 
@@ -955,8 +961,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     nextCameraEnabled = cameraEnabled,
     nextMicEnabled = micEnabled
   ) {
-    const safeDisplayName =
-      displayName.trim() || authName || authEmail || authEmployeeCode || "Meeting guest";
+    const safeDisplayName = participantDisplayName || "Meeting guest";
 
     const response = await fetch(`/api/meetings/${roomCode}/participants`, {
       method: "POST",
@@ -1034,8 +1039,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       hostKeys.map(async (hostKey) => {
         await sendSignal(hostKey, "media-state", {
           meetingControl: "join-request",
-          displayName:
-            displayName.trim() || authName || authEmail || authEmployeeCode || "Meeting guest",
+          displayName: participantDisplayName || "Meeting guest",
           requestedAt: new Date().toISOString(),
         });
         requestedApprovalHostKeysRef.current.add(hostKey);
@@ -1050,9 +1054,17 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
+    if (!participantDisplayName) {
+      setJoinNameError("Please enter your name before requesting to join.");
+      setMediaError("Please enter your name before requesting to join.");
+      return;
+    }
+
     if (joinAccessStatus === "rejected") {
       requestedApprovalHostKeysRef.current.clear();
     }
+    window.localStorage.setItem(`werklyMeetingDisplayName-${roomCode}`, participantDisplayName);
+    setJoinNameError("");
     setJoinAccessStatus("requested");
     const sent = await sendJoinRequestsToHosts();
     setMediaError(
@@ -1114,6 +1126,16 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       return;
     }
 
+    if (!isHost && !participantDisplayName) {
+      setJoinNameError("Please enter your name before joining.");
+      setMediaError("Please enter your name before joining.");
+      return;
+    }
+
+    if (participantDisplayName) {
+      window.localStorage.setItem(`werklyMeetingDisplayName-${roomCode}`, participantDisplayName);
+    }
+    setJoinNameError("");
     const previewState = await startPreview();
     setHasJoined(true);
     await registerParticipant(false, previewState.cameraEnabled, previewState.micEnabled);
@@ -1123,6 +1145,12 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
 
   async function joinMeeting() {
     if (isJoining) {
+      return;
+    }
+
+    if (!isHost && !participantDisplayName) {
+      setJoinNameError("Please enter your name before joining.");
+      setMediaError("Please enter your name before joining.");
       return;
     }
 
@@ -1584,6 +1612,27 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                       ? "Review the join details, then allow camera and microphone."
                       : "Waiting for the host to start this meeting."}
                   </p>
+                  {shouldAskJoinName ? (
+                    <label className="mx-auto mt-5 block w-full max-w-sm text-left">
+                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
+                        Your name
+                      </span>
+                      <input
+                        value={displayName}
+                        onChange={(event) => {
+                          setDisplayName(event.target.value);
+                          setJoinNameError("");
+                        }}
+                        placeholder="Enter your name"
+                        className="mt-2 w-full rounded-xl border border-white/20 bg-white px-3 py-2.5 text-sm text-[#0b1e22] outline-none transition focus:border-[var(--color-accent)]"
+                      />
+                      {joinNameError ? (
+                        <span className="mt-2 block text-xs font-semibold text-[var(--color-accent)]">
+                          {joinNameError}
+                        </span>
+                      ) : null}
+                    </label>
+                  ) : null}
                   {isHost && !isMeetingLive ? (
                     <button
                       type="button"
@@ -1602,6 +1651,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                         isLoading ||
                         isJoining ||
                         !canJoin ||
+                        (!isHost && !participantDisplayName) ||
                         (joinAccessStatus === "requested" && !canEnterMeeting)
                       }
                       className="mt-5 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0b1e22] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1865,15 +1915,25 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     </span>
                   </div>
                 </div>
-                {!authName && !hasJoined ? (
+                {shouldAskJoinName ? (
                   <label className="mt-5 block">
                     <span className="text-sm font-semibold text-slate-800">Your name</span>
                     <input
                       value={displayName}
-                      onChange={(event) => setDisplayName(event.target.value)}
+                      onChange={(event) => {
+                        setDisplayName(event.target.value);
+                        setJoinNameError("");
+                      }}
                       placeholder="Enter your name"
-                      className="mt-2 w-full rounded-xl border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[var(--color-dark)]"
+                      className={`mt-2 w-full rounded-xl border bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[var(--color-dark)] ${
+                        joinNameError ? "border-red-300" : "border-[var(--color-line)]"
+                      }`}
                     />
+                    {joinNameError ? (
+                      <span className="mt-2 block text-xs font-semibold text-red-700">
+                        {joinNameError}
+                      </span>
+                    ) : null}
                   </label>
                 ) : null}
                 {isHost && !isMeetingLive ? (
@@ -1893,6 +1953,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
                     disabled={
                       isJoining ||
                       !canJoin ||
+                      (!isHost && !participantDisplayName) ||
                       (joinAccessStatus === "requested" && !canEnterMeeting)
                     }
                     className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#064d56] disabled:cursor-not-allowed disabled:opacity-60"
