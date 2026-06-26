@@ -161,8 +161,10 @@ function MeetingTile({
   fit?: "cover" | "contain";
 }) {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const stream = media instanceof MediaStream ? media : media?.stream;
   const hasVideo = showVideo && Boolean(stream?.getVideoTracks().length);
+  const hasAudioOnly = Boolean(stream?.getAudioTracks().length && !hasVideo);
   const tileHeight = large
     ? "h-full min-h-[calc(100dvh-8rem)]"
     : compact
@@ -179,6 +181,9 @@ function MeetingTile({
   useEffect(() => {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = stream || null;
+    }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = stream || null;
     }
   }, [stream]);
 
@@ -197,6 +202,7 @@ function MeetingTile({
           }
         />
       ) : null}
+      {hasAudioOnly ? <audio ref={remoteAudioRef} autoPlay muted={isMuted} /> : null}
       {!hasVideo ? (
         <div className={`flex flex-1 items-center justify-center bg-[#132f35] ${tileHeight}`}>
           <div className={`flex items-center justify-center rounded-full bg-white/10 font-semibold text-white ${avatarSize}`}>
@@ -220,6 +226,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<BlobPart[]>([]);
+  const recordingCleanupRef = useRef<(() => void) | null>(null);
   const peersRef = useRef<Map<string, PeerState>>(new Map());
   const participantsRef = useRef<InternalMeetingParticipant[]>([]);
   const mediaTypesRef = useRef<Map<string, Map<string, "camera" | "screen">>>(new Map());
@@ -507,6 +514,7 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       screenStreamRef.current?.getTracks().forEach((track) => track.stop());
       recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+      recordingCleanupRef.current?.();
       mediaRecorderRef.current?.state === "recording" && mediaRecorderRef.current.stop();
     };
   }, []);
@@ -1225,24 +1233,157 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     });
   }
 
+  function getRecordingMimeType() {
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) {
+      return "video/webm;codecs=vp9,opus";
+    }
+    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
+      return "video/webm;codecs=vp8,opus";
+    }
+    return "video/webm";
+  }
+
+  function buildMeetingRecordingStream() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Meeting recording canvas is not available.");
+    }
+
+    const recordingItems = [
+      {
+        label: `${localDisplayName} (You)`,
+        stream: screenStreamRef.current || streamRef.current,
+      },
+      ...remoteMedia.map((media) => ({
+        label: getParticipantLabel(media),
+        stream: media.stream,
+      })),
+    ].filter((item): item is { label: string; stream: MediaStream } =>
+      Boolean(item.stream && streamHasLiveTracks(item.stream))
+    );
+
+    const videoItems = recordingItems.map((item) => {
+      const video = document.createElement("video");
+      video.srcObject = item.stream;
+      video.muted = true;
+      video.playsInline = true;
+      void video.play().catch(() => undefined);
+      return { ...item, video };
+    });
+
+    const audioContext = new AudioContext();
+    const destination = audioContext.createMediaStreamDestination();
+    const audioNodes: MediaStreamAudioSourceNode[] = [];
+
+    recordingItems.forEach((item) => {
+      if (item.stream.getAudioTracks().some((track) => track.readyState === "live")) {
+        const source = audioContext.createMediaStreamSource(item.stream);
+        source.connect(destination);
+        audioNodes.push(source);
+      }
+    });
+
+    const drawFrame = () => {
+      context.fillStyle = "#081c20";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      const count = Math.max(videoItems.length, 1);
+      const columns = count <= 1 ? 1 : count <= 4 ? 2 : 3;
+      const rows = Math.ceil(count / columns);
+      const gap = 18;
+      const tileWidth = (canvas.width - gap * (columns + 1)) / columns;
+      const tileHeight = (canvas.height - gap * (rows + 1)) / rows;
+
+      videoItems.forEach((item, index) => {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        const x = gap + column * (tileWidth + gap);
+        const y = gap + row * (tileHeight + gap);
+        const hasVideo =
+          item.stream.getVideoTracks().some((track) => track.readyState === "live") &&
+          item.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+
+        context.fillStyle = "#12343a";
+        context.fillRect(x, y, tileWidth, tileHeight);
+
+        if (hasVideo) {
+          const videoRatio = item.video.videoWidth / Math.max(item.video.videoHeight, 1);
+          const tileRatio = tileWidth / tileHeight;
+          let drawWidth = tileWidth;
+          let drawHeight = tileHeight;
+          let drawX = x;
+          let drawY = y;
+
+          if (videoRatio > tileRatio) {
+            drawHeight = tileWidth / videoRatio;
+            drawY = y + (tileHeight - drawHeight) / 2;
+          } else {
+            drawWidth = tileHeight * videoRatio;
+            drawX = x + (tileWidth - drawWidth) / 2;
+          }
+
+          context.drawImage(item.video, drawX, drawY, drawWidth, drawHeight);
+        } else {
+          context.fillStyle = "rgba(255,255,255,0.12)";
+          context.beginPath();
+          context.arc(x + tileWidth / 2, y + tileHeight / 2, 54, 0, Math.PI * 2);
+          context.fill();
+          context.fillStyle = "#ffffff";
+          context.font = "600 32px Arial";
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+          context.fillText(getInitials(item.label), x + tileWidth / 2, y + tileHeight / 2);
+        }
+
+        context.fillStyle = "rgba(0,0,0,0.62)";
+        context.fillRect(x + 12, y + tileHeight - 42, Math.min(tileWidth - 24, 280), 30);
+        context.fillStyle = "#ffffff";
+        context.font = "600 16px Arial";
+        context.textAlign = "left";
+        context.textBaseline = "middle";
+        context.fillText(item.label, x + 24, y + tileHeight - 27);
+      });
+    };
+
+    const interval = window.setInterval(drawFrame, 1000 / 15);
+    drawFrame();
+
+    const canvasStream = canvas.captureStream(15);
+    const mixedStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...destination.stream.getAudioTracks(),
+    ]);
+
+    recordingCleanupRef.current = () => {
+      window.clearInterval(interval);
+      videoItems.forEach((item) => {
+        item.video.pause();
+        item.video.srcObject = null;
+      });
+      audioNodes.forEach((source) => source.disconnect());
+      void audioContext.close().catch(() => undefined);
+      canvasStream.getTracks().forEach((track) => track.stop());
+    };
+
+    return mixedStream;
+  }
+
   async function startRecording() {
-    if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
+    if (typeof MediaRecorder === "undefined") {
       setMediaError("Meeting recording is not available in this browser.");
       return;
     }
 
     try {
       setMediaError("");
-      const recordingStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
+      const recordingStream = buildMeetingRecordingStream();
       recordingStreamRef.current = recordingStream;
       recordingChunksRef.current = [];
 
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-        ? "video/webm;codecs=vp9,opus"
-        : "video/webm";
+      const mimeType = getRecordingMimeType();
       const recorder = new MediaRecorder(recordingStream, { mimeType });
       mediaRecorderRef.current = recorder;
 
@@ -1261,15 +1402,14 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
         anchor.click();
         URL.revokeObjectURL(url);
         recordingStream.getTracks().forEach((track) => track.stop());
+        recordingCleanupRef.current?.();
+        recordingCleanupRef.current = null;
         recordingStreamRef.current = null;
         mediaRecorderRef.current = null;
         recordingChunksRef.current = [];
         setIsRecording(false);
       };
 
-      recordingStream.getVideoTracks()[0]?.addEventListener("ended", () => {
-        stopRecording();
-      });
       recorder.start(1000);
       setIsRecording(true);
     } catch (recordingError) {
@@ -1286,6 +1426,8 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     }
 
     recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingCleanupRef.current?.();
+    recordingCleanupRef.current = null;
     recordingStreamRef.current = null;
     setIsRecording(false);
   }
@@ -1296,11 +1438,17 @@ export function InternalMeetingRoom({ roomCode }: { roomCode: string }) {
     setRemoteMedia([]);
     streamRef.current?.getTracks().forEach((track) => track.stop());
     screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingCleanupRef.current?.();
     streamRef.current = null;
     screenStreamRef.current = null;
+    recordingStreamRef.current = null;
+    recordingCleanupRef.current = null;
+    mediaRecorderRef.current = null;
     setCameraEnabled(false);
     setMicEnabled(false);
     setIsScreenSharing(false);
+    setIsRecording(false);
     setHasJoined(false);
     if (!isHost) {
       setJoinAccessStatus("idle");
