@@ -172,6 +172,8 @@ const allowedOrigins = Array.from(
       "http://localhost:3000",
       "http://localhost:51270",
       "http://localhost:51271",
+      "http://127.0.0.1:51270",
+      "http://127.0.0.1:51271",
       "https://werkly.in",
       "https://www.werkly.in",
       "https://admin.werkly.in",
