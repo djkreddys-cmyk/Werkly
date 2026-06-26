@@ -2027,10 +2027,22 @@ class JobCard extends StatelessWidget {
   }
 
   Widget inlineJobActions(BuildContext context) {
+    final compactStyle = OutlinedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      minimumSize: const Size(0, 40),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    final compactFilledStyle = FilledButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      minimumSize: const Size(0, 40),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+
     return Row(
       children: [
         Expanded(
           child: OutlinedButton.icon(
+            style: compactStyle,
             onPressed: () => showDetails(context),
             icon: const Icon(Icons.visibility_outlined, size: 18),
             label: const Text('Details'),
@@ -2039,6 +2051,7 @@ class JobCard extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: FilledButton.icon(
+            style: compactFilledStyle,
             onPressed: () => applyJob(context),
             icon: const Icon(Icons.touch_app_outlined, size: 18),
             label: const Text('Apply'),
@@ -2047,6 +2060,7 @@ class JobCard extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: OutlinedButton.icon(
+            style: compactStyle,
             onPressed: () => shareJob(context),
             icon: const Icon(Icons.share_outlined, size: 18),
             label: const Text('Share'),
@@ -2058,12 +2072,10 @@ class JobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final showInlineActions = constraints.maxWidth >= 400;
+    final showInlineActions = MediaQuery.sizeOf(context).width >= 400;
 
-        return CardPanel(
-          child: Column(
+    return CardPanel(
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -2110,8 +2122,6 @@ class JobCard extends StatelessWidget {
               ],
             ],
           ),
-        );
-      },
     );
   }
 }
