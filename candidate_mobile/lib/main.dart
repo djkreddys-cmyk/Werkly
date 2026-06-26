@@ -623,31 +623,51 @@ class _JobsScreenState extends State<JobsScreen> {
   }
 }
 
-class ResumeScreen extends StatelessWidget {
+class ResumeScreen extends StatefulWidget {
   const ResumeScreen({super.key, required this.candidateSession});
 
   final CandidateSession candidateSession;
 
   @override
+  State<ResumeScreen> createState() => _ResumeScreenState();
+}
+
+class _ResumeScreenState extends State<ResumeScreen> {
+  final savedResumeCategories = <String>{};
+
+  bool categoryComplete(String title) {
+    final session = widget.candidateSession;
+    if (savedResumeCategories.contains(title)) return true;
+    return switch (title) {
+      'Personal Information' => session.displayName != 'Candidate',
+      'Skills & Achievements' => session.skills.isNotEmpty,
+      'Experience' => session.profileText('experience', '').isNotEmpty,
+      'Education' => session.profileText('education', '').isNotEmpty,
+      _ => false,
+    };
+  }
+
+  void markSaved(String title) {
+    setState(() => savedResumeCategories.add(title));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final steps = [
-      ('Personal details', candidateSession.displayName != 'Candidate'),
-      ('Career summary', candidateSession.profileText('preferredRole', '').isNotEmpty),
-      ('Employment history', candidateSession.profileText('experience', '').isNotEmpty),
-      ('Education', candidateSession.profileText('education', '').isNotEmpty),
-      ('Skills', candidateSession.skills.isNotEmpty),
-      ('Preferences', candidateSession.profileText('expectedCtc', '').isNotEmpty),
-      ('Documents', candidateSession.profileText('resumeFileName', '').isNotEmpty),
-      ('Preview', true),
+    final session = widget.candidateSession;
+    final categories = [
+      'Personal Information',
+      'Skills & Achievements',
+      'Experience',
+      'Education',
     ];
 
     return ScreenFrame(
       eyebrow: 'Resume Builder',
       title: 'Build once, apply faster',
       children: [
-        ResumeProgressCard(session: candidateSession),
+        ResumeProgressCard(session: session),
         const ResumeBackendSyncCard(),
-        ResumeQualityScoreCard(session: candidateSession),
+        ResumeQualityScoreCard(session: session),
         CardPanel(
           child: Wrap(
             spacing: 8,
@@ -661,14 +681,15 @@ class ResumeScreen extends StatelessWidget {
             ],
           ),
         ),
-        ...steps.map(
-          (step) => ResumeStepTile(
-            title: step.$1,
-            complete: step.$2,
-            session: candidateSession,
+        ...categories.map(
+          (category) => ResumeStepTile(
+            title: category,
+            complete: categoryComplete(category),
+            session: session,
+            onSaved: () => markSaved(category),
           ),
         ),
-        ResumePreviewCard(session: candidateSession),
+        ResumePreviewCard(session: session),
         const ExportActionsCard(),
         const AiResumeCard(),
       ],
@@ -2200,39 +2221,90 @@ class ResumeStepTile extends StatelessWidget {
     required this.title,
     required this.complete,
     required this.session,
+    required this.onSaved,
   });
 
   final String title;
   final bool complete;
   final CandidateSession session;
+  final VoidCallback onSaved;
 
-  String get currentValue {
+  List<ResumeFieldSpec> get fields {
     return switch (title) {
-      'Personal details' => '${session.displayName}\n${session.email}',
-      'Career summary' => session.profileText('preferredRole', ''),
-      'Employment history' => session.profileText('experience', ''),
-      'Education' => session.profileText('education', ''),
-      'Skills' => session.skills.join(', '),
-      'Preferences' =>
-        'Expected CTC: ${session.profileText('expectedCtc', '')}\nNotice period: ${session.profileText('noticePeriod', '')}\nLocation: ${session.profileText('preferredLocation', '')}',
-      'Documents' => session.profileText('resumeFileName', ''),
-      _ => '',
+      'Personal Information' => [
+        ResumeFieldSpec('Full Name', session.displayName),
+        ResumeFieldSpec('Email', session.email),
+        ResumeFieldSpec('Phone', session.phone),
+        const ResumeFieldSpec('Alternative Number', ''),
+        ResumeFieldSpec('Location', session.profileText('currentLocation', '')),
+        const ResumeFieldSpec('LinkedIn', ''),
+        const ResumeFieldSpec('Portfolio', ''),
+        const ResumeFieldSpec('Address', ''),
+        const ResumeFieldSpec('Date of Birth', ''),
+        const ResumeFieldSpec('Nationality', ''),
+        const ResumeFieldSpec('Gender', ''),
+        const ResumeFieldSpec('Mother Tongue', ''),
+        const ResumeFieldSpec('Other Languages', ''),
+        ResumeFieldSpec('Years of Experience', session.profileText('experience', '')),
+        const ResumeFieldSpec('Certifications', ''),
+        ResumeFieldSpec('Candidate Photo', session.profileText('resumeFileName', '')),
+      ],
+      'Skills & Achievements' => [
+        ResumeFieldSpec('Core Skills', session.skills.join(', '), lines: 4),
+        const ResumeFieldSpec('Career Notes / Achievements', '', lines: 4),
+      ],
+      'Experience' => [
+        const ResumeFieldSpec('Company', ''),
+        ResumeFieldSpec('Title', session.profileText('preferredRole', '')),
+        ResumeFieldSpec('Location', session.profileText('currentLocation', '')),
+        const ResumeFieldSpec('Joined Month', ''),
+        const ResumeFieldSpec('Joined Year', ''),
+        const ResumeFieldSpec('Exit Month', ''),
+        const ResumeFieldSpec('Exit Year / Present', ''),
+        ResumeFieldSpec(
+          'Bullets, achievements, responsibilities, tools, impact',
+          session.profileText('experience', ''),
+          lines: 5,
+        ),
+      ],
+      'Education' => [
+        const ResumeFieldSpec('Institution', ''),
+        ResumeFieldSpec('Degree', session.profileText('education', '')),
+        const ResumeFieldSpec('Year', ''),
+      ],
+      _ => const [],
     };
   }
 
   void openEditor(BuildContext context) {
-    final controller = TextEditingController(text: currentValue);
+    final controllers = [
+      for (final field in fields) TextEditingController(text: field.value),
+    ];
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
         title: Text('${complete ? 'Edit' : 'Fill'} $title'),
-        content: TextField(
-          controller: controller,
-          minLines: 4,
-          maxLines: 8,
-          decoration: InputDecoration(
-            hintText: 'Enter $title details',
-            border: const OutlineInputBorder(),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < fields.length; i++) ...[
+                  TextField(
+                    controller: controllers[i],
+                    minLines: fields[i].lines,
+                    maxLines: fields[i].lines > 1 ? fields[i].lines + 2 : 1,
+                    decoration: InputDecoration(
+                      labelText: fields[i].label,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -2242,6 +2314,7 @@ class ResumeStepTile extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () {
+              onSaved();
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -2254,6 +2327,7 @@ class ResumeStepTile extends StatelessWidget {
             child: Text(complete ? 'Update' : 'Save'),
           ),
         ],
+      ),
       ),
     );
   }
@@ -2294,6 +2368,14 @@ class ResumeStepTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class ResumeFieldSpec {
+  const ResumeFieldSpec(this.label, this.value, {this.lines = 1});
+
+  final String label;
+  final String value;
+  final int lines;
 }
 
 class ResumePreviewCard extends StatelessWidget {
