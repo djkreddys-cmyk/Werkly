@@ -769,14 +769,24 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
       widget.onSessionChanged(session);
       setState(() => message = 'Connected to Railway backend.');
     } catch (error) {
-      setState(
-        () => message = error.toString().replaceFirst('Exception: ', ''),
-      );
+      setState(() => message = _friendlyAuthMessage(error));
     } finally {
       if (mounted) {
         setState(() => loading = false);
       }
     }
+  }
+
+  String _friendlyAuthMessage(Object error) {
+    final raw = error.toString().replaceFirst('Exception: ', '');
+    final lower = raw.toLowerCase();
+    if (lower.contains('failed to fetch') ||
+        lower.contains('connection refused') ||
+        lower.contains('xmlhttprequest error') ||
+        raw.contains(CandidateApi.baseUrl)) {
+      return 'Candidate backend is not connected. Please start Railway backend or set the live API URL.';
+    }
+    return raw;
   }
 
   @override
