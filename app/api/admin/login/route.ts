@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminLogin } from "@/lib/jobs";
+import { adminLogin, RailwayApiError } from "@/lib/jobs";
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to log in to Railway backend.";
-    return NextResponse.json({ message }, { status: 500 });
+    const status = error instanceof RailwayApiError ? error.status : 500;
+    return NextResponse.json({ message }, { status });
   }
 }

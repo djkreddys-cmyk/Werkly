@@ -407,7 +407,7 @@ export async function ensureJobsSchema() {
   );
   await query(
     `create unique index if not exists idx_candidate_accounts_phone_digits
-     on candidate_accounts(regexp_replace(coalesce(phone, ''), '\\D', '', 'g'))
+     on candidate_accounts(phone)
      where phone is not null and phone <> ''`
   );
   await query(`
@@ -1059,7 +1059,7 @@ export async function authenticateCandidate(identifier, password) {
     `select id, full_name, email, phone, password_hash, created_at, updated_at
      from candidate_accounts
      where lower(email) = $1
-        or regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = $2
+        or phone = $2
      limit 1`,
     [normalizedEmail, normalizedPhone]
   );

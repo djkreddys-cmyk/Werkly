@@ -235,6 +235,16 @@ type AuthClientContext = {
   clientUtcOffsetMinutes?: number;
 };
 
+export class RailwayApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "RailwayApiError";
+    this.status = status;
+  }
+}
+
 export type JobApplicationsResponse = {
   applications: JobApplication[];
 };
@@ -513,17 +523,25 @@ function normalizeJobDetail(job: Partial<JobDetail>): JobDetail {
 async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
   const baseUrl = getBaseUrl();
   if (!baseUrl) {
-    throw new Error("Railway API base URL is not configured.");
+    throw new RailwayApiError("Railway API base URL is not configured.", 500);
   }
 
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      cache: "no-store",
+    });
+  } catch {
+    throw new RailwayApiError(
+      "Railway backend is not responding on the configured domain. Check the Railway deployment and API base URL.",
+      502
+    );
+  }
 
   if (!response.ok) {
     const text = await response.text();
@@ -544,7 +562,7 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
         "Railway backend is not responding on the configured domain. Redeploy the backend service and verify the Railway public domain in Vercel.";
     }
 
-    throw new Error(message);
+    throw new RailwayApiError(message, response.status);
   }
 
   return response.json() as Promise<T>;
