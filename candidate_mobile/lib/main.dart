@@ -267,7 +267,7 @@ class AppTheme {
       bodyMedium: TextStyle(fontWeight: FontWeight.w400),
       bodyLarge: TextStyle(fontWeight: FontWeight.w400),
       titleMedium: TextStyle(fontWeight: FontWeight.w500),
-      titleLarge: TextStyle(fontWeight: FontWeight.w600),
+      titleLarge: TextStyle(fontWeight: FontWeight.w400),
     ),
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.brand,
@@ -285,7 +285,7 @@ class AppTheme {
       bodyMedium: TextStyle(fontWeight: FontWeight.w400),
       bodyLarge: TextStyle(fontWeight: FontWeight.w400),
       titleMedium: TextStyle(fontWeight: FontWeight.w500),
-      titleLarge: TextStyle(fontWeight: FontWeight.w600),
+      titleLarge: TextStyle(fontWeight: FontWeight.w400),
     ),
     colorScheme: ColorScheme.fromSeed(
       brightness: Brightness.dark,
@@ -420,38 +420,15 @@ class LoginLogoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 112,
-      alignment: Alignment.center,
+    return SizedBox(
+      height: 128,
       width: double.infinity,
-      child: Container(
-        height: 94,
-        width: 94,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.line),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.brandDark.withValues(alpha: 0.16),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: OverflowBox(
-          alignment: Alignment.centerLeft,
-          minWidth: 190,
-          maxWidth: 190,
-          child: Transform.translate(
-            offset: const Offset(8, 0),
-            child: Image.asset(
-              'assets/werkly_logo.png',
-              width: 190,
-              fit: BoxFit.contain,
-            ),
-          ),
+      child: Center(
+        child: Image.asset(
+          'assets/werkly_logo.png',
+          width: 126,
+          height: 126,
+          fit: BoxFit.contain,
         ),
       ),
     );
@@ -475,7 +452,7 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: AppColors.brand,
         child: Text(
           candidateSession.initials,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
         ),
       ),
       children: [
@@ -671,7 +648,6 @@ class ResumeScreen extends StatelessWidget {
         ResumeProgressCard(session: candidateSession),
         const ResumeBackendSyncCard(),
         ResumeQualityScoreCard(session: candidateSession),
-        ResumeWebsiteFlowCard(session: candidateSession),
         CardPanel(
           child: Wrap(
             spacing: 8,
@@ -685,7 +661,13 @@ class ResumeScreen extends StatelessWidget {
             ],
           ),
         ),
-        ...steps.map((step) => StepTile(title: step.$1, complete: step.$2)),
+        ...steps.map(
+          (step) => ResumeStepTile(
+            title: step.$1,
+            complete: step.$2,
+            session: candidateSession,
+          ),
+        ),
         ResumePreviewCard(session: candidateSession),
         const ExportActionsCard(),
         const AiResumeCard(),
@@ -829,7 +811,7 @@ class ScreenFrame extends StatelessWidget {
                         style: TextStyle(
                           color: colors.primary,
                           fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w400,
                           letterSpacing: 1.7,
                         ),
                       ),
@@ -840,7 +822,7 @@ class ScreenFrame extends StatelessWidget {
                           color: colors.onSurface,
                           fontSize: 25,
                           height: 1.08,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -1338,7 +1320,7 @@ class JobDetailCard extends StatelessWidget {
           SizedBox(height: 10),
           Text(
             'ERP Manager',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
           ),
           SizedBox(height: 6),
           Text(
@@ -1713,7 +1695,7 @@ class ProfileStrengthCard extends StatelessWidget {
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 38,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1979,6 +1961,12 @@ class JobCard extends StatelessWidget {
     );
   }
 
+  void applyJob(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Apply flow opened for $title')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return CardPanel(
@@ -1996,7 +1984,7 @@ class JobCard extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -2007,9 +1995,40 @@ class JobCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                saved ? Icons.bookmark : Icons.bookmark_border,
-                color: AppColors.accentStrong,
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                tooltip: 'Job actions',
+                onSelected: (value) {
+                  if (value == 'details') showDetails(context);
+                  if (value == 'apply') applyJob(context);
+                  if (value == 'share') shareJob(context);
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'details',
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(Icons.visibility_outlined),
+                      title: Text('Details'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'apply',
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(Icons.touch_app_outlined),
+                      title: Text('One-tap apply'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'share',
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(Icons.share_outlined),
+                      title: Text('Share'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -2026,34 +2045,6 @@ class JobCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           MatchReason(match: match, reason: reason),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => showDetails(context),
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: const Text('Details'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => showDetails(context),
-                  icon: const Icon(Icons.touch_app_outlined, size: 18),
-                  label: const Text('One-tap'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => shareJob(context),
-                  icon: const Icon(Icons.share_outlined, size: 18),
-                  label: const Text('Share'),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -2147,54 +2138,6 @@ class ResumeProgressCard extends StatelessWidget {
   }
 }
 
-class ResumeWebsiteFlowCard extends StatelessWidget {
-  const ResumeWebsiteFlowCard({super.key, required this.session});
-
-  final CandidateSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final role = session.profileText('preferredRole', 'Target role pending');
-    final location = session.profileText('preferredLocation', 'Location pending');
-    final ctc = session.profileText('expectedCtc', 'Expected CTC pending');
-
-    return CardPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const LabelText('Website resume builder flow'),
-          const SizedBox(height: 10),
-          MiniRow(
-            icon: Icons.account_circle_outlined,
-            title: 'Personal and contact details',
-            subtitle: '${session.displayName} / ${session.email}',
-          ),
-          MiniRow(
-            icon: Icons.work_history_outlined,
-            title: 'Professional summary',
-            subtitle: '$role / $location / $ctc',
-          ),
-          MiniRow(
-            icon: Icons.business_center_outlined,
-            title: 'Experience and achievements',
-            subtitle: session.profileText('experience', 'Add employment history and measurable outcomes'),
-          ),
-          MiniRow(
-            icon: Icons.school_outlined,
-            title: 'Education and certifications',
-            subtitle: session.profileText('education', 'Add qualification, certificates, and courses'),
-          ),
-          MiniRow(
-            icon: Icons.tune_outlined,
-            title: 'Skills and preferences',
-            subtitle: session.skills.isEmpty ? 'Add role skills, sector, notice period' : session.skills.join(', '),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class TemplateChip extends StatelessWidget {
   const TemplateChip({super.key, required this.label, required this.active});
 
@@ -2207,41 +2150,103 @@ class TemplateChip extends StatelessWidget {
   }
 }
 
-class StepTile extends StatelessWidget {
-  const StepTile({super.key, required this.title, required this.complete});
+class ResumeStepTile extends StatelessWidget {
+  const ResumeStepTile({
+    super.key,
+    required this.title,
+    required this.complete,
+    required this.session,
+  });
 
   final String title;
   final bool complete;
+  final CandidateSession session;
+
+  String get currentValue {
+    return switch (title) {
+      'Personal details' => '${session.displayName}\n${session.email}',
+      'Career summary' => session.profileText('preferredRole', ''),
+      'Employment history' => session.profileText('experience', ''),
+      'Education' => session.profileText('education', ''),
+      'Skills' => session.skills.join(', '),
+      'Preferences' =>
+        'Expected CTC: ${session.profileText('expectedCtc', '')}\nNotice period: ${session.profileText('noticePeriod', '')}\nLocation: ${session.profileText('preferredLocation', '')}',
+      'Documents' => session.profileText('resumeFileName', ''),
+      _ => '',
+    };
+  }
+
+  void openEditor(BuildContext context) {
+    final controller = TextEditingController(text: currentValue);
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${complete ? 'Edit' : 'Fill'} $title'),
+        content: TextField(
+          controller: controller,
+          minLines: 4,
+          maxLines: 8,
+          decoration: InputDecoration(
+            hintText: 'Enter $title details',
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '${complete ? 'Updated' : 'Saved'} $title draft',
+                  ),
+                ),
+              );
+            },
+            child: Text(complete ? 'Update' : 'Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return CardPanel(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: complete
-                ? Theme.of(context).colorScheme.primary
-                : AppColors.muted.withValues(alpha: 0.18),
-            child: Icon(
-              complete ? Icons.check : Icons.edit_outlined,
-              color: complete ? Colors.white : AppColors.muted,
-              size: 18,
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => openEditor(context),
+      child: CardPanel(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: complete
+                  ? Theme.of(context).colorScheme.primary
+                  : AppColors.muted.withValues(alpha: 0.18),
+              child: Icon(
+                complete ? Icons.check : Icons.edit_outlined,
+                color: complete ? Colors.white : AppColors.muted,
+                size: 18,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w400),
+              ),
             ),
-          ),
-          Text(
-            complete ? 'Done' : 'Open',
-            style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
-          ),
-        ],
+            TextButton(
+              onPressed: () => openEditor(context),
+              child: Text(complete ? 'Edit' : 'Fill'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2280,7 +2285,7 @@ class ResumePreviewCard extends StatelessWidget {
               children: [
                 Text(
                   session.displayName,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
                 ),
                 Text('$role / $location'),
                 const Divider(),
@@ -2408,7 +2413,7 @@ class NextActionCard extends StatelessWidget {
             style: TextStyle(
               color: Colors.white,
               fontSize: 19,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w400,
             ),
           ),
           SizedBox(height: 8),
@@ -2445,7 +2450,7 @@ class TimelineRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.w400),
             ),
           ),
           Text(
@@ -2482,7 +2487,7 @@ class ApplicationListTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.w400),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2561,7 +2566,7 @@ class CandidateSummaryCard extends StatelessWidget {
               session?.initials ?? 'WC',
               style: const TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -2572,7 +2577,7 @@ class CandidateSummaryCard extends StatelessWidget {
               children: [
                 Text(
                   session?.displayName ?? 'Candidate',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w400),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2614,7 +2619,7 @@ class ProfileSectionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.w400),
                 ),
               ),
               const Icon(Icons.chevron_right, color: AppColors.muted),
@@ -2879,7 +2884,7 @@ class FeatureCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.w400),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2922,7 +2927,7 @@ class SyncStatusCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.w400),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2965,7 +2970,7 @@ class MiniRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.w400),
                 ),
                 Text(
                   subtitle,
@@ -2998,7 +3003,7 @@ class StatTile extends StatelessWidget {
         children: [
           Text(
             value,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w400),
           ),
           const SizedBox(height: 4),
           Text(
@@ -3034,7 +3039,7 @@ class StatusPill extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 10.5,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );
@@ -3059,7 +3064,7 @@ class InfoPill extends StatelessWidget {
         style: TextStyle(
           color: Theme.of(context).colorScheme.primary,
           fontSize: 11.5,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );
@@ -3079,7 +3084,7 @@ class SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
           ),
         ),
         if (action != null)
@@ -3087,7 +3092,7 @@ class SectionHeader extends StatelessWidget {
             action!,
             style: TextStyle(
               color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w400,
             ),
           ),
       ],
@@ -3110,7 +3115,7 @@ class LabelText extends StatelessWidget {
             ? AppColors.accent
             : Theme.of(context).colorScheme.primary,
         fontSize: 10.5,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w400,
         letterSpacing: 1.7,
       ),
     );
@@ -3175,3 +3180,4 @@ class CardPanel extends StatelessWidget {
     );
   }
 }
+
