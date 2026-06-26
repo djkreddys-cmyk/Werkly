@@ -51,10 +51,56 @@ class CandidateSession {
   String get displayName =>
       (candidate['fullName'] ?? candidate['name'] ?? 'Candidate').toString();
   String get email => (candidate['email'] ?? '').toString();
+
+  String get phone => (candidate['phone'] ?? profile['phone'] ?? '').toString();
+  String get initials {
+    final parts = displayName
+        .split(RegExp(r'\s+'))
+        .where((part) => part.trim().isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'WC';
+    return parts.take(2).map((part) => part[0].toUpperCase()).join();
+  }
+
+  String profileText(String key, [String fallback = 'Pending']) {
+    final value = profile[key];
+    if (value == null) return fallback;
+    if (value is List) return value.where((item) => '$item'.trim().isNotEmpty).join(', ');
+    final text = value.toString().trim();
+    return text.isEmpty ? fallback : text;
+  }
+
+  List<String> get skills {
+    final value = profile['skills'];
+    if (value is List) {
+      return value.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList();
+    }
+    final text = value?.toString() ?? '';
+    return text.split(',').map((item) => item.trim()).where((item) => item.isNotEmpty).toList();
+  }
+
+  int get profileCompletion {
+    final live = int.tryParse('${profile['profileCompletion'] ?? ''}');
+    if (live != null && live > 0) return live.clamp(0, 100);
+    final checks = [
+      displayName != 'Candidate',
+      email.isNotEmpty || phone.isNotEmpty,
+      profileText('education', '').isNotEmpty,
+      profileText('experience', '').isNotEmpty,
+      skills.isNotEmpty,
+      profileText('preferredRole', '').isNotEmpty,
+      profileText('expectedCtc', '').isNotEmpty,
+      profileText('noticePeriod', '').isNotEmpty,
+      profileText('preferredLocation', '').isNotEmpty,
+      profileText('resumeFileName', '').isNotEmpty,
+    ];
+    return ((checks.where((done) => done).length / checks.length) * 100).round();
+  }
 }
 
 class CandidateJob {
   const CandidateJob({
+    required this.slug,
     required this.title,
     required this.sector,
     required this.location,
@@ -63,8 +109,14 @@ class CandidateJob {
     required this.type,
     required this.match,
     required this.reason,
+    required this.summary,
+    required this.description,
+    required this.responsibilities,
+    required this.requirements,
+    required this.deadline,
   });
 
+  final String slug;
   final String title;
   final String sector;
   final String location;
@@ -73,6 +125,11 @@ class CandidateJob {
   final String type;
   final String match;
   final String reason;
+  final String summary;
+  final String description;
+  final List<String> responsibilities;
+  final List<String> requirements;
+  final String deadline;
 
   factory CandidateJob.fromJson(Map<String, dynamic> json) {
     final skills = json['skills'] is List
@@ -84,6 +141,7 @@ class CandidateJob {
         .toString();
 
     return CandidateJob(
+      slug: (json['slug'] ?? json['id'] ?? '').toString(),
       title: (json['title'] ?? 'Werkly job').toString(),
       sector: sector,
       location: location,
@@ -94,6 +152,15 @@ class CandidateJob {
       reason: skills.isEmpty
           ? '$sector, $location, $salary'
           : skills.take(3).join(', '),
+      summary: (json['summary'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      responsibilities: json['responsibilities'] is List
+          ? (json['responsibilities'] as List).map((item) => item.toString()).toList()
+          : const [],
+      requirements: json['requirements'] is List
+          ? (json['requirements'] as List).map((item) => item.toString()).toList()
+          : const [],
+      deadline: (json['lastDateToApply'] ?? '').toString(),
     );
   }
 }
@@ -252,7 +319,7 @@ class _CandidateShellState extends State<CandidateShell> {
     final screens = [
       HomeScreen(candidateSession: widget.candidateSession!),
       const JobsScreen(),
-      const ResumeScreen(),
+      ResumeScreen(candidateSession: widget.candidateSession!),
       const ApplicationsScreen(),
       ProfileScreen(
         darkMode: widget.darkMode,
@@ -370,25 +437,33 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final preferredRole = candidateSession.profileText('preferredRole', 'Candidate');
+    final preferredLocation = candidateSession.profileText('preferredLocation', 'Location pending');
     return ScreenFrame(
       eyebrow: 'Werkly Candidate',
       title: 'Good morning, ${candidateSession.displayName}',
-      trailing: const CircleAvatar(
+      trailing: CircleAvatar(
         radius: 23,
         backgroundColor: AppColors.brand,
         child: Text(
-          'JR',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+          candidateSession.initials,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
       ),
-      children: const [
-        OnboardingFlowCard(),
-        ProfileStrengthCard(),
-        ProfileCompletionChecklistCard(),
-        MetricStrip(),
-        SectionHeader(title: 'Quick actions'),
-        QuickActionGrid(),
-        MessagesCard(),
+      children: [
+        OnboardingFlowCard(session: candidateSession),
+        ProfileStrengthCard(session: candidateSession),
+        ProfileCompletionChecklistCard(session: candidateSession),
+        MetricStrip(session: candidateSession),
+        const SectionHeader(title: 'Quick actions'),
+        const QuickActionGrid(),
+        CardPanel(
+          child: MiniRow(
+            icon: Icons.track_changes_outlined,
+            title: preferredRole,
+            subtitle: '$preferredLocation / ${candidateSession.profileCompletion}% profile complete',
+          ),
+        ),
       ],
     );
   }
@@ -447,6 +522,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
   List<CandidateJob> get fallbackJobs => const [
     CandidateJob(
+      slug: 'regional-sales-manager',
       title: 'Regional Sales Manager',
       sector: 'Building Materials / Non-IT',
       location: 'Hyderabad / AP',
@@ -455,8 +531,14 @@ class _JobsScreenState extends State<JobsScreen> {
       type: 'Full Time',
       match: '89% match',
       reason: 'Sales, regional network, salary range',
+      summary: 'Own regional sales growth, dealer relationships, and client follow-ups.',
+      description: 'Full-time regional role for experienced sales candidates.',
+      responsibilities: ['Manage regional pipeline', 'Build dealer network', 'Report sales progress'],
+      requirements: ['6+ years sales experience', 'Strong AP/Telangana market knowledge'],
+      deadline: 'Apply soon',
     ),
     CandidateJob(
+      slug: 'erp-manager',
       title: 'ERP Manager',
       sector: 'Education Technology / IT',
       location: 'Hyderabad',
@@ -465,6 +547,11 @@ class _JobsScreenState extends State<JobsScreen> {
       type: 'Full Time',
       match: '92% match',
       reason: 'ERP, stakeholder management, location',
+      summary: 'Lead ERP adoption, reporting, and process discipline.',
+      description: 'ERP operations role for candidates with implementation and MIS experience.',
+      responsibilities: ['Own ERP delivery', 'Coordinate stakeholders', 'Improve reporting'],
+      requirements: ['8+ years ERP experience', 'Process and reporting discipline'],
+      deadline: 'Apply soon',
     ),
   ];
 
@@ -515,10 +602,14 @@ class _JobsScreenState extends State<JobsScreen> {
             type: job.type,
             match: job.match,
             reason: job.reason,
+            summary: job.summary,
+            description: job.description,
+            responsibilities: job.responsibilities,
+            requirements: job.requirements,
+            deadline: job.deadline,
             saved: false,
           ),
         ),
-        const JobDetailCard(),
         const ApplyConfirmationCard(),
         const SavedJobsCard(),
         const ProfileMatchLogicCard(),
@@ -528,26 +619,31 @@ class _JobsScreenState extends State<JobsScreen> {
 }
 
 class ResumeScreen extends StatelessWidget {
-  const ResumeScreen({super.key});
+  const ResumeScreen({super.key, required this.candidateSession});
+
+  final CandidateSession candidateSession;
 
   @override
   Widget build(BuildContext context) {
     final steps = [
-      ('Personal details', true),
-      ('Education', true),
-      ('Experience', true),
-      ('Skills', true),
-      ('Preferred role', true),
-      ('Preview', false),
+      ('Personal details', candidateSession.displayName != 'Candidate'),
+      ('Career summary', candidateSession.profileText('preferredRole', '').isNotEmpty),
+      ('Employment history', candidateSession.profileText('experience', '').isNotEmpty),
+      ('Education', candidateSession.profileText('education', '').isNotEmpty),
+      ('Skills', candidateSession.skills.isNotEmpty),
+      ('Preferences', candidateSession.profileText('expectedCtc', '').isNotEmpty),
+      ('Documents', candidateSession.profileText('resumeFileName', '').isNotEmpty),
+      ('Preview', true),
     ];
 
     return ScreenFrame(
       eyebrow: 'Resume Builder',
       title: 'Build once, apply faster',
       children: [
-        const ResumeProgressCard(),
+        ResumeProgressCard(session: candidateSession),
         const ResumeBackendSyncCard(),
-        const ResumeQualityScoreCard(),
+        ResumeQualityScoreCard(session: candidateSession),
+        ResumeWebsiteFlowCard(session: candidateSession),
         CardPanel(
           child: Wrap(
             spacing: 8,
@@ -562,7 +658,7 @@ class ResumeScreen extends StatelessWidget {
           ),
         ),
         ...steps.map((step) => StepTile(title: step.$1, complete: step.$2)),
-        const ResumePreviewCard(),
+        ResumePreviewCard(session: candidateSession),
         const ExportActionsCard(),
         const AiResumeCard(),
       ],
@@ -616,39 +712,48 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final session = candidateSession;
     return ScreenFrame(
       eyebrow: 'Smart Profile',
       title: 'Your candidate profile',
       children: [
-        const CandidateSummaryCard(),
+        CandidateSummaryCard(session: session),
         ProfileBackendSyncCard(session: candidateSession),
-        const ProfileSectionCard(
+        ProfileSectionCard(
           title: 'Personal details',
           icon: Icons.person_outline,
-          items: ['Jaswanth Reddy', 'jaswanth@example.com', '+91 98765 43210'],
+          items: [
+            session?.displayName ?? 'Candidate',
+            session?.email ?? 'Email pending',
+            session?.phone.isEmpty == false ? session!.phone : 'Phone pending',
+          ],
         ),
-        const ProfileSectionCard(
+        ProfileSectionCard(
           title: 'Education',
           icon: Icons.school_outlined,
-          items: ['MBA Operations', 'B.Tech Computer Science'],
+          items: [session?.profileText('education', 'Education pending') ?? 'Education pending'],
         ),
-        const ProfileSectionCard(
+        ProfileSectionCard(
           title: 'Experience',
           icon: Icons.badge_outlined,
-          items: ['8+ years', 'ERP Manager', 'Current CTC 10 LPA'],
+          items: [
+            session?.profileText('experience', 'Experience pending') ?? 'Experience pending',
+            session?.profileText('preferredRole', 'Preferred role pending') ?? 'Preferred role pending',
+            session?.profileText('currentCtc', 'Current CTC pending') ?? 'Current CTC pending',
+          ],
         ),
-        const ProfileSectionCard(
+        ProfileSectionCard(
           title: 'Preferences',
           icon: Icons.tune_outlined,
           items: [
-            'Preferred role: ERP Manager',
-            'Expected CTC: 15 LPA',
-            'Notice period: 30 days',
-            'Location: Hyderabad',
+            'Preferred role: ${session?.profileText('preferredRole', 'Pending') ?? 'Pending'}',
+            'Expected CTC: ${session?.profileText('expectedCtc', 'Pending') ?? 'Pending'}',
+            'Notice period: ${session?.profileText('noticePeriod', 'Pending') ?? 'Pending'}',
+            'Location: ${session?.profileText('preferredLocation', 'Pending') ?? 'Pending'}',
           ],
         ),
-        const SkillsCard(),
-        const DocumentCenterCard(),
+        SkillsCard(session: session),
+        DocumentCenterCard(session: session),
         const DocumentUploadFlowCard(),
         const OfflineDraftCard(),
         const ShareCard(),
@@ -1088,28 +1193,38 @@ class ProfileBackendSyncCard extends StatelessWidget {
 }
 
 class OnboardingFlowCard extends StatelessWidget {
-  const OnboardingFlowCard({super.key});
+  const OnboardingFlowCard({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    final items = [
+      ('Personal info', session.displayName != 'Candidate'),
+      ('Experience', session.profileText('experience', '').isNotEmpty),
+      ('Skills', session.skills.isNotEmpty),
+      ('Preferred role', session.profileText('preferredRole', '').isNotEmpty),
+      ('Expected CTC', session.profileText('expectedCtc', '').isNotEmpty),
+      ('Notice period', session.profileText('noticePeriod', '').isNotEmpty),
+      ('Location', session.profileText('preferredLocation', '').isNotEmpty),
+    ];
+
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LabelText('Candidate onboarding'),
-          SizedBox(height: 10),
+          const LabelText('Candidate onboarding'),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              InfoPill('Personal info'),
-              InfoPill('Experience'),
-              InfoPill('Skills'),
-              InfoPill('Preferred role'),
-              InfoPill('Expected CTC'),
-              InfoPill('Notice period'),
-              InfoPill('Location'),
-            ],
+            children: items
+                .map(
+                  (item) => InfoPill(
+                    item.$2 ? '${item.$1} done' : item.$1,
+                  ),
+                )
+                .toList(),
           ),
         ],
       ),
@@ -1118,40 +1233,49 @@ class OnboardingFlowCard extends StatelessWidget {
 }
 
 class ProfileCompletionChecklistCard extends StatelessWidget {
-  const ProfileCompletionChecklistCard({super.key});
+  const ProfileCompletionChecklistCard({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    final checks = [
+      (
+        Icons.description_outlined,
+        'Resume ${session.profileText('resumeFileName', '').isEmpty ? 'pending' : 'added'}',
+        session.profileText('resumeFileName', 'Upload existing resume or build one')
+      ),
+      (
+        Icons.school_outlined,
+        'Education ${session.profileText('education', '').isEmpty ? 'pending' : 'added'}',
+        session.profileText('education', 'Add latest qualification details')
+      ),
+      (
+        Icons.workspace_premium_outlined,
+        'Skills ${session.skills.isEmpty ? 'pending' : 'added'}',
+        session.skills.isEmpty ? 'Add role skills' : session.skills.take(3).join(', ')
+      ),
+      (
+        Icons.payments_outlined,
+        'Expected CTC ${session.profileText('expectedCtc', '').isEmpty ? 'pending' : 'added'}',
+        session.profileText('expectedCtc', 'Add expected CTC')
+      ),
+      (
+        Icons.place_outlined,
+        'Preferred location ${session.profileText('preferredLocation', '').isEmpty ? 'pending' : 'added'}',
+        session.profileText('preferredLocation', 'Add preferred location')
+      ),
+    ];
+    final done = checks.where((item) => !item.$2.contains('pending')).length;
+
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: 'Profile checklist', action: '5/8 done'),
-          SizedBox(height: 10),
-          MiniRow(
-            icon: Icons.check_circle_outline,
-            title: 'Resume added',
-            subtitle: 'Jaswanth_Reddy_Resume.pdf',
-          ),
-          MiniRow(
-            icon: Icons.school_outlined,
-            title: 'Education pending',
-            subtitle: 'Add latest qualification details',
-          ),
-          MiniRow(
-            icon: Icons.workspace_premium_outlined,
-            title: 'Skills added',
-            subtitle: 'ERP, operations, reporting',
-          ),
-          MiniRow(
-            icon: Icons.folder_outlined,
-            title: 'Documents pending',
-            subtitle: 'Upload ID proof and certificates',
-          ),
-          MiniRow(
-            icon: Icons.place_outlined,
-            title: 'Preferred location added',
-            subtitle: 'Hyderabad',
+          SectionHeader(title: 'Profile checklist', action: '$done/${checks.length} done'),
+          const SizedBox(height: 10),
+          ...checks.map(
+            (item) => MiniRow(icon: item.$1, title: item.$2, subtitle: item.$3),
           ),
         ],
       ),
@@ -1283,24 +1407,27 @@ class ProfileMatchLogicCard extends StatelessWidget {
 }
 
 class ResumeQualityScoreCard extends StatelessWidget {
-  const ResumeQualityScoreCard({super.key});
+  const ResumeQualityScoreCard({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    final score = session.profileCompletion.clamp(0, 100);
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: 'Resume quality score', action: '82%'),
-          SizedBox(height: 10),
-          ProgressBar(value: 0.82),
-          SizedBox(height: 10),
-          MiniRow(
+          SectionHeader(title: 'Resume quality score', action: '$score%'),
+          const SizedBox(height: 10),
+          ProgressBar(value: score / 100),
+          const SizedBox(height: 10),
+          const MiniRow(
             icon: Icons.subject_outlined,
             title: 'Summary',
             subtitle: 'Add stronger target-role keywords',
           ),
-          MiniRow(
+          const MiniRow(
             icon: Icons.insights_outlined,
             title: 'Metrics',
             subtitle: 'Add measurable achievements',
@@ -1308,7 +1435,7 @@ class ResumeQualityScoreCard extends StatelessWidget {
           MiniRow(
             icon: Icons.workspace_premium_outlined,
             title: 'Skills',
-            subtitle: 'Add tools and certifications',
+            subtitle: session.skills.isEmpty ? 'Add tools and certifications' : session.skills.take(4).join(', '),
           ),
         ],
       ),
@@ -1521,10 +1648,24 @@ class HelpSupportCard extends StatelessWidget {
 }
 
 class ProfileStrengthCard extends StatelessWidget {
-  const ProfileStrengthCard({super.key});
+  const ProfileStrengthCard({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
+    final completion = session.profileCompletion.clamp(0, 100);
+    final missing = <String>[
+      if (session.profileText('resumeFileName', '').isEmpty) 'resume',
+      if (session.profileText('education', '').isEmpty) 'education',
+      if (session.skills.isEmpty) 'skills',
+      if (session.profileText('expectedCtc', '').isEmpty) 'expected CTC',
+      if (session.profileText('noticePeriod', '').isEmpty) 'notice period',
+    ];
+    final hint = missing.isEmpty
+        ? 'Profile is ready for matching and one-tap apply.'
+        : 'Add ${missing.take(2).join(' and ')} to improve matches.';
+
     return CardPanel(
       color: AppColors.brand,
       child: Column(
@@ -1538,19 +1679,19 @@ class ProfileStrengthCard extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
-                      '84%',
-                      style: TextStyle(
+                      '$completion%',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 38,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Add certificates and video intro to improve matches.',
-                      style: TextStyle(color: Colors.white70, height: 1.4),
+                      hint,
+                      style: const TextStyle(color: Colors.white70, height: 1.4),
                     ),
                   ],
                 ),
@@ -1566,7 +1707,7 @@ class ProfileStrengthCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const ProgressBar(value: 0.84, onDark: true),
+          ProgressBar(value: completion / 100, onDark: true),
         ],
       ),
     );
@@ -1574,22 +1715,33 @@ class ProfileStrengthCard extends StatelessWidget {
 }
 
 class MetricStrip extends StatelessWidget {
-  const MetricStrip({super.key});
+  const MetricStrip({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
         Expanded(
-          child: StatTile(value: '12', label: 'Saved'),
+          child: StatTile(
+            value: session.profileText('resumeFileName', '').isEmpty ? '0' : '1',
+            label: 'Resumes',
+          ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
-          child: StatTile(value: '4', label: 'Applied'),
+          child: StatTile(
+            value: session.skills.length.toString(),
+            label: 'Skills',
+          ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
-          child: StatTile(value: '2', label: 'Interviews'),
+          child: StatTile(
+            value: '${session.profileCompletion}%',
+            label: 'Profile',
+          ),
         ),
       ],
     );
@@ -1696,6 +1848,11 @@ class JobCard extends StatelessWidget {
     required this.type,
     required this.match,
     required this.reason,
+    required this.summary,
+    required this.description,
+    required this.responsibilities,
+    required this.requirements,
+    required this.deadline,
     required this.saved,
   });
 
@@ -1707,7 +1864,86 @@ class JobCard extends StatelessWidget {
   final String type;
   final String match;
   final String reason;
+  final String summary;
+  final String description;
+  final List<String> responsibilities;
+  final List<String> requirements;
+  final String deadline;
   final bool saved;
+
+  void showDetails(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$sector / $location', style: const TextStyle(color: AppColors.muted)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  InfoPill(salary),
+                  InfoPill(experience),
+                  InfoPill(type),
+                  if (deadline.isNotEmpty) InfoPill('Deadline: $deadline'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                summary.isEmpty ? description : summary,
+                style: const TextStyle(height: 1.35),
+              ),
+              const SizedBox(height: 12),
+              if (responsibilities.isNotEmpty) ...[
+                const LabelText('Responsibilities'),
+                const SizedBox(height: 6),
+                ...responsibilities.take(4).map(
+                      (item) => MiniRow(
+                        icon: Icons.task_alt_outlined,
+                        title: item,
+                        subtitle: '',
+                      ),
+                    ),
+              ],
+              if (requirements.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const LabelText('Requirements'),
+                const SizedBox(height: 6),
+                ...requirements.take(4).map(
+                      (item) => MiniRow(
+                        icon: Icons.rule_outlined,
+                        title: item,
+                        subtitle: '',
+                      ),
+                    ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close details'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Apply flow opened for $title')),
+              );
+            },
+            icon: const Icon(Icons.touch_app_outlined, size: 18),
+            label: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1755,21 +1991,21 @@ class JobCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          MatchReason(match: match, reason: reason),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.share_outlined, size: 18),
-                  label: const Text('Share'),
+        MatchReason(match: match, reason: reason),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                  onPressed: () => showDetails(context),
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  label: const Text('Details'),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () {},
+                  onPressed: () => showDetails(context),
                   icon: const Icon(Icons.touch_app_outlined, size: 18),
                   label: const Text('One-tap apply'),
                 ),
@@ -1843,19 +2079,74 @@ class SavedJobsCard extends StatelessWidget {
 }
 
 class ResumeProgressCard extends StatelessWidget {
-  const ResumeProgressCard({super.key});
+  const ResumeProgressCard({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    final completion = session.profileCompletion.clamp(0, 100);
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: 'Resume completion', action: '80%'),
-          SizedBox(height: 10),
-          ProgressBar(value: 0.8),
-          SizedBox(height: 10),
-          Text('Upload existing resume or continue step-by-step builder.'),
+          SectionHeader(title: 'Resume completion', action: '$completion%'),
+          const SizedBox(height: 10),
+          ProgressBar(value: completion / 100),
+          const SizedBox(height: 10),
+          Text(
+            session.profileText('resumeFileName', '').isEmpty
+                ? 'Upload existing resume or continue step-by-step builder.'
+                : '${session.profileText('resumeFileName')} is linked to this profile.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ResumeWebsiteFlowCard extends StatelessWidget {
+  const ResumeWebsiteFlowCard({super.key, required this.session});
+
+  final CandidateSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = session.profileText('preferredRole', 'Target role pending');
+    final location = session.profileText('preferredLocation', 'Location pending');
+    final ctc = session.profileText('expectedCtc', 'Expected CTC pending');
+
+    return CardPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const LabelText('Website resume builder flow'),
+          const SizedBox(height: 10),
+          MiniRow(
+            icon: Icons.account_circle_outlined,
+            title: 'Personal and contact details',
+            subtitle: '${session.displayName} / ${session.email}',
+          ),
+          MiniRow(
+            icon: Icons.work_history_outlined,
+            title: 'Professional summary',
+            subtitle: '$role / $location / $ctc',
+          ),
+          MiniRow(
+            icon: Icons.business_center_outlined,
+            title: 'Experience and achievements',
+            subtitle: session.profileText('experience', 'Add employment history and measurable outcomes'),
+          ),
+          MiniRow(
+            icon: Icons.school_outlined,
+            title: 'Education and certifications',
+            subtitle: session.profileText('education', 'Add qualification, certificates, and courses'),
+          ),
+          MiniRow(
+            icon: Icons.tune_outlined,
+            title: 'Skills and preferences',
+            subtitle: session.skills.isEmpty ? 'Add role skills, sector, notice period' : session.skills.join(', '),
+          ),
         ],
       ),
     );
@@ -1915,10 +2206,18 @@ class StepTile extends StatelessWidget {
 }
 
 class ResumePreviewCard extends StatelessWidget {
-  const ResumePreviewCard({super.key});
+  const ResumePreviewCard({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
+    final role = session.profileText('preferredRole', 'Preferred role pending');
+    final location = session.profileText('preferredLocation', 'Preferred location pending');
+    final skills = session.skills.isEmpty
+        ? 'Add skills to improve resume quality'
+        : session.skills.take(4).join(', ');
+
     return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1934,20 +2233,20 @@ class ResumePreviewCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.line),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Jaswanth Reddy',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  session.displayName,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
-                Text('ERP Manager / Hyderabad'),
-                Divider(),
-                Text('ERP operations, stakeholder management, MIS reporting'),
-                Spacer(),
+                Text('$role / $location'),
+                const Divider(),
+                Text(skills),
+                const Spacer(),
                 Text(
-                  'Experience / Education / Skills',
-                  style: TextStyle(color: AppColors.muted),
+                  '${session.profileText('experience', 'Experience pending')} / ${session.profileText('education', 'Education pending')}',
+                  style: const TextStyle(color: AppColors.muted),
                 ),
               ],
             ),
@@ -2203,19 +2502,22 @@ class RoadmapCard extends StatelessWidget {
 }
 
 class CandidateSummaryCard extends StatelessWidget {
-  const CandidateSummaryCard({super.key});
+  const CandidateSummaryCard({super.key, required this.session});
+
+  final CandidateSession? session;
 
   @override
   Widget build(BuildContext context) {
+    final completion = session?.profileCompletion ?? 0;
     return CardPanel(
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 30,
             backgroundColor: AppColors.brand,
             child: Text(
-              'JR',
-              style: TextStyle(
+              session?.initials ?? 'WC',
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
               ),
@@ -2225,20 +2527,20 @@ class CandidateSummaryCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'Jaswanth Reddy',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  session?.displayName ?? 'Candidate',
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'ERP Manager / Hyderabad',
-                  style: TextStyle(color: AppColors.muted),
+                  '${session?.profileText('preferredRole', 'Preferred role pending') ?? 'Preferred role pending'} / ${session?.profileText('preferredLocation', 'Location pending') ?? 'Location pending'}',
+                  style: const TextStyle(color: AppColors.muted),
                 ),
               ],
             ),
           ),
-          const StatusPill(label: '84%', color: AppColors.brand),
+          StatusPill(label: '$completion%', color: AppColors.brand),
         ],
       ),
     );
@@ -2290,25 +2592,25 @@ class ProfileSectionCard extends StatelessWidget {
 }
 
 class SkillsCard extends StatelessWidget {
-  const SkillsCard({super.key});
+  const SkillsCard({super.key, required this.session});
+
+  final CandidateSession? session;
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    final skills = session?.skills ?? const <String>[];
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LabelText('Skills'),
-          SizedBox(height: 10),
+          const LabelText('Skills'),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              InfoPill('ERP'),
-              InfoPill('Stakeholder Management'),
-              InfoPill('Operations'),
-              InfoPill('MIS Reporting'),
-            ],
+            children: (skills.isEmpty ? ['Add skills'] : skills)
+                .map((skill) => InfoPill(skill))
+                .toList(),
           ),
         ],
       ),
@@ -2317,32 +2619,34 @@ class SkillsCard extends StatelessWidget {
 }
 
 class DocumentCenterCard extends StatelessWidget {
-  const DocumentCenterCard({super.key});
+  const DocumentCenterCard({super.key, required this.session});
+
+  final CandidateSession? session;
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LabelText('Document center'),
-          SizedBox(height: 10),
+          const LabelText('Document center'),
+          const SizedBox(height: 10),
           MiniRow(
             icon: Icons.description_outlined,
             title: 'Resume',
-            subtitle: 'Jaswanth_Reddy_Resume.pdf',
+            subtitle: session?.profileText('resumeFileName', 'Resume pending') ?? 'Resume pending',
           ),
-          MiniRow(
+          const MiniRow(
             icon: Icons.workspace_premium_outlined,
             title: 'Certificates',
-            subtitle: '2 files uploaded',
+            subtitle: 'Upload certificates',
           ),
-          MiniRow(
+          const MiniRow(
             icon: Icons.badge_outlined,
             title: 'ID proof',
-            subtitle: 'Aadhaar / PAN placeholder',
+            subtitle: 'Upload ID proof',
           ),
-          MiniRow(
+          const MiniRow(
             icon: Icons.assignment_turned_in_outlined,
             title: 'Offer & experience letters',
             subtitle: 'Store past employment docs',
