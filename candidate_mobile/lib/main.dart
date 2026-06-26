@@ -262,6 +262,13 @@ class AppTheme {
   static ThemeData get light => ThemeData(
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.paper,
+    fontFamily: 'Roboto',
+    textTheme: const TextTheme(
+      bodyMedium: TextStyle(fontWeight: FontWeight.w400),
+      bodyLarge: TextStyle(fontWeight: FontWeight.w400),
+      titleMedium: TextStyle(fontWeight: FontWeight.w500),
+      titleLarge: TextStyle(fontWeight: FontWeight.w600),
+    ),
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.brand,
       primary: AppColors.brand,
@@ -273,6 +280,13 @@ class AppTheme {
   static ThemeData get dark => ThemeData(
     useMaterial3: true,
     scaffoldBackgroundColor: const Color(0xFF0D181B),
+    fontFamily: 'Roboto',
+    textTheme: const TextTheme(
+      bodyMedium: TextStyle(fontWeight: FontWeight.w400),
+      bodyLarge: TextStyle(fontWeight: FontWeight.w400),
+      titleMedium: TextStyle(fontWeight: FontWeight.w500),
+      titleLarge: TextStyle(fontWeight: FontWeight.w600),
+    ),
     colorScheme: ColorScheme.fromSeed(
       brightness: Brightness.dark,
       seedColor: AppColors.brand,
@@ -375,22 +389,28 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate.fixed([
-              const LoginLogoPanel(),
-              const SizedBox(height: 18),
-              CandidateLoginCard(
-                session: null,
-                onSessionChanged: onCandidateSessionChanged,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const LoginLogoPanel(),
+                  const SizedBox(height: 18),
+                  CandidateLoginCard(
+                    session: null,
+                    onSessionChanged: onCandidateSessionChanged,
+                  ),
+                ],
               ),
-            ]),
+            ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -401,29 +421,37 @@ class LoginLogoPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 150,
+      height: 112,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.brand,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.brandDark.withValues(alpha: 0.18),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
+      width: double.infinity,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+        height: 94,
+        width: 94,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.line),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.brandDark.withValues(alpha: 0.16),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-        child: Image.asset(
-          'assets/werkly_logo.png',
-          width: 190,
-          fit: BoxFit.contain,
+        child: OverflowBox(
+          alignment: Alignment.centerLeft,
+          minWidth: 190,
+          maxWidth: 190,
+          child: Transform.translate(
+            offset: const Offset(8, 0),
+            child: Image.asset(
+              'assets/werkly_logo.png',
+              width: 190,
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
       ),
     );
@@ -447,7 +475,7 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: AppColors.brand,
         child: Text(
           candidateSession.initials,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
       children: [
@@ -801,7 +829,7 @@ class ScreenFrame extends StatelessWidget {
                         style: TextStyle(
                           color: colors.primary,
                           fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 1.7,
                         ),
                       ),
@@ -812,7 +840,7 @@ class ScreenFrame extends StatelessWidget {
                           color: colors.onSurface,
                           fontSize: 25,
                           height: 1.08,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -1010,7 +1038,7 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
                 color: message.contains('Connected')
                     ? AppColors.brand
                     : AppColors.accentStrong,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -1310,7 +1338,7 @@ class JobDetailCard extends StatelessWidget {
           SizedBox(height: 10),
           Text(
             'ERP Manager',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           SizedBox(height: 6),
           Text(
@@ -1370,7 +1398,7 @@ class ApplyConfirmationCard extends StatelessWidget {
           SizedBox(height: 8),
           Text(
             'Confirm profile and resume before one-tap apply.',
-            style: TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -1685,7 +1713,7 @@ class ProfileStrengthCard extends StatelessWidget {
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 38,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1781,7 +1809,7 @@ class QuickActionGrid extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 13,
                       height: 1.2,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -1945,6 +1973,12 @@ class JobCard extends StatelessWidget {
     );
   }
 
+  void shareJob(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Share ready for $title')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return CardPanel(
@@ -1962,7 +1996,7 @@ class JobCard extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1991,12 +2025,12 @@ class JobCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-        MatchReason(match: match, reason: reason),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
+          MatchReason(match: match, reason: reason),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
                   onPressed: () => showDetails(context),
                   icon: const Icon(Icons.visibility_outlined, size: 18),
                   label: const Text('Details'),
@@ -2007,7 +2041,15 @@ class JobCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: () => showDetails(context),
                   icon: const Icon(Icons.touch_app_outlined, size: 18),
-                  label: const Text('One-tap apply'),
+                  label: const Text('One-tap'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => shareJob(context),
+                  icon: const Icon(Icons.share_outlined, size: 18),
+                  label: const Text('Share'),
                 ),
               ),
             ],
@@ -2041,7 +2083,7 @@ class MatchReason extends StatelessWidget {
               reason,
               style: const TextStyle(
                 fontSize: 11.5,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -2192,7 +2234,7 @@ class StepTile extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w800),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
           Text(
@@ -2238,7 +2280,7 @@ class ResumePreviewCard extends StatelessWidget {
               children: [
                 Text(
                   session.displayName,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 Text('$role / $location'),
                 const Divider(),
@@ -2366,7 +2408,7 @@ class NextActionCard extends StatelessWidget {
             style: TextStyle(
               color: Colors.white,
               fontSize: 19,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
           SizedBox(height: 8),
@@ -2403,7 +2445,7 @@ class TimelineRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.w800),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
           Text(
@@ -2440,7 +2482,7 @@ class ApplicationListTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2519,7 +2561,7 @@ class CandidateSummaryCard extends StatelessWidget {
               session?.initials ?? 'WC',
               style: const TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -2530,7 +2572,7 @@ class CandidateSummaryCard extends StatelessWidget {
               children: [
                 Text(
                   session?.displayName ?? 'Candidate',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2572,7 +2614,7 @@ class ProfileSectionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
               const Icon(Icons.chevron_right, color: AppColors.muted),
@@ -2837,7 +2879,7 @@ class FeatureCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2880,7 +2922,7 @@ class SyncStatusCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2923,7 +2965,7 @@ class MiniRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
                   subtitle,
@@ -2956,7 +2998,7 @@ class StatTile extends StatelessWidget {
         children: [
           Text(
             value,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
@@ -2964,7 +3006,7 @@ class StatTile extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11.5,
               color: AppColors.muted,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -2992,7 +3034,7 @@ class StatusPill extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 10.5,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -3017,7 +3059,7 @@ class InfoPill extends StatelessWidget {
         style: TextStyle(
           color: Theme.of(context).colorScheme.primary,
           fontSize: 11.5,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -3037,7 +3079,7 @@ class SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         if (action != null)
@@ -3045,7 +3087,7 @@ class SectionHeader extends StatelessWidget {
             action!,
             style: TextStyle(
               color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
       ],
@@ -3068,7 +3110,7 @@ class LabelText extends StatelessWidget {
             ? AppColors.accent
             : Theme.of(context).colorScheme.primary,
         fontSize: 10.5,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w600,
         letterSpacing: 1.7,
       ),
     );
