@@ -53,6 +53,51 @@ class CandidateSession {
   String get email => (candidate['email'] ?? '').toString();
 }
 
+class CandidateJob {
+  const CandidateJob({
+    required this.title,
+    required this.sector,
+    required this.location,
+    required this.salary,
+    required this.experience,
+    required this.type,
+    required this.match,
+    required this.reason,
+  });
+
+  final String title;
+  final String sector;
+  final String location;
+  final String salary;
+  final String experience;
+  final String type;
+  final String match;
+  final String reason;
+
+  factory CandidateJob.fromJson(Map<String, dynamic> json) {
+    final skills = json['skills'] is List
+        ? (json['skills'] as List).map((item) => item.toString()).toList()
+        : <String>[];
+    final sector = (json['sector'] ?? 'Werkly verified role').toString();
+    final location = (json['location'] ?? 'Location flexible').toString();
+    final salary = (json['packagePerAnnum'] ?? json['salary'] ?? 'As per role')
+        .toString();
+
+    return CandidateJob(
+      title: (json['title'] ?? 'Werkly job').toString(),
+      sector: sector,
+      location: location,
+      salary: salary,
+      experience: (json['experience'] ?? 'Relevant experience').toString(),
+      type: (json['employmentType'] ?? 'Full Time').toString(),
+      match: 'Live',
+      reason: skills.isEmpty
+          ? '$sector, $location, $salary'
+          : skills.take(3).join(', '),
+    );
+  }
+}
+
 class CandidateApi {
   static const baseUrl = String.fromEnvironment(
     'WERKLY_API_BASE_URL',
@@ -100,6 +145,16 @@ class CandidateApi {
       headers: {'Authorization': 'Bearer $token'},
     );
     return _readJson(response);
+  }
+
+  static Future<List<CandidateJob>> loadJobs() async {
+    final response = await http.get(Uri.parse('$baseUrl/jobs'));
+    final data = _readJson(response);
+    final jobs = data['jobs'] is List ? data['jobs'] as List : const [];
+    return jobs
+        .whereType<Map>()
+        .map((job) => CandidateJob.fromJson(Map<String, dynamic>.from(job)))
+        .toList();
   }
 
   static CandidateSession _readSession(http.Response response) {
@@ -184,17 +239,26 @@ class _CandidateShellState extends State<CandidateShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.candidateSession == null) {
+      return Scaffold(
+        body: SafeArea(
+          child: LoginScreen(
+            onCandidateSessionChanged: widget.onCandidateSessionChanged,
+          ),
+        ),
+      );
+    }
+
     final screens = [
-      HomeScreen(
-        darkMode: widget.darkMode,
-        candidateSession: widget.candidateSession,
-        onDarkModeChanged: widget.onDarkModeChanged,
-        onCandidateSessionChanged: widget.onCandidateSessionChanged,
-      ),
+      HomeScreen(candidateSession: widget.candidateSession!),
       const JobsScreen(),
       const ResumeScreen(),
       const ApplicationsScreen(),
-      ProfileScreen(candidateSession: widget.candidateSession),
+      ProfileScreen(
+        darkMode: widget.darkMode,
+        candidateSession: widget.candidateSession,
+        onDarkModeChanged: widget.onDarkModeChanged,
+      ),
     ];
 
     return Scaffold(
@@ -234,65 +298,63 @@ class _CandidateShellState extends State<CandidateShell> {
   }
 }
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({
     super.key,
-    required this.darkMode,
-    required this.candidateSession,
-    required this.onDarkModeChanged,
     required this.onCandidateSessionChanged,
   });
 
-  final bool darkMode;
-  final CandidateSession? candidateSession;
-  final ValueChanged<bool> onDarkModeChanged;
   final ValueChanged<CandidateSession?> onCandidateSessionChanged;
 
   @override
   Widget build(BuildContext context) {
     return ScreenFrame(
       eyebrow: 'Werkly Candidate',
-      title: 'Good morning, Jaswanth',
+      title: 'Sign in to continue',
       trailing: const CircleAvatar(
         radius: 23,
         backgroundColor: AppColors.brand,
         child: Text(
-          'PR',
+          'JR',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
       ),
       children: [
         CandidateLoginCard(
-          session: candidateSession,
+          session: null,
           onSessionChanged: onCandidateSessionChanged,
         ),
-        const MobileEnhancementRoadmapCard(),
-        const OnboardingFlowCard(),
-        const ProfileStrengthCard(),
-        const ProfileCompletionChecklistCard(),
-        const MetricStrip(),
-        const SectionHeader(title: 'Quick actions'),
-        const QuickActionGrid(),
-        const SectionHeader(title: 'Recommended jobs', action: 'View all'),
-        const JobCard(
-          title: 'ERP Manager',
-          sector: 'Education Technology',
-          location: 'Hyderabad',
-          salary: '12 - 18 LPA',
-          experience: '8+ years',
-          type: 'Full Time',
-          match: '92% match',
-          reason: 'ERP, operations, Hyderabad preference',
-          saved: true,
+      ],
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key, required this.candidateSession});
+
+  final CandidateSession candidateSession;
+
+  @override
+  Widget build(BuildContext context) {
+    return ScreenFrame(
+      eyebrow: 'Werkly Candidate',
+      title: 'Good morning, ${candidateSession.displayName}',
+      trailing: const CircleAvatar(
+        radius: 23,
+        backgroundColor: AppColors.brand,
+        child: Text(
+          'JR',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
-        const InterviewAlertCard(),
-        const NotificationsCenterCard(),
-        const MessagesCard(),
-        SettingsPreviewCard(
-          darkMode: darkMode,
-          onDarkModeChanged: onDarkModeChanged,
-        ),
-        const HelpSupportCard(),
+      ),
+      children: const [
+        OnboardingFlowCard(),
+        ProfileStrengthCard(),
+        ProfileCompletionChecklistCard(),
+        MetricStrip(),
+        SectionHeader(title: 'Quick actions'),
+        QuickActionGrid(),
+        MessagesCard(),
       ],
     );
   }
@@ -307,6 +369,9 @@ class JobsScreen extends StatefulWidget {
 
 class _JobsScreenState extends State<JobsScreen> {
   String selectedFilter = 'All';
+  bool loadingJobs = true;
+  String jobsError = '';
+  List<CandidateJob> liveJobs = const [];
   final filters = [
     'All',
     'IT',
@@ -319,13 +384,65 @@ class _JobsScreenState extends State<JobsScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    loadLiveJobs();
+  }
+
+  Future<void> loadLiveJobs() async {
+    setState(() {
+      loadingJobs = true;
+      jobsError = '';
+    });
+
+    try {
+      final jobs = await CandidateApi.loadJobs();
+      if (!mounted) return;
+      setState(() => liveJobs = jobs);
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => jobsError = error.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => loadingJobs = false);
+      }
+    }
+  }
+
+  List<CandidateJob> get fallbackJobs => const [
+    CandidateJob(
+      title: 'Regional Sales Manager',
+      sector: 'Building Materials / Non-IT',
+      location: 'Hyderabad / AP',
+      salary: '10 - 14 LPA',
+      experience: '6+ years',
+      type: 'Full Time',
+      match: '89% match',
+      reason: 'Sales, regional network, salary range',
+    ),
+    CandidateJob(
+      title: 'ERP Manager',
+      sector: 'Education Technology / IT',
+      location: 'Hyderabad',
+      salary: '12 - 18 LPA',
+      experience: '8+ years',
+      type: 'Full Time',
+      match: '92% match',
+      reason: 'ERP, stakeholder management, location',
+    ),
+  ];
+
+  @override
   Widget build(BuildContext context) {
+    final jobsToShow = liveJobs.isEmpty ? fallbackJobs : liveJobs;
+
     return ScreenFrame(
       eyebrow: 'Job Search',
       title: 'Find roles that match your profile',
       children: [
         const SearchField(),
-        const LiveJobsApiCard(),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -344,27 +461,28 @@ class _JobsScreenState extends State<JobsScreen> {
         ),
         const FilterSummaryCard(),
         const JobAlertsCard(),
-        const JobCard(
-          title: 'Regional Sales Manager',
-          sector: 'Building Materials / Non-IT',
-          location: 'Hyderabad / AP',
-          salary: '10 - 14 LPA',
-          experience: '6+ years',
-          type: 'Full Time',
-          match: '89% match',
-          reason: 'Sales, regional network, salary range',
-          saved: false,
+        SectionHeader(
+          title: liveJobs.isEmpty ? 'Recommended jobs' : 'Live jobs',
+          action: loadingJobs ? 'Loading' : '${jobsToShow.length}',
         ),
-        const JobCard(
-          title: 'ERP Manager',
-          sector: 'Education Technology / IT',
-          location: 'Hyderabad',
-          salary: '12 - 18 LPA',
-          experience: '8+ years',
-          type: 'Full Time',
-          match: '92% match',
-          reason: 'ERP, stakeholder management, location',
-          saved: true,
+        if (jobsError.isNotEmpty)
+          SyncStatusCard(
+            title: 'Live jobs unavailable',
+            message: '$jobsError. Showing recommended fallback jobs.',
+            icon: Icons.cloud_off_outlined,
+          ),
+        ...jobsToShow.map(
+          (job) => JobCard(
+            title: job.title,
+            sector: job.sector,
+            location: job.location,
+            salary: job.salary,
+            experience: job.experience,
+            type: job.type,
+            match: job.match,
+            reason: job.reason,
+            saved: false,
+          ),
         ),
         const JobDetailCard(),
         const ApplyConfirmationCard(),
@@ -451,9 +569,16 @@ class ApplicationsScreen extends StatelessWidget {
 }
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key, required this.candidateSession});
+  const ProfileScreen({
+    super.key,
+    required this.darkMode,
+    required this.candidateSession,
+    required this.onDarkModeChanged,
+  });
 
+  final bool darkMode;
   final CandidateSession? candidateSession;
+  final ValueChanged<bool> onDarkModeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -493,6 +618,10 @@ class ProfileScreen extends StatelessWidget {
         const DocumentUploadFlowCard(),
         const OfflineDraftCard(),
         const ShareCard(),
+        SettingsPreviewCard(
+          darkMode: darkMode,
+          onDarkModeChanged: onDarkModeChanged,
+        ),
         const CandidateAnalyticsCard(),
       ],
     );
@@ -1896,7 +2025,7 @@ class NextActionCard extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            'Online interview at 11:30 AM. Reminder push notification is enabled.',
+            'Online interview at 11:30 AM. Recruiter update is available in the application detail.',
             style: TextStyle(color: Colors.white70, height: 1.45),
           ),
         ],
@@ -2038,7 +2167,7 @@ class CandidateSummaryCard extends StatelessWidget {
             radius: 30,
             backgroundColor: AppColors.brand,
             child: Text(
-              'PR',
+              'JR',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
@@ -2362,6 +2491,49 @@ class FeatureCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   description,
+                  style: const TextStyle(color: AppColors.muted, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SyncStatusCard extends StatelessWidget {
+  const SyncStatusCard({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.icon,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return CardPanel(
+      color: AppColors.accent.withValues(alpha: 0.16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.accentStrong),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
                   style: const TextStyle(color: AppColors.muted, height: 1.35),
                 ),
               ],
