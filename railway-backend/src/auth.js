@@ -68,6 +68,16 @@ export function createEmployeeToken(employee, sessionId = employee.sessionId) {
   });
 }
 
+export function createCandidateToken(candidate) {
+  return createAuthToken({
+    type: "candidate",
+    id: candidate.id,
+    name: candidate.fullName,
+    email: candidate.email,
+    phone: candidate.phone,
+  });
+}
+
 export function createPasswordResetToken(payload) {
   return createScopedAuthToken(
     {
@@ -88,6 +98,27 @@ export function verifyPasswordResetToken(token) {
   }
 
   return decoded;
+}
+
+export function requireCandidate(request, response, next) {
+  const authHeader = request.headers.authorization;
+
+  if (!authHeader?.startsWith("Bearer ")) {
+    return response.status(401).json({ message: "Candidate login token is required." });
+  }
+
+  try {
+    const token = authHeader.replace("Bearer ", "");
+    const decoded = jwt.verify(token, getJwtSecret());
+    if (decoded.type !== "candidate" || !decoded.id) {
+      return response.status(403).json({ message: "Candidate access is required." });
+    }
+
+    request.candidate = decoded;
+    next();
+  } catch {
+    return response.status(401).json({ message: "Invalid or expired candidate token." });
+  }
 }
 
 function authenticateInternalUser(request, response, next, options = {}) {

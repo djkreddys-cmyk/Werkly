@@ -14,9 +14,11 @@ import {
 } from "./audit.js";
 import {
   createAdminToken,
+  createCandidateToken,
   createEmployeeToken,
   createPasswordResetToken,
   requireAdmin,
+  requireCandidate,
   requireInternalUser,
   requirePermission,
   requirePasswordChangeEligibleUser,
@@ -122,16 +124,23 @@ import {
 import { processResumeUpload } from "./resume.js";
 import {
   createManualJobApplication,
+  authenticateCandidate,
+  createCandidateAccount,
   createCandidateEnquiry,
   createResumeBuilderSubmission,
+  deleteCandidateSavedJob,
   createJob,
   deleteJob,
   deleteJobApplication,
   ensureJobsSchema,
   getAdminJobById,
+  getCandidateById,
+  getCandidateProfile,
   getJobBySlug,
   listAdminApplications,
+  listCandidateApplications,
   listCandidateEnquiries,
+  listCandidateSavedJobs,
   listResumeBuilderSubmissions,
   listApplicationStageHistory,
   listJobApplications,
@@ -139,11 +148,14 @@ import {
   listJobs,
   mergeJobsByCode,
   recordJobApplication,
+  recordCandidateJobApplication,
+  saveCandidateJob,
   assignCandidateApplicationToJob,
   assignJobApplication,
   updateJobApplicationDetails,
   updateJobApplicationStage,
   updateJob,
+  updateCandidateProfile,
 } from "./jobs.js";
 import {
   buildEmployeeScope,
@@ -158,6 +170,8 @@ const allowedOrigins = Array.from(
   new Set(
     [
       "http://localhost:3000",
+      "http://localhost:51270",
+      "http://localhost:51271",
       "https://werkly.in",
       "https://www.werkly.in",
       "https://admin.werkly.in",
@@ -644,6 +658,166 @@ app.post("/auth/logout", requireInternalUser, async (request, response) => {
   } catch (error) {
     return response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to record logout time.",
+    });
+  }
+});
+
+app.post("/candidate/auth/register", async (request, response) => {
+  try {
+    const candidate = await createCandidateAccount(request.body ?? {});
+    const token = createCandidateToken(candidate);
+    const profile = await getCandidateProfile(candidate.id);
+
+    response.status(201).json({ token, candidate, profile });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to create candidate account.";
+    const status = message.includes("duplicate key") ? 409 : 400;
+    response.status(status).json({
+      message: message.includes("duplicate key")
+        ? "Candidate account already exists for this email or phone."
+        : message,
+    });
+  }
+});
+
+app.post("/candidate/auth/login", async (request, response) => {
+  try {
+    const { identifier, email, phone, password } = request.body ?? {};
+    const loginIdentifier = String(identifier ?? email ?? phone ?? "").trim();
+    const candidate = await authenticateCandidate(loginIdentifier, password);
+
+    if (!candidate) {
+      return response.status(401).json({ message: "Invalid candidate credentials." });
+    }
+
+    const token = createCandidateToken(candidate);
+    const profile = await getCandidateProfile(candidate.id);
+    response.json({ token, candidate, profile });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to log in candidate.",
+    });
+  }
+});
+
+app.post("/candidate/auth/logout", requireCandidate, async (_request, response) => {
+  response.json({ success: true });
+});
+
+app.get("/candidate/me", requireCandidate, async (request, response) => {
+  try {
+    const candidate = await getCandidateById(request.candidate.id);
+    if (!candidate) {
+      return response.status(404).json({ message: "Candidate account not found." });
+    }
+
+    const profile = await getCandidateProfile(request.candidate.id);
+    response.json({ candidate, profile });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load candidate profile.",
+    });
+  }
+});
+
+app.put("/candidate/me/profile", requireCandidate, async (request, response) => {
+  try {
+    const profile = await updateCandidateProfile(request.candidate.id, request.body ?? {});
+    response.json({ profile });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to update candidate profile.";
+    response.status(message.includes("duplicate key") ? 409 : 400).json({
+      message: message.includes("duplicate key")
+        ? "Email or phone is already used by another candidate."
+        : message,
+    });
+  }
+});
+
+app.get("/candidate/applications", requireCandidate, async (request, response) => {
+  try {
+    const applications = await listCandidateApplications(request.candidate.id);
+    response.json({ applications });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load candidate applications.",
+    });
+  }
+});
+
+app.get("/candidate/applications/:id", requireCandidate, async (request, response) => {
+  try {
+    const applications = await listCandidateApplications(request.candidate.id);
+    const application = applications.find((item) => item.id === request.params.id);
+    if (!application) {
+      return response.status(404).json({ message: "Candidate application not found." });
+    }
+
+    response.json({ application });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load candidate application.",
+    });
+  }
+});
+
+app.post("/candidate/jobs/:slug/apply", requireCandidate, async (request, response) => {
+  try {
+    const job = await recordCandidateJobApplication(
+      request.candidate.id,
+      request.params.slug,
+      request.body ?? {}
+    );
+    if (!job) {
+      return response.status(404).json({ message: "Job was not found." });
+    }
+
+    const applications = await listCandidateApplications(request.candidate.id);
+    response.status(201).json({ job, applications });
+  } catch (error) {
+    response.status(400).json({
+      message: error instanceof Error ? error.message : "Unable to apply to this job.",
+    });
+  }
+});
+
+app.get("/candidate/saved-jobs", requireCandidate, async (request, response) => {
+  try {
+    const jobs = await listCandidateSavedJobs(request.candidate.id);
+    response.json({ jobs });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load saved jobs.",
+    });
+  }
+});
+
+app.post("/candidate/saved-jobs", requireCandidate, async (request, response) => {
+  try {
+    const jobs = await saveCandidateJob(request.candidate.id, request.body ?? {});
+    if (!jobs) {
+      return response.status(404).json({ message: "Job was not found." });
+    }
+
+    response.status(201).json({ jobs });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to save job.",
+    });
+  }
+});
+
+app.delete("/candidate/saved-jobs/:jobId", requireCandidate, async (request, response) => {
+  try {
+    const jobs = await deleteCandidateSavedJob(request.candidate.id, request.params.jobId);
+    response.json({ jobs });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to remove saved job.",
     });
   }
 });

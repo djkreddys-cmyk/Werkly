@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { pool, query } from "./db.js";
 
 function normalizeArray(value) {
@@ -14,6 +15,51 @@ function normalizePositionsCount(payload) {
     payload.openPositions;
   const parsedValue = Math.floor(Number(rawValue ?? 1));
   return Number.isFinite(parsedValue) ? Math.max(1, parsedValue) : 1;
+}
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizePhone(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+export function mapCandidateAccountRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapCandidateProfileRow(row) {
+  if (!row) return null;
+  return {
+    candidateId: row.candidate_id,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone,
+    education: row.education,
+    experience: row.experience,
+    skills: normalizeArray(row.skills),
+    preferredRole: row.preferred_role,
+    currentCtc: row.current_ctc,
+    expectedCtc: row.expected_ctc,
+    noticePeriod: row.notice_period,
+    currentLocation: row.current_location,
+    preferredLocation: row.preferred_location,
+    preferredSector: row.preferred_sector,
+    resumeFileName: row.resume_file_name,
+    resumeFileType: row.resume_file_type,
+    resumeFileData: row.resume_file_data,
+    profileCompletion: Number(row.profile_completion ?? 0),
+    updatedAt: row.updated_at,
+  };
 }
 
 export function mapRow(row) {
@@ -55,6 +101,7 @@ export function mapApplicationRow(row) {
   return {
     id: row.id,
     parentApplicationId: row.parent_application_id,
+    candidateId: row.candidate_id,
     jobId: row.job_id,
     assignedEmployeeId: row.assigned_employee_id,
     stage: row.stage,
@@ -339,6 +386,51 @@ export async function getJobBySlug(slug) {
 
 export async function ensureJobsSchema() {
   await query(`create extension if not exists pgcrypto`);
+  await query(`
+    create table if not exists candidate_accounts (
+      id uuid primary key default gen_random_uuid(),
+      full_name text not null,
+      email text,
+      phone text,
+      password_hash text not null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      constraint candidate_accounts_contact_required check (
+        nullif(email, '') is not null or nullif(phone, '') is not null
+      )
+    )
+  `);
+  await query(
+    `create unique index if not exists idx_candidate_accounts_email_lower
+     on candidate_accounts(lower(email))
+     where email is not null and email <> ''`
+  );
+  await query(
+    `create unique index if not exists idx_candidate_accounts_phone_digits
+     on candidate_accounts(regexp_replace(coalesce(phone, ''), '\\D', '', 'g'))
+     where phone is not null and phone <> ''`
+  );
+  await query(`
+    create table if not exists candidate_profiles (
+      candidate_id uuid primary key references candidate_accounts(id) on delete cascade,
+      education text,
+      experience text,
+      skills jsonb not null default '[]'::jsonb,
+      preferred_role text,
+      current_ctc text,
+      expected_ctc text,
+      notice_period text,
+      current_location text,
+      preferred_location text,
+      preferred_sector text,
+      resume_file_name text,
+      resume_file_type text,
+      resume_file_data text,
+      profile_completion integer not null default 0,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
   await query(`alter table jobs add column if not exists job_code text unique`);
   await query(`alter table jobs add column if not exists last_date_to_apply date`);
   await query(`alter table jobs add column if not exists positions_count integer not null default 1`);
@@ -354,6 +446,7 @@ export async function ensureJobsSchema() {
     create table if not exists job_applications (
       id uuid primary key default gen_random_uuid(),
       parent_application_id uuid references job_applications(id) on delete set null,
+      candidate_id uuid references candidate_accounts(id) on delete set null,
       job_id uuid not null references jobs(id) on delete cascade,
       candidate_name text not null,
       candidate_email text not null,
@@ -377,7 +470,21 @@ export async function ensureJobsSchema() {
     `create index if not exists idx_job_applications_job_id on job_applications(job_id)`
   );
   await query(
+    `create index if not exists idx_job_applications_candidate_id on job_applications(candidate_id)`
+  );
+  await query(`
+    create table if not exists candidate_saved_jobs (
+      candidate_id uuid not null references candidate_accounts(id) on delete cascade,
+      job_id uuid not null references jobs(id) on delete cascade,
+      saved_at timestamptz not null default now(),
+      primary key (candidate_id, job_id)
+    )
+  `);
+  await query(
     `alter table job_applications add column if not exists parent_application_id uuid references job_applications(id) on delete set null`
+  );
+  await query(
+    `alter table job_applications add column if not exists candidate_id uuid references candidate_accounts(id) on delete set null`
   );
   await query(
     `alter table job_applications add column if not exists stage text not null default 'applied'`
@@ -884,6 +991,417 @@ export async function mergeJobsByCode(primaryJobCode, duplicateJobCode) {
   }
 }
 
+function calculateProfileCompletion(payload) {
+  const checks = [
+    payload.fullName,
+    payload.email || payload.phone,
+    payload.education,
+    payload.experience,
+    Array.isArray(payload.skills) && payload.skills.length > 0,
+    payload.preferredRole,
+    payload.expectedCtc,
+    payload.noticePeriod,
+    payload.preferredLocation,
+    payload.resumeFileName || payload.resumeFileData,
+  ];
+  const completed = checks.filter(Boolean).length;
+  return Math.round((completed / checks.length) * 100);
+}
+
+export async function createCandidateAccount(payload) {
+  const fullName = String(payload.fullName || payload.name || "").trim();
+  const email = normalizeEmail(payload.email);
+  const phone = normalizePhone(payload.phone);
+  const password = String(payload.password || "");
+
+  if (!fullName || (!email && !phone) || password.length < 6) {
+    throw new Error("Name, email or phone, and a 6 character password are required.");
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const result = await query(
+    `insert into candidate_accounts (
+       full_name,
+       email,
+       phone,
+       password_hash,
+       updated_at
+     ) values ($1, $2, $3, $4, now())
+     returning id, full_name, email, phone, created_at, updated_at`,
+    [fullName, email || null, phone || null, passwordHash]
+  );
+
+  const candidate = mapCandidateAccountRow(result.rows[0]);
+  await updateCandidateProfile(candidate.id, {
+    fullName,
+    email,
+    phone,
+    preferredRole: payload.preferredRole,
+    expectedCtc: payload.expectedCtc,
+    noticePeriod: payload.noticePeriod,
+    preferredLocation: payload.preferredLocation,
+  });
+
+  return candidate;
+}
+
+export async function authenticateCandidate(identifier, password) {
+  const safeIdentifier = String(identifier || "").trim();
+  const normalizedEmail = normalizeEmail(safeIdentifier);
+  const normalizedPhone = normalizePhone(safeIdentifier);
+
+  if (!safeIdentifier || !password) {
+    return null;
+  }
+
+  const result = await query(
+    `select id, full_name, email, phone, password_hash, created_at, updated_at
+     from candidate_accounts
+     where lower(email) = $1
+        or regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = $2
+     limit 1`,
+    [normalizedEmail, normalizedPhone]
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const isValid = await bcrypt.compare(String(password), row.password_hash);
+  return isValid ? mapCandidateAccountRow(row) : null;
+}
+
+export async function getCandidateById(candidateId) {
+  const result = await query(
+    `select id, full_name, email, phone, created_at, updated_at
+     from candidate_accounts
+     where id = $1
+     limit 1`,
+    [candidateId]
+  );
+
+  return mapCandidateAccountRow(result.rows[0]);
+}
+
+export async function getCandidateProfile(candidateId) {
+  const result = await query(
+    `select
+       candidate_accounts.id as candidate_id,
+       candidate_accounts.full_name,
+       candidate_accounts.email,
+       candidate_accounts.phone,
+       candidate_profiles.education,
+       candidate_profiles.experience,
+       candidate_profiles.skills,
+       candidate_profiles.preferred_role,
+       candidate_profiles.current_ctc,
+       candidate_profiles.expected_ctc,
+       candidate_profiles.notice_period,
+       candidate_profiles.current_location,
+       candidate_profiles.preferred_location,
+       candidate_profiles.preferred_sector,
+       candidate_profiles.resume_file_name,
+       candidate_profiles.resume_file_type,
+       candidate_profiles.resume_file_data,
+       candidate_profiles.profile_completion,
+       coalesce(candidate_profiles.updated_at, candidate_accounts.updated_at) as updated_at
+     from candidate_accounts
+     left join candidate_profiles on candidate_profiles.candidate_id = candidate_accounts.id
+     where candidate_accounts.id = $1
+     limit 1`,
+    [candidateId]
+  );
+
+  return mapCandidateProfileRow(result.rows[0]);
+}
+
+export async function updateCandidateProfile(candidateId, payload) {
+  const fullName = String(payload.fullName || "").trim();
+  const email = normalizeEmail(payload.email);
+  const phone = normalizePhone(payload.phone);
+  const skills = Array.isArray(payload.skills)
+    ? payload.skills.map(String).map((skill) => skill.trim()).filter(Boolean)
+    : String(payload.skills || "")
+        .split(",")
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+
+  if (fullName || email || phone) {
+    const updates = [];
+    const values = [candidateId];
+    if (fullName) {
+      values.push(fullName);
+      updates.push(`full_name = $${values.length}`);
+    }
+    if (email) {
+      values.push(email);
+      updates.push(`email = $${values.length}`);
+    }
+    if (phone) {
+      values.push(phone);
+      updates.push(`phone = $${values.length}`);
+    }
+
+    if (updates.length) {
+      await query(
+        `update candidate_accounts
+         set ${updates.join(", ")}, updated_at = now()
+         where id = $1`,
+        values
+      );
+    }
+  }
+
+  const completion = calculateProfileCompletion({
+    ...payload,
+    skills,
+    fullName,
+    email,
+    phone,
+  });
+
+  await query(
+    `insert into candidate_profiles (
+       candidate_id,
+       education,
+       experience,
+       skills,
+       preferred_role,
+       current_ctc,
+       expected_ctc,
+       notice_period,
+       current_location,
+       preferred_location,
+       preferred_sector,
+       resume_file_name,
+       resume_file_type,
+       resume_file_data,
+       profile_completion,
+       updated_at
+     ) values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now())
+     on conflict (candidate_id) do update set
+       education = excluded.education,
+       experience = excluded.experience,
+       skills = excluded.skills,
+       preferred_role = excluded.preferred_role,
+       current_ctc = excluded.current_ctc,
+       expected_ctc = excluded.expected_ctc,
+       notice_period = excluded.notice_period,
+       current_location = excluded.current_location,
+       preferred_location = excluded.preferred_location,
+       preferred_sector = excluded.preferred_sector,
+       resume_file_name = excluded.resume_file_name,
+       resume_file_type = excluded.resume_file_type,
+       resume_file_data = excluded.resume_file_data,
+       profile_completion = excluded.profile_completion,
+       updated_at = now()`,
+    [
+      candidateId,
+      payload.education || null,
+      payload.experience || null,
+      JSON.stringify(skills),
+      payload.preferredRole || null,
+      payload.currentCtc || null,
+      payload.expectedCtc || null,
+      payload.noticePeriod || null,
+      payload.currentLocation || null,
+      payload.preferredLocation || null,
+      payload.preferredSector || null,
+      payload.resumeFileName || null,
+      payload.resumeFileType || null,
+      payload.resumeFileData || null,
+      completion,
+    ]
+  );
+
+  return getCandidateProfile(candidateId);
+}
+
+export async function listCandidateApplications(candidateId) {
+  const candidate = await getCandidateById(candidateId);
+  if (!candidate) return [];
+
+  const result = await query(
+    `select
+       job_applications.id,
+       job_applications.parent_application_id,
+       job_applications.candidate_id,
+       job_applications.job_id,
+       job_applications.assigned_employee_id,
+       job_applications.stage,
+       job_applications.stage_note,
+       job_applications.stage_date,
+       job_applications.stage_updated_at,
+       jobs.job_code,
+       clients.company_name as client_name,
+       employees.full_name as recruiter_name,
+       employees.email as recruiter_email,
+       jobs.location as job_location,
+       jobs.sector,
+       job_applications.candidate_name,
+       job_applications.candidate_email,
+       job_applications.candidate_phone,
+       job_applications.gender,
+       job_applications.mother_tongue,
+       job_applications.other_languages,
+       job_applications.experience,
+       job_applications.current_company,
+       job_applications.current_location,
+       job_applications.current_designation,
+       job_applications.preferred_role,
+       job_applications.current_ctc,
+       job_applications.expected_ctc,
+       job_applications.notice_period,
+       job_applications.final_ctc,
+       job_applications.date_of_joining,
+       job_applications.preferred_location,
+       job_applications.preferred_sector,
+       job_applications.source_type,
+       job_applications.source_note,
+       job_applications.entry_type,
+       job_applications.resume_file_name,
+       job_applications.resume_file_type,
+       job_applications.resume_file_data,
+       (job_applications.resume_file_data is not null) as resume_available,
+       job_applications.uploaded_by_employee_id,
+       job_applications.follow_up_employee_id,
+       null::text as follow_up_employee_name,
+       job_applications.follow_up_from_date,
+       job_applications.follow_up_to_date,
+       job_applications.follow_up_assignment_note,
+       job_applications.interview_scheduled_at,
+       job_applications.interview_mode,
+       job_applications.interview_panel,
+       job_applications.interview_reminder_at,
+       null::text as uploaded_by_employee_name,
+       job_applications.candidate_message,
+       coalesce(job_applications.job_title, jobs.title) as job_title,
+       job_applications.applied_at
+     from job_applications
+     left join jobs on jobs.id = job_applications.job_id
+     left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = coalesce(job_applications.assigned_employee_id, jobs.assigned_employee_id, clients.assigned_employee_id)
+     where job_applications.candidate_id = $1
+        or (
+          nullif(lower(job_applications.candidate_email), '') is not null
+          and lower(job_applications.candidate_email) = lower($2)
+        )
+        or (
+          nullif(regexp_replace(coalesce(job_applications.candidate_phone, ''), '\\D', '', 'g'), '') is not null
+          and regexp_replace(coalesce(job_applications.candidate_phone, ''), '\\D', '', 'g') = $3
+        )
+     order by job_applications.applied_at desc`,
+    [candidateId, candidate.email || "", normalizePhone(candidate.phone)]
+  );
+
+  return result.rows.map(mapApplicationRow);
+}
+
+export async function listCandidateSavedJobs(candidateId) {
+  const result = await query(
+    `select
+       jobs.id,
+       jobs.job_code,
+       jobs.client_id,
+       clients.company_name as client_name,
+       jobs.assigned_employee_id,
+       employees.full_name as recruiter_name,
+       employees.email as recruiter_email,
+       jobs.slug,
+       jobs.title,
+       jobs.location,
+       jobs.sector,
+       jobs.experience,
+       jobs.employment_type,
+       jobs.salary,
+       jobs.package_per_annum,
+       jobs.positions_count,
+       jobs.status,
+       jobs.status_reason,
+       jobs.is_hidden,
+       jobs.posted_at,
+       jobs.last_date_to_apply,
+       jobs.applications_count,
+       jobs.summary,
+       jobs.description,
+       jobs.skills,
+       jobs.responsibilities,
+       jobs.requirements,
+       jobs.apply_url
+     from candidate_saved_jobs
+     inner join jobs on jobs.id = candidate_saved_jobs.job_id
+     left join clients on clients.id = jobs.client_id
+     left join employees on employees.id = coalesce(jobs.assigned_employee_id, clients.assigned_employee_id)
+     where candidate_saved_jobs.candidate_id = $1
+     order by candidate_saved_jobs.saved_at desc`,
+    [candidateId]
+  );
+
+  return result.rows.map(mapRow);
+}
+
+export async function saveCandidateJob(candidateId, payload) {
+  let jobId = payload.jobId || null;
+  if (!jobId && payload.slug) {
+    const job = await getJobBySlug(payload.slug);
+    jobId = job?.id || null;
+  }
+  if (!jobId) return null;
+
+  await query(
+    `insert into candidate_saved_jobs (candidate_id, job_id)
+     values ($1, $2)
+     on conflict (candidate_id, job_id) do update set saved_at = now()`,
+    [candidateId, jobId]
+  );
+
+  return listCandidateSavedJobs(candidateId);
+}
+
+export async function deleteCandidateSavedJob(candidateId, jobId) {
+  await query(
+    `delete from candidate_saved_jobs
+     where candidate_id = $1 and job_id = $2`,
+    [candidateId, jobId]
+  );
+  return listCandidateSavedJobs(candidateId);
+}
+
+export async function recordCandidateJobApplication(candidateId, slug, payload = {}) {
+  const profile = await getCandidateProfile(candidateId);
+  if (!profile) return null;
+
+  const existingApplications = await listCandidateApplications(candidateId);
+  if (existingApplications.some((application) => application.jobTitle && application.jobId)) {
+    const job = await getJobBySlug(slug);
+    if (job && existingApplications.some((application) => application.jobId === job.id)) {
+      throw new Error("You have already applied to this job.");
+    }
+  }
+
+  return recordJobApplication(slug, {
+    candidateId,
+    candidateName: profile.fullName,
+    candidateEmail: profile.email,
+    candidatePhone: profile.phone,
+    experience: profile.experience,
+    currentLocation: profile.currentLocation,
+    preferredRole: profile.preferredRole,
+    currentCtc: profile.currentCtc,
+    expectedCtc: profile.expectedCtc,
+    noticePeriod: profile.noticePeriod,
+    preferredLocation: profile.preferredLocation,
+    preferredSector: profile.preferredSector,
+    resumeFileName: payload.resumeFileName || profile.resumeFileName,
+    resumeFileType: payload.resumeFileType || profile.resumeFileType,
+    resumeFileData: payload.resumeFileData || profile.resumeFileData,
+    candidateMessage: payload.candidateMessage || "Applied from candidate mobile app.",
+    sourceNote: "Candidate mobile app one-tap apply",
+  });
+}
+
 export async function recordJobApplication(slug, payload) {
   const client = await pool.connect();
 
@@ -907,6 +1425,7 @@ export async function recordJobApplication(slug, payload) {
     await client.query(
       `insert into job_applications (
         job_id,
+        candidate_id,
         stage,
         stage_note,
         stage_date,
@@ -935,9 +1454,10 @@ export async function recordJobApplication(slug, payload) {
         resume_file_data,
         candidate_message,
         job_title
-      ) values ($1, $2, $3, current_date, now(), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)` ,
+      ) values ($1, $2, $3, $4, current_date, now(), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)` ,
       [
         jobId,
+        payload.candidateId || null,
         "applied",
         "Initial application submitted.",
         payload.candidateName,
