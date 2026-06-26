@@ -4,6 +4,41 @@ Flutter prototype for the candidate-facing Werkly app.
 
 ## Scope
 
+### High Priority
+
+- Candidate login/register connected to Railway backend
+- Profile edit/save with real backend sync
+- Resume upload/download with document storage
+- Job listing from live `werkly.in` jobs API
+- Job detail page with one-tap apply
+- Saved jobs synced to backend
+- Application tracking from real candidate applications
+- Notifications center for interview/application updates
+- Offline draft save for profile and resume builder
+- Basic push notification setup
+
+### Good UX Updates
+
+- Better onboarding flow for first-time candidates
+- Profile completion checklist
+- Resume quality score
+- Job match score and why the candidate matches
+- Filter chips for role, location, salary, sector, IT/Non-IT, experience, and job type
+- Document center for certificates, ID proof, offer letters, and experience letters
+- Share resume/job via WhatsApp and email
+- Dark mode
+- Telugu/Hindi support later
+
+### Advanced Later
+
+- AI resume assistant
+- Interview preparation tips
+- Video intro profile
+- Referral jobs
+- Candidate analytics for profile views, applications, shortlist rate, and resume downloads
+
+## Current Prototype Coverage
+
 - Smart candidate profile with personal details, education, experience, skills, CTC, notice period, and location preferences
 - Candidate onboarding and profile completion checklist
 - Step-by-step resume builder with templates, preview, upload, PDF, and Word actions

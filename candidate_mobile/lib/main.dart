@@ -194,7 +194,7 @@ class _CandidateShellState extends State<CandidateShell> {
       const JobsScreen(),
       const ResumeScreen(),
       const ApplicationsScreen(),
-      const ProfileScreen(),
+      ProfileScreen(candidateSession: widget.candidateSession),
     ];
 
     return Scaffold(
@@ -266,6 +266,7 @@ class HomeScreen extends StatelessWidget {
           session: candidateSession,
           onSessionChanged: onCandidateSessionChanged,
         ),
+        const MobileEnhancementRoadmapCard(),
         const OnboardingFlowCard(),
         const ProfileStrengthCard(),
         const ProfileCompletionChecklistCard(),
@@ -324,6 +325,7 @@ class _JobsScreenState extends State<JobsScreen> {
       title: 'Find roles that match your profile',
       children: [
         const SearchField(),
+        const LiveJobsApiCard(),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -392,6 +394,7 @@ class ResumeScreen extends StatelessWidget {
       title: 'Build once, apply faster',
       children: [
         const ResumeProgressCard(),
+        const ResumeBackendSyncCard(),
         const ResumeQualityScoreCard(),
         CardPanel(
           child: Wrap(
@@ -448,31 +451,34 @@ class ApplicationsScreen extends StatelessWidget {
 }
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, required this.candidateSession});
+
+  final CandidateSession? candidateSession;
 
   @override
   Widget build(BuildContext context) {
     return ScreenFrame(
       eyebrow: 'Smart Profile',
       title: 'Your candidate profile',
-      children: const [
-        CandidateSummaryCard(),
-        ProfileSectionCard(
+      children: [
+        const CandidateSummaryCard(),
+        ProfileBackendSyncCard(session: candidateSession),
+        const ProfileSectionCard(
           title: 'Personal details',
           icon: Icons.person_outline,
           items: ['Jaswanth Reddy', 'jaswanth@example.com', '+91 98765 43210'],
         ),
-        ProfileSectionCard(
+        const ProfileSectionCard(
           title: 'Education',
           icon: Icons.school_outlined,
           items: ['MBA Operations', 'B.Tech Computer Science'],
         ),
-        ProfileSectionCard(
+        const ProfileSectionCard(
           title: 'Experience',
           icon: Icons.badge_outlined,
           items: ['8+ years', 'ERP Manager', 'Current CTC 10 LPA'],
         ),
-        ProfileSectionCard(
+        const ProfileSectionCard(
           title: 'Preferences',
           icon: Icons.tune_outlined,
           items: [
@@ -482,12 +488,12 @@ class ProfileScreen extends StatelessWidget {
             'Location: Hyderabad',
           ],
         ),
-        SkillsCard(),
-        DocumentCenterCard(),
-        DocumentUploadFlowCard(),
-        OfflineDraftCard(),
-        ShareCard(),
-        CandidateAnalyticsCard(),
+        const SkillsCard(),
+        const DocumentCenterCard(),
+        const DocumentUploadFlowCard(),
+        const OfflineDraftCard(),
+        const ShareCard(),
+        const CandidateAnalyticsCard(),
       ],
     );
   }
@@ -737,6 +743,168 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class MobileEnhancementRoadmapCard extends StatelessWidget {
+  const MobileEnhancementRoadmapCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const CardPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(title: 'Mobile enhancements', action: 'Candidate only'),
+          SizedBox(height: 12),
+          EnhancementGroup(
+            title: 'High priority',
+            color: AppColors.accentStrong,
+            items: [
+              'Railway login/register',
+              'Profile edit/save sync',
+              'Resume upload/download',
+              'Live werkly.in jobs',
+              'Job detail + one-tap apply',
+              'Saved jobs sync',
+              'Application tracking',
+              'Notifications center',
+              'Offline drafts',
+              'Push setup',
+            ],
+          ),
+          SizedBox(height: 12),
+          EnhancementGroup(
+            title: 'Good UX updates',
+            color: AppColors.brand,
+            items: [
+              'Better onboarding',
+              'Profile checklist',
+              'Resume quality score',
+              'Job match explanation',
+              'Filter chips',
+              'Document center',
+              'WhatsApp/email share',
+              'Dark mode',
+              'Telugu/Hindi later',
+            ],
+          ),
+          SizedBox(height: 12),
+          EnhancementGroup(
+            title: 'Advanced later',
+            color: AppColors.muted,
+            items: [
+              'AI resume assistant',
+              'Interview prep',
+              'Video intro profile',
+              'Referral jobs',
+              'Candidate analytics',
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class EnhancementGroup extends StatelessWidget {
+  const EnhancementGroup({
+    super.key,
+    required this.title,
+    required this.color,
+    required this.items,
+  });
+
+  final String title;
+  final Color color;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StatusPill(label: title, color: color),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: items.map((item) => InfoPill(item)).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class LiveJobsApiCard extends StatelessWidget {
+  const LiveJobsApiCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const FeatureCard(
+      icon: Icons.public_outlined,
+      title: 'Live werkly.in jobs API',
+      description:
+          'Next implementation pass should load job listings from the live web jobs API and keep filters synced with role, location, salary, sector, IT/Non-IT, experience, and job type.',
+    );
+  }
+}
+
+class ResumeBackendSyncCard extends StatelessWidget {
+  const ResumeBackendSyncCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const FeatureCard(
+      icon: Icons.cloud_upload_outlined,
+      title: 'Resume document sync',
+      description:
+          'Wire resume upload, preview, PDF/Word download, and document storage to the Railway candidate profile endpoints.',
+    );
+  }
+}
+
+class ProfileBackendSyncCard extends StatelessWidget {
+  const ProfileBackendSyncCard({super.key, required this.session});
+
+  final CandidateSession? session;
+
+  @override
+  Widget build(BuildContext context) {
+    final connected = session != null;
+
+    return CardPanel(
+      color: connected
+          ? AppColors.brand.withValues(alpha: 0.10)
+          : AppColors.accent.withValues(alpha: 0.18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: 'Profile backend sync',
+            action: connected ? 'Connected' : 'Pending login',
+          ),
+          const SizedBox(height: 10),
+          MiniRow(
+            icon: connected
+                ? Icons.verified_user_outlined
+                : Icons.sync_problem_outlined,
+            title: connected
+                ? 'Railway candidate session active'
+                : 'Login/register first',
+            subtitle: connected
+                ? 'Next: save profile edits, resume docs, saved jobs, and applications against this account.'
+                : 'Use the Home login card to connect this mobile profile to Railway.',
+          ),
+          const MiniRow(
+            icon: Icons.save_outlined,
+            title: 'Offline draft saving',
+            subtitle:
+                'Profile and resume edits should stay local first, then sync after network returns.',
+          ),
         ],
       ),
     );
