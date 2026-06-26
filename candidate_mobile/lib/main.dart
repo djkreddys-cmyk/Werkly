@@ -308,23 +308,57 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScreenFrame(
-      eyebrow: 'Candidate Login',
-      title: 'Sign in to continue',
-      trailing: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate.fixed([
+              const LoginLogoPanel(),
+              const SizedBox(height: 18),
+              CandidateLoginCard(
+                session: null,
+                onSessionChanged: onCandidateSessionChanged,
+              ),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class LoginLogoPanel extends StatelessWidget {
+  const LoginLogoPanel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 150,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.brand,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.brandDark.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: Image.asset(
           'assets/werkly_logo.png',
-          width: 96,
+          width: 190,
           fit: BoxFit.contain,
         ),
       ),
-      children: [
-        CandidateLoginCard(
-          session: null,
-          onSessionChanged: onCandidateSessionChanged,
-        ),
-      ],
     );
   }
 }
@@ -811,20 +845,42 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
               ),
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: loading
-                    ? null
-                    : () => runAuth(
-                        () => CandidateApi.login(
-                          identifier: emailController.text.trim(),
-                          password: passwordController.text,
-                        ),
-                      ),
-                icon: const Icon(Icons.login, size: 18),
-                label: const Text('Login'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: loading
+                        ? null
+                        : () => runAuth(
+                            () => CandidateApi.register(
+                              fullName: _nameFromUsername(
+                                emailController.text.trim(),
+                              ),
+                              email: emailController.text.trim(),
+                              phone: '',
+                              password: passwordController.text,
+                            ),
+                          ),
+                    icon: const Icon(Icons.person_add_alt_1, size: 18),
+                    label: const Text('Register'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: loading
+                        ? null
+                        : () => runAuth(
+                            () => CandidateApi.login(
+                              identifier: emailController.text.trim(),
+                              password: passwordController.text,
+                            ),
+                          ),
+                    icon: const Icon(Icons.login, size: 18),
+                    label: const Text('Login'),
+                  ),
+                ),
+              ],
             ),
           ],
           if (loading) ...[
@@ -846,6 +902,16 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
         ],
       ),
     );
+  }
+
+  String _nameFromUsername(String value) {
+    final username = value.split('@').first.trim();
+    if (username.isEmpty) return 'Werkly Candidate';
+    return username
+        .split(RegExp(r'[._\-\s]+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' ');
   }
 }
 
