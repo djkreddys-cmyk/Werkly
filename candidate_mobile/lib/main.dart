@@ -1967,86 +1967,130 @@ class JobCard extends StatelessWidget {
     );
   }
 
+  Widget jobActionsMenu(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      tooltip: 'Job actions',
+      onSelected: (value) {
+        if (value == 'details') showDetails(context);
+        if (value == 'apply') applyJob(context);
+        if (value == 'share') shareJob(context);
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'details',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.visibility_outlined),
+            title: Text('Details'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'apply',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.touch_app_outlined),
+            title: Text('Apply'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'share',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.share_outlined),
+            title: Text('Share'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget inlineJobActions(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => showDetails(context),
+            icon: const Icon(Icons.visibility_outlined, size: 18),
+            label: const Text('Details'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => applyJob(context),
+            icon: const Icon(Icons.touch_app_outlined, size: 18),
+            label: const Text('Apply'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => shareJob(context),
+            icon: const Icon(Icons.share_outlined, size: 18),
+            label: const Text('Share'),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return CardPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showInlineActions = constraints.maxWidth >= 400;
+
+        return CardPanel(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      sector,
-                      style: const TextStyle(color: AppColors.muted),
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                tooltip: 'Job actions',
-                onSelected: (value) {
-                  if (value == 'details') showDetails(context);
-                  if (value == 'apply') applyJob(context);
-                  if (value == 'share') shareJob(context);
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(
-                    value: 'details',
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.visibility_outlined),
-                      title: Text('Details'),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          sector,
+                          style: const TextStyle(color: AppColors.muted),
+                        ),
+                      ],
                     ),
                   ),
-                  PopupMenuItem(
-                    value: 'apply',
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.touch_app_outlined),
-                      title: Text('One-tap apply'),
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'share',
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(Icons.share_outlined),
-                      title: Text('Share'),
-                    ),
-                  ),
+                  if (!showInlineActions) jobActionsMenu(context),
                 ],
               ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  InfoPill(location),
+                  InfoPill(salary),
+                  InfoPill(experience),
+                  InfoPill(type),
+                ],
+              ),
+              const SizedBox(height: 12),
+              MatchReason(match: match, reason: reason),
+              if (showInlineActions) ...[
+                const SizedBox(height: 14),
+                inlineJobActions(context),
+              ],
             ],
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              InfoPill(location),
-              InfoPill(salary),
-              InfoPill(experience),
-              InfoPill(type),
-            ],
-          ),
-          const SizedBox(height: 12),
-          MatchReason(match: match, reason: reason),
-        ],
-      ),
+        );
+      },
     );
   }
 }
