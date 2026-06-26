@@ -309,14 +309,14 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenFrame(
-      eyebrow: 'Werkly Candidate',
+      eyebrow: 'Candidate Login',
       title: 'Sign in to continue',
-      trailing: const CircleAvatar(
-        radius: 23,
-        backgroundColor: AppColors.brand,
-        child: Text(
-          'JR',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+      trailing: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.asset(
+          'assets/werkly_logo.png',
+          width: 96,
+          fit: BoxFit.contain,
         ),
       ),
       children: [
@@ -712,18 +712,14 @@ class CandidateLoginCard extends StatefulWidget {
 }
 
 class _CandidateLoginCardState extends State<CandidateLoginCard> {
-  final nameController = TextEditingController(text: 'Jaswanth Reddy');
-  final emailController = TextEditingController(text: 'jaswanth@example.com');
-  final phoneController = TextEditingController(text: '9876543210');
+  final emailController = TextEditingController(text: 'djkreddys@gmail.com');
   final passwordController = TextEditingController(text: 'password123');
   bool loading = false;
   String message = '';
 
   @override
   void dispose() {
-    nameController.dispose();
     emailController.dispose();
-    phoneController.dispose();
     passwordController.dispose();
     super.dispose();
   }
@@ -757,12 +753,7 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const LabelText('Candidate backend login'),
-          const SizedBox(height: 8),
-          Text(
-            'API: ${CandidateApi.baseUrl}',
-            style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
-          ),
+          const LabelText('Login details'),
           const SizedBox(height: 12),
           if (session != null) ...[
             MiniRow(
@@ -806,7 +797,7 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
             TextField(
               controller: emailController,
               decoration: const InputDecoration(
-                labelText: 'Email or phone',
+                labelText: 'Username',
                 prefixIcon: Icon(Icons.alternate_email),
               ),
             ),
@@ -820,40 +811,20 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
               ),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: loading
-                        ? null
-                        : () => runAuth(
-                            () => CandidateApi.register(
-                              fullName: nameController.text.trim(),
-                              email: emailController.text.trim(),
-                              phone: phoneController.text.trim(),
-                              password: passwordController.text,
-                            ),
-                          ),
-                    icon: const Icon(Icons.person_add_alt_1, size: 18),
-                    label: const Text('Register'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: loading
-                        ? null
-                        : () => runAuth(
-                            () => CandidateApi.login(
-                              identifier: emailController.text.trim(),
-                              password: passwordController.text,
-                            ),
-                          ),
-                    icon: const Icon(Icons.login, size: 18),
-                    label: const Text('Login'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: loading
+                    ? null
+                    : () => runAuth(
+                        () => CandidateApi.login(
+                          identifier: emailController.text.trim(),
+                          password: passwordController.text,
+                        ),
+                      ),
+                icon: const Icon(Icons.login, size: 18),
+                label: const Text('Login'),
+              ),
             ),
           ],
           if (loading) ...[
