@@ -101,7 +101,7 @@ class CandidateJob {
 class CandidateApi {
   static const baseUrl = String.fromEnvironment(
     'WERKLY_API_BASE_URL',
-    defaultValue: 'http://localhost:4000',
+    defaultValue: 'https://werkly-production.up.railway.app',
   );
 
   static Future<CandidateSession> login({
