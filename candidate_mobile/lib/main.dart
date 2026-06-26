@@ -1903,75 +1903,21 @@ class JobCard extends StatelessWidget {
   final bool saved;
 
   void showDetails(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('$sector / $location', style: const TextStyle(color: AppColors.muted)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  InfoPill(salary),
-                  InfoPill(experience),
-                  InfoPill(type),
-                  if (deadline.isNotEmpty) InfoPill('Deadline: $deadline'),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                summary.isEmpty ? description : summary,
-                style: const TextStyle(height: 1.35),
-              ),
-              const SizedBox(height: 12),
-              if (responsibilities.isNotEmpty) ...[
-                const LabelText('Responsibilities'),
-                const SizedBox(height: 6),
-                ...responsibilities.take(4).map(
-                      (item) => MiniRow(
-                        icon: Icons.task_alt_outlined,
-                        title: item,
-                        subtitle: '',
-                      ),
-                    ),
-              ],
-              if (requirements.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                const LabelText('Requirements'),
-                const SizedBox(height: 6),
-                ...requirements.take(4).map(
-                      (item) => MiniRow(
-                        icon: Icons.rule_outlined,
-                        title: item,
-                        subtitle: '',
-                      ),
-                    ),
-              ],
-            ],
-          ),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => JobDetailScreen(
+          title: title,
+          sector: sector,
+          location: location,
+          salary: salary,
+          experience: experience,
+          type: type,
+          summary: summary,
+          description: description,
+          responsibilities: responsibilities,
+          requirements: requirements,
+          deadline: deadline,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close details'),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Apply flow opened for $title')),
-              );
-            },
-            icon: const Icon(Icons.touch_app_outlined, size: 18),
-            label: const Text('Apply'),
-          ),
-        ],
       ),
     );
   }
@@ -2122,6 +2068,181 @@ class JobCard extends StatelessWidget {
               ],
             ],
           ),
+    );
+  }
+}
+
+class JobDetailScreen extends StatefulWidget {
+  const JobDetailScreen({
+    super.key,
+    required this.title,
+    required this.sector,
+    required this.location,
+    required this.salary,
+    required this.experience,
+    required this.type,
+    required this.summary,
+    required this.description,
+    required this.responsibilities,
+    required this.requirements,
+    required this.deadline,
+  });
+
+  final String title;
+  final String sector;
+  final String location;
+  final String salary;
+  final String experience;
+  final String type;
+  final String summary;
+  final String description;
+  final List<String> responsibilities;
+  final List<String> requirements;
+  final String deadline;
+
+  @override
+  State<JobDetailScreen> createState() => _JobDetailScreenState();
+}
+
+class _JobDetailScreenState extends State<JobDetailScreen> {
+  final scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
+  void applyJob() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Apply flow opened for ${widget.title}')),
+    );
+  }
+
+  void shareJob() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Share ready for ${widget.title}')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detailsText = widget.summary.isEmpty
+        ? widget.description
+        : widget.summary;
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Back',
+        ),
+        title: const Text('Job details'),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                controller: scrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          height: 1.15,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${widget.sector} / ${widget.location}',
+                        style: const TextStyle(color: AppColors.muted),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          InfoPill(widget.salary),
+                          InfoPill(widget.experience),
+                          InfoPill(widget.type),
+                          if (widget.deadline.isNotEmpty)
+                            InfoPill('Deadline: ${widget.deadline}'),
+                        ],
+                      ),
+                      if (detailsText.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        Text(
+                          detailsText,
+                          style: const TextStyle(height: 1.42),
+                        ),
+                      ],
+                      if (widget.responsibilities.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        const LabelText('Responsibilities'),
+                        const SizedBox(height: 10),
+                        ...widget.responsibilities.map(
+                          (item) => MiniRow(
+                            icon: Icons.task_alt_outlined,
+                            title: item,
+                            subtitle: '',
+                          ),
+                        ),
+                      ],
+                      if (widget.requirements.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        const LabelText('Requirements'),
+                        const SizedBox(height: 10),
+                        ...widget.requirements.map(
+                          (item) => MiniRow(
+                            icon: Icons.rule_outlined,
+                            title: item,
+                            subtitle: '',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(top: BorderSide(color: AppColors.line)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: shareJob,
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      label: const Text('Share'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: applyJob,
+                      icon: const Icon(Icons.touch_app_outlined, size: 18),
+                      label: const Text('Apply'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
