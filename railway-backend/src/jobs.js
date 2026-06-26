@@ -469,9 +469,6 @@ export async function ensureJobsSchema() {
   await query(
     `create index if not exists idx_job_applications_job_id on job_applications(job_id)`
   );
-  await query(
-    `create index if not exists idx_job_applications_candidate_id on job_applications(candidate_id)`
-  );
   await query(`
     create table if not exists candidate_saved_jobs (
       candidate_id uuid not null references candidate_accounts(id) on delete cascade,
@@ -485,6 +482,9 @@ export async function ensureJobsSchema() {
   );
   await query(
     `alter table job_applications add column if not exists candidate_id uuid references candidate_accounts(id) on delete set null`
+  );
+  await query(
+    `create index if not exists idx_job_applications_candidate_id on job_applications(candidate_id)`
   );
   await query(
     `alter table job_applications add column if not exists stage text not null default 'applied'`
