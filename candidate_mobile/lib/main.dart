@@ -444,9 +444,15 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final preferredRole = candidateSession.profileText('preferredRole', 'Candidate');
     final preferredLocation = candidateSession.profileText('preferredLocation', 'Location pending');
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+            ? 'Good afternoon'
+            : 'Good evening';
     return ScreenFrame(
       eyebrow: 'Werkly Candidate',
-      title: 'Good morning, ${candidateSession.displayName}',
+      title: '$greeting, ${candidateSession.displayName}',
       trailing: CircleAvatar(
         radius: 23,
         backgroundColor: AppColors.brand,
@@ -482,11 +488,10 @@ class JobsScreen extends StatefulWidget {
 }
 
 class _JobsScreenState extends State<JobsScreen> {
-  String selectedFilter = 'All';
   bool loadingJobs = true;
   String jobsError = '';
   List<CandidateJob> liveJobs = const [];
-  final filters = [
+  final filters = <String>[
     'All',
     'IT',
     'Non-IT',
@@ -496,11 +501,88 @@ class _JobsScreenState extends State<JobsScreen> {
     '10 LPA+',
     'Full Time',
   ];
+  final activeFilters = <String>{'All'};
 
   @override
   void initState() {
     super.initState();
     loadLiveJobs();
+  }
+
+  void toggleFilter(String filter) {
+    setState(() {
+      if (filter == 'All') {
+        activeFilters
+          ..clear()
+          ..add('All');
+        return;
+      }
+
+      activeFilters.remove('All');
+      if (!activeFilters.add(filter)) {
+        activeFilters.remove(filter);
+      }
+      if (activeFilters.isEmpty) activeFilters.add('All');
+    });
+  }
+
+  void addCustomFilter() {
+    final controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add filter'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Role, location, salary, sector',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                setState(() {
+                  filters.add(value);
+                  activeFilters
+                    ..remove('All')
+                    ..add(value);
+                });
+              }
+              Navigator.of(context).pop();
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool matchesActiveFilters(CandidateJob job) {
+    if (activeFilters.contains('All')) return true;
+    final searchable = [
+      job.title,
+      job.sector,
+      job.location,
+      job.salary,
+      job.experience,
+      job.type,
+      job.reason,
+    ].join(' ').toLowerCase();
+
+    return activeFilters.every((filter) {
+      final normalized = filter.toLowerCase();
+      if (normalized == '8+ yrs') return searchable.contains('8') || searchable.contains('years');
+      if (normalized == '10 lpa+') return searchable.contains('10') || searchable.contains('lpa');
+      return searchable.contains(normalized.replaceAll('+', '').trim());
+    });
   }
 
   Future<void> loadLiveJobs() async {
@@ -562,34 +644,30 @@ class _JobsScreenState extends State<JobsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final jobsToShow = liveJobs.isEmpty ? fallbackJobs : liveJobs;
+    final sourceJobs = liveJobs.isEmpty ? fallbackJobs : liveJobs;
+    final jobsToShow = sourceJobs.where(matchesActiveFilters).toList();
 
     return ScreenFrame(
       eyebrow: 'Job Search',
       title: 'Find roles that match your profile',
       children: [
         const SearchField(),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: filters.map((filter) {
-              final selected = filter == selectedFilter;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  selected: selected,
-                  label: Text(filter),
-                  onSelected: (_) => setState(() => selectedFilter = filter),
-                ),
-              );
-            }).toList(),
-          ),
+        JobFilterChips(
+          filters: filters,
+          activeFilters: activeFilters,
+          onToggle: toggleFilter,
+          onAdd: addCustomFilter,
         ),
-        const FilterSummaryCard(),
+        FilterSummaryCard(activeFilters: activeFilters),
         const JobAlertsCard(),
         SectionHeader(
           title: liveJobs.isEmpty ? 'Recommended jobs' : 'Live jobs',
-          action: loadingJobs ? 'Loading' : '${jobsToShow.length}',
+          action: loadingJobs ? 'Loading' : '${jobsToShow.length}/${sourceJobs.length}',
+        ),
+        LiveJobsRefreshCard(
+          loading: loadingJobs,
+          usingLiveData: liveJobs.isNotEmpty,
+          onRefresh: loadLiveJobs,
         ),
         if (jobsError.isNotEmpty)
           SyncStatusCard(
@@ -634,10 +712,12 @@ class ResumeScreen extends StatefulWidget {
 
 class _ResumeScreenState extends State<ResumeScreen> {
   final savedResumeCategories = <String>{};
+  bool useProfileDetails = true;
 
   bool categoryComplete(String title) {
     final session = widget.candidateSession;
     if (savedResumeCategories.contains(title)) return true;
+    if (!useProfileDetails) return false;
     return switch (title) {
       'Personal Information' => session.displayName != 'Candidate',
       'Skills & Achievements' => session.skills.isNotEmpty,
@@ -666,6 +746,10 @@ class _ResumeScreenState extends State<ResumeScreen> {
       title: 'Build once, apply faster',
       children: [
         ResumeProgressCard(session: session),
+        ResumeModeCard(
+          useProfileDetails: useProfileDetails,
+          onChanged: (value) => setState(() => useProfileDetails = value),
+        ),
         const ResumeBackendSyncCard(),
         ResumeQualityScoreCard(session: session),
         CardPanel(
@@ -686,10 +770,14 @@ class _ResumeScreenState extends State<ResumeScreen> {
             title: category,
             complete: categoryComplete(category),
             session: session,
+            useProfileDetails: useProfileDetails,
             onSaved: () => markSaved(category),
           ),
         ),
-        ResumePreviewCard(session: session),
+        ResumePreviewCard(
+          session: session,
+          useProfileDetails: useProfileDetails,
+        ),
         const ExportActionsCard(),
         const AiResumeCard(),
       ],
@@ -1791,35 +1879,40 @@ class QuickActionGrid extends StatelessWidget {
       (Icons.event_available_outlined, 'Upcoming interview'),
     ];
 
-    return GridView.count(
-      crossAxisCount: 2,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.55,
-      children: actions
-          .map(
-            (item) => CardPanel(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(item.$1, color: Theme.of(context).colorScheme.primary),
-                  const Spacer(),
-                  Text(
-                    item.$2,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.2,
-                      fontWeight: FontWeight.w500,
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 520 ? 4 : 2;
+        return GridView.count(
+          crossAxisCount: columns,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: columns == 4 ? 1.25 : 1.55,
+          children: actions
+              .map(
+                (item) => CardPanel(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(item.$1, color: Theme.of(context).colorScheme.primary),
+                      const Spacer(),
+                      Text(
+                        item.$2,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.2,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          )
-          .toList(),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 }
@@ -1840,27 +1933,113 @@ class SearchField extends StatelessWidget {
   }
 }
 
-class FilterSummaryCard extends StatelessWidget {
-  const FilterSummaryCard({super.key});
+class JobFilterChips extends StatelessWidget {
+  const JobFilterChips({
+    super.key,
+    required this.filters,
+    required this.activeFilters,
+    required this.onToggle,
+    required this.onAdd,
+  });
+
+  final List<String> filters;
+  final Set<String> activeFilters;
+  final ValueChanged<String> onToggle;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ...filters.map(
+          (filter) => FilterChip(
+            selected: activeFilters.contains(filter),
+            label: Text(filter),
+            onSelected: (_) => onToggle(filter),
+            onDeleted: filter != 'All' && activeFilters.contains(filter)
+                ? () => onToggle(filter)
+                : null,
+          ),
+        ),
+        ActionChip(
+          avatar: const Icon(Icons.add, size: 18),
+          label: const Text('Add filter'),
+          onPressed: onAdd,
+        ),
+      ],
+    );
+  }
+}
+
+class LiveJobsRefreshCard extends StatelessWidget {
+  const LiveJobsRefreshCard({
+    super.key,
+    required this.loading,
+    required this.usingLiveData,
+    required this.onRefresh,
+  });
+
+  final bool loading;
+  final bool usingLiveData;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return CardPanel(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Icon(
+            usingLiveData ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              usingLiveData ? 'Showing live Railway jobs' : 'Showing fallback jobs',
+              style: const TextStyle(color: AppColors.muted),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: loading ? null : onRefresh,
+            icon: loading
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh, size: 18),
+            label: const Text('Refresh'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FilterSummaryCard extends StatelessWidget {
+  const FilterSummaryCard({super.key, required this.activeFilters});
+
+  final Set<String> activeFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    final shownFilters = activeFilters.contains('All')
+        ? const ['All live jobs']
+        : activeFilters.toList();
+
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LabelText('Filters'),
-          SizedBox(height: 10),
+          const LabelText('Filters'),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              InfoPill('Role: ERP / Sales'),
-              InfoPill('Sector: IT / Non-IT'),
-              InfoPill('Location: Hyd / Vja'),
-              InfoPill('Salary: 10 LPA+'),
-              InfoPill('Job type: Full Time'),
-            ],
+            children: shownFilters.map((filter) => InfoPill(filter)).toList(),
           ),
         ],
       ),
@@ -2334,6 +2513,46 @@ class ResumeProgressCard extends StatelessWidget {
   }
 }
 
+class ResumeModeCard extends StatelessWidget {
+  const ResumeModeCard({
+    super.key,
+    required this.useProfileDetails,
+    required this.onChanged,
+  });
+
+  final bool useProfileDetails;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return CardPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Resume mode'),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: useProfileDetails,
+            onChanged: (value) => onChanged(value ?? true),
+            title: const Text('Use my profile details'),
+            subtitle: const Text(
+              'Prefill resume fields from my candidate profile.',
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          if (!useProfileDetails)
+            const MiniRow(
+              icon: Icons.auto_awesome_outlined,
+              title: 'Talent Draft',
+              subtitle:
+                  'Create a resume for another person without using your profile details.',
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class TemplateChip extends StatelessWidget {
   const TemplateChip({super.key, required this.label, required this.active});
 
@@ -2352,22 +2571,33 @@ class ResumeStepTile extends StatelessWidget {
     required this.title,
     required this.complete,
     required this.session,
+    required this.useProfileDetails,
     required this.onSaved,
   });
 
   final String title;
   final bool complete;
   final CandidateSession session;
+  final bool useProfileDetails;
   final VoidCallback onSaved;
+
+  String profileValue(String key, [String fallback = '']) {
+    return useProfileDetails ? session.profileText(key, fallback) : '';
+  }
+
+  String get profileName => useProfileDetails ? session.displayName : '';
+  String get profileEmail => useProfileDetails ? session.email : '';
+  String get profilePhone => useProfileDetails ? session.phone : '';
+  List<String> get profileSkills => useProfileDetails ? session.skills : const [];
 
   List<ResumeFieldSpec> get fields {
     return switch (title) {
       'Personal Information' => [
-        ResumeFieldSpec('Full Name', session.displayName),
-        ResumeFieldSpec('Email', session.email),
-        ResumeFieldSpec('Phone', session.phone),
+        ResumeFieldSpec('Full Name', profileName),
+        ResumeFieldSpec('Email', profileEmail),
+        ResumeFieldSpec('Phone', profilePhone),
         const ResumeFieldSpec('Alternative Number', ''),
-        ResumeFieldSpec('Location', session.profileText('currentLocation', '')),
+        ResumeFieldSpec('Location', profileValue('currentLocation')),
         const ResumeFieldSpec('LinkedIn', ''),
         const ResumeFieldSpec('Portfolio', ''),
         const ResumeFieldSpec('Address', ''),
@@ -2376,31 +2606,31 @@ class ResumeStepTile extends StatelessWidget {
         const ResumeFieldSpec('Gender', ''),
         const ResumeFieldSpec('Mother Tongue', ''),
         const ResumeFieldSpec('Other Languages', ''),
-        ResumeFieldSpec('Years of Experience', session.profileText('experience', '')),
+        ResumeFieldSpec('Years of Experience', profileValue('experience')),
         const ResumeFieldSpec('Certifications', ''),
-        ResumeFieldSpec('Candidate Photo', session.profileText('resumeFileName', '')),
+        ResumeFieldSpec('Candidate Photo', profileValue('resumeFileName')),
       ],
       'Skills & Achievements' => [
-        ResumeFieldSpec('Core Skills', session.skills.join(', '), lines: 4),
+        ResumeFieldSpec('Core Skills', profileSkills.join(', '), lines: 4),
         const ResumeFieldSpec('Career Notes / Achievements', '', lines: 4),
       ],
       'Experience' => [
         const ResumeFieldSpec('Company', ''),
-        ResumeFieldSpec('Title', session.profileText('preferredRole', '')),
-        ResumeFieldSpec('Location', session.profileText('currentLocation', '')),
+        ResumeFieldSpec('Title', profileValue('preferredRole')),
+        ResumeFieldSpec('Location', profileValue('currentLocation')),
         const ResumeFieldSpec('Joined Month', ''),
         const ResumeFieldSpec('Joined Year', ''),
         const ResumeFieldSpec('Exit Month', ''),
         const ResumeFieldSpec('Exit Year / Present', ''),
         ResumeFieldSpec(
           'Bullets, achievements, responsibilities, tools, impact',
-          session.profileText('experience', ''),
+          profileValue('experience'),
           lines: 5,
         ),
       ],
       'Education' => [
         const ResumeFieldSpec('Institution', ''),
-        ResumeFieldSpec('Degree', session.profileText('education', '')),
+        ResumeFieldSpec('Degree', profileValue('education')),
         const ResumeFieldSpec('Year', ''),
       ],
       _ => const [],
@@ -2408,57 +2638,14 @@ class ResumeStepTile extends StatelessWidget {
   }
 
   void openEditor(BuildContext context) {
-    final controllers = [
-      for (final field in fields) TextEditingController(text: field.value),
-    ];
-    showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-        title: Text('${complete ? 'Edit' : 'Fill'} $title'),
-        content: SizedBox(
-          width: 420,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < fields.length; i++) ...[
-                  TextField(
-                    controller: controllers[i],
-                    minLines: fields[i].lines,
-                    maxLines: fields[i].lines > 1 ? fields[i].lines + 2 : 1,
-                    decoration: InputDecoration(
-                      labelText: fields[i].label,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ],
-            ),
-          ),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ResumeEditScreen(
+          title: title,
+          complete: complete,
+          fields: fields,
+          onSaved: onSaved,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-          FilledButton(
-            onPressed: () {
-              onSaved();
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '${complete ? 'Updated' : 'Saved'} $title draft',
-                  ),
-                ),
-              );
-            },
-            child: Text(complete ? 'Update' : 'Save'),
-          ),
-        ],
-      ),
       ),
     );
   }
@@ -2509,16 +2696,143 @@ class ResumeFieldSpec {
   final int lines;
 }
 
-class ResumePreviewCard extends StatelessWidget {
-  const ResumePreviewCard({super.key, required this.session});
+class ResumeEditScreen extends StatefulWidget {
+  const ResumeEditScreen({
+    super.key,
+    required this.title,
+    required this.complete,
+    required this.fields,
+    required this.onSaved,
+  });
 
-  final CandidateSession session;
+  final String title;
+  final bool complete;
+  final List<ResumeFieldSpec> fields;
+  final VoidCallback onSaved;
+
+  @override
+  State<ResumeEditScreen> createState() => _ResumeEditScreenState();
+}
+
+class _ResumeEditScreenState extends State<ResumeEditScreen> {
+  late final List<TextEditingController> controllers;
+  final scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    controllers = [
+      for (final field in widget.fields)
+        TextEditingController(text: field.value),
+    ];
+  }
+
+  @override
+  void dispose() {
+    for (final controller in controllers) {
+      controller.dispose();
+    }
+    scrollController.dispose();
+    super.dispose();
+  }
+
+  void save() {
+    widget.onSaved();
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${widget.complete ? 'Updated' : 'Saved'} ${widget.title} draft',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final role = session.profileText('preferredRole', 'Preferred role pending');
-    final location = session.profileText('preferredLocation', 'Preferred location pending');
-    final skills = session.skills.isEmpty
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Back',
+        ),
+        title: Text(widget.title),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                controller: scrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < widget.fields.length; i++) ...[
+                        TextField(
+                          controller: controllers[i],
+                          minLines: widget.fields[i].lines,
+                          maxLines: widget.fields[i].lines > 1
+                              ? widget.fields[i].lines + 2
+                              : 1,
+                          decoration: InputDecoration(
+                            labelText: widget.fields[i].label,
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(top: BorderSide(color: AppColors.line)),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: save,
+                  icon: const Icon(Icons.save_outlined, size: 18),
+                  label: Text(widget.complete ? 'Update' : 'Save'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ResumePreviewCard extends StatelessWidget {
+  const ResumePreviewCard({
+    super.key,
+    required this.session,
+    required this.useProfileDetails,
+  });
+
+  final CandidateSession session;
+  final bool useProfileDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = useProfileDetails
+        ? session.profileText('preferredRole', 'Preferred role pending')
+        : 'Talent Draft role';
+    final location = useProfileDetails
+        ? session.profileText('preferredLocation', 'Preferred location pending')
+        : 'Location to be added';
+    final skills = !useProfileDetails
+        ? 'Add skills for this Talent Draft'
+        : session.skills.isEmpty
         ? 'Add skills to improve resume quality'
         : session.skills.take(4).join(', ');
 
@@ -2541,7 +2855,7 @@ class ResumePreviewCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  session.displayName,
+                  useProfileDetails ? session.displayName : 'Talent Draft',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
                 ),
                 Text('$role / $location'),
@@ -2549,7 +2863,9 @@ class ResumePreviewCard extends StatelessWidget {
                 Text(skills),
                 const Spacer(),
                 Text(
-                  '${session.profileText('experience', 'Experience pending')} / ${session.profileText('education', 'Education pending')}',
+                  useProfileDetails
+                      ? '${session.profileText('experience', 'Experience pending')} / ${session.profileText('education', 'Education pending')}'
+                      : 'Experience / Education / Skills',
                   style: const TextStyle(color: AppColors.muted),
                 ),
               ],
