@@ -5,8 +5,8 @@ const PAGE_HEIGHT = 841.89;
 const SIDE_MARGIN = 42;
 const CONTENT_TOP = 704;
 const CONTENT_BOTTOM = 72;
-const BODY_SIZE = 10.5;
-const LINE_HEIGHT = 18;
+const BODY_SIZE = 11.5;
+const LINE_HEIGHT = 20;
 
 const SECTION_HEADINGS = new Set([
   "Scope of Services",
