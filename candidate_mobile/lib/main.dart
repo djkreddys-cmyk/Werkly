@@ -1881,32 +1881,47 @@ class QuickActionGrid extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 520 ? 4 : 2;
-        return GridView.count(
-          crossAxisCount: columns,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: columns == 4 ? 1.25 : 1.55,
+        const spacing = 10.0;
+        final availableWidth = constraints.maxWidth;
+        final columns = availableWidth >= 760
+            ? 4
+            : availableWidth >= 320
+                ? 2
+                : 1;
+        final cardWidth = (availableWidth - (spacing * (columns - 1))) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
           children: actions
               .map(
-                (item) => CardPanel(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(item.$1, color: Theme.of(context).colorScheme.primary),
-                      const Spacer(),
-                      Text(
-                        item.$2,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.2,
-                          fontWeight: FontWeight.w500,
+                (item) => SizedBox(
+                  width: cardWidth,
+                  height: 78,
+                  child: CardPanel(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          item.$1,
+                          size: 21,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            item.$2,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.2,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               )
