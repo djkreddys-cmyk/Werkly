@@ -159,6 +159,13 @@ export type ClientRecord = {
   onboardingSource?: string;
   notes?: string;
   followUpNotes?: string;
+  agreementStatus?: "draft" | "shared" | "confirmed";
+  agreementSubject?: string;
+  agreementContent?: string;
+  agreementPdfFileName?: string;
+  agreementPdfFileType?: string;
+  agreementPdfFileData?: string;
+  agreementConfirmedAt?: string;
   agreementFileName?: string;
   agreementFileType?: string;
   agreementFileData?: string;
@@ -395,6 +402,13 @@ export type ClientFormPayload = {
   onboardingSource?: string;
   notes?: string;
   followUpNotes?: string;
+  agreementStatus?: "draft" | "shared" | "confirmed";
+  agreementSubject?: string;
+  agreementContent?: string;
+  agreementPdfFileName?: string;
+  agreementPdfFileType?: string;
+  agreementPdfFileData?: string;
+  agreementConfirmedAt?: string;
   agreementFileName?: string;
   agreementFileType?: string;
   agreementFileData?: string;

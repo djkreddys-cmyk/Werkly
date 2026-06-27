@@ -1936,16 +1936,30 @@ function CrmClientsList({
                         </span>
                       </td>
                       <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                        <p className="font-semibold text-[var(--color-ink)]">
+                          {client.agreementStatus
+                            ? formatClientStageLabel(client.agreementStatus)
+                            : "Not shared"}
+                        </p>
+                        {client.agreementPdfFileData && client.agreementPdfFileName ? (
+                          <a
+                            href={client.agreementPdfFileData}
+                            download={client.agreementPdfFileName}
+                            className="mt-1 block font-medium text-[var(--color-accent-strong)]"
+                          >
+                            Shared PDF
+                          </a>
+                        ) : null}
                         {client.agreementFileData && client.agreementFileName ? (
                           <a
                             href={client.agreementFileData}
                             download={client.agreementFileName}
-                            className="font-medium text-[var(--color-accent-strong)]"
+                            className="mt-1 block font-medium text-[var(--color-accent-strong)]"
                           >
-                            Download PDF
+                            Signed Copy
                           </a>
                         ) : (
-                          "Not uploaded"
+                          <p className="mt-1 text-xs">Signed copy not uploaded</p>
                         )}
                       </td>
                       <td className="px-4 py-4">
@@ -1982,7 +1996,12 @@ function CrmClientsList({
                                   ]
                                 : []),
                               {
-                                label: "Share Agreement",
+                                label:
+                                  client.agreementStatus === "confirmed"
+                                    ? "View Agreement"
+                                    : client.agreementStatus === "shared"
+                                      ? "Edit Agreement"
+                                      : "Share Agreement",
                                 onClick: () => {
                                   setAgreementClient(client);
                                   setActionMenuClientId("");

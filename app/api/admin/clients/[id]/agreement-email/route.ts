@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getClientById, updateClientFollowUp } from "@/lib/crm";
+import { getClientById, updateClient } from "@/lib/crm";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -62,6 +62,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       subject?: string;
       message?: string;
       htmlMessage?: string;
+      agreementContent?: string;
+      agreementSubject?: string;
+      agreementPdfFileName?: string;
+      agreementPdfFileType?: string;
+      agreementPdfFileData?: string;
       attachments?: Array<{
         filename?: string;
         content?: string;
@@ -140,16 +145,41 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const sentNote = `Agreement shared to ${toEmails.join(", ")}${
       ccEmails.length ? ` with CC to ${ccEmails.join(", ")}` : ""
     }${attachments.length ? ` with ${attachments.length} attachment(s)` : ""}.`;
-    const updatedClient = await updateClientFollowUp(
-      id,
-      {
-        followUpStatus: client.followUpStatus || "in-progress",
-        lastFollowUpDate: new Date().toISOString().slice(0, 10),
-        nextFollowUpDate: client.nextFollowUpDate,
-        followUpNotes: [client.followUpNotes, sentNote].filter(Boolean).join("\n\n"),
-      },
-      token
-    );
+    const updatedClient = await updateClient(id, {
+      companyName: client.companyName,
+      contactPerson: client.contactPerson,
+      contactEmail: client.contactEmail,
+      contactPhone: client.contactPhone,
+      secondaryContactPerson: client.secondaryContactPerson,
+      secondaryContactEmail: client.secondaryContactEmail,
+      secondaryContactPhone: client.secondaryContactPhone,
+      communicationAddress: client.communicationAddress,
+      sector: client.sector,
+      branch: client.branch,
+      billingTerms: client.billingTerms,
+      gstNumber: client.gstNumber,
+      cinNumber: client.cinNumber,
+      panNumber: client.panNumber,
+      assignedEmployeeId: client.assignedEmployeeId,
+      status: client.status,
+      onboardingStatus: client.onboardingStatus,
+      followUpStatus: client.followUpStatus || "in-progress",
+      lastFollowUpDate: new Date().toISOString().slice(0, 10),
+      nextFollowUpDate: client.nextFollowUpDate,
+      onboardingSource: client.onboardingSource,
+      notes: client.notes,
+      followUpNotes: [client.followUpNotes, sentNote].filter(Boolean).join("\n\n"),
+      agreementStatus: "shared",
+      agreementSubject: String(body.agreementSubject || subject).trim(),
+      agreementContent: String(body.agreementContent || "").trim(),
+      agreementPdfFileName: String(body.agreementPdfFileName || attachments[0]?.filename || "").trim() || undefined,
+      agreementPdfFileType: String(body.agreementPdfFileType || "application/pdf").trim(),
+      agreementPdfFileData: String(body.agreementPdfFileData || "").trim() || undefined,
+      agreementConfirmedAt: client.agreementConfirmedAt,
+      agreementFileName: client.agreementFileName,
+      agreementFileType: client.agreementFileType,
+      agreementFileData: client.agreementFileData,
+    }, token);
 
     return NextResponse.json({
       client: updatedClient,
