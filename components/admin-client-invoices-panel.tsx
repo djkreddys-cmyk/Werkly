@@ -45,6 +45,7 @@ const compactDangerButtonClassName =
 const gstRate = 9;
 const defaultInvoiceNotes =
   "Payment should be made within 30 days after the candidate joins your organization.";
+const defaultFeePercent = "8.33";
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
@@ -153,7 +154,34 @@ function invoiceNumber(dateKey = todayKey()) {
 }
 
 
-function defaultLine(application: JobApplication, job?: JobSummary): InvoiceLine {
+function extractFeePercent(value?: string) {
+  const match = String(value || "").match(/(\d+(?:\.\d+)?)\s*%/);
+  return match ? match[1] : "";
+}
+
+function extractPaymentTerms(value?: string) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  const paymentLine = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .find((line) => /payment|invoice|days/i.test(line));
+
+  return paymentLine || "";
+}
+
+function clientFeePercent(client?: ClientRecord) {
+  return extractFeePercent(client?.billingTerms) || defaultFeePercent;
+}
+
+function clientPaymentTerms(client?: ClientRecord) {
+  return extractPaymentTerms(client?.billingTerms) || defaultInvoiceNotes;
+}
+
+function defaultLine(application: JobApplication, job?: JobSummary, feePercent = defaultFeePercent): InvoiceLine {
   const ctc =
     parseMoney(application.finalCtc) ||
     parseMoney(application.currentCtc) ||
@@ -176,7 +204,7 @@ function defaultLine(application: JobApplication, job?: JobSummary): InvoiceLine
       application.currentDesignation ||
       "Recruitment placement",
     hsnSac: "998512",
-    feePercent: "8.33",
+    feePercent,
     selected: true,
   };
 }
@@ -210,6 +238,7 @@ export function AdminClientInvoicesPanel({
   const [invoiceNo, setInvoiceNo] = useState(invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(todayKey);
   const [dueDate, setDueDate] = useState(addDays(todayKey(), 30));
+  const [feeStructure, setFeeStructure] = useState(defaultFeePercent);
   const [notes, setNotes] = useState(defaultInvoiceNotes);
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -375,6 +404,17 @@ export function AdminClientInvoicesPanel({
 
     return undefined;
   }, [invoiceToLoad, selectedClientId, visibleClients]);
+
+  useEffect(() => {
+    if (generatedInvoiceId || !selectedClient) {
+      return;
+    }
+
+    const nextFeePercent = clientFeePercent(selectedClient);
+    setFeeStructure(nextFeePercent);
+    setNotes(clientPaymentTerms(selectedClient));
+  }, [generatedInvoiceId, selectedClient]);
+
   const selectedBankAccount = useMemo(
     () =>
       bankAccounts.find((account) => account.id === selectedBankAccountId) ||
@@ -415,13 +455,14 @@ export function AdminClientInvoicesPanel({
       clientJoinedApplications.map((application) =>
         defaultLine(
           application,
-          jobs.find((job) => job.id === application.jobId)
+          jobs.find((job) => job.id === application.jobId),
+          feeStructure || clientFeePercent(selectedClient)
         )
       )
     );
     setIsInvoiceGenerated(false);
     setMessage("");
-  }, [clientJoinedApplications, generatedInvoiceId, jobs]);
+  }, [clientJoinedApplications, feeStructure, generatedInvoiceId, jobs, selectedClient]);
 
   useEffect(() => {
     if (
@@ -444,6 +485,7 @@ export function AdminClientInvoicesPanel({
     setInvoiceDate(toDateInputKey(invoiceToLoad.invoiceDate) || todayKey());
     setDueDate(toDateInputKey(invoiceToLoad.dueDate) || addDays(toDateInputKey(invoiceToLoad.invoiceDate) || todayKey(), 30));
     setSelectedBankAccountId(invoiceToLoad.bankAccountId || "");
+    setFeeStructure(invoiceToLoad.feeStructure || invoiceToLoad.lines[0]?.feePercent || defaultFeePercent);
     setNotes(invoiceToLoad.notes || "");
     setLines(
       invoiceToLoad.lines.map((line, index) => ({
@@ -532,6 +574,7 @@ export function AdminClientInvoicesPanel({
     setInvoiceDate(nextInvoiceDate);
     setDueDate(addDays(nextInvoiceDate, 30));
     setInvoiceNo(invoiceNumberFromInvoices(nextInvoices, nextInvoiceDate));
+    setFeeStructure(defaultFeePercent);
     setNotes(defaultInvoiceNotes);
     setLines([]);
     setGeneratedInvoiceId("");
@@ -566,6 +609,7 @@ export function AdminClientInvoicesPanel({
       cgst: totals.cgst,
       sgst: totals.sgst,
       total: totals.total,
+      feeStructure,
       notes,
       status: "generated",
       generatedAt: new Date().toISOString(),
@@ -831,6 +875,39 @@ export function AdminClientInvoicesPanel({
                 </option>
               ))}
             </select>
+          </label>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(180px,0.6fr)_minmax(280px,1.4fr)]">
+          <label className="space-y-1.5">
+            <span className="section-eyebrow">Fee Structure</span>
+            <input
+              className={compactFieldClassName}
+              value={feeStructure}
+              onChange={(event) => {
+                const nextFee = event.target.value;
+                setFeeStructure(nextFee);
+                setLines((current) =>
+                  current.map((line) => ({ ...line, feePercent: extractFeePercent(nextFee) || nextFee }))
+                );
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
+              placeholder="8.33 or 8.33% of CTC"
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className="section-eyebrow">Payment Terms</span>
+            <input
+              className={compactFieldClassName}
+              value={notes}
+              onChange={(event) => {
+                setNotes(event.target.value);
+                setIsInvoiceGenerated(false);
+                setMessage("");
+              }}
+              placeholder={defaultInvoiceNotes}
+            />
           </label>
         </div>
       </section>

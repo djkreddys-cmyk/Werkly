@@ -22,6 +22,7 @@ import {
 import type { AttendanceSessionRecord } from "@/lib/attendance";
 import type { ScreenActivityRecord } from "@/lib/activity";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+import { AgreementMailModal } from "@/components/agreement-mail-modal";
 import { ProposalMailModal } from "@/components/proposal-mail-modal";
 import { TableActionMenu } from "@/components/table-action-menu";
 import { useCrmAccessControl } from "@/hooks/use-crm-access-control";
@@ -1195,6 +1196,7 @@ function CrmClientsList({
 }) {
   const [selectedClientJobs, setSelectedClientJobs] = useState<ClientRecord | null>(null);
   const [proposalClient, setProposalClient] = useState<ClientRecord | null>(null);
+  const [agreementClient, setAgreementClient] = useState<ClientRecord | null>(null);
   const [actionMenuClientId, setActionMenuClientId] = useState("");
   const [token] = useState(
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
@@ -1976,6 +1978,14 @@ function CrmClientsList({
                                 tone: "accent" as const,
                               },
                               {
+                                label: "Share Agreement",
+                                onClick: () => {
+                                  setAgreementClient(client);
+                                  setActionMenuClientId("");
+                                },
+                                tone: "accent" as const,
+                              },
+                              {
                                 label: "Follow-Up",
                                 onClick: () => onFollowUp(client),
                               },
@@ -2136,6 +2146,17 @@ function CrmClientsList({
           client={proposalClient}
           token={token}
           onClose={() => setProposalClient(null)}
+          onSent={async () => {
+            await onProposalSent?.();
+          }}
+        />
+      ) : null}
+
+      {agreementClient ? (
+        <AgreementMailModal
+          client={agreementClient}
+          token={token}
+          onClose={() => setAgreementClient(null)}
           onSent={async () => {
             await onProposalSent?.();
           }}

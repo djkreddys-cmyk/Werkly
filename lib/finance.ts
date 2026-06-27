@@ -27,6 +27,7 @@ export type FinanceInvoiceRecord = {
   cgst: number;
   sgst: number;
   total: number;
+  feeStructure?: string;
   notes: string;
   status: "generated";
   generatedAt: string;

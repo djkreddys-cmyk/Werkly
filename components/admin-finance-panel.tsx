@@ -883,7 +883,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-6">
-              <div className="grid gap-3 md:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-5">
                 <label className="space-y-1.5">
                   <span className="section-eyebrow">Invoice #</span>
                   <input className="h-10 w-full rounded-xl border border-[var(--color-border)] px-3 text-sm" value={editingInvoice.invoiceNo} onChange={(event) => updateEditingInvoice({ invoiceNo: event.target.value })} />
@@ -905,10 +905,14 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                     ))}
                   </select>
                 </label>
+                <label className="space-y-1.5">
+                  <span className="section-eyebrow">Fee Structure</span>
+                  <input className="h-10 w-full rounded-xl border border-[var(--color-border)] px-3 text-sm" value={editingInvoice.feeStructure || editingInvoice.lines[0]?.feePercent || ""} onChange={(event) => updateEditingInvoice({ feeStructure: event.target.value })} />
+                </label>
               </div>
 
               <label className="mt-4 block space-y-1.5">
-                <span className="section-eyebrow">Notes</span>
+                <span className="section-eyebrow">Payment Terms / Notes</span>
                 <textarea className="min-h-20 w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm" value={editingInvoice.notes} onChange={(event) => updateEditingInvoice({ notes: event.target.value })} />
               </label>
 
