@@ -127,7 +127,10 @@ import {
   authenticateCandidate,
   createCandidateAccount,
   createCandidateEnquiry,
+  createCandidateResumeExport,
   createResumeBuilderSubmission,
+  deleteCandidateDocument,
+  deleteCandidateSavedFilter,
   deleteCandidateSavedJob,
   createJob,
   deleteJob,
@@ -136,10 +139,13 @@ import {
   getAdminJobById,
   getCandidateById,
   getCandidateProfile,
+  getCandidateAnalytics,
   getJobBySlug,
   listAdminApplications,
   listCandidateApplications,
+  listCandidateDocuments,
   listCandidateEnquiries,
+  listCandidateSavedFilters,
   listCandidateSavedJobs,
   listResumeBuilderSubmissions,
   listApplicationStageHistory,
@@ -149,6 +155,8 @@ import {
   mergeJobsByCode,
   recordJobApplication,
   recordCandidateJobApplication,
+  recordCandidateAnalyticsEvent,
+  saveCandidateFilter,
   saveCandidateJob,
   assignCandidateApplicationToJob,
   assignJobApplication,
@@ -156,6 +164,7 @@ import {
   updateJobApplicationStage,
   updateJob,
   updateCandidateProfile,
+  upsertCandidateDocument,
 } from "./jobs.js";
 import {
   buildEmployeeScope,
@@ -734,6 +743,114 @@ app.put("/candidate/me/profile", requireCandidate, async (request, response) => 
       message: message.includes("duplicate key")
         ? "Email or phone is already used by another candidate."
         : message,
+    });
+  }
+});
+
+app.get("/candidate/documents", requireCandidate, async (request, response) => {
+  try {
+    const documents = await listCandidateDocuments(request.candidate.id, { slim: true });
+    response.json({ documents });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load candidate documents.",
+    });
+  }
+});
+
+app.post("/candidate/documents", requireCandidate, async (request, response) => {
+  try {
+    const document = await upsertCandidateDocument(request.candidate.id, request.body ?? {});
+    const documents = await listCandidateDocuments(request.candidate.id, { slim: true });
+    response.status(201).json({ document, documents });
+  } catch (error) {
+    response.status(400).json({
+      message: error instanceof Error ? error.message : "Unable to upload candidate document.",
+    });
+  }
+});
+
+app.delete("/candidate/documents/:id", requireCandidate, async (request, response) => {
+  try {
+    const documents = await deleteCandidateDocument(request.candidate.id, request.params.id);
+    response.json({ documents });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to remove candidate document.",
+    });
+  }
+});
+
+app.get("/candidate/analytics", requireCandidate, async (request, response) => {
+  try {
+    const analytics = await getCandidateAnalytics(request.candidate.id);
+    response.json({ analytics });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load candidate analytics.",
+    });
+  }
+});
+
+app.post("/candidate/analytics/events", requireCandidate, async (request, response) => {
+  try {
+    await recordCandidateAnalyticsEvent(request.candidate.id, request.body?.eventType, {
+      entityType: request.body?.entityType,
+      entityId: request.body?.entityId,
+      metadata: request.body?.metadata,
+    });
+    response.status(201).json({ success: true });
+  } catch (error) {
+    response.status(400).json({
+      message: error instanceof Error ? error.message : "Unable to record analytics event.",
+    });
+  }
+});
+
+app.get("/candidate/saved-filters", requireCandidate, async (request, response) => {
+  try {
+    const filters = await listCandidateSavedFilters(request.candidate.id);
+    response.json({ filters });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load saved filters.",
+    });
+  }
+});
+
+app.post("/candidate/saved-filters", requireCandidate, async (request, response) => {
+  try {
+    const filter = await saveCandidateFilter(request.candidate.id, request.body ?? {});
+    const filters = await listCandidateSavedFilters(request.candidate.id);
+    response.status(201).json({ filter, filters });
+  } catch (error) {
+    response.status(400).json({
+      message: error instanceof Error ? error.message : "Unable to save filter.",
+    });
+  }
+});
+
+app.delete("/candidate/saved-filters/:id", requireCandidate, async (request, response) => {
+  try {
+    const filters = await deleteCandidateSavedFilter(request.candidate.id, request.params.id);
+    response.json({ filters });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to remove saved filter.",
+    });
+  }
+});
+
+app.post("/candidate/resume-exports", requireCandidate, async (request, response) => {
+  try {
+    const exportRecord = await createCandidateResumeExport(
+      request.candidate.id,
+      request.body ?? {}
+    );
+    response.status(201).json({ export: exportRecord });
+  } catch (error) {
+    response.status(400).json({
+      message: error instanceof Error ? error.message : "Unable to create resume export.",
     });
   }
 });

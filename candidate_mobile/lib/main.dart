@@ -273,6 +273,102 @@ class CandidateApi {
         .toList();
   }
 
+  static Future<List<Map<String, dynamic>>> loadDocuments(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/candidate/documents'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _readJson(response);
+    final documents = data['documents'] is List ? data['documents'] as List : const [];
+    return documents
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> uploadDocument(
+    String token,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/candidate/documents'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+    final data = _readJson(response);
+    final documents = data['documents'] is List ? data['documents'] as List : const [];
+    return documents
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<Map<String, dynamic>> loadAnalytics(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/candidate/analytics'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _readJson(response);
+    return Map<String, dynamic>.from(data['analytics'] ?? {});
+  }
+
+  static Future<void> recordEvent(
+    String token,
+    String eventType, {
+    String? entityType,
+    String? entityId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    await http.post(
+      Uri.parse('$baseUrl/candidate/analytics/events'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'eventType': eventType,
+        'entityType': entityType,
+        'entityId': entityId,
+        'metadata': metadata ?? {},
+      }),
+    );
+  }
+
+  static Future<Map<String, dynamic>> applyToJob(
+    String token,
+    String slug,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/candidate/jobs/$slug/apply'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+    return _readJson(response);
+  }
+
+  static Future<Map<String, dynamic>> createResumeExport(
+    String token,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/candidate/resume-exports'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+    final data = _readJson(response);
+    return Map<String, dynamic>.from(data['export'] ?? {});
+  }
+
   static Future<List<CandidateJob>> loadJobs() async {
     final response = await http.get(Uri.parse('$baseUrl/jobs'));
     final data = _readJson(response);
@@ -845,7 +941,7 @@ class _ResumeScreenState extends State<ResumeScreen> {
           session: session,
           useProfileDetails: useProfileDetails,
         ),
-        const ExportActionsCard(),
+        ExportActionsCard(session: session),
         const AiResumeCard(),
       ],
     );
@@ -2324,6 +2420,13 @@ class JobCard extends StatelessWidget {
   }
 
   void shareJob(BuildContext context) {
+    CandidateApi.recordEvent(
+      candidateSession.token,
+      'job_shared',
+      entityType: 'job',
+      entityId: slug,
+      metadata: {'title': title},
+    );
     SharePlus.instance.share(
       ShareParams(
         subject: '$title at Werkly',
@@ -2337,6 +2440,7 @@ class JobCard extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ApplyConfirmationScreen(
+          slug: slug,
           jobTitle: title,
           candidateSession: candidateSession,
         ),
@@ -2531,6 +2635,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ApplyConfirmationScreen(
+          slug: widget.slug,
           jobTitle: widget.title,
           candidateSession: widget.candidateSession,
         ),
@@ -2539,6 +2644,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   void shareJob() {
+    CandidateApi.recordEvent(
+      widget.candidateSession.token,
+      'job_shared',
+      entityType: 'job',
+      entityId: widget.slug,
+      metadata: {'title': widget.title},
+    );
     SharePlus.instance.share(
       ShareParams(
         subject: '${widget.title} at Werkly',
@@ -2670,10 +2782,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 class ApplyConfirmationScreen extends StatefulWidget {
   const ApplyConfirmationScreen({
     super.key,
+    required this.slug,
     required this.jobTitle,
     required this.candidateSession,
   });
 
+  final String slug;
   final String jobTitle;
   final CandidateSession candidateSession;
 
@@ -2685,8 +2799,11 @@ class ApplyConfirmationScreen extends StatefulWidget {
 class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
   late final TextEditingController expectedCtcController;
   late final TextEditingController noticeController;
+  late final TextEditingController locationController;
   late final TextEditingController resumeController;
   late final TextEditingController noteController;
+  bool submitting = false;
+  String error = '';
 
   @override
   void initState() {
@@ -2696,6 +2813,9 @@ class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
     );
     noticeController = TextEditingController(
       text: widget.candidateSession.profileText('noticePeriod', ''),
+    );
+    locationController = TextEditingController(
+      text: widget.candidateSession.profileText('preferredLocation', ''),
     );
     resumeController = TextEditingController(
       text: widget.candidateSession.profileText(
@@ -2710,16 +2830,39 @@ class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
   void dispose() {
     expectedCtcController.dispose();
     noticeController.dispose();
+    locationController.dispose();
     resumeController.dispose();
     noteController.dispose();
     super.dispose();
   }
 
-  void confirmApply() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Application submitted for ${widget.jobTitle}')),
-    );
-    Navigator.of(context).pop();
+  Future<void> confirmApply() async {
+    setState(() {
+      submitting = true;
+      error = '';
+    });
+    try {
+      await CandidateApi.applyToJob(widget.candidateSession.token, widget.slug, {
+        'expectedCtc': expectedCtcController.text.trim(),
+        'noticePeriod': noticeController.text.trim(),
+        'preferredLocation': locationController.text.trim(),
+        'candidateMessage': noteController.text.trim(),
+        'resumeFileName': resumeController.text.trim(),
+        'resumeFileType': widget.candidateSession.profileText('resumeFileType', ''),
+        'resumeFileData': widget.candidateSession.profileText('resumeFileData', ''),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Application submitted for ${widget.jobTitle}')),
+      );
+      Navigator.of(context).pop();
+    } catch (exception) {
+      if (mounted) {
+        setState(() => error = exception.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => submitting = false);
+    }
   }
 
   @override
@@ -2844,6 +2987,15 @@ class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
                           ),
                           const SizedBox(height: 12),
                           TextField(
+                            controller: locationController,
+                            decoration: const InputDecoration(
+                              labelText: 'Preferred location',
+                              prefixIcon: Icon(Icons.location_on_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
                             controller: noteController,
                             minLines: 3,
                             maxLines: 5,
@@ -2856,6 +3008,14 @@ class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
                         ],
                       ),
                     ),
+                    if (error.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          error,
+                          style: const TextStyle(color: AppColors.accentStrong),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -2869,9 +3029,15 @@ class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: confirmApply,
-                  icon: const Icon(Icons.task_alt_outlined, size: 18),
-                  label: const Text('Confirm apply'),
+                  onPressed: submitting ? null : confirmApply,
+                  icon: submitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.task_alt_outlined, size: 18),
+                  label: Text(submitting ? 'Submitting' : 'Confirm apply'),
                 ),
               ),
             ),
@@ -3443,8 +3609,50 @@ class ResumePreviewCard extends StatelessWidget {
   }
 }
 
-class ExportActionsCard extends StatelessWidget {
-  const ExportActionsCard({super.key});
+class ExportActionsCard extends StatefulWidget {
+  const ExportActionsCard({super.key, required this.session});
+
+  final CandidateSession session;
+
+  @override
+  State<ExportActionsCard> createState() => _ExportActionsCardState();
+}
+
+class _ExportActionsCardState extends State<ExportActionsCard> {
+  bool exporting = false;
+
+  Future<void> createExport(String format) async {
+    setState(() => exporting = true);
+    try {
+      final fileName =
+          '${widget.session.displayName.replaceAll(' ', '_')}_Resume.${format == 'word' ? 'doc' : 'pdf'}';
+      await CandidateApi.createResumeExport(widget.session.token, {
+        'template': 'Executive',
+        'format': format,
+        'fileName': fileName,
+        'resumePayload': widget.session.profile,
+      });
+      await CandidateApi.recordEvent(
+        widget.session.token,
+        'resume_downloaded',
+        entityType: 'resume_export',
+        metadata: {'format': format, 'fileName': fileName},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${format == 'word' ? 'Word' : 'PDF'} export prepared')),
+      );
+    } catch (exception) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(exception.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => exporting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3459,7 +3667,16 @@ class ExportActionsCard extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: exporting
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => DocumentUploadScreen(
+                                session: widget.session,
+                                onUpdated: (_) {},
+                              ),
+                            ),
+                          ),
                   icon: const Icon(Icons.upload_file_outlined),
                   label: const Text('Upload'),
                 ),
@@ -3467,7 +3684,7 @@ class ExportActionsCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: exporting ? null : () => createExport('pdf'),
                   icon: const Icon(Icons.picture_as_pdf_outlined),
                   label: const Text('PDF'),
                 ),
@@ -3475,9 +3692,15 @@ class ExportActionsCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.download_outlined),
-                  label: const Text('Word'),
+                  onPressed: exporting ? null : () => createExport('word'),
+                  icon: exporting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download_outlined),
+                  label: Text(exporting ? 'Wait' : 'Word'),
                 ),
               ),
             ],
@@ -3908,30 +4131,64 @@ class DocumentUploadScreen extends StatefulWidget {
 
 class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
   final selectedFiles = <String, String>{};
+  late Future<List<Map<String, dynamic>>> documents;
   bool uploading = false;
   String error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    documents = CandidateApi.loadDocuments(widget.session.token);
+  }
+
+  String fileNameForCategory(String category, List<Map<String, dynamic>> items) {
+    final matching = items.where((item) => item['category'] == category);
+    if (matching.isNotEmpty) return (matching.first['fileName'] ?? '').toString();
+    if (category == 'Resume') {
+      return widget.session.profileText('resumeFileName', 'No file selected');
+    }
+    return 'No file selected';
+  }
 
   Future<void> pickDocument(String category) async {
     final result = await FilePicker.platform.pickFiles(withData: true);
     if (result == null || result.files.isEmpty) return;
     final file = result.files.single;
+    if (file.bytes == null) return;
     setState(() {
       selectedFiles[category] = file.name;
       error = '';
+      uploading = true;
     });
 
-    if (category != 'Resume' || file.bytes == null) return;
-    setState(() => uploading = true);
     try {
+      final fileData = base64Encode(file.bytes!);
+      final updatedDocuments = await CandidateApi.uploadDocument(widget.session.token, {
+        'category': category,
+        'fileName': file.name,
+        'fileType': file.extension ?? 'file',
+        'fileData': fileData,
+      });
       final payload = Map<String, dynamic>.from(widget.session.profile)
-        ..['resumeFileName'] = file.name
-        ..['resumeFileType'] = file.extension ?? 'file'
-        ..['resumeFileData'] = base64Encode(file.bytes!);
-      final profile = await CandidateApi.updateProfile(widget.session.token, payload);
-      widget.onUpdated(widget.session.withProfile(profile));
+        ..['resumeFileName'] = category == 'Resume'
+            ? file.name
+            : widget.session.profileText('resumeFileName', '')
+        ..['resumeFileType'] = category == 'Resume'
+            ? file.extension ?? 'file'
+            : widget.session.profileText('resumeFileType', '')
+        ..['resumeFileData'] = category == 'Resume'
+            ? fileData
+            : widget.session.profileText('resumeFileData', '');
+      if (category == 'Resume') {
+        final profile = await CandidateApi.updateProfile(widget.session.token, payload);
+        widget.onUpdated(widget.session.withProfile(profile));
+      }
       if (mounted) {
+        setState(() {
+          documents = Future.value(updatedDocuments);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Resume uploaded to your Werkly profile')),
+          SnackBar(content: Text('$category uploaded to your Werkly profile')),
         );
       }
     } catch (exception) {
@@ -3960,25 +4217,49 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
           children: [
             const Text('Choose a document type and select a file from your device.'),
             const SizedBox(height: 16),
-            ...categories.map(
-              (item) => CardPanel(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(item.$2, color: Theme.of(context).colorScheme.primary),
-                  title: Text(item.$1),
-                  subtitle: Text(
-                    selectedFiles[item.$1] ??
-                        (item.$1 == 'Resume'
-                            ? widget.session.profileText('resumeFileName', 'No file selected')
-                            : 'No file selected'),
-                  ),
-                  trailing: IconButton(
-                    onPressed: uploading ? null : () => pickDocument(item.$1),
-                    icon: const Icon(Icons.upload_file_outlined),
-                    tooltip: 'Upload ${item.$1}',
-                  ),
-                ),
-              ),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: documents,
+              builder: (context, snapshot) {
+                final items = snapshot.data ?? const <Map<String, dynamic>>[];
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const CardPanel(
+                    child: ListTile(
+                      leading: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      title: Text('Loading documents'),
+                      subtitle: Text('Checking your Werkly profile files'),
+                    ),
+                  );
+                }
+                return Column(
+                  children: categories
+                      .map(
+                        (item) => CardPanel(
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              item.$2,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            title: Text(item.$1),
+                            subtitle: Text(
+                              selectedFiles[item.$1] ??
+                                  fileNameForCategory(item.$1, items),
+                            ),
+                            trailing: IconButton(
+                              onPressed: uploading ? null : () => pickDocument(item.$1),
+                              icon: const Icon(Icons.upload_file_outlined),
+                              tooltip: 'Upload ${item.$1}',
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
             ),
             if (uploading) const LinearProgressIndicator(),
             if (error.isNotEmpty)
@@ -4003,12 +4284,12 @@ class CandidateAnalyticsScreen extends StatefulWidget {
 }
 
 class _CandidateAnalyticsScreenState extends State<CandidateAnalyticsScreen> {
-  late final Future<List<Map<String, dynamic>>> applications;
+  late final Future<Map<String, dynamic>> analytics;
 
   @override
   void initState() {
     super.initState();
-    applications = CandidateApi.loadApplications(widget.session.token);
+    analytics = CandidateApi.loadAnalytics(widget.session.token);
   }
 
   @override
@@ -4016,8 +4297,8 @@ class _CandidateAnalyticsScreenState extends State<CandidateAnalyticsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Candidate analytics')),
       body: SafeArea(
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: applications,
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: analytics,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
               return const Center(child: CircularProgressIndicator());
@@ -4025,12 +4306,13 @@ class _CandidateAnalyticsScreenState extends State<CandidateAnalyticsScreen> {
             if (snapshot.hasError) {
               return Center(child: Text('Unable to load analytics: ${snapshot.error}'));
             }
-            final items = snapshot.data ?? const [];
-            final progressed = items.where((item) {
-              final stage = '${item['stage'] ?? ''}'.toLowerCase();
-              return stage != 'applied' && stage != 'rejected' && stage.isNotEmpty;
-            }).length;
-            final rate = items.isEmpty ? 0 : ((progressed / items.length) * 100).round();
+            final data = snapshot.data ?? const {};
+            final applicationsSent = data['applicationsSent'] ?? 0;
+            final progressionRate = data['progressionRate'] ?? 0;
+            final profileViews = data['profileViews'] ?? 0;
+            final resumeDownloads = data['resumeDownloads'] ?? 0;
+            final documentUploads = data['documentUploads'] ?? 0;
+            final shares = data['shares'] ?? 0;
             return ListView(
               padding: const EdgeInsets.all(20),
               children: [
@@ -4045,22 +4327,32 @@ class _CandidateAnalyticsScreenState extends State<CandidateAnalyticsScreen> {
                       MiniRow(
                         icon: Icons.send_outlined,
                         title: 'Applications sent',
-                        subtitle: '${items.length} applications from Railway',
+                        subtitle: '$applicationsSent applications from Railway',
                       ),
                       MiniRow(
                         icon: Icons.trending_up_outlined,
                         title: 'Progression rate',
-                        subtitle: '$rate% moved beyond applied',
+                        subtitle: '$progressionRate% moved beyond applied',
                       ),
                       MiniRow(
                         icon: Icons.visibility_outlined,
                         title: 'Profile views',
-                        subtitle: 'Tracking is not enabled yet',
+                        subtitle: '$profileViews tracked profile views',
                       ),
-                      const MiniRow(
+                      MiniRow(
                         icon: Icons.download_outlined,
                         title: 'Resume downloads',
-                        subtitle: 'Tracking is not enabled yet',
+                        subtitle: '$resumeDownloads tracked resume downloads',
+                      ),
+                      MiniRow(
+                        icon: Icons.folder_copy_outlined,
+                        title: 'Documents',
+                        subtitle: '$documentUploads uploaded documents',
+                      ),
+                      MiniRow(
+                        icon: Icons.share_outlined,
+                        title: 'Shares',
+                        subtitle: '$shares shared jobs',
                       ),
                     ],
                   ),

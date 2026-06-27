@@ -62,6 +62,47 @@ export function mapCandidateProfileRow(row) {
   };
 }
 
+export function mapCandidateDocumentRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    candidateId: row.candidate_id,
+    category: row.category,
+    fileName: row.file_name,
+    fileType: row.file_type,
+    fileData: row.file_data,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapCandidateSavedFilterRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    candidateId: row.candidate_id,
+    name: row.name,
+    filters: row.filters || [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapCandidateResumeExportRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    candidateId: row.candidate_id,
+    template: row.template,
+    format: row.format,
+    fileName: row.file_name,
+    fileType: row.file_type,
+    fileData: row.file_data,
+    resumePayload: row.resume_payload || {},
+    createdAt: row.created_at,
+  };
+}
+
 export function mapRow(row) {
   return {
     id: row.id,
@@ -477,6 +518,68 @@ export async function ensureJobsSchema() {
       primary key (candidate_id, job_id)
     )
   `);
+  await query(`
+    create table if not exists candidate_documents (
+      id uuid primary key default gen_random_uuid(),
+      candidate_id uuid not null references candidate_accounts(id) on delete cascade,
+      category text not null,
+      file_name text not null,
+      file_type text,
+      file_data text,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+  await query(
+    `create index if not exists idx_candidate_documents_candidate_id
+     on candidate_documents(candidate_id)`
+  );
+  await query(`
+    create table if not exists candidate_analytics_events (
+      id uuid primary key default gen_random_uuid(),
+      candidate_id uuid references candidate_accounts(id) on delete cascade,
+      event_type text not null,
+      entity_type text,
+      entity_id text,
+      metadata jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now()
+    )
+  `);
+  await query(
+    `create index if not exists idx_candidate_analytics_events_candidate_type
+     on candidate_analytics_events(candidate_id, event_type)`
+  );
+  await query(`
+    create table if not exists candidate_saved_filters (
+      id uuid primary key default gen_random_uuid(),
+      candidate_id uuid not null references candidate_accounts(id) on delete cascade,
+      name text not null,
+      filters jsonb not null default '[]'::jsonb,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+  await query(
+    `create index if not exists idx_candidate_saved_filters_candidate_id
+     on candidate_saved_filters(candidate_id)`
+  );
+  await query(`
+    create table if not exists candidate_resume_exports (
+      id uuid primary key default gen_random_uuid(),
+      candidate_id uuid not null references candidate_accounts(id) on delete cascade,
+      template text not null default 'Classic',
+      format text not null default 'pdf',
+      file_name text not null,
+      file_type text,
+      file_data text,
+      resume_payload jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now()
+    )
+  `);
+  await query(
+    `create index if not exists idx_candidate_resume_exports_candidate_id
+     on candidate_resume_exports(candidate_id)`
+  );
   await query(
     `alter table job_applications add column if not exists parent_application_id uuid references job_applications(id) on delete set null`
   );
@@ -1367,6 +1470,233 @@ export async function deleteCandidateSavedJob(candidateId, jobId) {
     [candidateId, jobId]
   );
   return listCandidateSavedJobs(candidateId);
+}
+
+export async function listCandidateDocuments(candidateId, options = {}) {
+  const result = await query(
+    `select id, candidate_id, category, file_name, file_type,
+            ${options.slim ? "null::text" : "file_data"} as file_data,
+            created_at, updated_at
+     from candidate_documents
+     where candidate_id = $1
+     order by updated_at desc`,
+    [candidateId]
+  );
+  return result.rows.map(mapCandidateDocumentRow);
+}
+
+export async function upsertCandidateDocument(candidateId, payload = {}) {
+  const category = String(payload.category || "").trim();
+  const fileName = String(payload.fileName || payload.file_name || "").trim();
+  const fileType = String(payload.fileType || payload.file_type || "").trim();
+  const fileData = String(payload.fileData || payload.file_data || "").trim();
+
+  if (!category || !fileName) {
+    throw new Error("Document category and file name are required.");
+  }
+
+  const result = await query(
+    `insert into candidate_documents (
+       candidate_id, category, file_name, file_type, file_data, updated_at
+     ) values ($1, $2, $3, $4, $5, now())
+     returning id, candidate_id, category, file_name, file_type, file_data, created_at, updated_at`,
+    [candidateId, category, fileName, fileType || null, fileData || null]
+  );
+
+  await recordCandidateAnalyticsEvent(candidateId, "document_uploaded", {
+    entityType: "document",
+    entityId: result.rows[0]?.id,
+    metadata: { category, fileName },
+  });
+
+  return result.rows[0] ? mapCandidateDocumentRow(result.rows[0]) : null;
+}
+
+export async function deleteCandidateDocument(candidateId, documentId) {
+  await query(
+    `delete from candidate_documents
+     where candidate_id = $1 and id = $2`,
+    [candidateId, documentId]
+  );
+  return listCandidateDocuments(candidateId, { slim: true });
+}
+
+export async function recordCandidateAnalyticsEvent(candidateId, eventType, payload = {}) {
+  const metadata = payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
+  await query(
+    `insert into candidate_analytics_events (
+       candidate_id, event_type, entity_type, entity_id, metadata
+     ) values ($1, $2, $3, $4, $5::jsonb)`,
+    [
+      candidateId || null,
+      String(eventType || "event"),
+      payload.entityType || null,
+      payload.entityId || null,
+      JSON.stringify(metadata),
+    ]
+  );
+}
+
+export async function getCandidateAnalytics(candidateId) {
+  const [applications, documents, events] = await Promise.all([
+    listCandidateApplications(candidateId),
+    listCandidateDocuments(candidateId, { slim: true }),
+    query(
+      `select event_type, count(*)::integer as total
+       from candidate_analytics_events
+       where candidate_id = $1
+       group by event_type`,
+      [candidateId]
+    ),
+  ]);
+  const eventCounts = Object.fromEntries(
+    events.rows.map((row) => [row.event_type, Number(row.total || 0)])
+  );
+  const progressed = applications.filter((application) => {
+    const stage = String(application.stage || "").toLowerCase();
+    return stage && stage !== "applied" && stage !== "rejected";
+  }).length;
+
+  return {
+    applicationsSent: applications.length,
+    progressedApplications: progressed,
+    progressionRate: applications.length ? Math.round((progressed / applications.length) * 100) : 0,
+    profileViews: eventCounts.profile_viewed || 0,
+    resumeDownloads: eventCounts.resume_downloaded || 0,
+    shares: eventCounts.job_shared || 0,
+    documentUploads: documents.length,
+    documents,
+  };
+}
+
+export async function listCandidateSavedFilters(candidateId) {
+  const result = await query(
+    `select id, candidate_id, name, filters, created_at, updated_at
+     from candidate_saved_filters
+     where candidate_id = $1
+     order by updated_at desc`,
+    [candidateId]
+  );
+  return result.rows.map(mapCandidateSavedFilterRow);
+}
+
+export async function saveCandidateFilter(candidateId, payload = {}) {
+  const name = String(payload.name || "Saved job filter").trim();
+  const filters = Array.isArray(payload.filters) ? payload.filters.map(String).filter(Boolean) : [];
+  const result = await query(
+    `insert into candidate_saved_filters (candidate_id, name, filters, updated_at)
+     values ($1, $2, $3::jsonb, now())
+     returning id, candidate_id, name, filters, created_at, updated_at`,
+    [candidateId, name, JSON.stringify(filters)]
+  );
+  return result.rows[0] ? mapCandidateSavedFilterRow(result.rows[0]) : null;
+}
+
+export async function deleteCandidateSavedFilter(candidateId, filterId) {
+  await query(
+    `delete from candidate_saved_filters where candidate_id = $1 and id = $2`,
+    [candidateId, filterId]
+  );
+  return listCandidateSavedFilters(candidateId);
+}
+
+function escapePdfText(value) {
+  return String(value || "").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildResumeLines(payload = {}) {
+  const profile = payload.resumePayload || {};
+  const skills = Array.isArray(profile.skills) ? profile.skills.join(", ") : profile.skills;
+  return [
+    profile.fullName || payload.fullName || "Werkly Candidate",
+    profile.email || "",
+    profile.phone || "",
+    profile.preferredRole || "",
+    profile.currentLocation || profile.preferredLocation || "",
+    skills ? `Skills: ${skills}` : "",
+    profile.experience ? `Experience: ${profile.experience}` : "",
+    profile.education ? `Education: ${profile.education}` : "",
+    profile.expectedCtc ? `Expected CTC: ${profile.expectedCtc}` : "",
+    profile.noticePeriod ? `Notice period: ${profile.noticePeriod}` : "",
+  ].filter(Boolean);
+}
+
+function buildSimplePdfDataUrl(lines) {
+  const contentLines = lines.slice(0, 24).map((line, index) => {
+    const y = 760 - index * 24;
+    return `BT /F1 12 Tf 50 ${y} Td (${escapePdfText(line)}) Tj ET`;
+  });
+  const stream = contentLines.join("\n");
+  const objects = [
+    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
+    "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
+    `5 0 obj << /Length ${Buffer.byteLength(stream)} >> stream\n${stream}\nendstream endobj`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${object}\n`;
+  }
+  const xrefOffset = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index <= objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return `data:application/pdf;base64,${Buffer.from(pdf).toString("base64")}`;
+}
+
+function buildWordDataUrl(lines) {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Werkly Resume</title></head><body>${lines
+    .map((line, index) =>
+      index === 0 ? `<h1>${escapeHtml(line)}</h1>` : `<p>${escapeHtml(line)}</p>`
+    )
+    .join("")}</body></html>`;
+  return `data:application/msword;base64,${Buffer.from(html).toString("base64")}`;
+}
+
+export async function createCandidateResumeExport(candidateId, payload = {}) {
+  const format = String(payload.format || "pdf").toLowerCase();
+  const template = String(payload.template || "Classic").trim() || "Classic";
+  const wordFormat = format === "docx" || format === "word" || format === "doc";
+  const fileName =
+    String(payload.fileName || "").trim() ||
+    `Werkly_Resume_${Date.now()}.${wordFormat ? "doc" : "pdf"}`;
+  const fileType =
+    payload.fileType ||
+    (wordFormat
+      ? "application/msword"
+      : "application/pdf");
+  const lines = buildResumeLines(payload);
+  const fileData =
+    payload.fileData || (wordFormat ? buildWordDataUrl(lines) : buildSimplePdfDataUrl(lines));
+  const result = await query(
+    `insert into candidate_resume_exports (
+       candidate_id, template, format, file_name, file_type, file_data, resume_payload
+     ) values ($1, $2, $3, $4, $5, $6, $7::jsonb)
+     returning id, candidate_id, template, format, file_name, file_type, file_data, resume_payload, created_at`,
+    [
+      candidateId,
+      template,
+      format,
+      fileName,
+      fileType,
+      fileData,
+      JSON.stringify(payload.resumePayload || {}),
+    ]
+  );
+  return result.rows[0] ? mapCandidateResumeExportRow(result.rows[0]) : null;
 }
 
 export async function recordCandidateJobApplication(candidateId, slug, payload = {}) {
