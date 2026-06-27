@@ -685,12 +685,12 @@ class HomeScreen extends StatelessWidget {
       title: '$greeting, ${candidateSession.displayName}',
       trailing: CircleAvatar(
         radius: 23,
-        backgroundColor: AppColors.brand,
+        backgroundColor: Colors.white,
         child: Text(
           candidateSession.initials,
           style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w400,
+            color: AppColors.brandDark,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ),
@@ -1199,34 +1199,48 @@ class ScreenFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
+          child: Container(
+            width: double.infinity,
+            color: AppColors.brandDark,
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        eyebrow.toUpperCase(),
-                        style: TextStyle(
-                          color: colors.primary,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 1.7,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 18,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            eyebrow.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 1.4,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(
                         title,
-                        style: TextStyle(
-                          color: colors.onSurface,
-                          fontSize: 26,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 25,
                           height: 1.15,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1240,7 +1254,7 @@ class ScreenFrame extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
           sliver: SliverList.separated(
             itemCount: children.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -1632,18 +1646,67 @@ class OnboardingFlowCard extends StatelessWidget {
       ('Notice period', session.profileText('noticePeriod', '').isNotEmpty),
       ('Location', session.profileText('preferredLocation', '').isNotEmpty),
     ];
+    final completed = items.where((item) => item.$2).length;
 
     return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const LabelText('Candidate onboarding'),
-          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.brand.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.rocket_launch_outlined, color: AppColors.brand, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Set up your profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                    SizedBox(height: 2),
+                    Text('Complete these steps for better job matches', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Text('$completed/${items.length}', style: const TextStyle(color: AppColors.brand, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ProgressBar(value: completed / items.length),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: items
-                .map((item) => InfoPill(item.$2 ? '${item.$1} done' : item.$1))
+                .map(
+                  (item) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: item.$2
+                          ? AppColors.brand.withValues(alpha: 0.09)
+                          : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          item.$2 ? Icons.check_circle : Icons.circle_outlined,
+                          size: 15,
+                          color: item.$2 ? AppColors.brand : AppColors.muted,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(item.$1, style: const TextStyle(fontSize: 11.5)),
+                      ],
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ],
@@ -5102,12 +5165,12 @@ class CardPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: panelColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scheme.outline),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.75)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: AppColors.brandDark.withValues(alpha: 0.055),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
