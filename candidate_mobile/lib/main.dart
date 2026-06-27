@@ -493,6 +493,7 @@ class _JobsScreenState extends State<JobsScreen> {
     'Full Time',
   ];
   final activeFilters = <String>{'All'};
+  final removedFilters = <String>{};
 
   @override
   void initState() {
@@ -520,7 +521,10 @@ class _JobsScreenState extends State<JobsScreen> {
   void removeFilter(String filter) {
     setState(() {
       activeFilters.remove(filter);
-      if (filter != 'All') filters.remove(filter);
+      if (filter != 'All') {
+        filters.remove(filter);
+        removedFilters.add(filter);
+      }
       if (activeFilters.isEmpty) activeFilters.add('All');
     });
   }
@@ -549,7 +553,8 @@ class _JobsScreenState extends State<JobsScreen> {
               final value = controller.text.trim();
               if (value.isNotEmpty) {
                 setState(() {
-                  filters.add(value);
+                  if (!filters.contains(value)) filters.add(value);
+                  removedFilters.remove(value);
                   activeFilters
                     ..remove('All')
                     ..add(value);
@@ -566,6 +571,12 @@ class _JobsScreenState extends State<JobsScreen> {
 
   bool matchesActiveFilters(CandidateJob job) {
     if (activeFilters.contains('All')) return true;
+    final title = job.title.toLowerCase();
+    final sector = job.sector.toLowerCase();
+    final location = job.location.toLowerCase();
+    final salary = job.salary.toLowerCase();
+    final experience = job.experience.toLowerCase();
+    final type = job.type.toLowerCase();
     final searchable = [
       job.title,
       job.sector,
@@ -578,10 +589,37 @@ class _JobsScreenState extends State<JobsScreen> {
 
     return activeFilters.every((filter) {
       final normalized = filter.toLowerCase();
-      if (normalized == '8+ yrs') return searchable.contains('8') || searchable.contains('years');
-      if (normalized == '10 lpa+') return searchable.contains('10') || searchable.contains('lpa');
-      return searchable.contains(normalized.replaceAll('+', '').trim());
+      final cleaned = normalized.replaceAll('+', '').trim();
+      if (normalized == 'it') return sector.contains('it') && !sector.contains('non-it');
+      if (normalized == 'non-it') return sector.contains('non-it');
+      if (normalized == '8+ yrs') return experience.contains('8') || experience.contains('years');
+      if (normalized == '10 lpa+') return salary.contains('10') || salary.contains('lpa');
+      if (type.contains(cleaned)) return true;
+      if (location.contains(cleaned)) return true;
+      if (sector.contains(cleaned)) return true;
+      if (salary.contains(cleaned)) return true;
+      if (experience.contains(cleaned)) return true;
+      if (title.contains(cleaned)) return true;
+      return searchable.contains(cleaned);
     });
+  }
+
+  List<String> filterOptions(List<CandidateJob> sourceJobs) {
+    final options = <String>{...filters};
+    for (final job in sourceJobs) {
+      for (final value in [
+        job.title,
+        job.location,
+        job.sector,
+        job.salary,
+        job.experience,
+        job.type,
+      ]) {
+        final cleaned = value.trim();
+        if (cleaned.isNotEmpty && cleaned.length <= 42) options.add(cleaned);
+      }
+    }
+    return options.where((item) => item == 'All' || !removedFilters.contains(item)).toList();
   }
 
   Future<void> loadLiveJobs() async {
@@ -644,6 +682,7 @@ class _JobsScreenState extends State<JobsScreen> {
   @override
   Widget build(BuildContext context) {
     final sourceJobs = liveJobs.isEmpty ? fallbackJobs : liveJobs;
+    final visibleFilters = filterOptions(sourceJobs);
     final jobsToShow = sourceJobs.where(matchesActiveFilters).toList();
 
     return ScreenFrame(
@@ -652,7 +691,7 @@ class _JobsScreenState extends State<JobsScreen> {
       children: [
         const SearchField(),
         JobFilterChips(
-          filters: filters,
+          filters: visibleFilters,
           activeFilters: activeFilters,
           onToggle: toggleFilter,
           onRemove: removeFilter,
