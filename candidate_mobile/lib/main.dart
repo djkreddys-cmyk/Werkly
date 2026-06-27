@@ -402,54 +402,114 @@ class CandidateApi {
 }
 
 class AppColors {
-  static const brand = Color(0xFF08606C);
-  static const brandDark = Color(0xFF063F47);
-  static const accent = Color(0xFFF1A64B);
-  static const accentStrong = Color(0xFFBE481A);
-  static const paper = Color(0xFFF8F4EE);
-  static const surface = Color(0xFFFFFDF9);
-  static const ink = Color(0xFF17353D);
-  static const muted = Color(0xFF6C7A80);
-  static const line = Color(0x2208606C);
+  static const brand = Color(0xFF006A70);
+  static const brandDark = Color(0xFF064B50);
+  static const accent = Color(0xFFFFB45C);
+  static const accentStrong = Color(0xFFD9572B);
+  static const paper = Color(0xFFF3F6F6);
+  static const surface = Color(0xFFFFFFFF);
+  static const ink = Color(0xFF172B30);
+  static const muted = Color(0xFF65777B);
+  static const line = Color(0xFFE0E8E8);
 }
 
 class AppTheme {
-  static ThemeData get light => ThemeData(
-    useMaterial3: true,
-    scaffoldBackgroundColor: AppColors.paper,
-    fontFamily: 'Roboto',
-    textTheme: const TextTheme(
-      bodyMedium: TextStyle(fontWeight: FontWeight.w400),
-      bodyLarge: TextStyle(fontWeight: FontWeight.w400),
-      titleMedium: TextStyle(fontWeight: FontWeight.w500),
-      titleLarge: TextStyle(fontWeight: FontWeight.w400),
-    ),
-    colorScheme: ColorScheme.fromSeed(
+  static ThemeData get light => _theme(
+    ColorScheme.fromSeed(
       seedColor: AppColors.brand,
       primary: AppColors.brand,
       secondary: AppColors.accent,
       surface: AppColors.surface,
+      onSurface: AppColors.ink,
+      outline: AppColors.line,
     ),
+    AppColors.paper,
   );
 
-  static ThemeData get dark => ThemeData(
-    useMaterial3: true,
-    scaffoldBackgroundColor: const Color(0xFF0D181B),
-    fontFamily: 'Roboto',
-    textTheme: const TextTheme(
-      bodyMedium: TextStyle(fontWeight: FontWeight.w400),
-      bodyLarge: TextStyle(fontWeight: FontWeight.w400),
-      titleMedium: TextStyle(fontWeight: FontWeight.w500),
-      titleLarge: TextStyle(fontWeight: FontWeight.w400),
-    ),
-    colorScheme: ColorScheme.fromSeed(
+  static ThemeData get dark => _theme(
+    ColorScheme.fromSeed(
       brightness: Brightness.dark,
       seedColor: AppColors.brand,
       primary: AppColors.accent,
       secondary: AppColors.brand,
-      surface: const Color(0xFF132427),
+      surface: const Color(0xFF17272A),
+      outline: const Color(0xFF31474B),
     ),
+    const Color(0xFF0E191B),
   );
+
+  static ThemeData _theme(ColorScheme scheme, Color scaffold) {
+    const textTheme = TextTheme(
+      headlineSmall: TextStyle(fontSize: 26, height: 1.15, fontWeight: FontWeight.w500),
+      titleLarge: TextStyle(fontSize: 20, height: 1.2, fontWeight: FontWeight.w500),
+      titleMedium: TextStyle(fontSize: 16, height: 1.25, fontWeight: FontWeight.w500),
+      bodyLarge: TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w400),
+      bodyMedium: TextStyle(fontSize: 14, height: 1.45, fontWeight: FontWeight.w400),
+      bodySmall: TextStyle(fontSize: 12, height: 1.4, fontWeight: FontWeight.w400),
+      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+    );
+    return ThemeData(
+      useMaterial3: true,
+      scaffoldBackgroundColor: scaffold,
+      fontFamily: 'Roboto',
+      colorScheme: scheme,
+      textTheme: textTheme.apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface),
+      appBarTheme: AppBarTheme(
+        backgroundColor: scaffold,
+        foregroundColor: scheme.onSurface,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: textTheme.titleLarge?.copyWith(color: scheme.onSurface),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: scheme.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        labelStyle: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w400),
+        hintStyle: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w400),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outline)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outline)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(44, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(44, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          side: BorderSide(color: scheme.outline),
+          textStyle: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: scheme.primary.withValues(alpha: 0.07),
+        selectedColor: scheme.primary.withValues(alpha: 0.14),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 68,
+        elevation: 0,
+        backgroundColor: scheme.surface,
+        indicatorColor: scheme.primary.withValues(alpha: 0.12),
+        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+          fontSize: 11,
+          fontWeight: states.contains(WidgetState.selected) ? FontWeight.w500 : FontWeight.w400,
+          color: states.contains(WidgetState.selected) ? scheme.primary : AppColors.muted,
+        )),
+      ),
+      dividerTheme: DividerThemeData(color: scheme.outline, thickness: 1),
+    );
+  }
 }
 
 class CandidateShell extends StatefulWidget {
@@ -499,8 +559,22 @@ class _CandidateShellState extends State<CandidateShell> {
     ];
 
     return Scaffold(
-      body: SafeArea(child: screens[currentIndex]),
-      bottomNavigationBar: NavigationBar(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: screens[currentIndex],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outline)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (index) => setState(() => currentIndex = index),
         destinations: const [
@@ -530,6 +604,8 @@ class _CandidateShellState extends State<CandidateShell> {
             label: 'Profile',
           ),
         ],
+          ),
+        ),
       ),
     );
   }
@@ -548,15 +624,18 @@ class LoginScreen extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const LoginLogoPanel(),
-                  const SizedBox(height: 18),
-                  CandidateLoginCard(
-                    session: null,
-                    onSessionChanged: onCandidateSessionChanged,
+                  const SizedBox(height: 28),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: CandidateLoginCard(
+                      session: null,
+                      onSessionChanged: onCandidateSessionChanged,
+                    ),
                   ),
                 ],
               ),
@@ -574,13 +653,13 @@ class LoginLogoPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 128,
+      height: 112,
       width: double.infinity,
       child: Center(
         child: Image.asset(
           'assets/werkly_logo.png',
-          width: 126,
-          height: 126,
+          width: 112,
+          height: 112,
           fit: BoxFit.contain,
         ),
       ),
@@ -1125,7 +1204,7 @@ class ScreenFrame extends StatelessWidget {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1142,14 +1221,14 @@ class ScreenFrame extends StatelessWidget {
                           letterSpacing: 1.7,
                         ),
                       ),
-                      const SizedBox(height: 7),
+                      const SizedBox(height: 8),
                       Text(
                         title,
                         style: TextStyle(
                           color: colors.onSurface,
-                          fontSize: 25,
-                          height: 1.08,
-                          fontWeight: FontWeight.w400,
+                          fontSize: 26,
+                          height: 1.15,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -1161,10 +1240,10 @@ class ScreenFrame extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           sliver: SliverList.separated(
             itemCount: children.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 14),
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) => children[index],
           ),
         ),
@@ -1188,8 +1267,8 @@ class CandidateLoginCard extends StatefulWidget {
 }
 
 class _CandidateLoginCardState extends State<CandidateLoginCard> {
-  final emailController = TextEditingController(text: 'djkreddys@gmail.com');
-  final passwordController = TextEditingController(text: 'password123');
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
   bool loading = false;
   String message = '';
 
@@ -1239,8 +1318,16 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const LabelText('Login details'),
-          const SizedBox(height: 12),
+          Text(
+            'Welcome back',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Sign in to find jobs and manage your profile.',
+            style: TextStyle(color: AppColors.muted),
+          ),
+          const SizedBox(height: 20),
           if (session != null) ...[
             MiniRow(
               icon: Icons.verified_user_outlined,
@@ -1283,11 +1370,11 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
             TextField(
               controller: emailController,
               decoration: const InputDecoration(
-                labelText: 'Username',
+                labelText: 'Email or phone',
                 prefixIcon: Icon(Icons.alternate_email),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             TextField(
               controller: passwordController,
               obscureText: true,
@@ -1296,7 +1383,7 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
                 prefixIcon: Icon(Icons.lock_outline),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -5015,12 +5102,12 @@ class CardPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: panelColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: scheme.outline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
