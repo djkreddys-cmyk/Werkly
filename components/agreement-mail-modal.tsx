@@ -62,9 +62,9 @@ function assetUrl(path: string) {
   return `${window.location.origin}${path}`;
 }
 
-function buildDefaultAgreementHtml(client: ClientRecord) {
-  const clientName = escapeHtml(client.companyName || "Client");
-  const clientAddress = escapeHtml(client.communicationAddress || client.branch || "client registered office");
+function buildDefaultAgreementText(client: ClientRecord) {
+  const clientName = client.companyName || "Client";
+  const clientAddress = client.communicationAddress || client.branch || "client registered office";
   const billingTerms = String(client.billingTerms || "").trim();
   const feeLines = billingTerms
     ? billingTerms
@@ -81,58 +81,98 @@ function buildDefaultAgreementHtml(client: ClientRecord) {
     feeLines.find((line) => /payment|days|invoice/i.test(line)) ||
     "Payment should be made within 90 days from the date of candidate joining.";
 
+  return [
+    `This Agreement is made on ${new Date().toLocaleDateString("en-GB")} BETWEEN Werkly Consulting Private Limited, having its registered office at Hyderabad and Vijayawada, and ${clientName}, having its registered office at ${clientAddress}.`,
+    "Scope of Services",
+    `Werkly Consulting Private Limited agrees to provide recruitment services to ${clientName} for various roles as mutually agreed.`,
+    "Fee Structure",
+    "Professional Charges for Permanent Employment Commercials",
+    ...feeLines,
+    paymentTerms,
+    "Candidate Ownership",
+    "A candidate submitted by either party will remain valid for 6 months.",
+    "Ownership belongs to the party who first introduced the candidate.",
+    "Replacement Policy",
+    "In case the candidate leaves within 90 days, a free replacement will be provided.",
+    "No refund shall be applicable.",
+    "Payment Terms",
+    "Payment must be made within the agreed timeline.",
+    "Confidentiality",
+    "Both parties agree to maintain confidentiality of all shared information, including candidate data and business details.",
+    "Non-Solicitation",
+    "Both parties agree not to hire or approach each other's employees or clients during the agreement period and up to 1 year after termination.",
+    "Jurisdiction",
+    "This Agreement shall be governed by the laws of India, and disputes shall be subject to the jurisdiction of courts in Hyderabad.",
+    "For Werkly Consulting Private Limited",
+    "Authorized Signatory",
+    `For ${clientName}`,
+    "Authorized Signatory",
+  ].join("\n\n");
+}
+
+function buildAgreementHtmlFromText(client: ClientRecord, agreementText: string) {
+  const clientName = escapeHtml(client.companyName || "Client");
+  const sectionHeadings = new Set([
+    "Scope of Services",
+    "Fee Structure",
+    "Candidate Ownership",
+    "Replacement Policy",
+    "Payment Terms",
+    "Confidentiality",
+    "Non-Solicitation",
+    "Jurisdiction",
+  ]);
+  const paragraphs = agreementText
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  const bodyHtml = paragraphs
+    .map((paragraph) => {
+      if (sectionHeadings.has(paragraph)) {
+        return `<h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">${escapeHtml(paragraph)}</h3>`;
+      }
+
+      if (paragraph === "For Werkly Consulting Private Limited") {
+        return `
+          <table style="width:100%;border-collapse:collapse;margin-top:20px;">
+            <tr>
+              <td style="width:50%;vertical-align:bottom;padding:8px 20px 8px 0;">
+                <p style="margin:0 0 12px;"><strong>For Werkly Consulting Private Limited</strong></p>
+                <img src="${assetUrl("/agreement-assets/signature.png")}" alt="Authorized signature" style="display:block;width:180px;max-width:100%;height:auto;margin:8px 0;" />
+                <p style="margin:0;">Authorized Signatory</p>
+              </td>
+              <td style="width:50%;vertical-align:bottom;padding:8px 0 8px 20px;">
+                <p style="margin:0 0 56px;"><strong>For ${clientName}</strong></p>
+                <p style="margin:0;">Authorized Signatory</p>
+              </td>
+            </tr>
+          </table>`;
+      }
+
+      if (paragraph === "Authorized Signatory" || paragraph.startsWith("For ")) {
+        return "";
+      }
+
+      return `<p style="margin:0 0 14px;">${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`;
+    })
+    .join("");
+
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;color:#18343a;background:#ffffff;line-height:1.55;font-size:14px;">
       <img src="${assetUrl("/agreement-assets/letterhead.png")}" alt="Werkly letterhead" style="display:block;width:100%;max-width:760px;height:auto;margin:0 0 22px;" />
       <div style="max-width:760px;margin:0 auto;padding:0 10px;">
-        <p style="margin:0 0 16px;">This Agreement is made on ${new Date().toLocaleDateString("en-GB")} BETWEEN <strong>Werkly Consulting Private Limited</strong>, having its registered office at Hyderabad and Vijayawada, and <strong>${clientName}</strong>, having its registered office at ${clientAddress}.</p>
-
-        <h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">Scope of Services</h3>
-        <p style="margin:0 0 14px;">Werkly Consulting Private Limited agrees to provide recruitment services to ${clientName} for various roles as mutually agreed.</p>
-
-        <h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">Fee Structure</h3>
-        <p style="margin:0 0 8px;"><strong>Professional Charges for Permanent Employment Commercials</strong></p>
-        <ul style="margin:0 0 14px 22px;padding:0;">
-          ${feeLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
-        </ul>
-        <p style="margin:0 0 14px;">${escapeHtml(paymentTerms)}</p>
-
-        <h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">Candidate Ownership</h3>
-        <p style="margin:0 0 6px;">A candidate submitted by either party will remain valid for 6 months.</p>
-        <p style="margin:0 0 14px;">Ownership belongs to the party who first introduced the candidate.</p>
-
-        <h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">Replacement Policy</h3>
-        <p style="margin:0 0 6px;">In case the candidate leaves within 90 days, a free replacement will be provided.</p>
-        <p style="margin:0 0 14px;">No refund shall be applicable.</p>
-
-        <h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">Payment Terms</h3>
-        <p style="margin:0 0 14px;">Payment must be made within the agreed timeline.</p>
-
-        <h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">Confidentiality</h3>
-        <p style="margin:0 0 14px;">Both parties agree to maintain confidentiality of all shared information, including candidate data and business details.</p>
-
-        <h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">Non-Solicitation</h3>
-        <p style="margin:0 0 14px;">Both parties agree not to hire or approach each other's employees or clients during the agreement period and up to 1 year after termination.</p>
-
-        <h3 style="margin:18px 0 8px;color:#0a7684;font-size:16px;">Jurisdiction</h3>
-        <p style="margin:0 0 20px;">This Agreement shall be governed by the laws of India, and disputes shall be subject to the jurisdiction of courts in Hyderabad.</p>
-
-        <table style="width:100%;border-collapse:collapse;margin-top:20px;">
-          <tr>
-            <td style="width:50%;vertical-align:bottom;padding:8px 20px 8px 0;">
-              <p style="margin:0 0 12px;"><strong>For Werkly Consulting Private Limited</strong></p>
-              <img src="${assetUrl("/agreement-assets/signature.png")}" alt="Authorized signature" style="display:block;width:180px;max-width:100%;height:auto;margin:8px 0;" />
-              <p style="margin:0;">Authorized Signatory</p>
-            </td>
-            <td style="width:50%;vertical-align:bottom;padding:8px 0 8px 20px;">
-              <p style="margin:0 0 56px;"><strong>For ${clientName}</strong></p>
-              <p style="margin:0;">Authorized Signatory</p>
-            </td>
-          </tr>
-        </table>
+        ${bodyHtml}
       </div>
       <img src="${assetUrl("/agreement-assets/footer.png")}" alt="Werkly footer" style="display:block;width:100%;max-width:760px;height:auto;margin:22px 0 0;" />
     </div>`;
+}
+
+function buildMailHtml(mailMessage: string, agreementHtml: string) {
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#18343a;line-height:1.6;font-size:15px;">
+      ${escapeHtml(mailMessage).split(/\n{2,}/).map((paragraph) => `<p style="margin:0 0 14px;">${paragraph.replace(/\n/g, "<br />")}</p>`).join("")}
+    </div>
+    ${agreementHtml}`;
 }
 
 export function AgreementMailModal({
@@ -150,13 +190,14 @@ export function AgreementMailModal({
   const [ccEmails, setCcEmails] = useState("hr@werkly.in");
   const [copySender, setCopySender] = useState(false);
   const [subject, setSubject] = useState("");
-  const [messageHtml, setMessageHtml] = useState("");
+  const [mailMessage, setMailMessage] = useState("");
+  const [agreementText, setAgreementText] = useState("");
+  const [generatedAgreementHtml, setGeneratedAgreementHtml] = useState("");
   const [attachments, setAttachments] = useState<AgreementAttachment[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
   const [sentMessage, setSentMessage] = useState("");
   const closeTimerRef = useRef<number | null>(null);
-  const editorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -164,7 +205,11 @@ export function AgreementMailModal({
     setCcEmails("hr@werkly.in");
     setCopySender(false);
     setSubject(`Recruitment Agreement - ${client.companyName}`);
-    setMessageHtml(buildDefaultAgreementHtml(client));
+    setMailMessage(
+      "Dear Team,\n\nWe are sharing the recruitment agreement for your review. Please check and revert back with your confirmation or suggested changes.\n\nRegards,\nWerkly Consulting"
+    );
+    setAgreementText(buildDefaultAgreementText(client));
+    setGeneratedAgreementHtml("");
     const clientAttachments = agreementAttachmentFromClient(client);
     setAttachments(clientAttachments);
     if (!clientAttachments.length) {
@@ -228,6 +273,47 @@ export function AgreementMailModal({
     event.target.value = "";
   }
 
+  function handleGenerateAgreement() {
+    setGeneratedAgreementHtml(buildAgreementHtmlFromText(client, agreementText));
+    setError("");
+  }
+
+  function handlePrintAgreement() {
+    const agreementHtml = generatedAgreementHtml || buildAgreementHtmlFromText(client, agreementText);
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      setError("Popup blocked. Please allow popups to preview or save the agreement PDF.");
+      return;
+    }
+
+    printWindow.document.write(`<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(subject || "Agreement")}</title>
+          <style>
+            @page { size: A4; margin: 12mm; }
+            body { margin: 0; background: #f3f6f8; }
+            .toolbar { display: flex; justify-content: flex-end; gap: 10px; padding: 12px; }
+            .toolbar button { border: 1px solid #cfdde2; border-radius: 999px; background: #fff; color: #102f3a; cursor: pointer; font-weight: 700; padding: 9px 14px; }
+            .toolbar button.primary { background: #0a7684; border-color: #0a7684; color: #fff; }
+            .page { max-width: 210mm; margin: 0 auto; background: #fff; padding: 12mm; box-sizing: border-box; }
+            @media print { body { background: #fff; } .toolbar { display: none; } .page { padding: 0; max-width: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <button type="button" onclick="window.close()">Close</button>
+            <button type="button" class="primary" onclick="window.print()">Print / Save PDF</button>
+          </div>
+          <main class="page">${agreementHtml}</main>
+        </body>
+      </html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setGeneratedAgreementHtml(agreementHtml);
+  }
+
   async function handleSend() {
     if (!token) {
       setError("Please sign in again. Admin token is missing.");
@@ -264,8 +350,11 @@ export function AgreementMailModal({
           ccEmails: parsedCcEmails,
           copySender,
           subject,
-          message: editorRef.current?.innerText || "",
-          htmlMessage: editorRef.current?.innerHTML || messageHtml,
+          message: `${mailMessage}\n\n${agreementText}`,
+          htmlMessage: buildMailHtml(
+            mailMessage,
+            generatedAgreementHtml || buildAgreementHtmlFromText(client, agreementText)
+          ),
           attachments,
         }),
       });
@@ -364,17 +453,53 @@ export function AgreementMailModal({
 
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
-                  Agreement Mail Body
+                  Mail Message
                 </span>
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={() => setMessageHtml(editorRef.current?.innerHTML || "")}
-                  dangerouslySetInnerHTML={{ __html: messageHtml }}
-                  className="mt-2 max-h-[420px] min-h-[300px] w-full overflow-y-auto rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm leading-6 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                <textarea
+                  value={mailMessage}
+                  onChange={(event) => setMailMessage(event.target.value)}
+                  className="mt-2 min-h-[120px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm leading-6 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
                 />
               </label>
+
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Agreement Content
+                </span>
+                <textarea
+                  value={agreementText}
+                  onChange={(event) => {
+                    setAgreementText(event.target.value);
+                    setGeneratedAgreementHtml("");
+                  }}
+                  className="mt-2 min-h-[300px] w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 font-mono text-sm leading-6 text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                />
+              </label>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleGenerateAgreement}
+                  className="rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                >
+                  Generate Agreement
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrintAgreement}
+                  className="rounded-2xl border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+                >
+                  Preview / Save PDF
+                </button>
+              </div>
+
+              {generatedAgreementHtml ? (
+                <div className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-soft)] p-4">
+                  <div className="max-h-[360px] overflow-y-auto rounded-xl bg-white p-4 shadow-inner">
+                    <div dangerouslySetInnerHTML={{ __html: generatedAgreementHtml }} />
+                  </div>
+                </div>
+              ) : null}
 
               <div className="rounded-2xl border border-[var(--color-line)] bg-white p-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
