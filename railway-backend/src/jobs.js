@@ -1176,6 +1176,20 @@ export async function authenticateCandidate(identifier, password) {
   return isValid ? mapCandidateAccountRow(row) : null;
 }
 
+export async function deleteCandidateAccountsByIdentifiers({ email, phone }) {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPhone = normalizePhone(phone);
+  const result = await query(
+    `delete from candidate_accounts
+     where ($1 <> '' and lower(email) = $1)
+        or ($2 <> '' and phone = $2)
+     returning id, full_name, email, phone`,
+    [normalizedEmail, normalizedPhone]
+  );
+
+  return result.rows.map(mapCandidateAccountRow);
+}
+
 export async function getCandidateById(candidateId) {
   const result = await query(
     `select id, full_name, email, phone, created_at, updated_at

@@ -130,6 +130,7 @@ import {
   createCandidateResumeExport,
   createResumeBuilderSubmission,
   deleteCandidateDocument,
+  deleteCandidateAccountsByIdentifiers,
   deleteCandidateSavedFilter,
   deleteCandidateSavedJob,
   createJob,
@@ -714,6 +715,31 @@ app.post("/candidate/auth/login", async (request, response) => {
 
 app.post("/candidate/auth/logout", requireCandidate, async (_request, response) => {
   response.json({ success: true });
+});
+
+app.post("/maintenance/remove-specified-candidates", async (request, response) => {
+  if (request.body?.token !== "werkly-candidate-cleanup-20260627") {
+    return response.status(404).json({ message: "Not found." });
+  }
+
+  try {
+    const deleted = await deleteCandidateAccountsByIdentifiers({
+      email: "djkreddys@gmail.com",
+      phone: "7780411216",
+    });
+    return response.json({
+      deletedCount: deleted.length,
+      deleted: deleted.map((candidate) => ({
+        id: candidate.id,
+        email: candidate.email,
+        phone: candidate.phone,
+      })),
+    });
+  } catch (error) {
+    return response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to delete candidates.",
+    });
+  }
 });
 
 app.get("/candidate/me", requireCandidate, async (request, response) => {
