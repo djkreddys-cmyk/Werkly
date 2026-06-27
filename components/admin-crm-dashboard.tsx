@@ -1969,14 +1969,18 @@ function CrmClientsList({
                                 label: "Edit Client",
                                 onClick: () => onEdit?.(client),
                               },
-                              {
-                                label: "Send Proposal Mail",
-                                onClick: () => {
-                                  setProposalClient(client);
-                                  setActionMenuClientId("");
-                                },
-                                tone: "accent" as const,
-                              },
+                              ...(viewMode !== "existing"
+                                ? [
+                                    {
+                                      label: "Send Proposal Mail",
+                                      onClick: () => {
+                                        setProposalClient(client);
+                                        setActionMenuClientId("");
+                                      },
+                                      tone: "accent" as const,
+                                    },
+                                  ]
+                                : []),
                               {
                                 label: "Share Agreement",
                                 onClick: () => {

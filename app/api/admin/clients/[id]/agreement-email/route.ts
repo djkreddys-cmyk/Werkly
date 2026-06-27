@@ -21,6 +21,14 @@ function formatEmailBody(value: string) {
     .join("");
 }
 
+function sanitizeHtml(value: string) {
+  return value
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, "")
+    .replace(/\sjavascript:/gi, "");
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "").trim();
@@ -53,6 +61,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       copySender?: boolean;
       subject?: string;
       message?: string;
+      htmlMessage?: string;
       attachments?: Array<{
         filename?: string;
         content?: string;
@@ -80,6 +89,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const subject =
       String(body.subject || "").trim() || `Recruitment Agreement - ${client.companyName}`;
     const message = String(body.message || "").trim();
+    const htmlMessage = String(body.htmlMessage || "").trim();
     const attachments = (body.attachments ?? [])
       .map((attachment) => ({
         filename: String(attachment.filename || "").trim(),
@@ -94,7 +104,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    if (!message) {
+    if (!message && !htmlMessage) {
       return NextResponse.json({ message: "Agreement message is required." }, { status: 400 });
     }
 
@@ -111,11 +121,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         cc: ccEmails.length ? ccEmails : undefined,
         reply_to: replyToEmail || undefined,
         subject,
-        html: `
-          <div style="font-family:Arial,sans-serif;color:#18343a;line-height:1.65;font-size:15px;">
-            ${formatEmailBody(message)}
-          </div>
-        `,
+        html: htmlMessage
+          ? sanitizeHtml(htmlMessage)
+          : `
+            <div style="font-family:Arial,sans-serif;color:#18343a;line-height:1.65;font-size:15px;">
+              ${formatEmailBody(message)}
+            </div>
+          `,
         attachments: attachments.length ? attachments : undefined,
       }),
     });
