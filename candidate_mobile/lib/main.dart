@@ -482,18 +482,8 @@ class _JobsScreenState extends State<JobsScreen> {
   bool loadingJobs = true;
   String jobsError = '';
   List<CandidateJob> liveJobs = const [];
-  final filters = <String>[
-    'All',
-    'IT',
-    'Non-IT',
-    'Hyderabad',
-    'Vijayawada',
-    '8+ yrs',
-    '10 LPA+',
-    'Full Time',
-  ];
-  final activeFilters = <String>{'All'};
-  final removedFilters = <String>{};
+  final searchController = TextEditingController();
+  final activeFilters = <String>{};
 
   @override
   void initState() {
@@ -501,82 +491,40 @@ class _JobsScreenState extends State<JobsScreen> {
     loadLiveJobs();
   }
 
-  void toggleFilter(String filter) {
-    setState(() {
-      if (filter == 'All') {
-        activeFilters
-          ..clear()
-          ..add('All');
-        return;
-      }
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
 
-      activeFilters.remove('All');
-      if (!activeFilters.add(filter)) {
-        activeFilters.remove(filter);
-      }
-      if (activeFilters.isEmpty) activeFilters.add('All');
-    });
+  void addSearchFilter(String value) {
+    final filter = value.trim();
+    if (filter.isEmpty) return;
+    setState(() => activeFilters.add(filter));
+    searchController.clear();
   }
 
   void removeFilter(String filter) {
-    setState(() {
-      activeFilters.remove(filter);
-      if (filter != 'All') {
-        filters.remove(filter);
-        removedFilters.add(filter);
-      }
-      if (activeFilters.isEmpty) activeFilters.add('All');
-    });
+    setState(() => activeFilters.remove(filter));
   }
 
-  void addCustomFilter() {
-    final controller = TextEditingController();
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add filter'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Role, location, salary, sector',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.isNotEmpty) {
-                setState(() {
-                  if (!filters.contains(value)) filters.add(value);
-                  removedFilters.remove(value);
-                  activeFilters
-                    ..remove('All')
-                    ..add(value);
-                });
-              }
-              Navigator.of(context).pop();
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
+  String normalizeFilterText(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  bool textMatches(String source, String filter) {
+    final sourceText = normalizeFilterText(source);
+    final filterText = normalizeFilterText(filter);
+    if (filterText.isEmpty) return true;
+    if (sourceText.contains(filterText)) return true;
+
+    final sourceNoVowels = sourceText.replaceAll(RegExp(r'[aeiou]'), '');
+    final filterNoVowels = filterText.replaceAll(RegExp(r'[aeiou]'), '');
+    return sourceNoVowels.contains(filterNoVowels);
   }
 
   bool matchesActiveFilters(CandidateJob job) {
-    if (activeFilters.contains('All')) return true;
-    final title = job.title.toLowerCase();
-    final sector = job.sector.toLowerCase();
-    final location = job.location.toLowerCase();
-    final salary = job.salary.toLowerCase();
-    final experience = job.experience.toLowerCase();
-    final type = job.type.toLowerCase();
+    if (activeFilters.isEmpty) return true;
     final searchable = [
       job.title,
       job.sector,
@@ -585,41 +533,16 @@ class _JobsScreenState extends State<JobsScreen> {
       job.experience,
       job.type,
       job.reason,
-    ].join(' ').toLowerCase();
+    ].join(' ');
 
     return activeFilters.every((filter) {
-      final normalized = filter.toLowerCase();
-      final cleaned = normalized.replaceAll('+', '').trim();
-      if (normalized == 'it') return sector.contains('it') && !sector.contains('non-it');
-      if (normalized == 'non-it') return sector.contains('non-it');
-      if (normalized == '8+ yrs') return experience.contains('8') || experience.contains('years');
-      if (normalized == '10 lpa+') return salary.contains('10') || salary.contains('lpa');
-      if (type.contains(cleaned)) return true;
-      if (location.contains(cleaned)) return true;
-      if (sector.contains(cleaned)) return true;
-      if (salary.contains(cleaned)) return true;
-      if (experience.contains(cleaned)) return true;
-      if (title.contains(cleaned)) return true;
-      return searchable.contains(cleaned);
-    });
-  }
-
-  List<String> filterOptions(List<CandidateJob> sourceJobs) {
-    final options = <String>{...filters};
-    for (final job in sourceJobs) {
-      for (final value in [
-        job.title,
-        job.location,
-        job.sector,
-        job.salary,
-        job.experience,
-        job.type,
-      ]) {
-        final cleaned = value.trim();
-        if (cleaned.isNotEmpty && cleaned.length <= 42) options.add(cleaned);
+      final normalized = filter.toLowerCase().trim();
+      if (normalized == 'it') {
+        return textMatches(job.sector, 'it') && !textMatches(job.sector, 'non-it');
       }
-    }
-    return options.where((item) => item == 'All' || !removedFilters.contains(item)).toList();
+      if (normalized == 'non-it') return textMatches(job.sector, 'non-it');
+      return textMatches(searchable, filter);
+    });
   }
 
   Future<void> loadLiveJobs() async {
@@ -682,22 +605,20 @@ class _JobsScreenState extends State<JobsScreen> {
   @override
   Widget build(BuildContext context) {
     final sourceJobs = liveJobs.isEmpty ? fallbackJobs : liveJobs;
-    final visibleFilters = filterOptions(sourceJobs);
     final jobsToShow = sourceJobs.where(matchesActiveFilters).toList();
 
     return ScreenFrame(
       eyebrow: 'Job Search',
       title: 'Find roles that match your profile',
       children: [
-        const SearchField(),
-        JobFilterChips(
-          filters: visibleFilters,
-          activeFilters: activeFilters,
-          onToggle: toggleFilter,
-          onRemove: removeFilter,
-          onAdd: addCustomFilter,
+        SearchField(
+          controller: searchController,
+          onSubmitted: addSearchFilter,
         ),
-        FilterSummaryCard(activeFilters: activeFilters),
+        FilterSummaryCard(
+          activeFilters: activeFilters,
+          onRemove: removeFilter,
+        ),
         const JobAlertsCard(),
         SectionHeader(
           title: liveJobs.isEmpty ? 'Recommended jobs' : 'Live jobs',
@@ -1978,13 +1899,23 @@ class QuickActionGrid extends StatelessWidget {
 }
 
 class SearchField extends StatelessWidget {
-  const SearchField({super.key});
+  const SearchField({
+    super.key,
+    required this.controller,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
+      textInputAction: TextInputAction.search,
+      onSubmitted: onSubmitted,
       decoration: InputDecoration(
-        hintText: 'Search role, skill, location',
+        hintText: 'Type role, location, salary, sector and press Enter',
         prefixIcon: const Icon(Icons.search),
         filled: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -2086,15 +2017,18 @@ class LiveJobsRefreshCard extends StatelessWidget {
 }
 
 class FilterSummaryCard extends StatelessWidget {
-  const FilterSummaryCard({super.key, required this.activeFilters});
+  const FilterSummaryCard({
+    super.key,
+    required this.activeFilters,
+    required this.onRemove,
+  });
 
   final Set<String> activeFilters;
+  final ValueChanged<String> onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final shownFilters = activeFilters.contains('All')
-        ? const ['All live jobs']
-        : activeFilters.toList();
+    final shownFilters = activeFilters.toList();
 
     return CardPanel(
       child: Column(
@@ -2102,11 +2036,26 @@ class FilterSummaryCard extends StatelessWidget {
         children: [
           const LabelText('Filters'),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: shownFilters.map((filter) => InfoPill(filter)).toList(),
-          ),
+          if (shownFilters.isEmpty)
+            const Text(
+              'No filters added. Showing all live jobs.',
+              style: TextStyle(color: AppColors.muted),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: shownFilters
+                  .map(
+                    (filter) => InputChip(
+                      label: Text(filter),
+                      onDeleted: () => onRemove(filter),
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      deleteButtonTooltipMessage: 'Remove $filter filter',
+                    ),
+                  )
+                  .toList(),
+            ),
         ],
       ),
     );
