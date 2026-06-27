@@ -65,7 +65,9 @@ class CandidateSession {
   String profileText(String key, [String fallback = 'Pending']) {
     final value = profile[key];
     if (value == null) return fallback;
-    if (value is List) return value.where((item) => '$item'.trim().isNotEmpty).join(', ');
+    if (value is List) {
+      return value.where((item) => '$item'.trim().isNotEmpty).join(', ');
+    }
     final text = value.toString().trim();
     return text.isEmpty ? fallback : text;
   }
@@ -73,10 +75,17 @@ class CandidateSession {
   List<String> get skills {
     final value = profile['skills'];
     if (value is List) {
-      return value.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList();
+      return value
+          .map((item) => item.toString())
+          .where((item) => item.trim().isNotEmpty)
+          .toList();
     }
     final text = value?.toString() ?? '';
-    return text.split(',').map((item) => item.trim()).where((item) => item.isNotEmpty).toList();
+    return text
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
   }
 
   int get profileCompletion {
@@ -94,7 +103,8 @@ class CandidateSession {
       profileText('preferredLocation', '').isNotEmpty,
       profileText('resumeFileName', '').isNotEmpty,
     ];
-    return ((checks.where((done) => done).length / checks.length) * 100).round();
+    return ((checks.where((done) => done).length / checks.length) * 100)
+        .round();
   }
 }
 
@@ -155,10 +165,14 @@ class CandidateJob {
       summary: (json['summary'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       responsibilities: json['responsibilities'] is List
-          ? (json['responsibilities'] as List).map((item) => item.toString()).toList()
+          ? (json['responsibilities'] as List)
+                .map((item) => item.toString())
+                .toList()
           : const [],
       requirements: json['requirements'] is List
-          ? (json['requirements'] as List).map((item) => item.toString()).toList()
+          ? (json['requirements'] as List)
+                .map((item) => item.toString())
+                .toList()
           : const [],
       deadline: (json['lastDateToApply'] ?? '').toString(),
     );
@@ -380,10 +394,7 @@ class _CandidateShellState extends State<CandidateShell> {
 }
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({
-    super.key,
-    required this.onCandidateSessionChanged,
-  });
+  const LoginScreen({super.key, required this.onCandidateSessionChanged});
 
   final ValueChanged<CandidateSession?> onCandidateSessionChanged;
 
@@ -446,8 +457,8 @@ class HomeScreen extends StatelessWidget {
     final greeting = hour < 12
         ? 'Good morning'
         : hour < 17
-            ? 'Good afternoon'
-            : 'Good evening';
+        ? 'Good afternoon'
+        : 'Good evening';
     return ScreenFrame(
       eyebrow: 'Werkly Candidate',
       title: '$greeting, ${candidateSession.displayName}',
@@ -456,7 +467,10 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: AppColors.brand,
         child: Text(
           candidateSession.initials,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ),
       children: [
@@ -483,7 +497,7 @@ class _JobsScreenState extends State<JobsScreen> {
   String jobsError = '';
   List<CandidateJob> liveJobs = const [];
   final searchController = TextEditingController();
-  final activeFilters = <String>{};
+  final activeFilters = <String, Set<String>>{};
 
   @override
   void initState() {
@@ -500,12 +514,20 @@ class _JobsScreenState extends State<JobsScreen> {
   void addSearchFilter(String value) {
     final filter = value.trim();
     if (filter.isEmpty) return;
-    setState(() => activeFilters.add(filter));
+    final category = filterCategory(filter);
+    setState(
+      () => activeFilters.putIfAbsent(category, () => <String>{}).add(filter),
+    );
     searchController.clear();
   }
 
-  void removeFilter(String filter) {
-    setState(() => activeFilters.remove(filter));
+  void removeFilter(String category, String filter) {
+    setState(() {
+      activeFilters[category]?.remove(filter);
+      if (activeFilters[category]?.isEmpty ?? false) {
+        activeFilters.remove(category);
+      }
+    });
   }
 
   String normalizeFilterText(String value) {
@@ -523,26 +545,58 @@ class _JobsScreenState extends State<JobsScreen> {
     return sourceNoVowels.contains(filterNoVowels);
   }
 
+  String filterCategory(String filter) {
+    final value = filter.toLowerCase().trim();
+    final jobs = liveJobs.isEmpty ? fallbackJobs : liveJobs;
+
+    if (value == 'it' || value == 'non-it' || value.contains('sector')) {
+      return 'Sector';
+    }
+    if (RegExp(r'\b(lpa|ctc|salary|lakh|lakhs)\b').hasMatch(value)) {
+      return 'Salary';
+    }
+    if (RegExp(r'\b(year|years|yr|yrs|experience|fresher)\b').hasMatch(value)) {
+      return 'Experience';
+    }
+    if (RegExp(
+      r'\b(full[ -]?time|part[ -]?time|contract|internship|remote|hybrid)\b',
+    ).hasMatch(value)) {
+      return 'Job type';
+    }
+    if (jobs.any((job) => textMatches(job.location, filter))) return 'Location';
+    if (jobs.any((job) => textMatches(job.sector, filter))) return 'Sector';
+    return 'Role';
+  }
+
+  bool matchesCategory(CandidateJob job, String category, String filter) {
+    final normalized = filter.toLowerCase().trim();
+    switch (category) {
+      case 'Location':
+        return textMatches(job.location, filter);
+      case 'Salary':
+        return textMatches(job.salary, filter);
+      case 'Experience':
+        return textMatches(job.experience, filter);
+      case 'Job type':
+        return textMatches(job.type, filter);
+      case 'Sector':
+        if (normalized == 'it') {
+          return textMatches(job.sector, 'it') &&
+              !textMatches(job.sector, 'non-it');
+        }
+        if (normalized == 'non-it') return textMatches(job.sector, 'non-it');
+        return textMatches(job.sector, filter);
+      default:
+        return textMatches('${job.title} ${job.reason} ${job.summary}', filter);
+    }
+  }
+
   bool matchesActiveFilters(CandidateJob job) {
     if (activeFilters.isEmpty) return true;
-    final searchable = [
-      job.title,
-      job.sector,
-      job.location,
-      job.salary,
-      job.experience,
-      job.type,
-      job.reason,
-    ].join(' ');
-
-    return activeFilters.every((filter) {
-      final normalized = filter.toLowerCase().trim();
-      if (normalized == 'it') {
-        return textMatches(job.sector, 'it') && !textMatches(job.sector, 'non-it');
-      }
-      if (normalized == 'non-it') return textMatches(job.sector, 'non-it');
-      return textMatches(searchable, filter);
-    });
+    return activeFilters.entries.every(
+      (group) =>
+          group.value.any((filter) => matchesCategory(job, group.key, filter)),
+    );
   }
 
   Future<void> loadLiveJobs() async {
@@ -578,10 +632,18 @@ class _JobsScreenState extends State<JobsScreen> {
       type: 'Full Time',
       match: '89% match',
       reason: 'Sales, regional network, salary range',
-      summary: 'Own regional sales growth, dealer relationships, and client follow-ups.',
+      summary:
+          'Own regional sales growth, dealer relationships, and client follow-ups.',
       description: 'Full-time regional role for experienced sales candidates.',
-      responsibilities: ['Manage regional pipeline', 'Build dealer network', 'Report sales progress'],
-      requirements: ['6+ years sales experience', 'Strong AP/Telangana market knowledge'],
+      responsibilities: [
+        'Manage regional pipeline',
+        'Build dealer network',
+        'Report sales progress',
+      ],
+      requirements: [
+        '6+ years sales experience',
+        'Strong AP/Telangana market knowledge',
+      ],
       deadline: 'Apply soon',
     ),
     CandidateJob(
@@ -595,9 +657,17 @@ class _JobsScreenState extends State<JobsScreen> {
       match: '92% match',
       reason: 'ERP, stakeholder management, location',
       summary: 'Lead ERP adoption, reporting, and process discipline.',
-      description: 'ERP operations role for candidates with implementation and MIS experience.',
-      responsibilities: ['Own ERP delivery', 'Coordinate stakeholders', 'Improve reporting'],
-      requirements: ['8+ years ERP experience', 'Process and reporting discipline'],
+      description:
+          'ERP operations role for candidates with implementation and MIS experience.',
+      responsibilities: [
+        'Own ERP delivery',
+        'Coordinate stakeholders',
+        'Improve reporting',
+      ],
+      requirements: [
+        '8+ years ERP experience',
+        'Process and reporting discipline',
+      ],
       deadline: 'Apply soon',
     ),
   ];
@@ -611,18 +681,14 @@ class _JobsScreenState extends State<JobsScreen> {
       eyebrow: 'Job Search',
       title: 'Find roles that match your profile',
       children: [
-        SearchField(
-          controller: searchController,
-          onSubmitted: addSearchFilter,
-        ),
-        FilterSummaryCard(
-          activeFilters: activeFilters,
-          onRemove: removeFilter,
-        ),
+        SearchField(controller: searchController, onSubmitted: addSearchFilter),
+        FilterSummaryCard(activeFilters: activeFilters, onRemove: removeFilter),
         const JobAlertsCard(),
         SectionHeader(
           title: liveJobs.isEmpty ? 'Recommended jobs' : 'Live jobs',
-          action: loadingJobs ? 'Loading' : '${jobsToShow.length}/${sourceJobs.length}',
+          action: loadingJobs
+              ? 'Loading'
+              : '${jobsToShow.length}/${sourceJobs.length}',
         ),
         if (jobsError.isNotEmpty)
           SyncStatusCard(
@@ -803,15 +869,21 @@ class ProfileScreen extends StatelessWidget {
         ProfileSectionCard(
           title: 'Education',
           icon: Icons.school_outlined,
-          items: [session?.profileText('education', 'Education pending') ?? 'Education pending'],
+          items: [
+            session?.profileText('education', 'Education pending') ??
+                'Education pending',
+          ],
         ),
         ProfileSectionCard(
           title: 'Experience',
           icon: Icons.badge_outlined,
           items: [
-            session?.profileText('experience', 'Experience pending') ?? 'Experience pending',
-            session?.profileText('preferredRole', 'Preferred role pending') ?? 'Preferred role pending',
-            session?.profileText('currentCtc', 'Current CTC pending') ?? 'Current CTC pending',
+            session?.profileText('experience', 'Experience pending') ??
+                'Experience pending',
+            session?.profileText('preferredRole', 'Preferred role pending') ??
+                'Preferred role pending',
+            session?.profileText('currentCtc', 'Current CTC pending') ??
+                'Current CTC pending',
           ],
         ),
         ProfileSectionCard(
@@ -1291,11 +1363,7 @@ class OnboardingFlowCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: items
-                .map(
-                  (item) => InfoPill(
-                    item.$2 ? '${item.$1} done' : item.$1,
-                  ),
-                )
+                .map((item) => InfoPill(item.$2 ? '${item.$1} done' : item.$1))
                 .toList(),
           ),
         ],
@@ -1315,27 +1383,32 @@ class ProfileCompletionChecklistCard extends StatelessWidget {
       (
         Icons.description_outlined,
         'Resume ${session.profileText('resumeFileName', '').isEmpty ? 'pending' : 'added'}',
-        session.profileText('resumeFileName', 'Upload existing resume or build one')
+        session.profileText(
+          'resumeFileName',
+          'Upload existing resume or build one',
+        ),
       ),
       (
         Icons.school_outlined,
         'Education ${session.profileText('education', '').isEmpty ? 'pending' : 'added'}',
-        session.profileText('education', 'Add latest qualification details')
+        session.profileText('education', 'Add latest qualification details'),
       ),
       (
         Icons.workspace_premium_outlined,
         'Skills ${session.skills.isEmpty ? 'pending' : 'added'}',
-        session.skills.isEmpty ? 'Add role skills' : session.skills.take(3).join(', ')
+        session.skills.isEmpty
+            ? 'Add role skills'
+            : session.skills.take(3).join(', '),
       ),
       (
         Icons.payments_outlined,
         'Expected CTC ${session.profileText('expectedCtc', '').isEmpty ? 'pending' : 'added'}',
-        session.profileText('expectedCtc', 'Add expected CTC')
+        session.profileText('expectedCtc', 'Add expected CTC'),
       ),
       (
         Icons.place_outlined,
         'Preferred location ${session.profileText('preferredLocation', '').isEmpty ? 'pending' : 'added'}',
-        session.profileText('preferredLocation', 'Add preferred location')
+        session.profileText('preferredLocation', 'Add preferred location'),
       ),
     ];
     final done = checks.where((item) => !item.$2.contains('pending')).length;
@@ -1344,7 +1417,10 @@ class ProfileCompletionChecklistCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: 'Profile checklist', action: '$done/${checks.length} done'),
+          SectionHeader(
+            title: 'Profile checklist',
+            action: '$done/${checks.length} done',
+          ),
           const SizedBox(height: 10),
           ...checks.map(
             (item) => MiniRow(icon: item.$1, title: item.$2, subtitle: item.$3),
@@ -1507,7 +1583,9 @@ class ResumeQualityScoreCard extends StatelessWidget {
           MiniRow(
             icon: Icons.workspace_premium_outlined,
             title: 'Skills',
-            subtitle: session.skills.isEmpty ? 'Add tools and certifications' : session.skills.take(4).join(', '),
+            subtitle: session.skills.isEmpty
+                ? 'Add tools and certifications'
+                : session.skills.take(4).join(', '),
           ),
         ],
       ),
@@ -1776,7 +1854,10 @@ class ProfileStrengthCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       hint,
-                      style: const TextStyle(color: Colors.white70, height: 1.4),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -1810,7 +1891,9 @@ class MetricStrip extends StatelessWidget {
       children: [
         Expanded(
           child: StatTile(
-            value: session.profileText('resumeFileName', '').isEmpty ? '0' : '1',
+            value: session.profileText('resumeFileName', '').isEmpty
+                ? '0'
+                : '1',
             label: 'Resumes',
           ),
         ),
@@ -1852,9 +1935,10 @@ class QuickActionGrid extends StatelessWidget {
         final columns = availableWidth >= 760
             ? 4
             : availableWidth >= 320
-                ? 2
-                : 1;
-        final cardWidth = (availableWidth - (spacing * (columns - 1))) / columns;
+            ? 2
+            : 1;
+        final cardWidth =
+            (availableWidth - (spacing * (columns - 1))) / columns;
 
         return Wrap(
           spacing: spacing,
@@ -1989,13 +2073,17 @@ class LiveJobsRefreshCard extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            usingLiveData ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+            usingLiveData
+                ? Icons.cloud_done_outlined
+                : Icons.cloud_off_outlined,
             color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              usingLiveData ? 'Showing live Railway jobs' : 'Showing fallback jobs',
+              usingLiveData
+                  ? 'Showing live Railway jobs'
+                  : 'Showing fallback jobs',
               style: const TextStyle(color: AppColors.muted),
             ),
           ),
@@ -2023,12 +2111,14 @@ class FilterSummaryCard extends StatelessWidget {
     required this.onRemove,
   });
 
-  final Set<String> activeFilters;
-  final ValueChanged<String> onRemove;
+  final Map<String, Set<String>> activeFilters;
+  final void Function(String category, String filter) onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final shownFilters = activeFilters.toList();
+    final shownFilters = activeFilters.entries
+        .expand((group) => group.value.map((value) => (group.key, value)))
+        .toList();
 
     return CardPanel(
       child: Column(
@@ -2048,10 +2138,10 @@ class FilterSummaryCard extends StatelessWidget {
               children: shownFilters
                   .map(
                     (filter) => InputChip(
-                      label: Text(filter),
-                      onDeleted: () => onRemove(filter),
+                      label: Text('${filter.$1}: ${filter.$2}'),
+                      onDeleted: () => onRemove(filter.$1, filter.$2),
                       deleteIcon: const Icon(Icons.close, size: 16),
-                      deleteButtonTooltipMessage: 'Remove $filter filter',
+                      deleteButtonTooltipMessage: 'Remove ${filter.$2} filter',
                     ),
                   )
                   .toList(),
@@ -2120,9 +2210,9 @@ class JobCard extends StatelessWidget {
   }
 
   void shareJob(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Share ready for $title')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Share ready for $title')));
   }
 
   void applyJob(BuildContext context) {
@@ -2224,52 +2314,52 @@ class JobCard extends StatelessWidget {
 
     return CardPanel(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          sector,
-                          style: const TextStyle(color: AppColors.muted),
-                        ),
-                      ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
-                  ),
-                  if (!showInlineActions) jobActionsMenu(context),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      sector,
+                      style: const TextStyle(color: AppColors.muted),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  InfoPill(location),
-                  InfoPill(salary),
-                  InfoPill(experience),
-                  InfoPill(type),
-                ],
-              ),
-              const SizedBox(height: 12),
-              MatchReason(match: match, reason: reason),
-              if (showInlineActions) ...[
-                const SizedBox(height: 14),
-                inlineJobActions(context),
-              ],
+              if (!showInlineActions) jobActionsMenu(context),
             ],
           ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              InfoPill(location),
+              InfoPill(salary),
+              InfoPill(experience),
+              InfoPill(type),
+            ],
+          ),
+          const SizedBox(height: 12),
+          MatchReason(match: match, reason: reason),
+          if (showInlineActions) ...[
+            const SizedBox(height: 14),
+            inlineJobActions(context),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -2329,9 +2419,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   void shareJob() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Share ready for ${widget.title}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Share ready for ${widget.title}')));
   }
 
   @override
@@ -2389,10 +2479,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       ),
                       if (detailsText.isNotEmpty) ...[
                         const SizedBox(height: 18),
-                        Text(
-                          detailsText,
-                          style: const TextStyle(height: 1.42),
-                        ),
+                        Text(detailsText, style: const TextStyle(height: 1.42)),
                       ],
                       if (widget.responsibilities.isNotEmpty) ...[
                         const SizedBox(height: 18),
@@ -2467,7 +2554,8 @@ class ApplyConfirmationScreen extends StatefulWidget {
   final CandidateSession candidateSession;
 
   @override
-  State<ApplyConfirmationScreen> createState() => _ApplyConfirmationScreenState();
+  State<ApplyConfirmationScreen> createState() =>
+      _ApplyConfirmationScreenState();
 }
 
 class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
@@ -2591,13 +2679,17 @@ class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
                                     'preferredRole',
                                     'Preferred role pending',
                                   ),
-                                  style: const TextStyle(color: AppColors.muted),
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   widget.candidateSession.skills.isEmpty
                                       ? 'Skills pending'
-                                      : widget.candidateSession.skills.take(5).join(', '),
+                                      : widget.candidateSession.skills
+                                            .take(5)
+                                            .join(', '),
                                 ),
                               ],
                             ),
@@ -2831,7 +2923,8 @@ class ResumeStepTile extends StatelessWidget {
   String get profileName => useProfileDetails ? session.displayName : '';
   String get profileEmail => useProfileDetails ? session.email : '';
   String get profilePhone => useProfileDetails ? session.phone : '';
-  List<String> get profileSkills => useProfileDetails ? session.skills : const [];
+  List<String> get profileSkills =>
+      useProfileDetails ? session.skills : const [];
 
   List<ResumeFieldSpec> get fields {
     return switch (title) {
@@ -3000,9 +3093,7 @@ class _ResumeEditScreenState extends State<ResumeEditScreen> {
     setState(() {
       labels.addAll(nextLabels);
       lines.addAll(nextLines);
-      controllers.addAll([
-        for (final _ in nextLabels) TextEditingController(),
-      ]);
+      controllers.addAll([for (final _ in nextLabels) TextEditingController()]);
     });
   }
 
@@ -3056,7 +3147,10 @@ class _ResumeEditScreenState extends State<ResumeEditScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const LabelText('Mobile resume builder', onDark: true),
+                            const LabelText(
+                              'Mobile resume builder',
+                              onDark: true,
+                            ),
                             const SizedBox(height: 8),
                             Text(
                               '${widget.complete ? 'Update' : 'Fill'} ${widget.title}',
@@ -3184,7 +3278,10 @@ class ResumePreviewCard extends StatelessWidget {
               children: [
                 Text(
                   useProfileDetails ? session.displayName : 'Talent Draft',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
                 Text('$role / $location'),
                 const Divider(),
@@ -3481,7 +3578,10 @@ class CandidateSummaryCard extends StatelessWidget {
                 children: [
                   Text(
                     session?.displayName ?? 'Candidate',
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w400),
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -3500,9 +3600,9 @@ class CandidateSummaryCard extends StatelessWidget {
 }
 
 void showProfileAction(BuildContext context, String title) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('$title editor opened')),
-  );
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text('$title editor opened')));
 }
 
 class ProfileSectionCard extends StatelessWidget {
@@ -3543,7 +3643,10 @@ class ProfileSectionCard extends StatelessWidget {
             ...items.map(
               (item) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Text(item, style: const TextStyle(color: AppColors.muted)),
+                child: Text(
+                  item,
+                  style: const TextStyle(color: AppColors.muted),
+                ),
               ),
             ),
           ],
@@ -3608,7 +3711,9 @@ class DocumentCenterCard extends StatelessWidget {
             MiniRow(
               icon: Icons.description_outlined,
               title: 'Resume',
-              subtitle: session?.profileText('resumeFileName', 'Resume pending') ?? 'Resume pending',
+              subtitle:
+                  session?.profileText('resumeFileName', 'Resume pending') ??
+                  'Resume pending',
             ),
             const MiniRow(
               icon: Icons.workspace_premium_outlined,
@@ -3833,7 +3938,10 @@ class FeatureCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: const TextStyle(color: AppColors.muted, height: 1.35),
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      height: 1.35,
+                    ),
                   ),
                 ],
               ),
@@ -4126,4 +4234,3 @@ class CardPanel extends StatelessWidget {
     );
   }
 }
-
