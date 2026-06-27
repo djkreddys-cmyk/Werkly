@@ -104,7 +104,10 @@ export function AgreementMailModal({
 
   async function createPdf() {
     if (!agreementText.trim()) throw new Error("Agreement content is required.");
-    const bytes = await generateAgreementPdf(agreementText);
+    const bytes = await generateAgreementPdf(agreementText, [
+      "Werkly Consulting Private Limited",
+      client.companyName || "Client",
+    ]);
     const pdfBuffer = Uint8Array.from(bytes).buffer;
     const blob = new Blob([pdfBuffer], { type: "application/pdf" });
     const nextUrl = URL.createObjectURL(blob);

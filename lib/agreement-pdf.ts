@@ -6,7 +6,7 @@ const SIDE_MARGIN = 42;
 const CONTENT_TOP = 704;
 const CONTENT_BOTTOM = 72;
 const BODY_SIZE = 10.5;
-const LINE_HEIGHT = 15;
+const LINE_HEIGHT = 18;
 
 const SECTION_HEADINGS = new Set([
   "Scope of Services",
@@ -74,7 +74,7 @@ function drawPageBranding(page: PDFPage, letterhead: PDFImage, footer: PDFImage)
   });
 }
 
-export async function generateAgreementPdf(agreementContent: string) {
+export async function generateAgreementPdf(agreementContent: string, partyNames: string[] = []) {
   const [letterheadBytes, footerBytes, signatureBytes] = await Promise.all([
     fetchBytes("/agreement-assets/letterhead.png"),
     fetchBytes("/agreement-assets/footer.png"),
@@ -159,6 +159,50 @@ export async function generateAgreementPdf(agreementContent: string) {
     }
 
     const isHeading = SECTION_HEADINGS.has(paragraph);
+    const emphasizedPartyNames = partyNames
+      .map((name) => printableText(name).trim())
+      .filter((name) => name && paragraph.includes(name));
+    if (emphasizedPartyNames.length) {
+      const escapedNames = emphasizedPartyNames.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const parts = printableText(paragraph)
+        .split(new RegExp(`(${escapedNames.join("|")})`, "g"))
+        .filter(Boolean);
+      const maxWidth = PAGE_WIDTH - SIDE_MARGIN * 2;
+      const lines: Array<Array<{ text: string; isBold: boolean }>> = [[]];
+      let lineWidth = 0;
+      for (const part of parts) {
+        const isBold = emphasizedPartyNames.includes(part);
+        const partFont = isBold ? bold : regular;
+        for (const token of part.split(/(\s+)/).filter(Boolean)) {
+          const tokenWidth = partFont.widthOfTextAtSize(token, BODY_SIZE);
+          if (lineWidth + tokenWidth > maxWidth && lines[lines.length - 1].length) {
+            lines.push([]);
+            lineWidth = 0;
+            if (/^\s+$/.test(token)) continue;
+          }
+          lines[lines.length - 1].push({ text: token, isBold });
+          lineWidth += tokenWidth;
+        }
+      }
+      requireSpace(lines.length * LINE_HEIGHT + 7);
+      for (const line of lines) {
+        let x = SIDE_MARGIN;
+        for (const segment of line) {
+          const segmentFont = segment.isBold ? bold : regular;
+          page.drawText(segment.text, {
+            x,
+            y,
+            size: BODY_SIZE,
+            font: segmentFont,
+            color: rgb(0.06, 0.18, 0.22),
+          });
+          x += segmentFont.widthOfTextAtSize(segment.text, BODY_SIZE);
+        }
+        y -= LINE_HEIGHT;
+      }
+      y -= 5;
+      continue;
+    }
     const font = isHeading ? bold : regular;
     const size = isHeading ? 12 : BODY_SIZE;
     const lines = wrapText(paragraph, PAGE_WIDTH - SIDE_MARGIN * 2, font, size);
