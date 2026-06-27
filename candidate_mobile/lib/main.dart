@@ -332,7 +332,7 @@ class _CandidateShellState extends State<CandidateShell> {
 
     final screens = [
       HomeScreen(candidateSession: widget.candidateSession!),
-      const JobsScreen(),
+      JobsScreen(candidateSession: widget.candidateSession!),
       ResumeScreen(candidateSession: widget.candidateSession!),
       const ApplicationsScreen(),
       ProfileScreen(
@@ -442,8 +442,6 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preferredRole = candidateSession.profileText('preferredRole', 'Candidate');
-    final preferredLocation = candidateSession.profileText('preferredLocation', 'Location pending');
     final hour = DateTime.now().hour;
     final greeting = hour < 12
         ? 'Good morning'
@@ -466,22 +464,15 @@ class HomeScreen extends StatelessWidget {
         ProfileStrengthCard(session: candidateSession),
         ProfileCompletionChecklistCard(session: candidateSession),
         MetricStrip(session: candidateSession),
-        const SectionHeader(title: 'Quick actions'),
-        const QuickActionGrid(),
-        CardPanel(
-          child: MiniRow(
-            icon: Icons.track_changes_outlined,
-            title: preferredRole,
-            subtitle: '$preferredLocation / ${candidateSession.profileCompletion}% profile complete',
-          ),
-        ),
       ],
     );
   }
 }
 
 class JobsScreen extends StatefulWidget {
-  const JobsScreen({super.key});
+  const JobsScreen({super.key, required this.candidateSession});
+
+  final CandidateSession candidateSession;
 
   @override
   State<JobsScreen> createState() => _JobsScreenState();
@@ -522,6 +513,14 @@ class _JobsScreenState extends State<JobsScreen> {
       if (!activeFilters.add(filter)) {
         activeFilters.remove(filter);
       }
+      if (activeFilters.isEmpty) activeFilters.add('All');
+    });
+  }
+
+  void removeFilter(String filter) {
+    setState(() {
+      activeFilters.remove(filter);
+      if (filter != 'All') filters.remove(filter);
       if (activeFilters.isEmpty) activeFilters.add('All');
     });
   }
@@ -656,6 +655,7 @@ class _JobsScreenState extends State<JobsScreen> {
           filters: filters,
           activeFilters: activeFilters,
           onToggle: toggleFilter,
+          onRemove: removeFilter,
           onAdd: addCustomFilter,
         ),
         FilterSummaryCard(activeFilters: activeFilters),
@@ -663,11 +663,6 @@ class _JobsScreenState extends State<JobsScreen> {
         SectionHeader(
           title: liveJobs.isEmpty ? 'Recommended jobs' : 'Live jobs',
           action: loadingJobs ? 'Loading' : '${jobsToShow.length}/${sourceJobs.length}',
-        ),
-        LiveJobsRefreshCard(
-          loading: loadingJobs,
-          usingLiveData: liveJobs.isNotEmpty,
-          onRefresh: loadLiveJobs,
         ),
         if (jobsError.isNotEmpty)
           SyncStatusCard(
@@ -691,9 +686,9 @@ class _JobsScreenState extends State<JobsScreen> {
             requirements: job.requirements,
             deadline: job.deadline,
             saved: false,
+            candidateSession: widget.candidateSession,
           ),
         ),
-        const ApplyConfirmationCard(),
         const SavedJobsCard(),
         const ProfileMatchLogicCard(),
       ],
@@ -750,7 +745,6 @@ class _ResumeScreenState extends State<ResumeScreen> {
           useProfileDetails: useProfileDetails,
           onChanged: (value) => setState(() => useProfileDetails = value),
         ),
-        const ResumeBackendSyncCard(),
         ResumeQualityScoreCard(session: session),
         CardPanel(
           child: Wrap(
@@ -837,7 +831,6 @@ class ProfileScreen extends StatelessWidget {
       title: 'Your candidate profile',
       children: [
         CandidateSummaryCard(session: session),
-        ProfileBackendSyncCard(session: candidateSession),
         ProfileSectionCard(
           title: 'Personal details',
           icon: Icons.person_outline,
@@ -1679,24 +1672,33 @@ class DocumentUploadFlowCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LabelText('Document upload flow'),
-          SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              InfoPill('Resume'),
-              InfoPill('Certificates'),
-              InfoPill('ID proof'),
-              InfoPill('Offer letter'),
-              InfoPill('Experience letter'),
-            ],
-          ),
-        ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => showProfileAction(context, 'Document upload'),
+      child: const CardPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LabelText('Document upload flow'),
+            SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                InfoPill('Resume'),
+                InfoPill('Certificates'),
+                InfoPill('ID proof'),
+                InfoPill('Offer letter'),
+                InfoPill('Experience letter'),
+              ],
+            ),
+            SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Icon(Icons.chevron_right, color: AppColors.muted),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1707,33 +1709,37 @@ class CandidateAnalyticsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LabelText('Candidate analytics'),
-          SizedBox(height: 10),
-          MiniRow(
-            icon: Icons.visibility_outlined,
-            title: 'Profile views',
-            subtitle: '18 this month',
-          ),
-          MiniRow(
-            icon: Icons.send_outlined,
-            title: 'Applications sent',
-            subtitle: '4 active applications',
-          ),
-          MiniRow(
-            icon: Icons.trending_up_outlined,
-            title: 'Shortlist rate',
-            subtitle: '50% based on current applications',
-          ),
-          MiniRow(
-            icon: Icons.download_outlined,
-            title: 'Resume downloads',
-            subtitle: '3 downloads by Werkly team',
-          ),
-        ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => showProfileAction(context, 'Candidate analytics'),
+      child: const CardPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LabelText('Candidate analytics'),
+            SizedBox(height: 10),
+            MiniRow(
+              icon: Icons.visibility_outlined,
+              title: 'Profile views',
+              subtitle: '18 this month',
+            ),
+            MiniRow(
+              icon: Icons.send_outlined,
+              title: 'Applications sent',
+              subtitle: '4 active applications',
+            ),
+            MiniRow(
+              icon: Icons.trending_up_outlined,
+              title: 'Shortlist rate',
+              subtitle: '50% based on current applications',
+            ),
+            MiniRow(
+              icon: Icons.download_outlined,
+              title: 'Resume downloads',
+              subtitle: '3 downloads by Werkly team',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1954,12 +1960,14 @@ class JobFilterChips extends StatelessWidget {
     required this.filters,
     required this.activeFilters,
     required this.onToggle,
+    required this.onRemove,
     required this.onAdd,
   });
 
   final List<String> filters;
   final Set<String> activeFilters;
   final ValueChanged<String> onToggle;
+  final ValueChanged<String> onRemove;
   final VoidCallback onAdd;
 
   @override
@@ -1969,13 +1977,17 @@ class JobFilterChips extends StatelessWidget {
       runSpacing: 8,
       children: [
         ...filters.map(
-          (filter) => FilterChip(
+          (filter) => InputChip(
             selected: activeFilters.contains(filter),
-            label: Text(filter),
-            onSelected: (_) => onToggle(filter),
-            onDeleted: filter != 'All' && activeFilters.contains(filter)
-                ? () => onToggle(filter)
+            avatar: filter == 'All' && activeFilters.contains(filter)
+                ? const Icon(Icons.check, size: 16)
                 : null,
+            label: Text(filter),
+            onPressed: () => onToggle(filter),
+            onDeleted: filter == 'All' ? null : () => onRemove(filter),
+            deleteIcon: const Icon(Icons.close, size: 16),
+            tooltip: 'Use $filter filter',
+            deleteButtonTooltipMessage: 'Remove $filter filter',
           ),
         ),
         ActionChip(
@@ -2079,6 +2091,7 @@ class JobCard extends StatelessWidget {
     required this.requirements,
     required this.deadline,
     required this.saved,
+    required this.candidateSession,
   });
 
   final String title;
@@ -2095,6 +2108,7 @@ class JobCard extends StatelessWidget {
   final List<String> requirements;
   final String deadline;
   final bool saved;
+  final CandidateSession candidateSession;
 
   void showDetails(BuildContext context) {
     Navigator.of(context).push(
@@ -2111,6 +2125,7 @@ class JobCard extends StatelessWidget {
           responsibilities: responsibilities,
           requirements: requirements,
           deadline: deadline,
+          candidateSession: candidateSession,
         ),
       ),
     );
@@ -2123,8 +2138,13 @@ class JobCard extends StatelessWidget {
   }
 
   void applyJob(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Apply flow opened for $title')),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ApplyConfirmationScreen(
+          jobTitle: title,
+          candidateSession: candidateSession,
+        ),
+      ),
     );
   }
 
@@ -2280,6 +2300,7 @@ class JobDetailScreen extends StatefulWidget {
     required this.responsibilities,
     required this.requirements,
     required this.deadline,
+    required this.candidateSession,
   });
 
   final String title;
@@ -2293,6 +2314,7 @@ class JobDetailScreen extends StatefulWidget {
   final List<String> responsibilities;
   final List<String> requirements;
   final String deadline;
+  final CandidateSession candidateSession;
 
   @override
   State<JobDetailScreen> createState() => _JobDetailScreenState();
@@ -2308,8 +2330,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   void applyJob() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Apply flow opened for ${widget.title}')),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ApplyConfirmationScreen(
+          jobTitle: widget.title,
+          candidateSession: widget.candidateSession,
+        ),
+      ),
     );
   }
 
@@ -2441,6 +2468,216 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 }
 
+class ApplyConfirmationScreen extends StatefulWidget {
+  const ApplyConfirmationScreen({
+    super.key,
+    required this.jobTitle,
+    required this.candidateSession,
+  });
+
+  final String jobTitle;
+  final CandidateSession candidateSession;
+
+  @override
+  State<ApplyConfirmationScreen> createState() => _ApplyConfirmationScreenState();
+}
+
+class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
+  late final TextEditingController expectedCtcController;
+  late final TextEditingController noticeController;
+  late final TextEditingController resumeController;
+  late final TextEditingController noteController;
+
+  @override
+  void initState() {
+    super.initState();
+    expectedCtcController = TextEditingController(
+      text: widget.candidateSession.profileText('expectedCtc', ''),
+    );
+    noticeController = TextEditingController(
+      text: widget.candidateSession.profileText('noticePeriod', ''),
+    );
+    resumeController = TextEditingController(
+      text: widget.candidateSession.profileText(
+        'resumeFileName',
+        '${widget.candidateSession.displayName.replaceAll(' ', '_')}_Resume.pdf',
+      ),
+    );
+    noteController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    expectedCtcController.dispose();
+    noticeController.dispose();
+    resumeController.dispose();
+    noteController.dispose();
+    super.dispose();
+  }
+
+  void confirmApply() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Application submitted for ${widget.jobTitle}')),
+    );
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Back',
+        ),
+        title: const Text('Apply confirmation'),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CardPanel(
+                      color: AppColors.brand,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const LabelText('One-tap apply', onDark: true),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.jobTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 21,
+                              height: 1.2,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.candidateSession.displayName,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    CardPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const LabelText('Resume selected'),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: resumeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Resume file',
+                              prefixIcon: Icon(Icons.description_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.paper,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.line),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.candidateSession.displayName,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.candidateSession.profileText(
+                                    'preferredRole',
+                                    'Preferred role pending',
+                                  ),
+                                  style: const TextStyle(color: AppColors.muted),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  widget.candidateSession.skills.isEmpty
+                                      ? 'Skills pending'
+                                      : widget.candidateSession.skills.take(5).join(', '),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    CardPanel(
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: expectedCtcController,
+                            decoration: const InputDecoration(
+                              labelText: 'Expected CTC',
+                              prefixIcon: Icon(Icons.payments_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: noticeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Notice period',
+                              prefixIcon: Icon(Icons.schedule_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: noteController,
+                            minLines: 3,
+                            maxLines: 5,
+                            decoration: const InputDecoration(
+                              labelText: 'Note to recruiter',
+                              prefixIcon: Icon(Icons.edit_note_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(top: BorderSide(color: AppColors.line)),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: confirmApply,
+                  icon: const Icon(Icons.task_alt_outlined, size: 18),
+                  label: const Text('Confirm apply'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class MatchReason extends StatelessWidget {
   const MatchReason({super.key, required this.match, required this.reason});
 
@@ -2548,20 +2785,23 @@ class ResumeModeCard extends StatelessWidget {
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: useProfileDetails,
-            onChanged: (value) => onChanged(value ?? true),
+            onChanged: (_) => onChanged(true),
             title: const Text('Use my profile details'),
             subtitle: const Text(
               'Prefill resume fields from my candidate profile.',
             ),
             controlAffinity: ListTileControlAffinity.leading,
           ),
-          if (!useProfileDetails)
-            const MiniRow(
-              icon: Icons.auto_awesome_outlined,
-              title: 'Talent Draft',
-              subtitle:
-                  'Create a resume for another person without using your profile details.',
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: !useProfileDetails,
+            onChanged: (_) => onChanged(false),
+            title: const Text('Talent Draft'),
+            subtitle: const Text(
+              'Create a resume for another person without using your profile details.',
             ),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
         ],
       ),
     );
@@ -2731,15 +2971,51 @@ class ResumeEditScreen extends StatefulWidget {
 
 class _ResumeEditScreenState extends State<ResumeEditScreen> {
   late final List<TextEditingController> controllers;
+  late final List<String> labels;
+  late final List<int> lines;
   final scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    labels = [for (final field in widget.fields) field.label];
+    lines = [for (final field in widget.fields) field.lines];
     controllers = [
       for (final field in widget.fields)
         TextEditingController(text: field.value),
     ];
+  }
+
+  bool get canAddSection =>
+      widget.title == 'Experience' || widget.title == 'Education';
+
+  String get addLabel =>
+      widget.title == 'Experience' ? 'Add experience' : 'Add qualification';
+
+  void addSection() {
+    final nextLabels = widget.title == 'Experience'
+        ? const [
+            'Company',
+            'Title',
+            'Location',
+            'Joined Month',
+            'Joined Year',
+            'Exit Month',
+            'Exit Year / Present',
+            'Bullets, achievements, responsibilities, tools, impact',
+          ]
+        : const ['Institution', 'Degree', 'Year'];
+    final nextLines = widget.title == 'Experience'
+        ? const [1, 1, 1, 1, 1, 1, 1, 5]
+        : const [1, 1, 1];
+
+    setState(() {
+      labels.addAll(nextLabels);
+      lines.addAll(nextLines);
+      controllers.addAll([
+        for (final _ in nextLabels) TextEditingController(),
+      ]);
+    });
   }
 
   @override
@@ -2785,20 +3061,69 @@ class _ResumeEditScreenState extends State<ResumeEditScreen> {
                   controller: scrollController,
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (var i = 0; i < widget.fields.length; i++) ...[
-                        TextField(
-                          controller: controllers[i],
-                          minLines: widget.fields[i].lines,
-                          maxLines: widget.fields[i].lines > 1
-                              ? widget.fields[i].lines + 2
-                              : 1,
-                          decoration: InputDecoration(
-                            labelText: widget.fields[i].label,
-                            border: const OutlineInputBorder(),
+                      CardPanel(
+                        color: AppColors.brand,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const LabelText('Mobile resume builder', onDark: true),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${widget.complete ? 'Update' : 'Fill'} ${widget.title}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 21,
+                                height: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Tap each field, save draft, and continue section by section.',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      CardPanel(
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < controllers.length; i++) ...[
+                              TextField(
+                                controller: controllers[i],
+                                minLines: lines[i],
+                                maxLines: lines[i] > 1 ? lines[i] + 2 : 1,
+                                decoration: InputDecoration(
+                                  labelText: labels[i],
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            if (canAddSection)
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: addSection,
+                                  icon: const Icon(Icons.add),
+                                  label: Text(addLabel),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (widget.title == 'Personal Information') ...[
+                        const SizedBox(height: 12),
+                        const CardPanel(
+                          child: MiniRow(
+                            icon: Icons.verified_user_outlined,
+                            title: 'Profile-ready details',
+                            subtitle:
+                                'These basics are used for resume preview and one-tap apply.',
                           ),
                         ),
-                        const SizedBox(height: 12),
                       ],
                     ],
                   ),
@@ -3144,42 +3469,52 @@ class CandidateSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final completion = session?.profileCompletion ?? 0;
-    return CardPanel(
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: AppColors.brand,
-            child: Text(
-              session?.initials ?? 'WC',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w400,
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => showProfileAction(context, 'Profile summary'),
+      child: CardPanel(
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: AppColors.brand,
+              child: Text(
+                session?.initials ?? 'WC',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  session?.displayName ?? 'Candidate',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w400),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${session?.profileText('preferredRole', 'Preferred role pending') ?? 'Preferred role pending'} / ${session?.profileText('preferredLocation', 'Location pending') ?? 'Location pending'}',
-                  style: const TextStyle(color: AppColors.muted),
-                ),
-              ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    session?.displayName ?? 'Candidate',
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w400),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${session?.profileText('preferredRole', 'Preferred role pending') ?? 'Preferred role pending'} / ${session?.profileText('preferredLocation', 'Location pending') ?? 'Location pending'}',
+                    style: const TextStyle(color: AppColors.muted),
+                  ),
+                ],
+              ),
             ),
-          ),
-          StatusPill(label: '$completion%', color: AppColors.brand),
-        ],
+            StatusPill(label: '$completion%', color: AppColors.brand),
+          ],
+        ),
       ),
     );
   }
+}
+
+void showProfileAction(BuildContext context, String title) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('$title editor opened')),
+  );
 }
 
 class ProfileSectionCard extends StatelessWidget {
@@ -3196,31 +3531,35 @@ class ProfileSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CardPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w400),
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => showProfileAction(context, title),
+      child: CardPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w400),
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.muted),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ...items.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(item, style: const TextStyle(color: AppColors.muted)),
+                const Icon(Icons.chevron_right, color: AppColors.muted),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(item, style: const TextStyle(color: AppColors.muted)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3234,20 +3573,29 @@ class SkillsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final skills = session?.skills ?? const <String>[];
-    return CardPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const LabelText('Skills'),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: (skills.isEmpty ? ['Add skills'] : skills)
-                .map((skill) => InfoPill(skill))
-                .toList(),
-          ),
-        ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => showProfileAction(context, 'Skills'),
+      child: CardPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const LabelText('Skills'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: (skills.isEmpty ? ['Add skills'] : skills)
+                  .map((skill) => InfoPill(skill))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerRight,
+              child: Icon(Icons.chevron_right, color: AppColors.muted),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3260,33 +3608,41 @@ class DocumentCenterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CardPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const LabelText('Document center'),
-          const SizedBox(height: 10),
-          MiniRow(
-            icon: Icons.description_outlined,
-            title: 'Resume',
-            subtitle: session?.profileText('resumeFileName', 'Resume pending') ?? 'Resume pending',
-          ),
-          const MiniRow(
-            icon: Icons.workspace_premium_outlined,
-            title: 'Certificates',
-            subtitle: 'Upload certificates',
-          ),
-          const MiniRow(
-            icon: Icons.badge_outlined,
-            title: 'ID proof',
-            subtitle: 'Upload ID proof',
-          ),
-          const MiniRow(
-            icon: Icons.assignment_turned_in_outlined,
-            title: 'Offer & experience letters',
-            subtitle: 'Store past employment docs',
-          ),
-        ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => showProfileAction(context, 'Document center'),
+      child: CardPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const LabelText('Document center'),
+            const SizedBox(height: 10),
+            MiniRow(
+              icon: Icons.description_outlined,
+              title: 'Resume',
+              subtitle: session?.profileText('resumeFileName', 'Resume pending') ?? 'Resume pending',
+            ),
+            const MiniRow(
+              icon: Icons.workspace_premium_outlined,
+              title: 'Certificates',
+              subtitle: 'Upload certificates',
+            ),
+            const MiniRow(
+              icon: Icons.badge_outlined,
+              title: 'ID proof',
+              subtitle: 'Upload ID proof',
+            ),
+            const MiniRow(
+              icon: Icons.assignment_turned_in_outlined,
+              title: 'Offer & experience letters',
+              subtitle: 'Store past employment docs',
+            ),
+            const Align(
+              alignment: Alignment.centerRight,
+              child: Icon(Icons.chevron_right, color: AppColors.muted),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3311,23 +3667,32 @@ class ShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LabelText('Share options'),
-          SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              InfoPill('WhatsApp resume'),
-              InfoPill('Email resume'),
-              InfoPill('Share job details'),
-              InfoPill('Referral link'),
-            ],
-          ),
-        ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => showProfileAction(context, 'Share options'),
+      child: const CardPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LabelText('Share options'),
+            SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                InfoPill('WhatsApp resume'),
+                InfoPill('Email resume'),
+                InfoPill('Share job details'),
+                InfoPill('Referral link'),
+              ],
+            ),
+            SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Icon(Icons.chevron_right, color: AppColors.muted),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3460,29 +3825,34 @@ class FeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CardPanel(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w400),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(color: AppColors.muted, height: 1.35),
-                ),
-              ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => showProfileAction(context, title),
+      child: CardPanel(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w400),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: const TextStyle(color: AppColors.muted, height: 1.35),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const Icon(Icons.chevron_right, color: AppColors.muted),
+          ],
+        ),
       ),
     );
   }
