@@ -26,6 +26,7 @@ function buildDefaultAgreementText(client: ClientRecord) {
   const paymentTerms =
     feeLines.find((line) => /payment|days|invoice/i.test(line)) ||
     "Payment should be made within 90 days from the date of candidate joining.";
+  const commercialFeeLines = feeLines.filter((line) => line !== paymentTerms);
 
   return [
     `This Agreement is made on ${new Date().toLocaleDateString("en-GB")} BETWEEN Werkly Consulting Private Limited, having its registered office at Hyderabad and Vijayawada, and ${clientName}, having its registered office at ${clientAddress}.`,
@@ -33,8 +34,7 @@ function buildDefaultAgreementText(client: ClientRecord) {
     `Werkly Consulting Private Limited agrees to provide recruitment services to ${clientName} for various roles as mutually agreed.`,
     "Fee Structure",
     "Professional Charges for Permanent Employment Commercials",
-    ...feeLines,
-    paymentTerms,
+    ...commercialFeeLines,
     "Candidate Ownership",
     "A candidate submitted by either party will remain valid for 6 months.",
     "Ownership belongs to the party who first introduced the candidate.",
@@ -42,9 +42,10 @@ function buildDefaultAgreementText(client: ClientRecord) {
     "In case the candidate leaves within 90 days, a free replacement will be provided.",
     "No refund shall be applicable.",
     "Payment Terms",
-    "Payment must be made within the agreed timeline.",
+    paymentTerms,
     "Confidentiality",
     "Both parties agree to maintain confidentiality of all shared information, including candidate data and business details.",
+    "Confidential information shall be used only for recruitment services under this Agreement and shall not be disclosed to any third party without prior written consent.",
     "Non-Solicitation",
     "Both parties agree not to hire or approach each other's employees or clients during the agreement period and up to 1 year after termination.",
     "Jurisdiction",

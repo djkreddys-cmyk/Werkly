@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 
 void main() {
   runApp(const WerklyCandidateApp());
@@ -47,6 +49,18 @@ class CandidateSession {
   final String token;
   final Map<String, dynamic> candidate;
   final Map<String, dynamic> profile;
+
+  CandidateSession withProfile(Map<String, dynamic> updatedProfile) {
+    final updatedCandidate = Map<String, dynamic>.from(candidate);
+    for (final key in ['fullName', 'email', 'phone']) {
+      if (updatedProfile[key] != null) updatedCandidate[key] = updatedProfile[key];
+    }
+    return CandidateSession(
+      token: token,
+      candidate: updatedCandidate,
+      profile: updatedProfile,
+    );
+  }
 
   String get displayName =>
       (candidate['fullName'] ?? candidate['name'] ?? 'Candidate').toString();
@@ -228,6 +242,37 @@ class CandidateApi {
     return _readJson(response);
   }
 
+  static Future<Map<String, dynamic>> updateProfile(
+    String token,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/candidate/me/profile'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+    final data = _readJson(response);
+    return Map<String, dynamic>.from(data['profile'] ?? {});
+  }
+
+  static Future<List<Map<String, dynamic>>> loadApplications(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/candidate/applications'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _readJson(response);
+    final applications = data['applications'] is List
+        ? data['applications'] as List
+        : const [];
+    return applications
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
   static Future<List<CandidateJob>> loadJobs() async {
     final response = await http.get(Uri.parse('$baseUrl/jobs'));
     final data = _readJson(response);
@@ -353,6 +398,7 @@ class _CandidateShellState extends State<CandidateShell> {
         darkMode: widget.darkMode,
         candidateSession: widget.candidateSession,
         onDarkModeChanged: widget.onDarkModeChanged,
+        onCandidateSessionChanged: widget.onCandidateSessionChanged,
       ),
     ];
 
@@ -698,6 +744,7 @@ class _JobsScreenState extends State<JobsScreen> {
           ),
         ...jobsToShow.map(
           (job) => JobCard(
+            slug: job.slug,
             title: job.title,
             sector: job.sector,
             location: job.location,
@@ -843,15 +890,17 @@ class ProfileScreen extends StatelessWidget {
     required this.darkMode,
     required this.candidateSession,
     required this.onDarkModeChanged,
+    required this.onCandidateSessionChanged,
   });
 
   final bool darkMode;
   final CandidateSession? candidateSession;
   final ValueChanged<bool> onDarkModeChanged;
+  final ValueChanged<CandidateSession?> onCandidateSessionChanged;
 
   @override
   Widget build(BuildContext context) {
-    final session = candidateSession;
+    final session = candidateSession!;
     return ScreenFrame(
       eyebrow: 'Smart Profile',
       title: 'Your candidate profile',
@@ -861,51 +910,99 @@ class ProfileScreen extends StatelessWidget {
           title: 'Personal details',
           icon: Icons.person_outline,
           items: [
-            session?.displayName ?? 'Candidate',
-            session?.email ?? 'Email pending',
-            session?.phone.isEmpty == false ? session!.phone : 'Phone pending',
+            session.displayName,
+            session.email,
+            session.phone.isNotEmpty ? session.phone : 'Phone pending',
           ],
+          onTap: () => openProfileEditor(
+            context,
+            title: 'Personal details',
+            session: session,
+            fields: const [
+              ProfileField('Full name', 'fullName'),
+              ProfileField('Email', 'email'),
+              ProfileField('Phone', 'phone'),
+              ProfileField('Current location', 'currentLocation'),
+            ],
+            onUpdated: onCandidateSessionChanged,
+          ),
         ),
         ProfileSectionCard(
           title: 'Education',
           icon: Icons.school_outlined,
           items: [
-            session?.profileText('education', 'Education pending') ??
-                'Education pending',
+            session.profileText('education', 'Education pending'),
           ],
+          onTap: () => openProfileEditor(
+            context,
+            title: 'Education',
+            session: session,
+            fields: const [ProfileField('Education', 'education', lines: 4)],
+            onUpdated: onCandidateSessionChanged,
+          ),
         ),
         ProfileSectionCard(
           title: 'Experience',
           icon: Icons.badge_outlined,
           items: [
-            session?.profileText('experience', 'Experience pending') ??
-                'Experience pending',
-            session?.profileText('preferredRole', 'Preferred role pending') ??
-                'Preferred role pending',
-            session?.profileText('currentCtc', 'Current CTC pending') ??
-                'Current CTC pending',
+            session.profileText('experience', 'Experience pending'),
+            session.profileText('preferredRole', 'Preferred role pending'),
+            session.profileText('currentCtc', 'Current CTC pending'),
           ],
+          onTap: () => openProfileEditor(
+            context,
+            title: 'Experience',
+            session: session,
+            fields: const [
+              ProfileField('Experience', 'experience', lines: 4),
+              ProfileField('Preferred role', 'preferredRole'),
+              ProfileField('Current CTC', 'currentCtc'),
+            ],
+            onUpdated: onCandidateSessionChanged,
+          ),
         ),
         ProfileSectionCard(
           title: 'Preferences',
           icon: Icons.tune_outlined,
           items: [
-            'Preferred role: ${session?.profileText('preferredRole', 'Pending') ?? 'Pending'}',
-            'Expected CTC: ${session?.profileText('expectedCtc', 'Pending') ?? 'Pending'}',
-            'Notice period: ${session?.profileText('noticePeriod', 'Pending') ?? 'Pending'}',
-            'Location: ${session?.profileText('preferredLocation', 'Pending') ?? 'Pending'}',
+            'Preferred role: ${session.profileText('preferredRole', 'Pending')}',
+            'Expected CTC: ${session.profileText('expectedCtc', 'Pending')}',
+            'Notice period: ${session.profileText('noticePeriod', 'Pending')}',
+            'Location: ${session.profileText('preferredLocation', 'Pending')}',
           ],
+          onTap: () => openProfileEditor(
+            context,
+            title: 'Preferences',
+            session: session,
+            fields: const [
+              ProfileField('Preferred roles', 'preferredRole'),
+              ProfileField('Expected CTC', 'expectedCtc'),
+              ProfileField('Notice period', 'noticePeriod'),
+              ProfileField('Preferred locations', 'preferredLocation'),
+              ProfileField('Preferred sector', 'preferredSector'),
+            ],
+            onUpdated: onCandidateSessionChanged,
+          ),
         ),
-        SkillsCard(session: session),
-        DocumentCenterCard(session: session),
-        const DocumentUploadFlowCard(),
+        SkillsCard(
+          session: session,
+          onUpdated: onCandidateSessionChanged,
+        ),
+        DocumentCenterCard(
+          session: session,
+          onUpdated: onCandidateSessionChanged,
+        ),
+        DocumentUploadFlowCard(
+          session: session,
+          onUpdated: onCandidateSessionChanged,
+        ),
         const OfflineDraftCard(),
-        const ShareCard(),
+        ShareCard(session: session),
         SettingsPreviewCard(
           darkMode: darkMode,
           onDarkModeChanged: onDarkModeChanged,
         ),
-        const CandidateAnalyticsCard(),
+        CandidateAnalyticsCard(session: session),
       ],
     );
   }
@@ -1706,13 +1803,27 @@ class InterviewCalendarCard extends StatelessWidget {
 }
 
 class DocumentUploadFlowCard extends StatelessWidget {
-  const DocumentUploadFlowCard({super.key});
+  const DocumentUploadFlowCard({
+    super.key,
+    required this.session,
+    required this.onUpdated,
+  });
+
+  final CandidateSession session;
+  final ValueChanged<CandidateSession?> onUpdated;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => showProfileAction(context, 'Document upload'),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DocumentUploadScreen(
+            session: session,
+            onUpdated: onUpdated,
+          ),
+        ),
+      ),
       child: const CardPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1743,38 +1854,38 @@ class DocumentUploadFlowCard extends StatelessWidget {
 }
 
 class CandidateAnalyticsCard extends StatelessWidget {
-  const CandidateAnalyticsCard({super.key});
+  const CandidateAnalyticsCard({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => showProfileAction(context, 'Candidate analytics'),
-      child: const CardPanel(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CandidateAnalyticsScreen(session: session),
+        ),
+      ),
+      child: CardPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LabelText('Candidate analytics'),
-            SizedBox(height: 10),
+            const LabelText('Candidate analytics'),
+            const SizedBox(height: 10),
             MiniRow(
-              icon: Icons.visibility_outlined,
-              title: 'Profile views',
-              subtitle: '18 this month',
+              icon: Icons.account_circle_outlined,
+              title: 'Profile completion',
+              subtitle: '${session.profileCompletion}% from your live profile',
             ),
-            MiniRow(
-              icon: Icons.send_outlined,
-              title: 'Applications sent',
-              subtitle: '4 active applications',
+            const MiniRow(
+              icon: Icons.analytics_outlined,
+              title: 'Open live analytics',
+              subtitle: 'Applications and shortlist rate from Railway',
             ),
-            MiniRow(
-              icon: Icons.trending_up_outlined,
-              title: 'Shortlist rate',
-              subtitle: '50% based on current applications',
-            ),
-            MiniRow(
-              icon: Icons.download_outlined,
-              title: 'Resume downloads',
-              subtitle: '3 downloads by Werkly team',
+            const Align(
+              alignment: Alignment.centerRight,
+              child: Icon(Icons.chevron_right, color: AppColors.muted),
             ),
           ],
         ),
@@ -2155,6 +2266,7 @@ class FilterSummaryCard extends StatelessWidget {
 class JobCard extends StatelessWidget {
   const JobCard({
     super.key,
+    required this.slug,
     required this.title,
     required this.sector,
     required this.location,
@@ -2172,6 +2284,7 @@ class JobCard extends StatelessWidget {
     required this.candidateSession,
   });
 
+  final String slug;
   final String title;
   final String sector;
   final String location;
@@ -2192,6 +2305,7 @@ class JobCard extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => JobDetailScreen(
+          slug: slug,
           title: title,
           sector: sector,
           location: location,
@@ -2210,9 +2324,13 @@ class JobCard extends StatelessWidget {
   }
 
   void shareJob(BuildContext context) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Share ready for $title')));
+    SharePlus.instance.share(
+      ShareParams(
+        subject: '$title at Werkly',
+        text:
+            '$title\n$sector\n$location | $salary | $experience\nhttps://www.werkly.in/jobs/$slug',
+      ),
+    );
   }
 
   void applyJob(BuildContext context) {
@@ -2367,6 +2485,7 @@ class JobCard extends StatelessWidget {
 class JobDetailScreen extends StatefulWidget {
   const JobDetailScreen({
     super.key,
+    required this.slug,
     required this.title,
     required this.sector,
     required this.location,
@@ -2381,6 +2500,7 @@ class JobDetailScreen extends StatefulWidget {
     required this.candidateSession,
   });
 
+  final String slug;
   final String title;
   final String sector;
   final String location;
@@ -2419,9 +2539,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   void shareJob() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Share ready for ${widget.title}')));
+    SharePlus.instance.share(
+      ShareParams(
+        subject: '${widget.title} at Werkly',
+        text:
+            '${widget.title}\n${widget.sector}\n${widget.location} | ${widget.salary} | ${widget.experience}\nhttps://www.werkly.in/jobs/${widget.slug}',
+      ),
+    );
   }
 
   @override
@@ -2954,10 +3078,8 @@ class ResumeStepTile extends StatelessWidget {
         const ResumeFieldSpec('Company', ''),
         ResumeFieldSpec('Title', profileValue('preferredRole')),
         ResumeFieldSpec('Location', profileValue('currentLocation')),
-        const ResumeFieldSpec('Joined Month', ''),
-        const ResumeFieldSpec('Joined Year', ''),
-        const ResumeFieldSpec('Exit Month', ''),
-        const ResumeFieldSpec('Exit Year / Present', ''),
+        const ResumeFieldSpec('Joining Date', ''),
+        const ResumeFieldSpec('Exit Date', ''),
         ResumeFieldSpec(
           'Bullets, achievements, responsibilities, tools, impact',
           profileValue('experience'),
@@ -3079,15 +3201,13 @@ class _ResumeEditScreenState extends State<ResumeEditScreen> {
             'Company',
             'Title',
             'Location',
-            'Joined Month',
-            'Joined Year',
-            'Exit Month',
-            'Exit Year / Present',
+            'Joining Date',
+            'Exit Date',
             'Bullets, achievements, responsibilities, tools, impact',
           ]
         : const ['Institution', 'Degree', 'Year'];
     final nextLines = widget.title == 'Experience'
-        ? const [1, 1, 1, 1, 1, 1, 1, 5]
+        ? const [1, 1, 1, 1, 1, 5]
         : const [1, 1, 1];
 
     setState(() {
@@ -3116,6 +3236,22 @@ class _ResumeEditScreenState extends State<ResumeEditScreen> {
         ),
       ),
     );
+  }
+
+  bool isDateField(String label) =>
+      label == 'Joining Date' || label == 'Exit Date' || label == 'Date of Birth';
+
+  Future<void> pickDate(int index) async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1950),
+      lastDate: DateTime(2100),
+      helpText: 'Select ${labels[index]}',
+    );
+    if (selected == null) return;
+    controllers[index].text =
+        '${selected.day.toString().padLeft(2, '0')}/${selected.month.toString().padLeft(2, '0')}/${selected.year}';
   }
 
   @override
@@ -3175,10 +3311,15 @@ class _ResumeEditScreenState extends State<ResumeEditScreen> {
                             for (var i = 0; i < controllers.length; i++) ...[
                               TextField(
                                 controller: controllers[i],
+                                readOnly: isDateField(labels[i]),
+                                onTap: isDateField(labels[i]) ? () => pickDate(i) : null,
                                 minLines: lines[i],
                                 maxLines: lines[i] > 1 ? lines[i] + 2 : 1,
                                 decoration: InputDecoration(
                                   labelText: labels[i],
+                                  suffixIcon: isDateField(labels[i])
+                                      ? const Icon(Icons.calendar_month_outlined)
+                                      : null,
                                   border: const OutlineInputBorder(),
                                 ),
                               ),
@@ -3605,23 +3746,353 @@ void showProfileAction(BuildContext context, String title) {
   ).showSnackBar(SnackBar(content: Text('$title editor opened')));
 }
 
+class ProfileField {
+  const ProfileField(this.label, this.key, {this.lines = 1});
+
+  final String label;
+  final String key;
+  final int lines;
+}
+
+void openProfileEditor(
+  BuildContext context, {
+  required String title,
+  required CandidateSession session,
+  required List<ProfileField> fields,
+  required ValueChanged<CandidateSession?> onUpdated,
+}) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ProfileEditScreen(
+        title: title,
+        session: session,
+        fields: fields,
+        onUpdated: onUpdated,
+      ),
+    ),
+  );
+}
+
+class ProfileEditScreen extends StatefulWidget {
+  const ProfileEditScreen({
+    super.key,
+    required this.title,
+    required this.session,
+    required this.fields,
+    required this.onUpdated,
+  });
+
+  final String title;
+  final CandidateSession session;
+  final List<ProfileField> fields;
+  final ValueChanged<CandidateSession?> onUpdated;
+
+  @override
+  State<ProfileEditScreen> createState() => _ProfileEditScreenState();
+}
+
+class _ProfileEditScreenState extends State<ProfileEditScreen> {
+  late final Map<String, TextEditingController> controllers;
+  bool saving = false;
+  String error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    controllers = {
+      for (final field in widget.fields)
+        field.key: TextEditingController(
+          text: field.key == 'skills'
+              ? widget.session.skills.join(', ')
+              : widget.session.profileText(field.key, ''),
+        ),
+    };
+  }
+
+  @override
+  void dispose() {
+    for (final controller in controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> save() async {
+    setState(() {
+      saving = true;
+      error = '';
+    });
+    try {
+      final payload = Map<String, dynamic>.from(widget.session.profile);
+      for (final field in widget.fields) {
+        final value = controllers[field.key]!.text.trim();
+        payload[field.key] = field.key == 'skills'
+            ? value.split(',').map((item) => item.trim()).where((item) => item.isNotEmpty).toList()
+            : value;
+      }
+      final profile = await CandidateApi.updateProfile(widget.session.token, payload);
+      final updated = widget.session.withProfile(profile);
+      widget.onUpdated(updated);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.title} updated')),
+      );
+    } catch (exception) {
+      if (mounted) {
+        setState(() => error = exception.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            CardPanel(
+              child: Column(
+                children: [
+                  for (final field in widget.fields) ...[
+                    TextField(
+                      controller: controllers[field.key],
+                      minLines: field.lines,
+                      maxLines: field.lines > 1 ? field.lines + 2 : 1,
+                      decoration: InputDecoration(labelText: field.label),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if (error.isNotEmpty)
+                    Text(error, style: const TextStyle(color: AppColors.accentStrong)),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: saving ? null : save,
+                      icon: saving
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(saving ? 'Saving' : 'Save changes'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DocumentUploadScreen extends StatefulWidget {
+  const DocumentUploadScreen({
+    super.key,
+    required this.session,
+    required this.onUpdated,
+  });
+
+  final CandidateSession session;
+  final ValueChanged<CandidateSession?> onUpdated;
+
+  @override
+  State<DocumentUploadScreen> createState() => _DocumentUploadScreenState();
+}
+
+class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
+  final selectedFiles = <String, String>{};
+  bool uploading = false;
+  String error = '';
+
+  Future<void> pickDocument(String category) async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    setState(() {
+      selectedFiles[category] = file.name;
+      error = '';
+    });
+
+    if (category != 'Resume' || file.bytes == null) return;
+    setState(() => uploading = true);
+    try {
+      final payload = Map<String, dynamic>.from(widget.session.profile)
+        ..['resumeFileName'] = file.name
+        ..['resumeFileType'] = file.extension ?? 'file'
+        ..['resumeFileData'] = base64Encode(file.bytes!);
+      final profile = await CandidateApi.updateProfile(widget.session.token, payload);
+      widget.onUpdated(widget.session.withProfile(profile));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Resume uploaded to your Werkly profile')),
+        );
+      }
+    } catch (exception) {
+      if (mounted) {
+        setState(() => error = exception.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => uploading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const categories = [
+      ('Resume', Icons.description_outlined),
+      ('Certificate', Icons.workspace_premium_outlined),
+      ('ID proof', Icons.badge_outlined),
+      ('Offer letter', Icons.assignment_turned_in_outlined),
+      ('Experience letter', Icons.history_edu_outlined),
+    ];
+    return Scaffold(
+      appBar: AppBar(title: const Text('Document center')),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const Text('Choose a document type and select a file from your device.'),
+            const SizedBox(height: 16),
+            ...categories.map(
+              (item) => CardPanel(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(item.$2, color: Theme.of(context).colorScheme.primary),
+                  title: Text(item.$1),
+                  subtitle: Text(
+                    selectedFiles[item.$1] ??
+                        (item.$1 == 'Resume'
+                            ? widget.session.profileText('resumeFileName', 'No file selected')
+                            : 'No file selected'),
+                  ),
+                  trailing: IconButton(
+                    onPressed: uploading ? null : () => pickDocument(item.$1),
+                    icon: const Icon(Icons.upload_file_outlined),
+                    tooltip: 'Upload ${item.$1}',
+                  ),
+                ),
+              ),
+            ),
+            if (uploading) const LinearProgressIndicator(),
+            if (error.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(error, style: const TextStyle(color: AppColors.accentStrong)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CandidateAnalyticsScreen extends StatefulWidget {
+  const CandidateAnalyticsScreen({super.key, required this.session});
+
+  final CandidateSession session;
+
+  @override
+  State<CandidateAnalyticsScreen> createState() => _CandidateAnalyticsScreenState();
+}
+
+class _CandidateAnalyticsScreenState extends State<CandidateAnalyticsScreen> {
+  late final Future<List<Map<String, dynamic>>> applications;
+
+  @override
+  void initState() {
+    super.initState();
+    applications = CandidateApi.loadApplications(widget.session.token);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Candidate analytics')),
+      body: SafeArea(
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: applications,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Unable to load analytics: ${snapshot.error}'));
+            }
+            final items = snapshot.data ?? const [];
+            final progressed = items.where((item) {
+              final stage = '${item['stage'] ?? ''}'.toLowerCase();
+              return stage != 'applied' && stage != 'rejected' && stage.isNotEmpty;
+            }).length;
+            final rate = items.isEmpty ? 0 : ((progressed / items.length) * 100).round();
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                CardPanel(
+                  child: Column(
+                    children: [
+                      MiniRow(
+                        icon: Icons.account_circle_outlined,
+                        title: 'Profile completion',
+                        subtitle: '${widget.session.profileCompletion}% live profile strength',
+                      ),
+                      MiniRow(
+                        icon: Icons.send_outlined,
+                        title: 'Applications sent',
+                        subtitle: '${items.length} applications from Railway',
+                      ),
+                      MiniRow(
+                        icon: Icons.trending_up_outlined,
+                        title: 'Progression rate',
+                        subtitle: '$rate% moved beyond applied',
+                      ),
+                      MiniRow(
+                        icon: Icons.visibility_outlined,
+                        title: 'Profile views',
+                        subtitle: 'Tracking is not enabled yet',
+                      ),
+                      const MiniRow(
+                        icon: Icons.download_outlined,
+                        title: 'Resume downloads',
+                        subtitle: 'Tracking is not enabled yet',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileSectionCard extends StatelessWidget {
   const ProfileSectionCard({
     super.key,
     required this.title,
     required this.icon,
     required this.items,
+    required this.onTap,
   });
 
   final String title;
   final IconData icon;
   final List<String> items;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => showProfileAction(context, title),
+      onTap: onTap,
       child: CardPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3657,16 +4128,27 @@ class ProfileSectionCard extends StatelessWidget {
 }
 
 class SkillsCard extends StatelessWidget {
-  const SkillsCard({super.key, required this.session});
+  const SkillsCard({
+    super.key,
+    required this.session,
+    required this.onUpdated,
+  });
 
   final CandidateSession? session;
+  final ValueChanged<CandidateSession?> onUpdated;
 
   @override
   Widget build(BuildContext context) {
     final skills = session?.skills ?? const <String>[];
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => showProfileAction(context, 'Skills'),
+      onTap: () => openProfileEditor(
+        context,
+        title: 'Skills',
+        session: session!,
+        fields: const [ProfileField('Skills (comma separated)', 'skills')],
+        onUpdated: onUpdated,
+      ),
       child: CardPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3693,15 +4175,27 @@ class SkillsCard extends StatelessWidget {
 }
 
 class DocumentCenterCard extends StatelessWidget {
-  const DocumentCenterCard({super.key, required this.session});
+  const DocumentCenterCard({
+    super.key,
+    required this.session,
+    required this.onUpdated,
+  });
 
   final CandidateSession? session;
+  final ValueChanged<CandidateSession?> onUpdated;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => showProfileAction(context, 'Document center'),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DocumentUploadScreen(
+            session: session!,
+            onUpdated: onUpdated,
+          ),
+        ),
+      ),
       child: CardPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3756,13 +4250,21 @@ class OfflineDraftCard extends StatelessWidget {
 }
 
 class ShareCard extends StatelessWidget {
-  const ShareCard({super.key});
+  const ShareCard({super.key, required this.session});
+
+  final CandidateSession session;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => showProfileAction(context, 'Share options'),
+      onTap: () => SharePlus.instance.share(
+        ShareParams(
+          text:
+              '${session.displayName}\n${session.profileText('preferredRole', 'Candidate')}\n${session.profileText('preferredLocation', '')}\nShared from Werkly Candidate',
+          subject: '${session.displayName} - Werkly candidate profile',
+        ),
+      ),
       child: const CardPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
