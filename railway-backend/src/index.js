@@ -275,6 +275,97 @@ async function sendPasswordResetOtpEmail({ email, employeeCode, otp }) {
   }
 }
 
+function resumeAttachmentContent(fileData) {
+  const value = String(fileData || "").trim();
+  const dataUrlMatch = value.match(/^data:[^;]+;base64,(.+)$/s);
+  return dataUrlMatch ? dataUrlMatch[1] : value;
+}
+
+function escapeEmailHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function resumeAttachmentType(fileName, fileType) {
+  const normalizedType = String(fileType || "").trim().toLowerCase();
+  if (normalizedType.includes("/")) return normalizedType;
+
+  const extension = String(fileName || "")
+    .split(".")
+    .pop()
+    ?.toLowerCase();
+  return {
+    pdf: "application/pdf",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    rtf: "application/rtf",
+    txt: "text/plain",
+  }[extension] || "application/octet-stream";
+}
+
+async function sendMobileResumeUploadEmail({ candidate, document }) {
+  const senderEmail = process.env.RESEND_FROM_EMAIL;
+  const senderName = process.env.RESEND_FROM_NAME || "Werkly Mobile";
+  const apiKey = process.env.RESEND_API_KEY;
+  const recipients = String(process.env.RESEND_TO_EMAIL || senderEmail || "")
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+  const attachmentContent = resumeAttachmentContent(document?.fileData);
+
+  if (!apiKey || !senderEmail || recipients.length === 0) {
+    throw new Error(
+      "Resume email delivery is not configured. Add RESEND_API_KEY and RESEND_FROM_EMAIL."
+    );
+  }
+  if (!document?.fileName || !attachmentContent) {
+    throw new Error("The uploaded resume is empty and could not be emailed.");
+  }
+
+  const candidateName = String(candidate?.fullName || "Werkly Candidate").trim();
+  const candidateEmail = String(candidate?.email || "").trim();
+  const candidatePhone = String(candidate?.phone || "").trim();
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: `${senderName} <${senderEmail}>`,
+      to: recipients,
+      ...(candidateEmail ? { reply_to: candidateEmail } : {}),
+      subject: `Mobile candidate resume updated: ${candidateName}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;color:#18343a;line-height:1.6;">
+          <h2 style="margin:0 0 12px;">Candidate resume updated from the Werkly mobile app</h2>
+          <p style="margin:0 0 6px;"><strong>Name:</strong> ${escapeEmailHtml(candidateName)}</p>
+          <p style="margin:0 0 6px;"><strong>Email:</strong> ${escapeEmailHtml(candidateEmail || "Not provided")}</p>
+          <p style="margin:0 0 6px;"><strong>Phone:</strong> ${escapeEmailHtml(candidatePhone || "Not provided")}</p>
+          <p style="margin:0;"><strong>Resume:</strong> ${escapeEmailHtml(document.fileName)}</p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: document.fileName,
+          content: attachmentContent,
+          content_type: resumeAttachmentType(document.fileName, document.fileType),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Unable to email the uploaded resume to Werkly.");
+  }
+}
+
 const candidateStageSequence = ["applied", "shortlisted", "interview", "offered", "joined"];
 
 function requiresStageOverrideApproval(currentStage, nextStage) {
@@ -787,6 +878,10 @@ app.get("/candidate/documents", requireCandidate, async (request, response) => {
 app.post("/candidate/documents", requireCandidate, async (request, response) => {
   try {
     const document = await upsertCandidateDocument(request.candidate.id, request.body ?? {});
+    if (String(document?.category || "").trim().toLowerCase() === "resume") {
+      const candidate = await getCandidateById(request.candidate.id);
+      await sendMobileResumeUploadEmail({ candidate, document });
+    }
     const documents = await listCandidateDocuments(request.candidate.id, { slim: true });
     response.status(201).json({ document, documents });
   } catch (error) {
