@@ -549,7 +549,7 @@ class _CandidateShellState extends State<CandidateShell> {
       HomeScreen(candidateSession: widget.candidateSession!),
       JobsScreen(candidateSession: widget.candidateSession!),
       ResumeScreen(candidateSession: widget.candidateSession!),
-      const ApplicationsScreen(),
+      ApplicationsScreen(candidateSession: widget.candidateSession!),
       ProfileScreen(
         darkMode: widget.darkMode,
         candidateSession: widget.candidateSession,
@@ -1027,34 +1027,165 @@ class _ResumeScreenState extends State<ResumeScreen> {
   }
 }
 
-class ApplicationsScreen extends StatelessWidget {
-  const ApplicationsScreen({super.key});
+class ApplicationsScreen extends StatefulWidget {
+  const ApplicationsScreen({super.key, required this.candidateSession});
+
+  final CandidateSession candidateSession;
+
+  @override
+  State<ApplicationsScreen> createState() => _ApplicationsScreenState();
+}
+
+class _ApplicationsScreenState extends State<ApplicationsScreen> {
+  late Future<List<Map<String, dynamic>>> applications;
+
+  @override
+  void initState() {
+    super.initState();
+    applications = CandidateApi.loadApplications(widget.candidateSession.token);
+  }
+
+  void reload() {
+    setState(() {
+      applications = CandidateApi.loadApplications(widget.candidateSession.token);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return ScreenFrame(
       eyebrow: 'Applications',
       title: 'Track every job clearly',
-      children: const [
-        ApplicationTrackerCard(),
-        ApplicationDetailCard(),
-        ApplicationFiltersCard(),
-        NextActionCard(),
-        ApplicationListTile(
-          title: 'Quality Control Specialist',
-          status: 'Applied',
-          meta: 'Vijayawada / 24 Jun',
+      trailing: IconButton(
+        tooltip: 'Refresh application status',
+        onPressed: reload,
+        color: Colors.white,
+        icon: const Icon(Icons.refresh),
+      ),
+      children: [
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: applications,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const CardPanel(child: Center(child: CircularProgressIndicator()));
+            }
+            if (snapshot.hasError) {
+              return SyncStatusCard(
+                title: 'Application updates unavailable',
+                message: snapshot.error.toString().replaceFirst('Exception: ', ''),
+                icon: Icons.cloud_off_outlined,
+              );
+            }
+            final items = snapshot.data ?? const <Map<String, dynamic>>[];
+            if (items.isEmpty) {
+              return const SyncStatusCard(
+                title: 'No applications yet',
+                message: 'Jobs you apply for will appear here with live recruiter updates.',
+                icon: Icons.work_history_outlined,
+              );
+            }
+            return Column(
+              children: [
+                for (var index = 0; index < items.length; index++) ...[
+                  LiveApplicationCard(application: items[index]),
+                  if (index != items.length - 1) const SizedBox(height: 12),
+                ],
+              ],
+            );
+          },
         ),
-        ApplicationListTile(
-          title: 'Regional Sales Manager',
-          status: 'Shortlisted',
-          meta: 'Hyderabad / 22 Jun',
-        ),
-        PreparationCard(),
-        RecruiterChatCard(),
-        InterviewCalendarCard(),
-        RoadmapCard(),
+        const PreparationCard(),
+        const RoadmapCard(),
       ],
+    );
+  }
+}
+
+class LiveApplicationCard extends StatelessWidget {
+  const LiveApplicationCard({super.key, required this.application});
+
+  final Map<String, dynamic> application;
+
+  String text(String key, [String fallback = '']) {
+    final value = application[key]?.toString().trim() ?? '';
+    return value.isEmpty ? fallback : value;
+  }
+
+  String label(String value) {
+    if (value.isEmpty) return 'Applied';
+    return value
+        .split('-')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
+
+  String dateTimeLabel(String value) {
+    if (value.isEmpty) return '';
+    final parsed = DateTime.tryParse(value)?.toLocal();
+    if (parsed == null) return value;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final date = '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
+    if (!value.contains('T')) return date;
+    final hour = parsed.hour == 0 ? 12 : (parsed.hour > 12 ? parsed.hour - 12 : parsed.hour);
+    final minute = parsed.minute.toString().padLeft(2, '0');
+    final period = parsed.hour >= 12 ? 'PM' : 'AM';
+    return '$date, $hour:$minute $period';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const stages = ['applied', 'shortlisted', 'interview', 'offered', 'joined'];
+    final stage = text('stage', 'applied').toLowerCase();
+    final stageIndex = stages.indexOf(stage);
+    final isRejected = stage.contains('rejected') || stage.contains('rejection');
+    final interviewAt = text('interviewScheduledAt');
+    final reminderAt = text('interviewReminderAt');
+    final details = <Widget>[
+      if (text('stageNote').isNotEmpty)
+        MiniRow(icon: Icons.notes_outlined, title: 'Recruiter update', subtitle: text('stageNote')),
+      if (text('stageDate').isNotEmpty)
+        MiniRow(icon: Icons.update_outlined, title: 'Status date', subtitle: dateTimeLabel(text('stageDate'))),
+      if (interviewAt.isNotEmpty)
+        MiniRow(icon: Icons.event_available_outlined, title: 'Interview schedule', subtitle: dateTimeLabel(interviewAt)),
+      if (text('interviewMode').isNotEmpty)
+        MiniRow(icon: Icons.video_call_outlined, title: 'Interview mode', subtitle: text('interviewMode')),
+      if (text('interviewPanel').isNotEmpty)
+        MiniRow(icon: Icons.groups_outlined, title: 'Interview panel', subtitle: text('interviewPanel')),
+      if (reminderAt.isNotEmpty)
+        MiniRow(icon: Icons.notifications_active_outlined, title: 'Reminder', subtitle: dateTimeLabel(reminderAt)),
+      if (text('recruiterName').isNotEmpty)
+        MiniRow(icon: Icons.support_agent_outlined, title: 'Werkly recruiter', subtitle: text('recruiterName')),
+      if (text('finalCtc').isNotEmpty)
+        MiniRow(icon: Icons.payments_outlined, title: 'Final CTC', subtitle: text('finalCtc')),
+      if (text('dateOfJoining').isNotEmpty)
+        MiniRow(icon: Icons.event_outlined, title: 'Joining date', subtitle: dateTimeLabel(text('dateOfJoining'))),
+    ];
+
+    return CardPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: text('jobTitle', text('preferredRole', 'Werkly application')),
+            action: label(stage),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            [text('jobCode'), text('clientName'), text('jobLocation')].where((value) => value.isNotEmpty).join(' / '),
+            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          ...stages.asMap().entries.map(
+            (entry) => TimelineRow(label: label(entry.value), active: !isRejected && stageIndex >= entry.key),
+          ),
+          if (isRejected) TimelineRow(label: label(stage), active: true),
+          if (details.isNotEmpty) ...[
+            const Divider(height: 24),
+            ...details,
+          ],
+        ],
+      ),
     );
   }
 }
