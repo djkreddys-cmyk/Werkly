@@ -25,6 +25,12 @@ function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+function applicationStageLabel(stage) {
+  return String(stage || "updated")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function mapCandidateAccountRow(row) {
   if (!row) return null;
   return {
@@ -100,6 +106,23 @@ export function mapCandidateResumeExportRow(row) {
     fileData: row.file_data,
     resumePayload: row.resume_payload || {},
     createdAt: row.created_at,
+  };
+}
+
+export function mapCandidateNotificationRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    candidateId: row.candidate_id,
+    title: row.title,
+    message: row.message,
+    category: row.category,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    isRead: Boolean(row.is_read),
+    metadata: row.metadata || {},
+    createdAt: row.created_at,
+    readAt: row.read_at,
   };
 }
 
@@ -684,6 +707,30 @@ export async function ensureJobsSchema() {
   await query(
     `create index if not exists idx_job_application_stage_history_application_id
      on job_application_stage_history(application_id)`
+  );
+  await query(`
+    create table if not exists candidate_notifications (
+      id uuid primary key default gen_random_uuid(),
+      candidate_id uuid not null references candidate_accounts(id) on delete cascade,
+      title text not null,
+      message text not null,
+      category text not null default 'general',
+      entity_type text,
+      entity_id text,
+      is_read boolean not null default false,
+      metadata jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now(),
+      read_at timestamptz
+    )
+  `);
+  await query(
+    `create index if not exists idx_candidate_notifications_candidate_created
+     on candidate_notifications(candidate_id, created_at desc)`
+  );
+  await query(
+    `create index if not exists idx_candidate_notifications_unread
+     on candidate_notifications(candidate_id, is_read)
+     where is_read = false`
   );
   await query(`
     create table if not exists candidate_enquiries (
@@ -1414,6 +1461,95 @@ export async function listCandidateApplications(candidateId) {
   );
 
   return result.rows.map(mapApplicationRow);
+}
+
+export async function listCandidateNotifications(candidateId, { limit = 30 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 30, 1), 100);
+  const result = await query(
+    `select
+       id,
+       candidate_id,
+       title,
+       message,
+       category,
+       entity_type,
+       entity_id,
+       is_read,
+       metadata,
+       created_at,
+       read_at
+     from candidate_notifications
+     where candidate_id = $1
+     order by created_at desc
+     limit $2`,
+    [candidateId, safeLimit]
+  );
+
+  return result.rows.map(mapCandidateNotificationRow);
+}
+
+export async function createCandidateNotification(candidateId, payload = {}) {
+  if (!candidateId || !payload.title || !payload.message) return null;
+
+  const result = await query(
+    `insert into candidate_notifications (
+       candidate_id,
+       title,
+       message,
+       category,
+       entity_type,
+       entity_id,
+       metadata
+     ) values ($1, $2, $3, $4, $5, $6, $7::jsonb)
+     returning
+       id,
+       candidate_id,
+       title,
+       message,
+       category,
+       entity_type,
+       entity_id,
+       is_read,
+       metadata,
+       created_at,
+       read_at`,
+    [
+      candidateId,
+      String(payload.title).trim(),
+      String(payload.message).trim(),
+      String(payload.category || "general").trim() || "general",
+      payload.entityType || null,
+      payload.entityId || null,
+      JSON.stringify(payload.metadata || {}),
+    ]
+  );
+
+  return mapCandidateNotificationRow(result.rows[0]);
+}
+
+export async function markCandidateNotificationRead(candidateId, notificationId) {
+  const result = await query(
+    `update candidate_notifications
+     set is_read = true,
+         read_at = coalesce(read_at, now())
+     where id = $1
+       and candidate_id = $2
+     returning
+       id,
+       candidate_id,
+       title,
+       message,
+       category,
+       entity_type,
+       entity_id,
+       is_read,
+       metadata,
+       created_at,
+       read_at`,
+    [notificationId, candidateId]
+  );
+
+  return result.rows[0] ? mapCandidateNotificationRow(result.rows[0]) : null;
 }
 
 export async function listCandidateSavedJobs(candidateId) {
@@ -2952,7 +3088,9 @@ export async function updateJobApplicationStage(
     }
 
     const currentResult = await client.query(
-      `select job_applications.*
+      `select
+         job_applications.*,
+         coalesce(job_applications.job_title, jobs.title) as notification_job_title
        from job_applications
        left join jobs on jobs.id = job_applications.job_id
        left join clients on clients.id = jobs.client_id
@@ -2983,9 +3121,10 @@ export async function updateJobApplicationStage(
            stage_updated_at = now()
        where id = $1
        returning
-         id,
-         parent_application_id,
-         job_id,
+          id,
+          candidate_id,
+          parent_application_id,
+          job_id,
          assigned_employee_id,
          stage,
          stage_note,
@@ -3062,6 +3201,64 @@ export async function updateJobApplicationStage(
       ) values ($1, $2, $3, $4, $5::date)`,
       [applicationId, currentApplication.stage, stage, stageNote || null, stageDate || null]
     );
+
+    let notificationCandidateId =
+      updatedResult.rows[0]?.candidate_id || currentApplication.candidate_id;
+    if (!notificationCandidateId) {
+      const notificationCandidateResult = await client.query(
+        `select id
+         from candidate_accounts
+         where (
+           $1 <> ''
+           and lower(email) = $1
+         )
+         or (
+           $2 <> ''
+           and regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = $2
+         )
+         order by updated_at desc
+         limit 1`,
+        [
+          normalizeEmail(currentApplication.candidate_email),
+          normalizePhone(currentApplication.candidate_phone),
+        ]
+      );
+      notificationCandidateId = notificationCandidateResult.rows[0]?.id;
+    }
+    if (notificationCandidateId) {
+      const jobTitle =
+        updatedResult.rows[0]?.job_title ||
+        currentApplication.notification_job_title ||
+        "your application";
+      const stageText = applicationStageLabel(stage);
+      await client.query(
+        `insert into candidate_notifications (
+           candidate_id,
+           title,
+           message,
+           category,
+           entity_type,
+           entity_id,
+           metadata
+         ) values ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+        [
+          notificationCandidateId,
+          `Application ${stageText}`,
+          `${jobTitle} moved to ${stageText}.${stageNote ? ` ${stageNote}` : ""}`,
+          stage === "interview" ? "interview" : "application",
+          "job_application",
+          applicationId,
+          JSON.stringify({
+            stage,
+            stageNote: stageNote || "",
+            stageDate: stageDate || "",
+            interviewScheduledAt: payload.interviewScheduledAt || "",
+            interviewMode: payload.interviewMode || "",
+            interviewPanel: payload.interviewPanel || "",
+          }),
+        ]
+      );
+    }
 
     await client.query("commit");
     return updatedResult.rows[0] ? mapApplicationRow(updatedResult.rows[0]) : null;

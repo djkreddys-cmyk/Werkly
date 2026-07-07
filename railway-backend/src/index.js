@@ -127,6 +127,7 @@ import {
   authenticateCandidate,
   createCandidateAccount,
   createCandidateEnquiry,
+  createCandidateNotification,
   createCandidateResumeExport,
   createResumeBuilderSubmission,
   deleteCandidateDocument,
@@ -146,6 +147,7 @@ import {
   listCandidateApplications,
   listCandidateDocuments,
   listCandidateEnquiries,
+  listCandidateNotifications,
   listCandidateSavedFilters,
   listCandidateSavedJobs,
   listResumeBuilderSubmissions,
@@ -154,6 +156,7 @@ import {
   listAdminJobs,
   listJobs,
   mergeJobsByCode,
+  markCandidateNotificationRead,
   recordJobApplication,
   recordCandidateJobApplication,
   recordCandidateAnalyticsEvent,
@@ -852,6 +855,14 @@ app.get("/candidate/me", requireCandidate, async (request, response) => {
 app.put("/candidate/me/profile", requireCandidate, async (request, response) => {
   try {
     const profile = await updateCandidateProfile(request.candidate.id, request.body ?? {});
+    await createCandidateNotification(request.candidate.id, {
+      title: "Profile updated",
+      message: "Your Werkly candidate profile changes were saved successfully.",
+      category: "profile",
+      entityType: "candidate_profile",
+      entityId: request.candidate.id,
+      metadata: { profileCompletion: profile?.profileCompletion ?? 0 },
+    });
     response.json({ profile });
   } catch (error) {
     const message =
@@ -881,6 +892,29 @@ app.post("/candidate/documents", requireCandidate, async (request, response) => 
     if (String(document?.category || "").trim().toLowerCase() === "resume") {
       const candidate = await getCandidateById(request.candidate.id);
       await sendMobileResumeUploadEmail({ candidate, document });
+      await createCandidateNotification(request.candidate.id, {
+        title: "Resume uploaded",
+        message: `${document.fileName || "Your resume"} was saved and emailed to Werkly.`,
+        category: "resume",
+        entityType: "candidate_document",
+        entityId: document.id,
+        metadata: {
+          fileName: document.fileName || "",
+          fileType: document.fileType || "",
+        },
+      });
+    } else {
+      await createCandidateNotification(request.candidate.id, {
+        title: "Document uploaded",
+        message: `${document.fileName || "Your document"} was saved to your candidate profile.`,
+        category: "document",
+        entityType: "candidate_document",
+        entityId: document.id,
+        metadata: {
+          category: document.category || "",
+          fileName: document.fileName || "",
+        },
+      });
     }
     const documents = await listCandidateDocuments(request.candidate.id, { slim: true });
     response.status(201).json({ document, documents });
@@ -909,6 +943,38 @@ app.get("/candidate/analytics", requireCandidate, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load candidate analytics.",
+    });
+  }
+});
+
+app.get("/candidate/notifications", requireCandidate, async (request, response) => {
+  try {
+    const notifications = await listCandidateNotifications(request.candidate.id, {
+      limit: request.query?.limit,
+    });
+    response.json({ notifications });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to load candidate notifications.",
+    });
+  }
+});
+
+app.put("/candidate/notifications/:id/read", requireCandidate, async (request, response) => {
+  try {
+    const notification = await markCandidateNotificationRead(
+      request.candidate.id,
+      request.params.id
+    );
+    if (!notification) {
+      return response.status(404).json({ message: "Candidate notification not found." });
+    }
+    response.json({ notification });
+  } catch (error) {
+    response.status(500).json({
+      message:
+        error instanceof Error ? error.message : "Unable to update candidate notification.",
     });
   }
 });

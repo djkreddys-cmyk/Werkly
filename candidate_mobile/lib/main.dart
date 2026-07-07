@@ -273,6 +273,32 @@ class CandidateApi {
         .toList();
   }
 
+  static Future<List<Map<String, dynamic>>> loadNotifications(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/candidate/notifications'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _readJson(response);
+    final notifications = data['notifications'] is List
+        ? data['notifications'] as List
+        : const [];
+    return notifications
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<void> markNotificationRead(
+    String token,
+    String notificationId,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/candidate/notifications/$notificationId/read'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    _readJson(response);
+  }
+
   static Future<List<Map<String, dynamic>>> loadDocuments(String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/candidate/documents'),
@@ -696,6 +722,7 @@ class HomeScreen extends StatelessWidget {
       ),
       children: [
         OnboardingFlowCard(session: candidateSession),
+        NotificationsCenterCard(session: candidateSession),
         ProfileStrengthCard(session: candidateSession),
         ProfileCompletionChecklistCard(session: candidateSession),
         MetricStrip(session: candidateSession),
@@ -4880,40 +4907,130 @@ class InterviewAlertCard extends StatelessWidget {
   }
 }
 
-class NotificationsCenterCard extends StatelessWidget {
-  const NotificationsCenterCard({super.key});
+class NotificationsCenterCard extends StatefulWidget {
+  const NotificationsCenterCard({super.key, required this.session});
+
+  final CandidateSession session;
+
+  @override
+  State<NotificationsCenterCard> createState() =>
+      _NotificationsCenterCardState();
+}
+
+class _NotificationsCenterCardState extends State<NotificationsCenterCard> {
+  late Future<List<Map<String, dynamic>>> notifications;
+
+  @override
+  void initState() {
+    super.initState();
+    notifications = CandidateApi.loadNotifications(widget.session.token);
+  }
+
+  void refresh() {
+    setState(() {
+      notifications = CandidateApi.loadNotifications(widget.session.token);
+    });
+  }
+
+  Future<void> markRead(Map<String, dynamic> item) async {
+    final id = (item['id'] ?? '').toString();
+    if (id.isEmpty || item['isRead'] == true) return;
+    await CandidateApi.markNotificationRead(widget.session.token, id);
+    refresh();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LabelText('Notifications center'),
-          SizedBox(height: 10),
-          MiniRow(
-            icon: Icons.work_outline,
-            title: 'Job match',
-            subtitle: 'ERP Manager matches 92% of your profile',
+          Row(
+            children: [
+              const Expanded(child: LabelText('Notifications center')),
+              IconButton(
+                tooltip: 'Refresh notifications',
+                onPressed: refresh,
+                icon: const Icon(Icons.refresh, size: 18),
+              ),
+            ],
           ),
-          MiniRow(
-            icon: Icons.event_available_outlined,
-            title: 'Interview reminder',
-            subtitle: 'Online interview tomorrow at 11:30 AM',
-          ),
-          MiniRow(
-            icon: Icons.timeline_outlined,
-            title: 'Application update',
-            subtitle: 'Regional Sales Manager moved to shortlisted',
-          ),
-          MiniRow(
-            icon: Icons.chat_bubble_outline,
-            title: 'Recruiter message',
-            subtitle: 'Werkly recruiter requested availability confirmation',
+          const SizedBox(height: 10),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: notifications,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const LinearProgressIndicator();
+              }
+              if (snapshot.hasError) {
+                return MiniRow(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Unable to load alerts',
+                  subtitle: snapshot.error
+                      .toString()
+                      .replaceFirst('Exception: ', ''),
+                );
+              }
+
+              final items = snapshot.data ?? const [];
+              if (items.isEmpty) {
+                return const MiniRow(
+                  icon: Icons.notifications_none_outlined,
+                  title: 'No new updates',
+                  subtitle:
+                      'Profile, resume, and job status alerts will appear here.',
+                );
+              }
+
+              return Column(
+                children: [
+                  for (final item in items.take(4))
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => markRead(item),
+                      child: MiniRow(
+                        icon: notificationIcon((item['category'] ?? '').toString()),
+                        title:
+                            '${item['isRead'] == true ? '' : '• '}${(item['title'] ?? 'Werkly update')}',
+                        subtitle:
+                            '${item['message'] ?? ''}${notificationTime(item['createdAt']).isEmpty ? '' : ' · ${notificationTime(item['createdAt'])}'}',
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
+  }
+
+  IconData notificationIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'interview':
+        return Icons.event_available_outlined;
+      case 'application':
+        return Icons.timeline_outlined;
+      case 'resume':
+      case 'document':
+        return Icons.description_outlined;
+      case 'profile':
+        return Icons.account_circle_outlined;
+      default:
+        return Icons.notifications_active_outlined;
+    }
+  }
+
+  String notificationTime(Object? value) {
+    final parsed = DateTime.tryParse((value ?? '').toString());
+    if (parsed == null) return '';
+    final local = parsed.toLocal();
+    final diff = DateTime.now().difference(local);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${local.day}/${local.month}/${local.year}';
   }
 }
 
