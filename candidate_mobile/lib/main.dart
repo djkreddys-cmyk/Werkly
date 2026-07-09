@@ -53,7 +53,9 @@ class CandidateSession {
   CandidateSession withProfile(Map<String, dynamic> updatedProfile) {
     final updatedCandidate = Map<String, dynamic>.from(candidate);
     for (final key in ['fullName', 'email', 'phone']) {
-      if (updatedProfile[key] != null) updatedCandidate[key] = updatedProfile[key];
+      if (updatedProfile[key] != null) {
+        updatedCandidate[key] = updatedProfile[key];
+      }
     }
     return CandidateSession(
       token: token,
@@ -258,7 +260,9 @@ class CandidateApi {
     return Map<String, dynamic>.from(data['profile'] ?? {});
   }
 
-  static Future<List<Map<String, dynamic>>> loadApplications(String token) async {
+  static Future<List<Map<String, dynamic>>> loadApplications(
+    String token,
+  ) async {
     final response = await http.get(
       Uri.parse('$baseUrl/candidate/applications'),
       headers: {'Authorization': 'Bearer $token'},
@@ -273,7 +277,9 @@ class CandidateApi {
         .toList();
   }
 
-  static Future<List<Map<String, dynamic>>> loadNotifications(String token) async {
+  static Future<List<Map<String, dynamic>>> loadNotifications(
+    String token,
+  ) async {
     final response = await http.get(
       Uri.parse('$baseUrl/candidate/notifications'),
       headers: {'Authorization': 'Bearer $token'},
@@ -305,7 +311,9 @@ class CandidateApi {
       headers: {'Authorization': 'Bearer $token'},
     );
     final data = _readJson(response);
-    final documents = data['documents'] is List ? data['documents'] as List : const [];
+    final documents = data['documents'] is List
+        ? data['documents'] as List
+        : const [];
     return documents
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
@@ -325,7 +333,9 @@ class CandidateApi {
       body: jsonEncode(payload),
     );
     final data = _readJson(response);
-    final documents = data['documents'] is List ? data['documents'] as List : const [];
+    final documents = data['documents'] is List
+        ? data['documents'] as List
+        : const [];
     return documents
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
@@ -432,6 +442,9 @@ class AppColors {
   static const brandDark = Color(0xFF064B50);
   static const accent = Color(0xFFFFB45C);
   static const accentStrong = Color(0xFFD9572B);
+  static const success = Color(0xFF238B5F);
+  static const warning = Color(0xFFE09B2D);
+  static const danger = Color(0xFFD9572B);
   static const paper = Color(0xFFF3F6F6);
   static const surface = Color(0xFFFFFFFF);
   static const ink = Color(0xFF172B30);
@@ -458,20 +471,46 @@ class AppTheme {
       seedColor: AppColors.brand,
       primary: AppColors.accent,
       secondary: AppColors.brand,
-      surface: const Color(0xFF17272A),
-      outline: const Color(0xFF31474B),
+      surface: const Color(0xFF132326),
+      surfaceContainerHighest: const Color(0xFF203438),
+      outline: const Color(0xFF365256),
+      onSurface: const Color(0xFFE8F1F2),
     ),
     const Color(0xFF0E191B),
   );
 
   static ThemeData _theme(ColorScheme scheme, Color scaffold) {
     const textTheme = TextTheme(
-      headlineSmall: TextStyle(fontSize: 26, height: 1.15, fontWeight: FontWeight.w500),
-      titleLarge: TextStyle(fontSize: 20, height: 1.2, fontWeight: FontWeight.w500),
-      titleMedium: TextStyle(fontSize: 16, height: 1.25, fontWeight: FontWeight.w500),
-      bodyLarge: TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w400),
-      bodyMedium: TextStyle(fontSize: 14, height: 1.45, fontWeight: FontWeight.w400),
-      bodySmall: TextStyle(fontSize: 12, height: 1.4, fontWeight: FontWeight.w400),
+      headlineSmall: TextStyle(
+        fontSize: 26,
+        height: 1.15,
+        fontWeight: FontWeight.w500,
+      ),
+      titleLarge: TextStyle(
+        fontSize: 20,
+        height: 1.2,
+        fontWeight: FontWeight.w500,
+      ),
+      titleMedium: TextStyle(
+        fontSize: 16,
+        height: 1.25,
+        fontWeight: FontWeight.w500,
+      ),
+      bodyLarge: TextStyle(
+        fontSize: 15,
+        height: 1.45,
+        fontWeight: FontWeight.w400,
+      ),
+      bodyMedium: TextStyle(
+        fontSize: 14,
+        height: 1.45,
+        fontWeight: FontWeight.w400,
+      ),
+      bodySmall: TextStyle(
+        fontSize: 12,
+        height: 1.4,
+        fontWeight: FontWeight.w400,
+      ),
       labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
     );
     return ThemeData(
@@ -479,7 +518,10 @@ class AppTheme {
       scaffoldBackgroundColor: scaffold,
       fontFamily: 'Roboto',
       colorScheme: scheme,
-      textTheme: textTheme.apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface),
+      textTheme: textTheme.apply(
+        bodyColor: scheme.onSurface,
+        displayColor: scheme.onSurface,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: scaffold,
         foregroundColor: scheme.onSurface,
@@ -490,12 +532,30 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-        labelStyle: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w400),
-        hintStyle: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w400),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outline)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.outline)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: scheme.primary, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
+        labelStyle: const TextStyle(
+          color: AppColors.muted,
+          fontWeight: FontWeight.w400,
+        ),
+        hintStyle: const TextStyle(
+          color: AppColors.muted,
+          fontWeight: FontWeight.w400,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: scheme.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: scheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -522,16 +582,24 @@ class AppTheme {
         labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 68,
+        height: 72,
         elevation: 0,
-        backgroundColor: scheme.surface,
-        indicatorColor: scheme.primary.withValues(alpha: 0.12),
-        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
-          fontSize: 11,
-          fontWeight: states.contains(WidgetState.selected) ? FontWeight.w500 : FontWeight.w400,
-          color: states.contains(WidgetState.selected) ? scheme.primary : AppColors.muted,
-        )),
+        backgroundColor: scheme.surface.withValues(alpha: 0.98),
+        indicatorColor: scheme.primary.withValues(alpha: 0.16),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: 11,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w500
+                : FontWeight.w400,
+            color: states.contains(WidgetState.selected)
+                ? scheme.primary
+                : AppColors.muted,
+          ),
+        ),
       ),
       dividerTheme: DividerThemeData(color: scheme.outline, thickness: 1),
     );
@@ -596,40 +664,44 @@ class _CandidateShellState extends State<CandidateShell> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outline)),
+          border: Border(
+            top: BorderSide(color: Theme.of(context).colorScheme.outline),
+          ),
         ),
         child: SafeArea(
           top: false,
           child: NavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: (index) => setState(() => currentIndex = index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.work_outline),
-            selectedIcon: Icon(Icons.work),
-            label: 'Jobs',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.description_outlined),
-            selectedIcon: Icon(Icons.description),
-            label: 'Resume',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.timeline_outlined),
-            selectedIcon: Icon(Icons.timeline),
-            label: 'Track',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+            selectedIndex: currentIndex,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            onDestinationSelected: (index) =>
+                setState(() => currentIndex = index),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.work_outline),
+                selectedIcon: Icon(Icons.work),
+                label: 'Jobs',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.description_outlined),
+                selectedIcon: Icon(Icons.description),
+                label: 'Resume',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.timeline_outlined),
+                selectedIcon: Icon(Icons.timeline),
+                label: 'Track',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Profile',
+              ),
+            ],
           ),
         ),
       ),
@@ -944,26 +1016,37 @@ class _JobsScreenState extends State<JobsScreen> {
             message: '$jobsError. Showing recommended fallback jobs.',
             icon: Icons.cloud_off_outlined,
           ),
-        ...jobsToShow.map(
-          (job) => JobCard(
-            slug: job.slug,
-            title: job.title,
-            sector: job.sector,
-            location: job.location,
-            salary: job.salary,
-            experience: job.experience,
-            type: job.type,
-            match: job.match,
-            reason: job.reason,
-            summary: job.summary,
-            description: job.description,
-            responsibilities: job.responsibilities,
-            requirements: job.requirements,
-            deadline: job.deadline,
-            saved: false,
-            candidateSession: widget.candidateSession,
+        if (loadingJobs && liveJobs.isEmpty) ...[
+          const SkeletonCard(lines: 4),
+          const SkeletonCard(lines: 3),
+        ] else if (jobsToShow.isEmpty)
+          const EmptyStateCard(
+            icon: Icons.search_off_outlined,
+            title: 'No matching jobs found',
+            message:
+                'Try removing a filter or searching a nearby role/location to discover more matches.',
           ),
-        ),
+        if (!(loadingJobs && liveJobs.isEmpty))
+          ...jobsToShow.map(
+            (job) => JobCard(
+              slug: job.slug,
+              title: job.title,
+              sector: job.sector,
+              location: job.location,
+              salary: job.salary,
+              experience: job.experience,
+              type: job.type,
+              match: job.match,
+              reason: job.reason,
+              summary: job.summary,
+              description: job.description,
+              responsibilities: job.responsibilities,
+              requirements: job.requirements,
+              deadline: job.deadline,
+              saved: false,
+              candidateSession: widget.candidateSession,
+            ),
+          ),
         const SavedJobsCard(),
         const ProfileMatchLogicCard(),
       ],
@@ -1074,7 +1157,9 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
   void reload() {
     setState(() {
-      applications = CandidateApi.loadApplications(widget.candidateSession.token);
+      applications = CandidateApi.loadApplications(
+        widget.candidateSession.token,
+      );
     });
   }
 
@@ -1094,21 +1179,25 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
           future: applications,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const CardPanel(child: Center(child: CircularProgressIndicator()));
+              return const SkeletonCard(lines: 5);
             }
             if (snapshot.hasError) {
               return SyncStatusCard(
                 title: 'Application updates unavailable',
-                message: snapshot.error.toString().replaceFirst('Exception: ', ''),
+                message: snapshot.error.toString().replaceFirst(
+                  'Exception: ',
+                  '',
+                ),
                 icon: Icons.cloud_off_outlined,
               );
             }
             final items = snapshot.data ?? const <Map<String, dynamic>>[];
             if (items.isEmpty) {
-              return const SyncStatusCard(
-                title: 'No applications yet',
-                message: 'Jobs you apply for will appear here with live recruiter updates.',
+              return const EmptyStateCard(
                 icon: Icons.work_history_outlined,
+                title: 'No applications yet',
+                message:
+                    'Jobs you apply for will appear here with live recruiter updates.',
               );
             }
             return Column(
@@ -1151,13 +1240,39 @@ class LiveApplicationCard extends StatelessWidget {
     if (value.isEmpty) return '';
     final parsed = DateTime.tryParse(value)?.toLocal();
     if (parsed == null) return value;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     final date = '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
     if (!value.contains('T')) return date;
-    final hour = parsed.hour == 0 ? 12 : (parsed.hour > 12 ? parsed.hour - 12 : parsed.hour);
+    final hour = parsed.hour == 0
+        ? 12
+        : (parsed.hour > 12 ? parsed.hour - 12 : parsed.hour);
     final minute = parsed.minute.toString().padLeft(2, '0');
     final period = parsed.hour >= 12 ? 'PM' : 'AM';
     return '$date, $hour:$minute $period';
+  }
+
+  Color stageColor(String value) {
+    final normalized = value.toLowerCase();
+    if (normalized.contains('reject')) return AppColors.danger;
+    if (normalized.contains('interview')) return AppColors.warning;
+    if (normalized.contains('offer') || normalized.contains('join')) {
+      return AppColors.success;
+    }
+    if (normalized.contains('shortlist')) return AppColors.brand;
+    return AppColors.muted;
   }
 
   @override
@@ -1165,52 +1280,105 @@ class LiveApplicationCard extends StatelessWidget {
     const stages = ['applied', 'shortlisted', 'interview', 'offered', 'joined'];
     final stage = text('stage', 'applied').toLowerCase();
     final stageIndex = stages.indexOf(stage);
-    final isRejected = stage.contains('rejected') || stage.contains('rejection');
+    final isRejected =
+        stage.contains('rejected') || stage.contains('rejection');
     final interviewAt = text('interviewScheduledAt');
     final reminderAt = text('interviewReminderAt');
     final details = <Widget>[
       if (text('stageNote').isNotEmpty)
-        MiniRow(icon: Icons.notes_outlined, title: 'Recruiter update', subtitle: text('stageNote')),
+        MiniRow(
+          icon: Icons.notes_outlined,
+          title: 'Recruiter update',
+          subtitle: text('stageNote'),
+        ),
       if (text('stageDate').isNotEmpty)
-        MiniRow(icon: Icons.update_outlined, title: 'Status date', subtitle: dateTimeLabel(text('stageDate'))),
+        MiniRow(
+          icon: Icons.update_outlined,
+          title: 'Status date',
+          subtitle: dateTimeLabel(text('stageDate')),
+        ),
       if (interviewAt.isNotEmpty)
-        MiniRow(icon: Icons.event_available_outlined, title: 'Interview schedule', subtitle: dateTimeLabel(interviewAt)),
+        MiniRow(
+          icon: Icons.event_available_outlined,
+          title: 'Interview schedule',
+          subtitle: dateTimeLabel(interviewAt),
+        ),
       if (text('interviewMode').isNotEmpty)
-        MiniRow(icon: Icons.video_call_outlined, title: 'Interview mode', subtitle: text('interviewMode')),
+        MiniRow(
+          icon: Icons.video_call_outlined,
+          title: 'Interview mode',
+          subtitle: text('interviewMode'),
+        ),
       if (text('interviewPanel').isNotEmpty)
-        MiniRow(icon: Icons.groups_outlined, title: 'Interview panel', subtitle: text('interviewPanel')),
+        MiniRow(
+          icon: Icons.groups_outlined,
+          title: 'Interview panel',
+          subtitle: text('interviewPanel'),
+        ),
       if (reminderAt.isNotEmpty)
-        MiniRow(icon: Icons.notifications_active_outlined, title: 'Reminder', subtitle: dateTimeLabel(reminderAt)),
+        MiniRow(
+          icon: Icons.notifications_active_outlined,
+          title: 'Reminder',
+          subtitle: dateTimeLabel(reminderAt),
+        ),
       if (text('recruiterName').isNotEmpty)
-        MiniRow(icon: Icons.support_agent_outlined, title: 'Werkly recruiter', subtitle: text('recruiterName')),
+        MiniRow(
+          icon: Icons.support_agent_outlined,
+          title: 'Werkly recruiter',
+          subtitle: text('recruiterName'),
+        ),
       if (text('finalCtc').isNotEmpty)
-        MiniRow(icon: Icons.payments_outlined, title: 'Final CTC', subtitle: text('finalCtc')),
+        MiniRow(
+          icon: Icons.payments_outlined,
+          title: 'Final CTC',
+          subtitle: text('finalCtc'),
+        ),
       if (text('dateOfJoining').isNotEmpty)
-        MiniRow(icon: Icons.event_outlined, title: 'Joining date', subtitle: dateTimeLabel(text('dateOfJoining'))),
+        MiniRow(
+          icon: Icons.event_outlined,
+          title: 'Joining date',
+          subtitle: dateTimeLabel(text('dateOfJoining')),
+        ),
     ];
 
     return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            title: text('jobTitle', text('preferredRole', 'Werkly application')),
-            action: label(stage),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  text('jobTitle', text('preferredRole', 'Werkly application')),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              StatusPill(label: label(stage), color: stageColor(stage)),
+            ],
           ),
           const SizedBox(height: 5),
           Text(
-            [text('jobCode'), text('clientName'), text('jobLocation')].where((value) => value.isNotEmpty).join(' / '),
+            [
+              text('jobCode'),
+              text('clientName'),
+              text('jobLocation'),
+            ].where((value) => value.isNotEmpty).join(' / '),
             style: const TextStyle(color: AppColors.muted, fontSize: 12),
           ),
           const SizedBox(height: 16),
           ...stages.asMap().entries.map(
-            (entry) => TimelineRow(label: label(entry.value), active: !isRejected && stageIndex >= entry.key),
+            (entry) => TimelineRow(
+              label: label(entry.value),
+              active: !isRejected && stageIndex >= entry.key,
+            ),
           ),
           if (isRejected) TimelineRow(label: label(stage), active: true),
-          if (details.isNotEmpty) ...[
-            const Divider(height: 24),
-            ...details,
-          ],
+          if (details.isNotEmpty) ...[const Divider(height: 24), ...details],
         ],
       ),
     );
@@ -1263,9 +1431,7 @@ class ProfileScreen extends StatelessWidget {
         ProfileSectionCard(
           title: 'Education',
           icon: Icons.school_outlined,
-          items: [
-            session.profileText('education', 'Education pending'),
-          ],
+          items: [session.profileText('education', 'Education pending')],
           onTap: () => openProfileEditor(
             context,
             title: 'Education',
@@ -1317,10 +1483,7 @@ class ProfileScreen extends StatelessWidget {
             onUpdated: onCandidateSessionChanged,
           ),
         ),
-        SkillsCard(
-          session: session,
-          onUpdated: onCandidateSessionChanged,
-        ),
+        SkillsCard(session: session, onUpdated: onCandidateSessionChanged),
         DocumentCenterCard(
           session: session,
           onUpdated: onCandidateSessionChanged,
@@ -1490,10 +1653,7 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Welcome back',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('Welcome back', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           const Text(
             'Sign in to find jobs and manage your profile.',
@@ -1805,6 +1965,10 @@ class OnboardingFlowCard extends StatelessWidget {
       ('Location', session.profileText('preferredLocation', '').isNotEmpty),
     ];
     final completed = items.where((item) => item.$2).length;
+    final nextStep = items.where((item) => !item.$2).isEmpty
+        ? 'Ready for one-tap apply'
+        : 'Next: add ${items.firstWhere((item) => !item.$2).$1.toLowerCase()}';
+    final progress = completed / items.length;
 
     return CardPanel(
       child: Column(
@@ -1813,30 +1977,49 @@ class OnboardingFlowCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: AppColors.brand.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.brand.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.rocket_launch_outlined, color: AppColors.brand, size: 20),
+                child: const Icon(
+                  Icons.rocket_launch_outlined,
+                  color: AppColors.brand,
+                  size: 23,
+                ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Set up your profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                    SizedBox(height: 2),
-                    Text('Complete these steps for better job matches', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                    const Text(
+                      'Set up your profile',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      nextStep,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Text('$completed/${items.length}', style: const TextStyle(color: AppColors.brand, fontWeight: FontWeight.w500)),
+              StatusPill(
+                label: '$completed/${items.length}',
+                color: progress >= 0.85 ? AppColors.success : AppColors.brand,
+              ),
             ],
           ),
           const SizedBox(height: 14),
-          ProgressBar(value: completed / items.length),
+          ProgressBar(value: progress),
           const SizedBox(height: 14),
           Wrap(
             spacing: 8,
@@ -1844,11 +2027,17 @@ class OnboardingFlowCard extends StatelessWidget {
             children: items
                 .map(
                   (item) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
                       color: item.$2
                           ? AppColors.brand.withValues(alpha: 0.09)
-                          : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                          : Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -2063,31 +2252,56 @@ class ResumeQualityScoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final score = session.profileCompletion.clamp(0, 100);
+    final color = score >= 85
+        ? AppColors.success
+        : score >= 60
+        ? AppColors.brand
+        : AppColors.warning;
+    final tips = <Widget>[
+      if (session.profileText('resumeFileName', '').isEmpty)
+        const MiniRow(
+          icon: Icons.upload_file_outlined,
+          title: 'Resume file',
+          subtitle: 'Upload your latest resume for faster recruiter review',
+        ),
+      if (session.skills.isEmpty)
+        const MiniRow(
+          icon: Icons.workspace_premium_outlined,
+          title: 'Skills',
+          subtitle: 'Add tools, certifications, and role keywords',
+        )
+      else
+        MiniRow(
+          icon: Icons.workspace_premium_outlined,
+          title: 'Skills',
+          subtitle: session.skills.take(4).join(', '),
+        ),
+      if (session.profileText('experience', '').isEmpty)
+        const MiniRow(
+          icon: Icons.insights_outlined,
+          title: 'Impact metrics',
+          subtitle: 'Add achievements, team size, revenue, or process wins',
+        ),
+    ];
     return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title: 'Resume quality score', action: '$score%'),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Resume quality score',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+              ),
+              StatusPill(label: '$score%', color: color),
+            ],
+          ),
           const SizedBox(height: 10),
-          ProgressBar(value: score / 100),
+          ProgressBar(value: score / 100, color: color),
           const SizedBox(height: 10),
-          const MiniRow(
-            icon: Icons.subject_outlined,
-            title: 'Summary',
-            subtitle: 'Add stronger target-role keywords',
-          ),
-          const MiniRow(
-            icon: Icons.insights_outlined,
-            title: 'Metrics',
-            subtitle: 'Add measurable achievements',
-          ),
-          MiniRow(
-            icon: Icons.workspace_premium_outlined,
-            title: 'Skills',
-            subtitle: session.skills.isEmpty
-                ? 'Add tools and certifications'
-                : session.skills.take(4).join(', '),
-          ),
+          ...tips.take(3),
         ],
       ),
     );
@@ -2222,10 +2436,8 @@ class DocumentUploadFlowCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => DocumentUploadScreen(
-            session: session,
-            onUpdated: onUpdated,
-          ),
+          builder: (_) =>
+              DocumentUploadScreen(session: session, onUpdated: onUpdated),
         ),
       ),
       child: const CardPanel(
@@ -3150,15 +3362,25 @@ class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
       error = '';
     });
     try {
-      await CandidateApi.applyToJob(widget.candidateSession.token, widget.slug, {
-        'expectedCtc': expectedCtcController.text.trim(),
-        'noticePeriod': noticeController.text.trim(),
-        'preferredLocation': locationController.text.trim(),
-        'candidateMessage': noteController.text.trim(),
-        'resumeFileName': resumeController.text.trim(),
-        'resumeFileType': widget.candidateSession.profileText('resumeFileType', ''),
-        'resumeFileData': widget.candidateSession.profileText('resumeFileData', ''),
-      });
+      await CandidateApi.applyToJob(
+        widget.candidateSession.token,
+        widget.slug,
+        {
+          'expectedCtc': expectedCtcController.text.trim(),
+          'noticePeriod': noticeController.text.trim(),
+          'preferredLocation': locationController.text.trim(),
+          'candidateMessage': noteController.text.trim(),
+          'resumeFileName': resumeController.text.trim(),
+          'resumeFileType': widget.candidateSession.profileText(
+            'resumeFileType',
+            '',
+          ),
+          'resumeFileData': widget.candidateSession.profileText(
+            'resumeFileData',
+            '',
+          ),
+        },
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Application submitted for ${widget.jobTitle}')),
@@ -3166,7 +3388,9 @@ class _ApplyConfirmationScreenState extends State<ApplyConfirmationScreen> {
       Navigator.of(context).pop();
     } catch (exception) {
       if (mounted) {
-        setState(() => error = exception.toString().replaceFirst('Exception: ', ''));
+        setState(
+          () => error = exception.toString().replaceFirst('Exception: ', ''),
+        );
       }
     } finally {
       if (mounted) setState(() => submitting = false);
@@ -3362,17 +3586,28 @@ class MatchReason extends StatelessWidget {
   final String match;
   final String reason;
 
+  Color matchColor() {
+    final digits = RegExp(r'\d+').firstMatch(match)?.group(0);
+    final score = int.tryParse(digits ?? '');
+    if (score == null) return AppColors.brand;
+    if (score >= 90) return AppColors.success;
+    if (score >= 75) return AppColors.brand;
+    return AppColors.warning;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final color = matchColor();
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.brand.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
-          StatusPill(label: match, color: AppColors.brand),
+          StatusPill(label: match, color: color),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -3713,7 +3948,9 @@ class _ResumeEditScreenState extends State<ResumeEditScreen> {
   }
 
   bool isDateField(String label) =>
-      label == 'Joining Date' || label == 'Exit Date' || label == 'Date of Birth';
+      label == 'Joining Date' ||
+      label == 'Exit Date' ||
+      label == 'Date of Birth';
 
   Future<void> pickDate(int index) async {
     final selected = await showDatePicker(
@@ -3786,13 +4023,17 @@ class _ResumeEditScreenState extends State<ResumeEditScreen> {
                               TextField(
                                 controller: controllers[i],
                                 readOnly: isDateField(labels[i]),
-                                onTap: isDateField(labels[i]) ? () => pickDate(i) : null,
+                                onTap: isDateField(labels[i])
+                                    ? () => pickDate(i)
+                                    : null,
                                 minLines: lines[i],
                                 maxLines: lines[i] > 1 ? lines[i] + 2 : 1,
                                 decoration: InputDecoration(
                                   labelText: labels[i],
                                   suffixIcon: isDateField(labels[i])
-                                      ? const Icon(Icons.calendar_month_outlined)
+                                      ? const Icon(
+                                          Icons.calendar_month_outlined,
+                                        )
                                       : null,
                                   border: const OutlineInputBorder(),
                                 ),
@@ -3948,7 +4189,9 @@ class _ExportActionsCardState extends State<ExportActionsCard> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${format == 'word' ? 'Word' : 'PDF'} export prepared')),
+        SnackBar(
+          content: Text('${format == 'word' ? 'Word' : 'PDF'} export prepared'),
+        ),
       );
     } catch (exception) {
       if (!mounted) return;
@@ -3978,13 +4221,13 @@ class _ExportActionsCardState extends State<ExportActionsCard> {
                   onPressed: exporting
                       ? null
                       : () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => DocumentUploadScreen(
-                                session: widget.session,
-                                onUpdated: (_) {},
-                              ),
+                          MaterialPageRoute<void>(
+                            builder: (_) => DocumentUploadScreen(
+                              session: widget.session,
+                              onUpdated: (_) {},
                             ),
                           ),
+                        ),
                   icon: const Icon(Icons.upload_file_outlined),
                   label: const Text('Upload'),
                 ),
@@ -4358,20 +4601,29 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       for (final field in widget.fields) {
         final value = controllers[field.key]!.text.trim();
         payload[field.key] = field.key == 'skills'
-            ? value.split(',').map((item) => item.trim()).where((item) => item.isNotEmpty).toList()
+            ? value
+                  .split(',')
+                  .map((item) => item.trim())
+                  .where((item) => item.isNotEmpty)
+                  .toList()
             : value;
       }
-      final profile = await CandidateApi.updateProfile(widget.session.token, payload);
+      final profile = await CandidateApi.updateProfile(
+        widget.session.token,
+        payload,
+      );
       final updated = widget.session.withProfile(profile);
       widget.onUpdated(updated);
       if (!mounted) return;
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.title} updated')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${widget.title} updated')));
     } catch (exception) {
       if (mounted) {
-        setState(() => error = exception.toString().replaceFirst('Exception: ', ''));
+        setState(
+          () => error = exception.toString().replaceFirst('Exception: ', ''),
+        );
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -4399,7 +4651,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     const SizedBox(height: 14),
                   ],
                   if (error.isNotEmpty)
-                    Text(error, style: const TextStyle(color: AppColors.accentStrong)),
+                    Text(
+                      error,
+                      style: const TextStyle(color: AppColors.accentStrong),
+                    ),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
@@ -4449,9 +4704,14 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
     documents = CandidateApi.loadDocuments(widget.session.token);
   }
 
-  String fileNameForCategory(String category, List<Map<String, dynamic>> items) {
+  String fileNameForCategory(
+    String category,
+    List<Map<String, dynamic>> items,
+  ) {
     final matching = items.where((item) => item['category'] == category);
-    if (matching.isNotEmpty) return (matching.first['fileName'] ?? '').toString();
+    if (matching.isNotEmpty) {
+      return (matching.first['fileName'] ?? '').toString();
+    }
     if (category == 'Resume') {
       return widget.session.profileText('resumeFileName', 'No file selected');
     }
@@ -4471,12 +4731,13 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
 
     try {
       final fileData = base64Encode(file.bytes!);
-      final updatedDocuments = await CandidateApi.uploadDocument(widget.session.token, {
-        'category': category,
-        'fileName': file.name,
-        'fileType': file.extension ?? 'file',
-        'fileData': fileData,
-      });
+      final updatedDocuments =
+          await CandidateApi.uploadDocument(widget.session.token, {
+            'category': category,
+            'fileName': file.name,
+            'fileType': file.extension ?? 'file',
+            'fileData': fileData,
+          });
       final payload = Map<String, dynamic>.from(widget.session.profile)
         ..['resumeFileName'] = category == 'Resume'
             ? file.name
@@ -4488,7 +4749,10 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
             ? fileData
             : widget.session.profileText('resumeFileData', '');
       if (category == 'Resume') {
-        final profile = await CandidateApi.updateProfile(widget.session.token, payload);
+        final profile = await CandidateApi.updateProfile(
+          widget.session.token,
+          payload,
+        );
         widget.onUpdated(widget.session.withProfile(profile));
       }
       if (mounted) {
@@ -4501,7 +4765,9 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
       }
     } catch (exception) {
       if (mounted) {
-        setState(() => error = exception.toString().replaceFirst('Exception: ', ''));
+        setState(
+          () => error = exception.toString().replaceFirst('Exception: ', ''),
+        );
       }
     } finally {
       if (mounted) setState(() => uploading = false);
@@ -4523,7 +4789,9 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            const Text('Choose a document type and select a file from your device.'),
+            const Text(
+              'Choose a document type and select a file from your device.',
+            ),
             const SizedBox(height: 16),
             FutureBuilder<List<Map<String, dynamic>>>(
               future: documents,
@@ -4558,7 +4826,9 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                                   fileNameForCategory(item.$1, items),
                             ),
                             trailing: IconButton(
-                              onPressed: uploading ? null : () => pickDocument(item.$1),
+                              onPressed: uploading
+                                  ? null
+                                  : () => pickDocument(item.$1),
                               icon: const Icon(Icons.upload_file_outlined),
                               tooltip: 'Upload ${item.$1}',
                             ),
@@ -4573,7 +4843,10 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
             if (error.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: Text(error, style: const TextStyle(color: AppColors.accentStrong)),
+                child: Text(
+                  error,
+                  style: const TextStyle(color: AppColors.accentStrong),
+                ),
               ),
           ],
         ),
@@ -4588,7 +4861,8 @@ class CandidateAnalyticsScreen extends StatefulWidget {
   final CandidateSession session;
 
   @override
-  State<CandidateAnalyticsScreen> createState() => _CandidateAnalyticsScreenState();
+  State<CandidateAnalyticsScreen> createState() =>
+      _CandidateAnalyticsScreenState();
 }
 
 class _CandidateAnalyticsScreenState extends State<CandidateAnalyticsScreen> {
@@ -4612,7 +4886,9 @@ class _CandidateAnalyticsScreenState extends State<CandidateAnalyticsScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Unable to load analytics: ${snapshot.error}'));
+              return Center(
+                child: Text('Unable to load analytics: ${snapshot.error}'),
+              );
             }
             final data = snapshot.data ?? const {};
             final applicationsSent = data['applicationsSent'] ?? 0;
@@ -4630,7 +4906,8 @@ class _CandidateAnalyticsScreenState extends State<CandidateAnalyticsScreen> {
                       MiniRow(
                         icon: Icons.account_circle_outlined,
                         title: 'Profile completion',
-                        subtitle: '${widget.session.profileCompletion}% live profile strength',
+                        subtitle:
+                            '${widget.session.profileCompletion}% live profile strength',
                       ),
                       MiniRow(
                         icon: Icons.send_outlined,
@@ -4728,11 +5005,7 @@ class ProfileSectionCard extends StatelessWidget {
 }
 
 class SkillsCard extends StatelessWidget {
-  const SkillsCard({
-    super.key,
-    required this.session,
-    required this.onUpdated,
-  });
+  const SkillsCard({super.key, required this.session, required this.onUpdated});
 
   final CandidateSession? session;
   final ValueChanged<CandidateSession?> onUpdated;
@@ -4790,10 +5063,8 @@ class DocumentCenterCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => DocumentUploadScreen(
-            session: session!,
-            onUpdated: onUpdated,
-          ),
+          builder: (_) =>
+              DocumentUploadScreen(session: session!, onUpdated: onUpdated),
         ),
       ),
       child: CardPanel(
@@ -4960,15 +5231,16 @@ class _NotificationsCenterCardState extends State<NotificationsCenterCard> {
             future: notifications,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const LinearProgressIndicator();
+                return const SkeletonLines(lines: 3);
               }
               if (snapshot.hasError) {
                 return MiniRow(
                   icon: Icons.cloud_off_outlined,
                   title: 'Unable to load alerts',
-                  subtitle: snapshot.error
-                      .toString()
-                      .replaceFirst('Exception: ', ''),
+                  subtitle: snapshot.error.toString().replaceFirst(
+                    'Exception: ',
+                    '',
+                  ),
                 );
               }
 
@@ -4989,7 +5261,9 @@ class _NotificationsCenterCardState extends State<NotificationsCenterCard> {
                       borderRadius: BorderRadius.circular(8),
                       onTap: () => markRead(item),
                       child: MiniRow(
-                        icon: notificationIcon((item['category'] ?? '').toString()),
+                        icon: notificationIcon(
+                          (item['category'] ?? '').toString(),
+                        ),
                         title:
                             '${item['isRead'] == true ? '' : '• '}${(item['title'] ?? 'Werkly update')}',
                         subtitle:
@@ -5189,6 +5463,89 @@ class SyncStatusCard extends StatelessWidget {
   }
 }
 
+class EmptyStateCard extends StatelessWidget {
+  const EmptyStateCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return CardPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: scheme.primary),
+          ),
+          const SizedBox(height: 14),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            style: const TextStyle(color: AppColors.muted, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SkeletonCard extends StatelessWidget {
+  const SkeletonCard({super.key, this.lines = 3});
+
+  final int lines;
+
+  @override
+  Widget build(BuildContext context) {
+    return CardPanel(child: SkeletonLines(lines: lines));
+  }
+}
+
+class SkeletonLines extends StatelessWidget {
+  const SkeletonLines({super.key, this.lines = 3});
+
+  final int lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < lines; index++) ...[
+          FractionallySizedBox(
+            widthFactor: index == 0 ? 0.72 : (index.isEven ? 0.94 : 0.58),
+            child: Container(
+              height: index == 0 ? 18 : 12,
+              decoration: BoxDecoration(
+                color: scheme.onSurface.withValues(
+                  alpha: index == 0 ? 0.12 : 0.08,
+                ),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          if (index != lines - 1) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
 class MiniRow extends StatelessWidget {
   const MiniRow({
     super.key,
@@ -5278,6 +5635,7 @@ class StatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -5285,7 +5643,7 @@ class StatusPill extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 10.5,
-          fontWeight: FontWeight.w400,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -5369,10 +5727,16 @@ class LabelText extends StatelessWidget {
 }
 
 class ProgressBar extends StatelessWidget {
-  const ProgressBar({super.key, required this.value, this.onDark = false});
+  const ProgressBar({
+    super.key,
+    required this.value,
+    this.onDark = false,
+    this.color,
+  });
 
   final double value;
   final bool onDark;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -5384,7 +5748,7 @@ class ProgressBar extends StatelessWidget {
         backgroundColor: onDark
             ? Colors.white24
             : AppColors.muted.withValues(alpha: 0.16),
-        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+        valueColor: AlwaysStoppedAnimation<Color>(color ?? AppColors.accent),
       ),
     );
   }
@@ -5412,14 +5776,15 @@ class CardPanel extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: panelColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scheme.outline.withValues(alpha: 0.75)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.70)),
         boxShadow: [
-          BoxShadow(
-            color: AppColors.brandDark.withValues(alpha: 0.055),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
-          ),
+          if (Theme.of(context).brightness == Brightness.light)
+            BoxShadow(
+              color: AppColors.brandDark.withValues(alpha: 0.055),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
         ],
       ),
       child: child,
