@@ -603,6 +603,20 @@ export async function ensureJobsSchema() {
     `create index if not exists idx_candidate_resume_exports_candidate_id
      on candidate_resume_exports(candidate_id)`
   );
+  await query(`
+    create table if not exists candidate_password_reset_requests (
+      id uuid primary key default gen_random_uuid(),
+      candidate_id uuid not null references candidate_accounts(id) on delete cascade,
+      otp_hash text not null,
+      expires_at timestamptz not null,
+      used_at timestamptz,
+      created_at timestamptz not null default now()
+    )
+  `);
+  await query(
+    `create index if not exists idx_candidate_password_reset_requests_candidate_created
+     on candidate_password_reset_requests(candidate_id, created_at desc)`
+  );
   await query(
     `alter table job_applications add column if not exists parent_application_id uuid references job_applications(id) on delete set null`
   );
@@ -1223,6 +1237,113 @@ export async function authenticateCandidate(identifier, password) {
   return isValid ? mapCandidateAccountRow(row) : null;
 }
 
+export async function findCandidateAccountByIdentifier(identifier) {
+  const safeIdentifier = String(identifier || "").trim();
+  const normalizedEmail = normalizeEmail(safeIdentifier);
+  const normalizedPhone = normalizePhone(safeIdentifier);
+
+  if (!safeIdentifier) return null;
+
+  const result = await query(
+    `select id, full_name, email, phone, created_at, updated_at
+     from candidate_accounts
+     where lower(email) = $1
+        or phone = $2
+     limit 1`,
+    [normalizedEmail, normalizedPhone]
+  );
+
+  return result.rows[0] ? mapCandidateAccountRow(result.rows[0]) : null;
+}
+
+export async function createCandidatePasswordResetRequest(candidateId, otp) {
+  const otpHash = await bcrypt.hash(String(otp), 10);
+  const result = await query(
+    `insert into candidate_password_reset_requests (
+       candidate_id,
+       otp_hash,
+       expires_at
+     ) values ($1, $2, now() + interval '15 minutes')
+     returning id, expires_at`,
+    [candidateId, otpHash]
+  );
+
+  return {
+    id: result.rows[0].id,
+    expiresAt: result.rows[0].expires_at,
+  };
+}
+
+export async function resetCandidatePasswordWithOtp({
+  requestId,
+  identifier,
+  otp,
+  password,
+}) {
+  const safePassword = String(password || "");
+  if (!requestId || !identifier || !otp || safePassword.length < 6) {
+    throw new Error("Request ID, OTP, and a 6 character password are required.");
+  }
+
+  const normalizedEmail = normalizeEmail(identifier);
+  const normalizedPhone = normalizePhone(identifier);
+  const result = await query(
+    `select
+       requests.id,
+       requests.otp_hash,
+       requests.expires_at,
+       requests.used_at,
+       accounts.id as candidate_id,
+       accounts.full_name,
+       accounts.email,
+       accounts.phone,
+       accounts.created_at,
+       accounts.updated_at
+     from candidate_password_reset_requests requests
+     inner join candidate_accounts accounts on accounts.id = requests.candidate_id
+     where requests.id = $1
+       and (
+         lower(accounts.email) = $2
+         or accounts.phone = $3
+       )
+     limit 1`,
+    [requestId, normalizedEmail, normalizedPhone]
+  );
+  const row = result.rows[0];
+  if (!row || row.used_at || new Date(row.expires_at).getTime() < Date.now()) {
+    throw new Error("Password reset request expired. Please request a new OTP.");
+  }
+
+  const isValidOtp = await bcrypt.compare(String(otp), row.otp_hash);
+  if (!isValidOtp) {
+    throw new Error("Invalid OTP. Please check the code sent to your email.");
+  }
+
+  const passwordHash = await bcrypt.hash(safePassword, 10);
+  await query(
+    `update candidate_accounts
+     set password_hash = $2,
+         updated_at = now()
+     where id = $1`,
+    [row.candidate_id, passwordHash]
+  );
+  await query(
+    `update candidate_password_reset_requests
+     set used_at = now()
+     where id = $1`,
+    [requestId]
+  );
+
+  return mapCandidateAccountRow({
+    id: row.candidate_id,
+    full_name: row.full_name,
+    email: row.email,
+    phone: row.phone,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  });
+}
+
 export async function deleteCandidateAccountsByIdentifiers({ email, phone }) {
   const normalizedEmail = normalizeEmail(email);
   const normalizedPhone = normalizePhone(phone);
@@ -1614,10 +1735,17 @@ export async function saveCandidateJob(candidateId, payload) {
 }
 
 export async function deleteCandidateSavedJob(candidateId, jobId) {
+  let targetJobId = String(jobId || "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetJobId)) {
+    const job = await getJobBySlug(targetJobId);
+    targetJobId = job?.id || "";
+  }
+  if (!targetJobId) return listCandidateSavedJobs(candidateId);
+
   await query(
     `delete from candidate_saved_jobs
      where candidate_id = $1 and job_id = $2`,
-    [candidateId, jobId]
+    [candidateId, targetJobId]
   );
   return listCandidateSavedJobs(candidateId);
 }

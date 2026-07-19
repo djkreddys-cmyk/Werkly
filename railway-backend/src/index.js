@@ -128,6 +128,7 @@ import {
   createCandidateAccount,
   createCandidateEnquiry,
   createCandidateNotification,
+  createCandidatePasswordResetRequest,
   createCandidateResumeExport,
   createResumeBuilderSubmission,
   deleteCandidateDocument,
@@ -143,6 +144,7 @@ import {
   getCandidateProfile,
   getCandidateAnalytics,
   getJobBySlug,
+  findCandidateAccountByIdentifier,
   listAdminApplications,
   listCandidateApplications,
   listCandidateDocuments,
@@ -160,6 +162,7 @@ import {
   recordJobApplication,
   recordCandidateJobApplication,
   recordCandidateAnalyticsEvent,
+  resetCandidatePasswordWithOtp,
   saveCandidateFilter,
   saveCandidateJob,
   assignCandidateApplicationToJob,
@@ -366,6 +369,106 @@ async function sendMobileResumeUploadEmail({ candidate, document }) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(errorText || "Unable to email the uploaded resume to Werkly.");
+  }
+}
+
+async function sendCandidatePasswordResetOtpEmail({ candidate, otp }) {
+  const senderEmail = process.env.RESEND_FROM_EMAIL;
+  const senderName = process.env.RESEND_FROM_NAME || "Werkly Candidate";
+  const apiKey = process.env.RESEND_API_KEY;
+  const candidateEmail = String(candidate?.email || "").trim();
+
+  if (!apiKey || !senderEmail || !candidateEmail) {
+    throw new Error(
+      "Candidate password reset email is not configured. Add RESEND_API_KEY and RESEND_FROM_EMAIL."
+    );
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: `${senderName} <${senderEmail}>`,
+      to: [candidateEmail],
+      subject: "Werkly candidate password reset OTP",
+      html: `
+        <div style="font-family:Arial,sans-serif;color:#18343a;line-height:1.6;">
+          <h2 style="margin:0 0 12px;">Reset your Werkly candidate password</h2>
+          <p style="margin:0 0 12px;">Use this OTP in the mobile app to set a new password.</p>
+          <div style="font-size:28px;letter-spacing:6px;font-weight:700;background:#f3f6f6;padding:14px 18px;border-radius:10px;display:inline-block;">
+            ${String(otp)}
+          </div>
+          <p style="margin:12px 0 0;color:#65777b;">This OTP expires in 15 minutes. If you did not request it, please ignore this email.</p>
+        </div>
+      `,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Unable to send candidate password reset OTP.");
+  }
+}
+
+function candidateStageEmailLabel(stage) {
+  return String(stage || "updated")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+async function sendCandidateStageUpdateEmail({ application }) {
+  const senderEmail = process.env.RESEND_FROM_EMAIL;
+  const senderName = process.env.RESEND_FROM_NAME || "Werkly";
+  const apiKey = process.env.RESEND_API_KEY;
+  const candidateEmail = String(application?.candidateEmail || "").trim();
+  const stage = String(application?.stage || "").trim();
+  const emailStages = new Set(["shortlisted", "interview", "offered", "joined"]);
+
+  if (!emailStages.has(stage) || !candidateEmail || !apiKey || !senderEmail) {
+    return;
+  }
+
+  const stageLabel = candidateStageEmailLabel(stage);
+  const jobTitle = application?.jobTitle || application?.preferredRole || "your application";
+  const interviewLine =
+    stage === "interview" && application?.interviewScheduledAt
+      ? `<p style="margin:0 0 6px;"><strong>Interview:</strong> ${escapeEmailHtml(String(application.interviewScheduledAt))}</p>`
+      : "";
+  const noteLine = application?.stageNote
+    ? `<p style="margin:0 0 6px;"><strong>Recruiter note:</strong> ${escapeEmailHtml(application.stageNote)}</p>`
+    : "";
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: `${senderName} <${senderEmail}>`,
+      to: [candidateEmail],
+      subject: `Werkly application update: ${stageLabel}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;color:#18343a;line-height:1.6;">
+          <h2 style="margin:0 0 12px;">Your Werkly application status changed</h2>
+          <p style="margin:0 0 6px;"><strong>Job:</strong> ${escapeEmailHtml(jobTitle)}</p>
+          <p style="margin:0 0 6px;"><strong>Status:</strong> ${escapeEmailHtml(stageLabel)}</p>
+          ${noteLine}
+          ${interviewLine}
+          <p style="margin:12px 0 0;">Open the Werkly Candidate app to view full details.</p>
+        </div>
+      `,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Unable to send candidate stage update email.");
   }
 }
 
@@ -807,6 +910,59 @@ app.post("/candidate/auth/login", async (request, response) => {
   }
 });
 
+app.post("/candidate/auth/forgot-password/request", async (request, response) => {
+  try {
+    const identifier = String(request.body?.identifier || "").trim();
+    const candidate = await findCandidateAccountByIdentifier(identifier);
+    if (!candidate) {
+      return response.status(404).json({ message: "Candidate account was not found." });
+    }
+    if (!candidate.email) {
+      return response.status(400).json({
+        message: "Registered email is missing for this candidate account.",
+      });
+    }
+
+    const otp = `${Math.floor(100000 + Math.random() * 900000)}`;
+    const resetRequest = await createCandidatePasswordResetRequest(candidate.id, otp);
+    await sendCandidatePasswordResetOtpEmail({ candidate, otp });
+    response.status(201).json({
+      requestId: resetRequest.id,
+      maskedEmail: maskEmailAddress(candidate.email),
+      message: "OTP sent to your registered email address.",
+    });
+  } catch (error) {
+    response.status(400).json({
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to start candidate password reset.",
+    });
+  }
+});
+
+app.post("/candidate/auth/forgot-password/reset", async (request, response) => {
+  try {
+    const { requestId, identifier, otp, password } = request.body ?? {};
+    const candidate = await resetCandidatePasswordWithOtp({
+      requestId,
+      identifier,
+      otp,
+      password,
+    });
+    const token = createCandidateToken(candidate);
+    const profile = await getCandidateProfile(candidate.id);
+    response.json({ token, candidate, profile, message: "Password updated successfully." });
+  } catch (error) {
+    response.status(400).json({
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unable to reset candidate password.",
+    });
+  }
+});
+
 app.post("/candidate/auth/logout", requireCandidate, async (_request, response) => {
   response.json({ success: true });
 });
@@ -882,6 +1038,21 @@ app.get("/candidate/documents", requireCandidate, async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "Unable to load candidate documents.",
+    });
+  }
+});
+
+app.get("/candidate/documents/:id", requireCandidate, async (request, response) => {
+  try {
+    const documents = await listCandidateDocuments(request.candidate.id, { slim: false });
+    const document = documents.find((item) => item.id === request.params.id);
+    if (!document) {
+      return response.status(404).json({ message: "Candidate document not found." });
+    }
+    response.json({ document });
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "Unable to load candidate document.",
     });
   }
 });
@@ -2410,6 +2581,12 @@ app.put(
           jobCode: application.jobCode,
         },
       });
+
+      try {
+        await sendCandidateStageUpdateEmail({ application });
+      } catch (emailError) {
+        console.error("Candidate stage email failed:", emailError);
+      }
 
       response.json(application);
     } catch (error) {

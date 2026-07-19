@@ -236,6 +236,36 @@ class CandidateApi {
     return _readSession(response);
   }
 
+  static Future<Map<String, dynamic>> requestPasswordReset({
+    required String identifier,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/candidate/auth/forgot-password/request'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'identifier': identifier}),
+    );
+    return _readJson(response);
+  }
+
+  static Future<CandidateSession> resetPassword({
+    required String requestId,
+    required String identifier,
+    required String otp,
+    required String password,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/candidate/auth/forgot-password/reset'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'requestId': requestId,
+        'identifier': identifier,
+        'otp': otp,
+        'password': password,
+      }),
+    );
+    return _readSession(response);
+  }
+
   static Future<Map<String, dynamic>> loadMe(String token) async {
     final response = await http.get(
       Uri.parse('$baseUrl/candidate/me'),
@@ -318,6 +348,18 @@ class CandidateApi {
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
+  }
+
+  static Future<Map<String, dynamic>> loadDocument(
+    String token,
+    String documentId,
+  ) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/candidate/documents/$documentId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _readJson(response);
+    return Map<String, dynamic>.from(data['document'] ?? {});
   }
 
   static Future<List<Map<String, dynamic>>> uploadDocument(
@@ -403,6 +445,52 @@ class CandidateApi {
     );
     final data = _readJson(response);
     return Map<String, dynamic>.from(data['export'] ?? {});
+  }
+
+  static Future<List<CandidateJob>> loadSavedJobs(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/candidate/saved-jobs'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _readJson(response);
+    final jobs = data['jobs'] is List ? data['jobs'] as List : const [];
+    return jobs
+        .whereType<Map>()
+        .map((job) => CandidateJob.fromJson(Map<String, dynamic>.from(job)))
+        .toList();
+  }
+
+  static Future<List<CandidateJob>> saveJob(String token, String slug) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/candidate/saved-jobs'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'slug': slug}),
+    );
+    final data = _readJson(response);
+    final jobs = data['jobs'] is List ? data['jobs'] as List : const [];
+    return jobs
+        .whereType<Map>()
+        .map((job) => CandidateJob.fromJson(Map<String, dynamic>.from(job)))
+        .toList();
+  }
+
+  static Future<List<CandidateJob>> removeSavedJob(
+    String token,
+    String slug,
+  ) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/candidate/saved-jobs/$slug'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final data = _readJson(response);
+    final jobs = data['jobs'] is List ? data['jobs'] as List : const [];
+    return jobs
+        .whereType<Map>()
+        .map((job) => CandidateJob.fromJson(Map<String, dynamic>.from(job)))
+        .toList();
   }
 
   static Future<List<CandidateJob>> loadJobs() async {
@@ -816,6 +904,8 @@ class _JobsScreenState extends State<JobsScreen> {
   bool loadingJobs = true;
   String jobsError = '';
   List<CandidateJob> liveJobs = const [];
+  List<CandidateJob> savedJobs = const [];
+  final savingSlugs = <String>{};
   final searchController = TextEditingController();
   final activeFilters = <String, Set<String>>{};
 
@@ -823,6 +913,7 @@ class _JobsScreenState extends State<JobsScreen> {
   void initState() {
     super.initState();
     loadLiveJobs();
+    loadSavedJobs();
   }
 
   @override
@@ -941,6 +1032,50 @@ class _JobsScreenState extends State<JobsScreen> {
     }
   }
 
+  Future<void> loadSavedJobs() async {
+    try {
+      final jobs = await CandidateApi.loadSavedJobs(
+        widget.candidateSession.token,
+      );
+      if (!mounted) return;
+      setState(() => savedJobs = jobs);
+    } catch (_) {
+      // Saved jobs should not block live job discovery.
+    }
+  }
+
+  Future<void> toggleSavedJob(CandidateJob job) async {
+    if (savingSlugs.contains(job.slug)) return;
+    final saved = savedJobs.any((item) => item.slug == job.slug);
+    setState(() => savingSlugs.add(job.slug));
+    try {
+      final jobs = saved
+          ? await CandidateApi.removeSavedJob(
+              widget.candidateSession.token,
+              job.slug,
+            )
+          : await CandidateApi.saveJob(widget.candidateSession.token, job.slug);
+      if (!mounted) return;
+      setState(() => savedJobs = jobs);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(saved ? 'Removed from saved jobs' : 'Saved for later'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => savingSlugs.remove(job.slug));
+      }
+    }
+  }
+
   List<CandidateJob> get fallbackJobs => const [
     CandidateJob(
       slug: 'regional-sales-manager',
@@ -1043,11 +1178,13 @@ class _JobsScreenState extends State<JobsScreen> {
               responsibilities: job.responsibilities,
               requirements: job.requirements,
               deadline: job.deadline,
-              saved: false,
+              saved: savedJobs.any((savedJob) => savedJob.slug == job.slug),
+              savingSaved: savingSlugs.contains(job.slug),
+              onSavedToggle: () => toggleSavedJob(job),
               candidateSession: widget.candidateSession,
             ),
           ),
-        const SavedJobsCard(),
+        SavedJobsCard(savedJobs: savedJobs),
         const ProfileMatchLogicCard(),
       ],
     );
@@ -1633,6 +1770,18 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
     }
   }
 
+  void openPasswordReset() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => PasswordResetSheet(
+        initialIdentifier: emailController.text.trim(),
+        onSessionChanged: widget.onSessionChanged,
+      ),
+    );
+  }
+
   String _friendlyAuthMessage(Object error) {
     final raw = error.toString().replaceFirst('Exception: ', '');
     final lower = raw.toLowerCase();
@@ -1752,6 +1901,13 @@ class _CandidateLoginCardState extends State<CandidateLoginCard> {
                   ),
                 ),
               ],
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: loading ? null : openPasswordReset,
+                child: const Text('Forgot password?'),
+              ),
             ),
           ],
           if (loading) ...[
@@ -2897,6 +3053,8 @@ class JobCard extends StatelessWidget {
     required this.requirements,
     required this.deadline,
     required this.saved,
+    required this.savingSaved,
+    required this.onSavedToggle,
     required this.candidateSession,
   });
 
@@ -2915,6 +3073,8 @@ class JobCard extends StatelessWidget {
   final List<String> requirements;
   final String deadline;
   final bool saved;
+  final bool savingSaved;
+  final VoidCallback onSavedToggle;
   final CandidateSession candidateSession;
 
   void showDetails(BuildContext context) {
@@ -2976,9 +3136,10 @@ class JobCard extends StatelessWidget {
         if (value == 'details') showDetails(context);
         if (value == 'apply') applyJob(context);
         if (value == 'share') shareJob(context);
+        if (value == 'save') onSavedToggle();
       },
-      itemBuilder: (context) => const [
-        PopupMenuItem(
+      itemBuilder: (context) => [
+        const PopupMenuItem(
           value: 'details',
           child: ListTile(
             dense: true,
@@ -3000,6 +3161,18 @@ class JobCard extends StatelessWidget {
             dense: true,
             leading: Icon(Icons.share_outlined),
             title: Text('Share'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'save',
+          child: ListTile(
+            dense: true,
+            leading: Icon(
+              saved
+                  ? Icons.bookmark_remove_outlined
+                  : Icons.bookmark_add_outlined,
+            ),
+            title: Text(saved ? 'Unsave job' : 'Save job'),
           ),
         ),
       ],
@@ -3046,6 +3219,17 @@ class JobCard extends StatelessWidget {
             label: const Text('Share'),
           ),
         ),
+        const SizedBox(width: 8),
+        IconButton.filledTonal(
+          onPressed: savingSaved ? null : onSavedToggle,
+          icon: savingSaved
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(saved ? Icons.bookmark : Icons.bookmark_border),
+          tooltip: saved ? 'Remove saved job' : 'Save job',
+        ),
       ],
     );
   }
@@ -3079,6 +3263,17 @@ class JobCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                onPressed: savingSaved ? null : onSavedToggle,
+                icon: savingSaved
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(saved ? Icons.bookmark : Icons.bookmark_border),
+                color: saved ? AppColors.warning : AppColors.muted,
+                tooltip: saved ? 'Saved job' : 'Save job',
               ),
               if (!showInlineActions) jobActionsMenu(context),
             ],
@@ -3625,25 +3820,206 @@ class MatchReason extends StatelessWidget {
 }
 
 class SavedJobsCard extends StatelessWidget {
-  const SavedJobsCard({super.key});
+  const SavedJobsCard({super.key, required this.savedJobs});
+
+  final List<CandidateJob> savedJobs;
 
   @override
   Widget build(BuildContext context) {
-    return const CardPanel(
+    final closingSoon = savedJobs.where((job) {
+      final parsed = DateTime.tryParse(job.deadline);
+      if (parsed == null) return false;
+      return parsed.difference(DateTime.now()).inDays <= 7;
+    }).length;
+
+    return CardPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LabelText('Saved jobs'),
-          SizedBox(height: 10),
+          const LabelText('Saved jobs'),
+          const SizedBox(height: 10),
           MiniRow(
-            icon: Icons.bookmark,
-            title: '12 saved jobs',
-            subtitle: 'Apply later from your shortlist',
+            icon: savedJobs.isEmpty ? Icons.bookmark_border : Icons.bookmark,
+            title: '${savedJobs.length} saved jobs',
+            subtitle: savedJobs.isEmpty
+                ? 'Tap the bookmark icon on jobs to build your shortlist'
+                : savedJobs.take(2).map((job) => job.title).join(', '),
           ),
-          MiniRow(
-            icon: Icons.schedule,
-            title: '3 closing soon',
-            subtitle: 'Last date within 7 days',
+          if (savedJobs.isNotEmpty)
+            MiniRow(
+              icon: Icons.schedule,
+              title: '$closingSoon closing soon',
+              subtitle: 'Saved jobs sync with your Werkly account',
+            ),
+          if (savedJobs.isEmpty) const InfoPill('Saved jobs live sync enabled'),
+        ],
+      ),
+    );
+  }
+}
+
+class PasswordResetSheet extends StatefulWidget {
+  const PasswordResetSheet({
+    super.key,
+    required this.initialIdentifier,
+    required this.onSessionChanged,
+  });
+
+  final String initialIdentifier;
+  final ValueChanged<CandidateSession?> onSessionChanged;
+
+  @override
+  State<PasswordResetSheet> createState() => _PasswordResetSheetState();
+}
+
+class _PasswordResetSheetState extends State<PasswordResetSheet> {
+  late final TextEditingController identifierController;
+  final otpController = TextEditingController();
+  final passwordController = TextEditingController();
+  String requestId = '';
+  String message = '';
+  bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    identifierController = TextEditingController(
+      text: widget.initialIdentifier,
+    );
+  }
+
+  @override
+  void dispose() {
+    identifierController.dispose();
+    otpController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> requestOtp() async {
+    setState(() {
+      loading = true;
+      message = '';
+    });
+    try {
+      final result = await CandidateApi.requestPasswordReset(
+        identifier: identifierController.text.trim(),
+      );
+      setState(() {
+        requestId = (result['requestId'] ?? '').toString();
+        message = 'OTP sent to ${result['maskedEmail'] ?? 'registered email'}.';
+      });
+    } catch (error) {
+      setState(
+        () => message = error.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> resetPassword() async {
+    setState(() {
+      loading = true;
+      message = '';
+    });
+    try {
+      final session = await CandidateApi.resetPassword(
+        requestId: requestId,
+        identifier: identifierController.text.trim(),
+        otp: otpController.text.trim(),
+        password: passwordController.text,
+      );
+      widget.onSessionChanged(session);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password reset and login completed')),
+      );
+    } catch (error) {
+      setState(
+        () => message = error.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Reset candidate password',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Get an OTP on your registered email and set a new login password.',
+            style: TextStyle(color: AppColors.muted),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: identifierController,
+            decoration: const InputDecoration(
+              labelText: 'Email or phone',
+              prefixIcon: Icon(Icons.alternate_email),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (requestId.isNotEmpty) ...[
+            TextField(
+              controller: otpController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'OTP',
+                prefixIcon: Icon(Icons.password_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'New password',
+                prefixIcon: Icon(Icons.lock_reset_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (message.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                message,
+                style: const TextStyle(color: AppColors.brand),
+              ),
+            ),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: loading
+                  ? null
+                  : requestId.isEmpty
+                  ? requestOtp
+                  : resetPassword,
+              icon: loading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(requestId.isEmpty ? Icons.mail_outline : Icons.login),
+              label: Text(requestId.isEmpty ? 'Send OTP' : 'Reset & login'),
+            ),
           ),
         ],
       ),
@@ -4718,6 +5094,79 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
     return 'No file selected';
   }
 
+  Map<String, dynamic>? documentForCategory(
+    String category,
+    List<Map<String, dynamic>> items,
+  ) {
+    for (final item in items) {
+      if (item['category'] == category) return item;
+    }
+    return null;
+  }
+
+  String documentMimeType(String fileName, String fileType) {
+    final extension =
+        (fileType.isNotEmpty ? fileType : fileName.split('.').last)
+            .toLowerCase();
+    return {
+          'pdf': 'application/pdf',
+          'doc': 'application/msword',
+          'docx':
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'png': 'image/png',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'txt': 'text/plain',
+        }[extension] ??
+        'application/octet-stream';
+  }
+
+  Future<void> previewDocument(Map<String, dynamic>? item) async {
+    final id = (item?['id'] ?? '').toString();
+    if (id.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Upload a document first')));
+      return;
+    }
+
+    try {
+      final document = await CandidateApi.loadDocument(
+        widget.session.token,
+        id,
+      );
+      final fileName = (document['fileName'] ?? 'Werkly-document').toString();
+      final fileType = (document['fileType'] ?? '').toString();
+      final fileData = (document['fileData'] ?? '').toString();
+      if (fileData.isEmpty) {
+        throw Exception('Document file data is not available for preview.');
+      }
+      final bytes = base64Decode(
+        fileData.contains(',') ? fileData.split(',').last : fileData,
+      );
+      await SharePlus.instance.share(
+        ShareParams(
+          subject: fileName,
+          text: 'Werkly candidate document: $fileName',
+          files: [
+            XFile.fromData(
+              bytes,
+              name: fileName,
+              mimeType: documentMimeType(fileName, fileType),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   Future<void> pickDocument(String category) async {
     final result = await FilePicker.platform.pickFiles(withData: true);
     if (result == null || result.files.isEmpty) return;
@@ -4811,31 +5260,40 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                   );
                 }
                 return Column(
-                  children: categories
-                      .map(
-                        (item) => CardPanel(
-                          child: ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              item.$2,
-                              color: Theme.of(context).colorScheme.primary,
+                  children: categories.map((item) {
+                    final document = documentForCategory(item.$1, items);
+                    return CardPanel(
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          item.$2,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        title: Text(item.$1),
+                        subtitle: Text(
+                          selectedFiles[item.$1] ??
+                              fileNameForCategory(item.$1, items),
+                        ),
+                        trailing: Wrap(
+                          spacing: 4,
+                          children: [
+                            IconButton(
+                              onPressed: () => previewDocument(document),
+                              icon: const Icon(Icons.visibility_outlined),
+                              tooltip: 'Preview/share ${item.$1}',
                             ),
-                            title: Text(item.$1),
-                            subtitle: Text(
-                              selectedFiles[item.$1] ??
-                                  fileNameForCategory(item.$1, items),
-                            ),
-                            trailing: IconButton(
+                            IconButton(
                               onPressed: uploading
                                   ? null
                                   : () => pickDocument(item.$1),
                               icon: const Icon(Icons.upload_file_outlined),
                               tooltip: 'Upload ${item.$1}',
                             ),
-                          ),
+                          ],
                         ),
-                      )
-                      .toList(),
+                      ),
+                    );
+                  }).toList(),
                 );
               },
             ),
@@ -5127,33 +5585,47 @@ class ShareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shareId = Uri.encodeComponent(
+      session.email.isNotEmpty ? session.email : session.phone,
+    );
+    final shareLink = 'https://www.werkly.in/candidate-mobile?profile=$shareId';
+    final shareText =
+        '${session.displayName}\n'
+        '${session.profileText('preferredRole', 'Candidate')}\n'
+        '${session.profileText('preferredLocation', '')}\n'
+        'Skills: ${session.skills.take(5).join(', ')}\n'
+        'Werkly profile: $shareLink';
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => SharePlus.instance.share(
         ShareParams(
-          text:
-              '${session.displayName}\n${session.profileText('preferredRole', 'Candidate')}\n${session.profileText('preferredLocation', '')}\nShared from Werkly Candidate',
+          text: shareText,
           subject: '${session.displayName} - Werkly candidate profile',
         ),
       ),
-      child: const CardPanel(
+      child: CardPanel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LabelText('Share options'),
-            SizedBox(height: 10),
-            Wrap(
+            const LabelText('Candidate profile share link'),
+            const SizedBox(height: 8),
+            Text(
+              shareLink,
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            const Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 InfoPill('WhatsApp resume'),
                 InfoPill('Email resume'),
                 InfoPill('Share job details'),
-                InfoPill('Referral link'),
+                InfoPill('Profile link'),
               ],
             ),
-            SizedBox(height: 8),
-            Align(
+            const SizedBox(height: 8),
+            const Align(
               alignment: Alignment.centerRight,
               child: Icon(Icons.chevron_right, color: AppColors.muted),
             ),
