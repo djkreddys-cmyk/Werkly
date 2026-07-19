@@ -151,6 +151,7 @@ export function AgreementMailModal({
       secondaryContactEmail: client.secondaryContactEmail,
       secondaryContactPhone: client.secondaryContactPhone,
       communicationAddress: client.communicationAddress,
+      state: client.state,
       sector: client.sector,
       branch: client.branch,
       billingTerms: client.billingTerms,

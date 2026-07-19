@@ -9,6 +9,7 @@ export type FinanceInvoiceLine = {
   taxable: number;
   cgst: number;
   sgst: number;
+  igst?: number;
   amount: number;
 };
 
@@ -23,9 +24,11 @@ export type FinanceInvoiceRecord = {
   clientCinNumber: string;
   clientPanNumber: string;
   clientAddress: string;
+  clientState?: string;
   taxable: number;
   cgst: number;
   sgst: number;
+  igst?: number;
   total: number;
   feeStructure?: string;
   notes: string;
@@ -41,6 +44,26 @@ export type FinanceInvoiceRecord = {
   bankAccountId?: string;
   lines: FinanceInvoiceLine[];
 };
+
+export function isAndhraPradeshState(state?: string) {
+  const normalized = String(state || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+
+  return normalized === "andhrapradesh" || normalized === "ap";
+}
+
+export function calculateGstBreakup(taxable: number, state?: string) {
+  if (isAndhraPradeshState(state)) {
+    const cgst = (taxable * 9) / 100;
+    const sgst = (taxable * 9) / 100;
+    return { cgst, sgst, igst: 0, total: taxable + cgst + sgst };
+  }
+
+  const igst = (taxable * 18) / 100;
+  return { cgst: 0, sgst: 0, igst, total: taxable + igst };
+}
 
 export type FinanceBankAccountRecord = {
   id: string;

@@ -132,6 +132,7 @@ export type ClientRecord = {
   secondaryContactEmail?: string;
   secondaryContactPhone?: string;
   communicationAddress?: string;
+  state?: string;
   sector?: string;
   branch?: string;
   billingTerms?: string;
@@ -386,6 +387,7 @@ export type ClientFormPayload = {
   secondaryContactEmail?: string;
   secondaryContactPhone?: string;
   communicationAddress?: string;
+  state?: string;
   sector?: string;
   branch?: string;
   billingTerms?: string;

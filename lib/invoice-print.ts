@@ -1,4 +1,10 @@
-import { readFinanceBankAccounts, type FinanceBankAccountRecord, type FinanceInvoiceRecord } from "@/lib/finance";
+import {
+  calculateGstBreakup,
+  isAndhraPradeshState,
+  readFinanceBankAccounts,
+  type FinanceBankAccountRecord,
+  type FinanceInvoiceRecord,
+} from "@/lib/finance";
 
 type PrintableInvoiceLine = {
   candidateName: string;
@@ -10,6 +16,7 @@ type PrintableInvoiceLine = {
   taxable?: number;
   cgst?: number;
   sgst?: number;
+  igst?: number;
   amount?: number;
 };
 
@@ -22,6 +29,7 @@ type PrintableInvoiceClient = {
   gstNumber?: string;
   cinNumber?: string;
   panNumber?: string;
+  state?: string;
 };
 
 type PrintableBankAccount = Pick<
@@ -39,7 +47,6 @@ export type PrintableInvoice = {
   notes: string;
 };
 
-const gstRate = 9;
 const letterheadImageUrl = "/invoice-assets/werkly-letterhead.jpg";
 const werklyLegalDetails = {
   legalName: "Werkly Consulting (OPC) Private Limited",
@@ -195,6 +202,7 @@ export function financeInvoiceToPrintableInvoice(
       gstNumber: invoice.clientGstNumber,
       cinNumber: invoice.clientCinNumber,
       panNumber: invoice.clientPanNumber,
+      state: invoice.clientState,
     },
     bankAccount,
     lines: invoice.lines.map((line) => ({ ...line, selected: true })),
@@ -204,14 +212,23 @@ export function financeInvoiceToPrintableInvoice(
 
 export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
   const selectedLines = params.lines.filter((line) => line.selected !== false);
+  const client = params.selectedClient;
+  const hasClientState = Boolean(client?.state?.trim());
+  const isLegacyCgstSgstInvoice = selectedLines.some((line) => (line.cgst || 0) > 0 || (line.sgst || 0) > 0);
+  const isApClient = hasClientState ? isAndhraPradeshState(client?.state) : isLegacyCgstSgstInvoice;
   const invoiceDensityClass =
     selectedLines.length > 10 ? "very-dense" : selectedLines.length > 5 ? "dense" : "normal";
   const rows = selectedLines
     .map((line, index) => {
       const taxable = lineTaxableValue(line);
-      const cgst = line.cgst ?? (taxable * gstRate) / 100;
-      const sgst = line.sgst ?? (taxable * gstRate) / 100;
-      const amount = line.amount ?? taxable + cgst + sgst;
+      const gst = calculateGstBreakup(taxable, isApClient ? "Andhra Pradesh" : client?.state);
+      const cgst = line.cgst ?? gst.cgst;
+      const sgst = line.sgst ?? gst.sgst;
+      const igst = line.igst ?? (isApClient ? 0 : gst.igst);
+      const amount = line.amount ?? taxable + cgst + sgst + igst;
+      const taxCells = isApClient
+        ? `<td>${formatCurrency(cgst)}</td><td>${formatCurrency(sgst)}</td>`
+        : `<td>${formatCurrency(igst)}</td>`;
       return `<tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(line.candidateName)}</td>
@@ -220,19 +237,23 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
         <td>${escapeHtml(line.department)}</td>
         <td>${escapeHtml(`${Number(line.feePercent || 0)}% of CTC`)}</td>
         <td>${formatCurrency(taxable)}</td>
-        <td>${formatCurrency(cgst)}</td>
-        <td>${formatCurrency(sgst)}</td>
+        ${taxCells}
         <td>${formatCurrency(amount)}</td>
       </tr>`;
     })
     .join("");
 
   const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
-  const cgst = selectedLines.reduce((sum, line) => sum + (line.cgst ?? (lineTaxableValue(line) * gstRate) / 100), 0);
-  const sgst = selectedLines.reduce((sum, line) => sum + (line.sgst ?? (lineTaxableValue(line) * gstRate) / 100), 0);
-  const total = Math.round(taxable + cgst + sgst);
-  const client = params.selectedClient;
+  const cgst = selectedLines.reduce((sum, line) => sum + (line.cgst ?? calculateGstBreakup(lineTaxableValue(line), isApClient ? "Andhra Pradesh" : client?.state).cgst), 0);
+  const sgst = selectedLines.reduce((sum, line) => sum + (line.sgst ?? calculateGstBreakup(lineTaxableValue(line), isApClient ? "Andhra Pradesh" : client?.state).sgst), 0);
+  const igst = selectedLines.reduce((sum, line) => sum + (line.igst ?? (isApClient ? 0 : calculateGstBreakup(lineTaxableValue(line), client?.state).igst)), 0);
+  const total = Math.round(taxable + cgst + sgst + igst);
   const bankAccount = params.bankAccount;
+  const taxHeaderCells = isApClient ? "<th>CGST 9%</th><th>SGST 9%</th>" : "<th>IGST 18%</th>";
+  const taxSummaryRows = isApClient
+    ? `<tr><td>CGST 9.0%</td><td>${formatCurrency(cgst)}</td></tr>
+        <tr><td>SGST 9.0%</td><td>${formatCurrency(sgst)}</td></tr>`
+    : `<tr><td>IGST 18.0%</td><td>${formatCurrency(igst)}</td></tr>`;
 
   return `<!doctype html>
 <html>
@@ -335,6 +356,7 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
       <p>${escapeHtml(client?.contactEmail || "")}</p>
       <p>${escapeHtml(client?.contactPhone || "")}</p>
       <p><strong>GST:</strong> ${escapeHtml(client?.gstNumber || "")}</p>
+      <p><strong>State:</strong> ${escapeHtml(client?.state || "")}</p>
       <p><strong>CIN:</strong> ${escapeHtml(client?.cinNumber || "")}</p>
       <p><strong>PAN:</strong> ${escapeHtml(client?.panNumber || "")}</p>
     </div>
@@ -348,7 +370,7 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
   <table>
     <thead>
       <tr>
-        <th>S.No</th><th>Candidate Name</th><th>CTC</th><th>DOJ</th><th>Job Details</th><th>Agreement %</th><th>Taxable Value</th><th>CGST ${gstRate}%</th><th>SGST ${gstRate}%</th><th>Amount</th>
+        <th>S.No</th><th>Candidate Name</th><th>CTC</th><th>DOJ</th><th>Job Details</th><th>Agreement %</th><th>Taxable Value</th>${taxHeaderCells}<th>Amount</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -368,8 +390,7 @@ export function buildPrintableInvoiceHtml(params: PrintableInvoice) {
     <table class="totals">
       <tbody>
         <tr><td>Taxable Amount</td><td>${formatCurrency(taxable)}</td></tr>
-        <tr><td>CGST ${gstRate}.0%</td><td>${formatCurrency(cgst)}</td></tr>
-        <tr><td>SGST ${gstRate}.0%</td><td>${formatCurrency(sgst)}</td></tr>
+        ${taxSummaryRows}
         <tr><td>Total</td><td>${formatCurrency(total)}</td></tr>
         <tr><td>Amount Payable</td><td>${formatCurrency(total)}</td></tr>
       </tbody>

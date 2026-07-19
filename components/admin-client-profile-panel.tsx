@@ -371,6 +371,7 @@ export function AdminClientProfilePanel({ clientId }: { clientId: string }) {
               ["Second Contact Email", client.secondaryContactEmail || "Not added"],
               ["Second Contact Phone", client.secondaryContactPhone || "Not added"],
               ["Communication Address", client.communicationAddress || "Not added"],
+              ["State", client.state || "Not added"],
               ["Sector", client.sector || "Not added"],
               ["Branch", client.branch || "Not added"],
               ["GST Number", client.gstNumber || "Not added"],

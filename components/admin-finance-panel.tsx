@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminClientInvoicesPanel } from "@/components/admin-client-invoices-panel";
 import {
+  calculateGstBreakup,
   formatFinanceBankAccountLabel,
   hasFinanceStoreData,
   readFinanceStoreRecovery,
@@ -385,7 +386,12 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
   }
 
   function handleLoadInvoice(invoice: FinanceInvoiceRecord) {
-    setEditingInvoice({ ...invoice, lines: invoice.lines.map((line) => ({ ...line })) });
+    const hasLegacyCgstSgst = invoice.lines.some((line) => (line.cgst || 0) > 0 || (line.sgst || 0) > 0);
+    setEditingInvoice({
+      ...invoice,
+      clientState: invoice.clientState || (hasLegacyCgstSgst ? "Andhra Pradesh" : ""),
+      lines: invoice.lines.map((line) => ({ ...line })),
+    });
     setMessage("");
   }
 
@@ -409,26 +415,28 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
   function recalculateInvoice(invoice: FinanceInvoiceRecord): FinanceInvoiceRecord {
     const lines = invoice.lines.map((line) => {
       const taxable = (parseAmount(line.ctc) * Number(line.feePercent || 0)) / 100;
-      const cgst = (taxable * 9) / 100;
-      const sgst = (taxable * 9) / 100;
+      const gst = calculateGstBreakup(taxable, invoice.clientState);
       return {
         ...line,
         taxable,
-        cgst,
-        sgst,
-        amount: taxable + cgst + sgst,
+        cgst: gst.cgst,
+        sgst: gst.sgst,
+        igst: gst.igst,
+        amount: gst.total,
       };
     });
     const taxable = lines.reduce((sum, line) => sum + line.taxable, 0);
     const cgst = lines.reduce((sum, line) => sum + line.cgst, 0);
     const sgst = lines.reduce((sum, line) => sum + line.sgst, 0);
+    const igst = lines.reduce((sum, line) => sum + (line.igst || 0), 0);
     return {
       ...invoice,
       lines,
       taxable,
       cgst,
       sgst,
-      total: Math.round(taxable + cgst + sgst),
+      igst,
+      total: Math.round(taxable + cgst + sgst + igst),
     };
   }
 
@@ -909,6 +917,10 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                   <span className="section-eyebrow">Fee Structure</span>
                   <input className="h-10 w-full rounded-xl border border-[var(--color-border)] px-3 text-sm" value={editingInvoice.feeStructure || editingInvoice.lines[0]?.feePercent || ""} onChange={(event) => updateEditingInvoice({ feeStructure: event.target.value })} />
                 </label>
+                <label className="space-y-1.5">
+                  <span className="section-eyebrow">Client State</span>
+                  <input className="h-10 w-full rounded-xl border border-[var(--color-border)] px-3 text-sm" placeholder="Andhra Pradesh" value={editingInvoice.clientState || ""} onChange={(event) => updateEditingInvoice({ clientState: event.target.value })} />
+                </label>
               </div>
 
               <label className="mt-4 block space-y-1.5">
@@ -928,7 +940,7 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                   <tbody className="divide-y divide-[var(--color-border)]">
                     {editingInvoice.lines.map((line, index) => {
                       const taxable = (parseAmount(line.ctc) * Number(line.feePercent || 0)) / 100;
-                      const gst = (taxable * 18) / 100;
+                      const gst = calculateGstBreakup(taxable, editingInvoice.clientState);
                       return (
                         <tr key={`${line.applicationId}-${index}`}>
                           <td className="px-3 py-3">
@@ -947,8 +959,8 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                             <input className="w-24 rounded-lg border border-[var(--color-border)] px-2 py-2" value={line.feePercent} onChange={(event) => updateEditingInvoiceLine(index, { feePercent: event.target.value })} />
                           </td>
                           <td className="px-3 py-3">{formatCurrency(taxable)}</td>
-                          <td className="px-3 py-3">{formatCurrency(gst)}</td>
-                          <td className="px-3 py-3 font-semibold text-[var(--color-ink)]">{formatCurrency(taxable + gst)}</td>
+                          <td className="px-3 py-3">{formatCurrency(gst.igst || gst.cgst + gst.sgst)}</td>
+                          <td className="px-3 py-3 font-semibold text-[var(--color-ink)]">{formatCurrency(gst.total)}</td>
                         </tr>
                       );
                     })}
@@ -962,12 +974,12 @@ export function AdminFinancePanel({ view = "core" }: { view?: FinancePanelView }
                   <p className="mt-2 font-semibold">{formatCurrency(editingInvoicePreview.taxable)}</p>
                 </div>
                 <div className="rounded-xl border border-[var(--color-border)] p-4">
-                  <p className="section-eyebrow">CGST</p>
-                  <p className="mt-2 font-semibold">{formatCurrency(editingInvoicePreview.cgst)}</p>
+                  <p className="section-eyebrow">GST</p>
+                  <p className="mt-2 font-semibold">{(editingInvoicePreview.igst || 0) > 0 ? "IGST 18%" : "CGST 9% + SGST 9%"}</p>
                 </div>
                 <div className="rounded-xl border border-[var(--color-border)] p-4">
-                  <p className="section-eyebrow">SGST</p>
-                  <p className="mt-2 font-semibold">{formatCurrency(editingInvoicePreview.sgst)}</p>
+                  <p className="section-eyebrow">{(editingInvoicePreview.igst || 0) > 0 ? "IGST" : "CGST + SGST"}</p>
+                  <p className="mt-2 font-semibold">{formatCurrency(editingInvoicePreview.igst || editingInvoicePreview.cgst + editingInvoicePreview.sgst)}</p>
                 </div>
                 <div className="rounded-xl border border-[var(--color-border)] p-4">
                   <p className="section-eyebrow">Total</p>

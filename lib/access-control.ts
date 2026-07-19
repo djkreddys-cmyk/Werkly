@@ -28,6 +28,7 @@ export type CrmFieldAccessKey =
   | "candidates.compensation"
   | "clients.onboarding"
   | "clients.communicationAddress"
+  | "clients.state"
   | "clients.transfer"
   | "clients.followUp"
   | "clients.agreement"
@@ -175,6 +176,11 @@ export const crmFieldAccessDefinitions: Array<{
     key: "clients.communicationAddress",
     label: "Communication address",
     description: "Show communication address in client forms.",
+  },
+  {
+    key: "clients.state",
+    label: "Client state",
+    description: "Show client state used for GST calculation.",
   },
   {
     key: "clients.transfer",

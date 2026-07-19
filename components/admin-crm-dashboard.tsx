@@ -59,6 +59,7 @@ type ClientFormState = {
   secondaryContactEmail: string;
   secondaryContactPhone: string;
   communicationAddress: string;
+  state: string;
   sector: string;
   branch: string;
   billingTerms: string;
@@ -174,6 +175,7 @@ const emptyClientForm: ClientFormState = {
   secondaryContactEmail: "",
   secondaryContactPhone: "",
   communicationAddress: "",
+  state: "",
   sector: "",
   branch: "",
   billingTerms: "",
@@ -246,6 +248,7 @@ function buildOnboardingChecklist(
     | "agreementFileData"
     | "agreementFileName"
     | "billingTerms"
+    | "state"
     | "gstNumber"
     | "cinNumber"
     | "panNumber"
@@ -267,6 +270,7 @@ function buildOnboardingChecklist(
       label: "Billing terms",
       complete: Boolean(
         form.billingTerms.trim() &&
+          form.state.trim() &&
           form.gstNumber.trim() &&
           form.cinNumber.trim() &&
           form.panNumber.trim()
@@ -295,6 +299,7 @@ function buildClientPayload(form: ClientFormState, overrides: Partial<ClientForm
     secondaryContactEmail: trimmedOptional(merged.secondaryContactEmail),
     secondaryContactPhone: trimmedOptional(merged.secondaryContactPhone),
     communicationAddress: trimmedOptional(merged.communicationAddress),
+    state: trimmedOptional(merged.state),
     sector: trimmedOptional(merged.sector),
     branch: trimmedOptional(merged.branch),
     billingTerms: trimmedOptional(merged.billingTerms),
@@ -3657,6 +3662,7 @@ export function AdminClientsPanel({
       secondaryContactEmail: client.secondaryContactEmail || "",
       secondaryContactPhone: client.secondaryContactPhone || "",
       communicationAddress: client.communicationAddress || "",
+      state: client.state || "",
       sector: client.sector || "",
       branch: client.branch || "",
       billingTerms: client.billingTerms || "",
@@ -4746,6 +4752,15 @@ export function AdminClientsPanel({
             {viewMode !== "leads" ? (
               <>
                 <label className="block">
+                  <span className={clientFormLabelClassName}>State</span>
+                  <input
+                    className={fieldClassName}
+                    placeholder="Andhra Pradesh"
+                    value={clientForm.state}
+                    onChange={(event) => updateClientField("state", event.target.value)}
+                  />
+                </label>
+                <label className="block">
                   <span className={clientFormLabelClassName}>GST Number</span>
                   <input
                     className={fieldClassName}
@@ -5145,6 +5160,20 @@ export function AdminClientsPanel({
                     value={leadOnboardingForm.branch}
                     onChange={(event) =>
                       updateLeadOnboardingField("branch", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    State
+                  </span>
+                  <input
+                    className="mt-2 w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                    placeholder="Andhra Pradesh"
+                    value={leadOnboardingForm.state}
+                    onChange={(event) =>
+                      updateLeadOnboardingField("state", event.target.value)
                     }
                   />
                 </label>

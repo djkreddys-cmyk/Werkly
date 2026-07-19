@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
 import {
+  calculateGstBreakup,
   formatFinanceBankAccountLabel,
   invoiceNumberFromInvoices,
   mergeFinanceStoreWithFallback,
@@ -42,7 +43,6 @@ const compactSecondaryButtonClassName =
   "h-10 rounded-full border border-[var(--color-border)] bg-white px-4 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]";
 const compactDangerButtonClassName =
   "h-10 rounded-full border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100";
-const gstRate = 9;
 const defaultInvoiceNotes =
   "Payment should be made within 30 days after the candidate joins your organization.";
 const defaultFeePercent = "8.33";
@@ -392,6 +392,7 @@ export function AdminClientInvoicesPanel({
         cinNumber: invoiceToLoad.clientCinNumber,
         panNumber: invoiceToLoad.clientPanNumber,
         communicationAddress: invoiceToLoad.clientAddress,
+        state: invoiceToLoad.clientState || "",
         status: "active",
         onboardingStatus: "onboarded",
         followUpStatus: "on-boarded",
@@ -508,16 +509,16 @@ export function AdminClientInvoicesPanel({
   const totals = useMemo(() => {
     const selectedLines = lines.filter((line) => line.selected);
     const taxable = selectedLines.reduce((sum, line) => sum + lineTaxableValue(line), 0);
-    const cgst = (taxable * gstRate) / 100;
-    const sgst = (taxable * gstRate) / 100;
+    const gst = calculateGstBreakup(taxable, selectedClient?.state);
     return {
       count: selectedLines.length,
       taxable,
-      cgst,
-      sgst,
-      total: Math.round(taxable + cgst + sgst),
+      cgst: gst.cgst,
+      sgst: gst.sgst,
+      igst: gst.igst,
+      total: Math.round(gst.total),
     };
-  }, [lines]);
+  }, [lines, selectedClient?.state]);
 
   function updateLine(applicationId: string, patch: Partial<InvoiceLine>) {
     setIsInvoiceGenerated(false);
@@ -542,6 +543,9 @@ export function AdminClientInvoicesPanel({
     }
     if (!selectedClient.communicationAddress?.trim()) {
       missing.push("Client communication address");
+    }
+    if (!selectedClient.state?.trim()) {
+      missing.push("Client state");
     }
     return missing;
   }
@@ -605,9 +609,11 @@ export function AdminClientInvoicesPanel({
       clientCinNumber: invoiceClient.cinNumber || "",
       clientPanNumber: invoiceClient.panNumber || "",
       clientAddress: invoiceClient.communicationAddress || invoiceClient.branch || "",
+      clientState: invoiceClient.state || "",
       taxable: totals.taxable,
       cgst: totals.cgst,
       sgst: totals.sgst,
+      igst: totals.igst,
       total: totals.total,
       feeStructure,
       notes,
@@ -623,8 +629,7 @@ export function AdminClientInvoicesPanel({
       bankAccountId: selectedBankAccount?.id || existingInvoice?.bankAccountId || defaultBankAccount?.id || "",
       lines: selectedLines.map((line) => {
         const taxable = lineTaxableValue(line);
-        const cgst = (taxable * gstRate) / 100;
-        const sgst = (taxable * gstRate) / 100;
+        const gst = calculateGstBreakup(taxable, invoiceClient.state);
         return {
           applicationId: line.applicationId,
           candidateName: line.candidateName,
@@ -634,9 +639,10 @@ export function AdminClientInvoicesPanel({
           hsnSac: line.hsnSac,
           feePercent: line.feePercent,
           taxable,
-          cgst,
-          sgst,
-          amount: taxable + cgst + sgst,
+          cgst: gst.cgst,
+          sgst: gst.sgst,
+          igst: gst.igst,
+          amount: gst.total,
         };
       }),
     };
@@ -955,8 +961,8 @@ export function AdminClientInvoicesPanel({
               ) : (
                 lines.map((line) => {
                   const taxable = lineTaxableValue(line);
-                  const gst = (taxable * gstRate * 2) / 100;
-                  const amount = taxable + gst;
+                  const gst = calculateGstBreakup(taxable, selectedClient?.state);
+                  const amount = gst.total;
                   return (
                     <tr key={line.applicationId} className={!line.selected ? "opacity-55" : ""}>
                       <td className="px-4 py-4">
@@ -1006,7 +1012,7 @@ export function AdminClientInvoicesPanel({
                         />
                       </td>
                       <td className="px-4 py-4">{formatCurrency(taxable)}</td>
-                      <td className="px-4 py-4">{formatCurrency(gst)}</td>
+                      <td className="px-4 py-4">{formatCurrency(gst.igst || gst.cgst + gst.sgst)}</td>
                       <td className="px-4 py-4 font-semibold text-[var(--color-ink)]">
                         {formatCurrency(amount)}
                       </td>
@@ -1037,13 +1043,26 @@ export function AdminClientInvoicesPanel({
               <strong>{formatCurrency(totals.taxable)}</strong>
             </div>
             <div className="flex justify-between py-2 text-sm">
-              <span>CGST 9%</span>
-              <strong>{formatCurrency(totals.cgst)}</strong>
+              <span>GST Type</span>
+              <strong>{totals.igst > 0 ? "IGST 18%" : "CGST 9% + SGST 9%"}</strong>
             </div>
-            <div className="flex justify-between py-2 text-sm">
-              <span>SGST 9%</span>
-              <strong>{formatCurrency(totals.sgst)}</strong>
-            </div>
+            {totals.igst > 0 ? (
+              <div className="flex justify-between py-2 text-sm">
+                <span>IGST 18%</span>
+                <strong>{formatCurrency(totals.igst)}</strong>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between py-2 text-sm">
+                  <span>CGST 9%</span>
+                  <strong>{formatCurrency(totals.cgst)}</strong>
+                </div>
+                <div className="flex justify-between py-2 text-sm">
+                  <span>SGST 9%</span>
+                  <strong>{formatCurrency(totals.sgst)}</strong>
+                </div>
+              </>
+            )}
             <div className="mt-3 flex justify-between border-t border-[var(--color-border)] pt-4 text-base">
               <span className="font-semibold">Amount Payable</span>
               <strong>{formatCurrency(totals.total)}</strong>
