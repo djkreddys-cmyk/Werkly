@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
@@ -22,16 +21,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className="min-h-screen bg-[var(--color-paper)] text-slate-950 antialiased">
-        {children}
-        <Analytics />
-        <Script
-          id="google-adsense"
+      <head>
+        <script
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${googleAdSenseClientId}`}
           crossOrigin="anonymous"
-          strategy="beforeInteractive"
         />
+      </head>
+      <body className="min-h-screen bg-[var(--color-paper)] text-slate-950 antialiased">
+        {children}
+        <Analytics />
       </body>
     </html>
   );
