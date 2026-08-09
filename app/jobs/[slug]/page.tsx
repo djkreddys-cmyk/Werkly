@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getJobBySlug } from "@/lib/jobs";
 import { EnquiryModal } from "@/components/enquiry-modal";
+import { JobShareButton } from "@/components/job-share-button";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -69,6 +70,15 @@ export default async function JobDetailPage({
               ) : null}
             </div>
             <p className="muted-copy mt-6 max-w-3xl text-base leading-8 sm:text-lg">{introCopy}</p>
+            <div className="mt-7">
+              <JobShareButton
+                title={job.title}
+                slug={job.slug}
+                location={job.location}
+                experience={job.experience}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--color-dark)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-dark)] shadow-sm transition hover:bg-[rgba(8,96,108,0.07)]"
+              />
+            </div>
           </div>
         </section>
 

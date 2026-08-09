@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { JobSummary } from "@/lib/jobs";
+import { JobShareButton } from "@/components/job-share-button";
 
 function formatDate(value?: string) {
   if (!value) {
@@ -174,7 +175,7 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                   <th
                     key={heading}
                     className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
-                      heading === "Action" ? "w-[140px] min-w-[140px]" : ""
+                      heading === "Action" ? "w-[250px] min-w-[250px]" : ""
                     }`}
                   >
                     {heading}
@@ -225,13 +226,21 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                         {job.status}
                       </span>
                     </td>
-                    <td className="w-[140px] min-w-[140px] px-4 py-4">
-                      <Link
-                        href={`/jobs/${job.slug}`}
-                        className="inline-flex min-w-[108px] items-center justify-center whitespace-nowrap rounded-2xl bg-[var(--color-dark)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-                      >
-                        View Details
-                      </Link>
+                    <td className="w-[250px] min-w-[250px] px-4 py-4">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/jobs/${job.slug}`}
+                          className="inline-flex min-w-[108px] items-center justify-center whitespace-nowrap rounded-2xl bg-[var(--color-dark)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                        >
+                          View Details
+                        </Link>
+                        <JobShareButton
+                          title={job.title}
+                          slug={job.slug}
+                          location={job.location}
+                          experience={job.experience}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))
