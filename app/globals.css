@@ -39,9 +39,11 @@ body {
   background-size: auto, 28px 28px, 28px 28px, auto;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 ::selection {

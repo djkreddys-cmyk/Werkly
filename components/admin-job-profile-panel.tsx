@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { JobDetail } from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
 import type { TimelineEventRecord } from "@/lib/workflow";
+import { JobShareButton } from "@/components/job-share-button";
 
 function formatDateLabel(value?: string) {
   if (!value) {
@@ -45,6 +46,20 @@ function formatLabel(value?: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function isLiveOnWebsite(job: JobDetail) {
+  if (job.isHidden || job.status !== "open") {
+    return false;
+  }
+
+  if (!job.lastDateToApply) {
+    return true;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(job.lastDateToApply) >= today;
 }
 
 type CandidateSuggestion = {
@@ -262,6 +277,21 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            {job.slug && isLiveOnWebsite(job) ? (
+              <JobShareButton
+                title={job.title}
+                slug={job.slug}
+                jobCode={job.jobCode}
+                sector={job.sector}
+                location={job.location}
+                experience={job.experience}
+                employmentType={job.employmentType}
+                positionsCount={job.positionsCount}
+                lastDateToApply={job.lastDateToApply}
+                salary={job.salary}
+                packagePerAnnum={job.packagePerAnnum}
+              />
+            ) : null}
             <Link
               href="/admin/jobs/existing"
               className="rounded-2xl border border-[var(--color-line)] px-4 py-3 text-sm font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
