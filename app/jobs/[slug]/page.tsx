@@ -74,8 +74,15 @@ export default async function JobDetailPage({
               <JobShareButton
                 title={job.title}
                 slug={job.slug}
+                jobCode={job.jobCode}
+                sector={job.sector}
                 location={job.location}
                 experience={job.experience}
+                employmentType={job.employmentType}
+                positionsCount={job.positionsCount}
+                lastDateToApply={job.lastDateToApply}
+                salary={job.salary}
+                packagePerAnnum={job.packagePerAnnum}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--color-dark)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-dark)] shadow-sm transition hover:bg-[rgba(8,96,108,0.07)]"
               />
             </div>

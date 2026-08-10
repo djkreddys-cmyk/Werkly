@@ -5,10 +5,34 @@ import { useState } from "react";
 type JobShareButtonProps = {
   title: string;
   slug: string;
+  jobCode?: string;
+  sector?: string;
   location?: string;
   experience?: string;
+  employmentType?: string;
+  positionsCount?: number;
+  lastDateToApply?: string;
+  salary?: string;
+  packagePerAnnum?: string;
   className?: string;
 };
+
+function formatDate(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -29,25 +53,57 @@ function copyText(value: string) {
 export function JobShareButton({
   title,
   slug,
+  jobCode,
+  sector,
   location,
   experience,
+  employmentType,
+  positionsCount,
+  lastDateToApply,
+  salary,
+  packagePerAnnum,
   className,
 }: JobShareButtonProps) {
   const [label, setLabel] = useState("Share");
 
   async function handleShare() {
-    const url = `${window.location.origin}/jobs/${slug}`;
-    const details = [location, experience].filter(Boolean).join(" · ");
-    const text = `Werkly is hiring for ${title}${details ? ` (${details})` : ""}. View the job details and apply here:`;
+    const url = `https://www.werkly.in/jobs/${encodeURIComponent(slug)}`;
+    const applyBy = formatDate(lastDateToApply);
+    const detailLines = [
+      `Position: ${title}`,
+      jobCode ? `Job ID: ${jobCode}` : undefined,
+      sector ? `Sector: ${sector}` : undefined,
+      location ? `Location: ${location}` : undefined,
+      experience ? `Experience: ${experience}` : undefined,
+      employmentType ? `Employment Type: ${employmentType}` : undefined,
+      positionsCount ? `Openings: ${positionsCount}` : undefined,
+      applyBy ? `Apply By: ${applyBy}` : undefined,
+      packagePerAnnum
+        ? `Package: ${packagePerAnnum}`
+        : salary
+          ? `Salary: ${salary}`
+          : undefined,
+    ].filter((line): line is string => Boolean(line));
+    const shareMessage = [
+      "Werkly Job Opportunity",
+      "",
+      ...detailLines,
+      "",
+      "View full job details and apply:",
+      url,
+    ].join("\n");
 
     try {
       if (navigator.share) {
-        await navigator.share({ title: `${title} | Werkly`, text, url });
+        await navigator.share({
+          title: `${title} | Werkly`,
+          text: shareMessage,
+        });
         return;
       }
 
-      await copyText(`${text} ${url}`);
-      setLabel("Link Copied");
+      await copyText(shareMessage);
+      setLabel("Details Copied");
       window.setTimeout(() => setLabel("Share"), 2500);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -55,8 +111,8 @@ export function JobShareButton({
       }
 
       try {
-        await copyText(`${text} ${url}`);
-        setLabel("Link Copied");
+        await copyText(shareMessage);
+        setLabel("Details Copied");
         window.setTimeout(() => setLabel("Share"), 2500);
       } catch {
         setLabel("Try Again");

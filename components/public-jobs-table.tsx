@@ -237,8 +237,15 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                         <JobShareButton
                           title={job.title}
                           slug={job.slug}
+                          jobCode={job.jobCode}
+                          sector={job.sector}
                           location={job.location}
                           experience={job.experience}
+                          employmentType={job.employmentType}
+                          positionsCount={job.positionsCount}
+                          lastDateToApply={job.lastDateToApply}
+                          salary={job.salary}
+                          packagePerAnnum={job.packagePerAnnum}
                         />
                       </div>
                     </td>
