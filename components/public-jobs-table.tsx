@@ -157,7 +157,7 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
 
       <div className="accent-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-[1120px] border-collapse">
+          <table className="w-full min-w-[1120px] border-collapse">
             <thead>
               <tr className="bg-[rgba(8,96,108,0.05)] text-left">
                 {[
@@ -175,7 +175,9 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                   <th
                     key={heading}
                     className={`px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)] ${
-                      heading === "Action" ? "w-[250px] min-w-[250px]" : ""
+                      heading === "Action"
+                        ? "w-[250px] min-w-[250px] text-center"
+                        : ""
                     }`}
                   >
                     {heading}
@@ -199,8 +201,8 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                     key={job.id}
                     className={
                       index === filteredJobs.length - 1
-                        ? "align-top"
-                        : "align-top border-b border-[var(--color-line)]"
+                        ? "align-middle"
+                        : "align-middle border-b border-[var(--color-line)]"
                     }
                   >
                     <td className="px-4 py-4 text-sm font-semibold text-[var(--color-accent-strong)]">
@@ -227,7 +229,7 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                       </span>
                     </td>
                     <td className="w-[250px] min-w-[250px] px-4 py-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         <Link
                           href={`/jobs/${job.slug}`}
                           className="inline-flex min-w-[108px] items-center justify-center whitespace-nowrap rounded-2xl bg-[var(--color-dark)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
