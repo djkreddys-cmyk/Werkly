@@ -720,11 +720,12 @@ export async function mergeJobs(
 export async function getJobApplications(
   id: string,
   token: string,
-  options?: { slim?: boolean }
+  options?: { slim?: boolean; signal?: AbortSignal }
 ) {
   const data = await readJson<JobApplicationsResponse | JobApplication[]>(
     `/admin/jobs/${id}/applications${options?.slim ? "?slim=1" : ""}`,
     {
+      signal: options?.signal,
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -766,10 +767,14 @@ export async function assignCandidateApplicationToJob(
   });
 }
 
-export async function getAdminApplications(token: string, options?: { slim?: boolean }) {
+export async function getAdminApplications(
+  token: string,
+  options?: { slim?: boolean; signal?: AbortSignal }
+) {
   const data = await readJson<AdminApplicationsResponse | JobApplication[]>(
     `/admin/applications${options?.slim ? "?slim=1" : ""}`,
     {
+      signal: options?.signal,
       headers: {
         Authorization: `Bearer ${token}`,
       },
