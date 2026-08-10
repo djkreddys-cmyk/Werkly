@@ -232,6 +232,7 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
                       <div className="flex items-center justify-center gap-2">
                         <Link
                           href={`/jobs/${job.slug}`}
+                          style={{ color: "white" }}
                           className="inline-flex min-w-[108px] items-center justify-center whitespace-nowrap rounded-2xl bg-[var(--color-dark)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
                         >
                           View Details
