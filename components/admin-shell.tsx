@@ -857,20 +857,20 @@ export function AdminShell({
 
   if (!isHydrated) {
     return (
-      <div className="crm-shell-bg min-h-screen">
+      <div className="crm-erp crm-shell-bg min-h-screen">
         <div className="min-h-screen">
           <header className="crm-topbar text-white">
-            <div className="mx-auto w-full max-w-none px-3 py-4 sm:px-4 lg:px-5 2xl:px-6">
+            <div className="mx-auto w-full max-w-none px-3 py-2 sm:px-4 lg:px-5 2xl:px-6">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-5 lg:gap-8">
                   <div className="flex items-center">
-                    <Link href="/admin" className="inline-flex h-16 items-center overflow-visible sm:h-20">
+                    <Link href="/admin" className="inline-flex h-12 items-center overflow-visible sm:h-14">
                         <Image
                           src="/Werkly Logo.png"
                           alt="Werkly logo"
                           width={640}
                           height={176}
-                          className="h-[104px] w-auto max-w-none object-contain sm:h-[120px]"
+                          className="h-[76px] w-auto max-w-none object-contain sm:h-[88px]"
                           priority
                         />
                       </Link>
@@ -1154,20 +1154,20 @@ export function AdminShell({
   }
 
   return (
-    <div className="crm-shell-bg min-h-screen">
+    <div className="crm-erp crm-shell-bg min-h-screen">
       <div className="min-h-screen">
         <header className="crm-topbar text-white">
-          <div className="mx-auto w-full max-w-none px-3 py-4 sm:px-4 lg:px-5 2xl:px-6">
+          <div className="mx-auto w-full max-w-none px-3 py-2 sm:px-4 lg:px-5 2xl:px-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-wrap items-center gap-4 lg:gap-8 xl:min-w-[620px]">
                 <div className="flex items-center gap-4">
-                  <Link href="/admin" className="inline-flex h-16 items-center overflow-visible sm:h-20">
+                  <Link href="/admin" className="inline-flex h-12 items-center overflow-visible sm:h-14">
                     <Image
                       src="/Werkly Logo.png"
                       alt="Werkly logo"
                       width={640}
                       height={176}
-                      className="h-[104px] w-auto max-w-none object-contain sm:h-[120px]"
+                      className="h-[76px] w-auto max-w-none object-contain sm:h-[88px]"
                       priority
                     />
                   </Link>
@@ -1554,18 +1554,18 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-none px-3 py-5 sm:px-4 sm:py-6 lg:px-5 2xl:px-6">
+        <main className="mx-auto w-full max-w-none px-3 py-3 sm:px-4 lg:px-5 2xl:px-6">
           <section className="crm-panel overflow-hidden">
-            <div className="crm-page-header border-b border-[var(--color-line)] px-6 py-5 sm:px-8">
+            <div className="crm-page-header border-b border-[var(--color-line)] px-4 py-4 sm:px-5">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="max-w-3xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent-strong)]">
                   {eyebrow}
                 </p>
-                <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold leading-tight text-[var(--color-ink)] sm:text-4xl">
+                <h1 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold leading-tight text-[var(--color-ink)] sm:text-3xl">
                   {title}
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--color-muted)] sm:text-base">
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-muted)]">
                   {description}
                 </p>
                 <div id="admin-page-header-actions" />
@@ -1582,7 +1582,7 @@ export function AdminShell({
               </div>
             </div>
 
-            <div className="px-4 py-6 sm:px-5 sm:py-8 lg:px-6">{children}</div>
+            <div className="px-4 py-4 sm:px-5">{children}</div>
           </section>
         </main>
         {isChangePasswordOpen ? (

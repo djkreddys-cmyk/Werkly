@@ -135,6 +135,71 @@ body {
   box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
 }
 
+/* Logged-in admin uses a dense, flat ERP visual system. Public pages retain
+   the softer card treatment above. */
+.crm-erp.crm-shell-bg {
+  background: #f3f5f7;
+}
+
+.crm-erp .crm-topbar {
+  background: #123f48;
+  box-shadow: none;
+}
+
+.crm-erp .crm-panel {
+  background: #ffffff;
+  border: 1px solid #d6dee2;
+  border-radius: 0.25rem;
+  box-shadow: none;
+}
+
+.crm-erp .crm-page-header {
+  background: #f8fafb;
+}
+
+.crm-erp main .accent-card,
+.crm-erp main .soft-panel {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #dce3e7;
+  border-radius: 0;
+  box-shadow: none;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
+  padding: 1rem 0 !important;
+}
+
+.crm-erp main .accent-card[class~="p-0"] {
+  padding: 0 !important;
+}
+
+.crm-erp main .grid > .accent-card {
+  border-left: 2px solid #d5e0e4;
+  padding-left: 1rem !important;
+}
+
+.crm-erp main [class*="overflow-hidden"][class*="rounded-"][class*="border"] {
+  border-radius: 0.25rem !important;
+  box-shadow: none !important;
+}
+
+.crm-erp main table thead tr {
+  background: #edf2f4 !important;
+}
+
+.crm-erp main table th,
+.crm-erp main table td {
+  padding-top: 0.65rem !important;
+  padding-bottom: 0.65rem !important;
+}
+
+.crm-erp main .motion-rise,
+.crm-erp main .motion-rise-delay-1,
+.crm-erp main .motion-rise-delay-2,
+.crm-erp main .motion-float {
+  animation: none;
+}
+
 .motion-rise {
   animation: riseIn 0.65s ease-out both;
 }
