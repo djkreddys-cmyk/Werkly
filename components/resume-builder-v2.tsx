@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { type ChangeEvent, type ReactNode, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import { printHtmlInCurrentPage } from "@/lib/browser-print";
 
 type ExperienceInput = {
   id: string;
@@ -157,24 +158,6 @@ function escapeHtml(value: string) {
 function candidateImageMarkup(photoDataUrl?: string) {
   if (!photoDataUrl) return "";
   return `<img src="${photoDataUrl}" alt="Candidate photo" class="photo" width="96" height="112" style="display:block;width:96px!important;height:112px!important;min-width:96px!important;max-width:96px!important;min-height:112px!important;max-height:112px!important;object-fit:cover!important;object-position:center top;break-inside:avoid;page-break-inside:avoid" />`;
-}
-
-async function waitForPrintImages(printWindow: Window) {
-  const images = Array.from(printWindow.document.images);
-  await Promise.all(
-    images.map(async (image) => {
-      if (!image.complete) {
-        await new Promise<void>((resolve) => {
-          image.addEventListener("load", () => resolve(), { once: true });
-          image.addEventListener("error", () => resolve(), { once: true });
-        });
-      }
-
-      if (typeof image.decode === "function") {
-        await image.decode().catch(() => undefined);
-      }
-    })
-  );
 }
 
 function getNormalizedTemplate(template: TemplateStyle) {
@@ -462,20 +445,9 @@ export function ResumeBuilder({ mode = "full" }: { mode?: "full" | "compact" | "
     });
   };
 
-  const downloadPdf = () => {
+  const downloadPdf = async () => {
     if (!resume) return;
-    const printWindow = window.open("", "_blank", "width=1024,height=768");
-    if (!printWindow) return;
-    printWindow.document.open();
-    printWindow.document.write(buildPdfMarkup(resume, template, form.photoDataUrl));
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.onload = async () => {
-      await waitForPrintImages(printWindow);
-      printWindow.requestAnimationFrame(() => {
-        printWindow.requestAnimationFrame(() => printWindow.print());
-      });
-    };
+    await printHtmlInCurrentPage(buildPdfMarkup(resume, template, form.photoDataUrl));
   };
 
   const downloadWord = () => {

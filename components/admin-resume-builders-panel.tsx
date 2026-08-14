@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ResumeBuilderSubmission } from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
+import { printHtmlInCurrentPage, printUrlInCurrentPage } from "@/lib/browser-print";
 import {
   buildPdfMarkup,
   type ResumeData,
@@ -107,23 +108,6 @@ function addStoredResumePrintStyles(markup: string) {
   return markup.includes("</head>")
     ? markup.replace("</head>", `${printStyles}</head>`)
     : `${printStyles}${markup}`;
-}
-
-async function waitForStoredResumeImages(printWindow: Window) {
-  await Promise.all(
-    Array.from(printWindow.document.images).map(async (image) => {
-      if (!image.complete) {
-        await new Promise<void>((resolve) => {
-          image.addEventListener("load", () => resolve(), { once: true });
-          image.addEventListener("error", () => resolve(), { once: true });
-        });
-      }
-
-      if (typeof image.decode === "function") {
-        await image.decode().catch(() => undefined);
-      }
-    })
-  );
 }
 
 function formatDateTime(value?: string) {
@@ -294,8 +278,9 @@ export function AdminResumeBuildersPanel() {
         return;
       }
 
-      window.open(objectUrl, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      printUrlInCurrentPage(objectUrl, () => {
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      });
       return;
     }
 
@@ -303,18 +288,7 @@ export function AdminResumeBuildersPanel() {
       return;
     }
 
-    const printWindow = window.open("", "_blank", "width=960,height=1200");
-    if (!printWindow) {
-      return;
-    }
-
-    printWindow.document.write(addStoredResumePrintStyles(markup));
-    printWindow.document.close();
-    printWindow.focus();
-    await waitForStoredResumeImages(printWindow);
-    printWindow.requestAnimationFrame(() => {
-      printWindow.requestAnimationFrame(() => printWindow.print());
-    });
+    await printHtmlInCurrentPage(addStoredResumePrintStyles(markup));
   }
 
   async function loadStoredResume(item: ResumeBuilderSubmission) {
