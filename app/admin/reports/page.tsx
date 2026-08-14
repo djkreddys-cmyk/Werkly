@@ -15,9 +15,9 @@ const AdminReportsPanel = dynamic(
 export default function AdminReportsPage() {
   return (
     <AdminShell
-      eyebrow="Reports"
-      title="Open the right CRM report for each module."
-      description="Choose HR, Jobs, Candidates, or Clients reports separately so each screen stays focused on the data that belongs to that module."
+      eyebrow="ERP Reporting"
+      title="Management reports, exceptions, and operational decisions."
+      description="Start with the executive summary, clear urgent exceptions, then drill into jobs, candidates, clients, recruiters, HR, and monthly trends."
     >
       <AdminReportsPanel module="overview" />
     </AdminShell>

@@ -18,6 +18,7 @@ import type {
 import type { ShiftAssignmentRecord } from "@/lib/shifts";
 import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
+import { AdminReportNavigation } from "@/components/admin-report-navigation";
 
 type ReportModule = "overview" | "hr" | "jobs" | "candidates" | "clients";
 type ReportView =
@@ -606,33 +607,68 @@ function downloadExcelReport(
   URL.revokeObjectURL(url);
 }
 
-function ReportLinkCard({
-  href,
-  eyebrow,
-  title,
-  description,
+function ReportDirectory({
+  reports,
 }: {
-  href: string;
-  eyebrow: string;
-  title: string;
-  description: string;
+  reports: Array<{
+    href: string;
+    eyebrow: string;
+    title: string;
+    description: string;
+  }>;
 }) {
   return (
-    <Link
-      href={href}
-      className="accent-card group flex h-full flex-col justify-between p-6 transition hover:-translate-y-0.5 hover:border-[rgba(241,166,75,0.26)]"
-    >
-      <div>
-        <p className="eyebrow">{eyebrow}</p>
-        <h2 className="mt-4 text-2xl font-semibold leading-tight text-[var(--color-ink)]">
-          {title}
-        </h2>
-        <p className="muted-copy mt-3 text-base leading-7">{description}</p>
+    <section className="overflow-hidden border border-[var(--color-line)] bg-white">
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse">
+          <thead className="bg-[rgba(8,96,108,0.05)] text-left">
+            <tr>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Report</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Management use</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Review cycle</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reports.map((item, index) => (
+              <tr key={item.href} className={index === reports.length - 1 ? "" : "border-b border-[var(--color-line)]"}>
+                <td className="px-4 py-4">
+                  <p className="font-semibold text-[var(--color-ink)]">{item.eyebrow}</p>
+                  <p className="mt-1 text-sm text-[var(--color-muted)]">{item.title}</p>
+                </td>
+                <td className="max-w-2xl px-4 py-4 text-sm leading-6 text-[var(--color-muted)]">{item.description}</td>
+                <td className="whitespace-nowrap px-4 py-4 text-sm text-[var(--color-muted)]">
+                  {item.href.includes("attendance") || item.href.includes("followup") || item.href.includes("aging") ? "Daily" : "Weekly"}
+                </td>
+                <td className="px-4 py-4 text-right">
+                  <Link href={item.href} className="inline-flex border border-[var(--color-dark)] px-3 py-2 text-sm font-semibold text-[var(--color-dark)] transition hover:bg-[var(--color-dark)] hover:text-white">
+                    Open
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <span className="mt-6 inline-flex text-sm font-semibold text-[var(--color-accent-strong)]">
-        Open report
-      </span>
-    </Link>
+    </section>
+  );
+}
+
+function ReportMetricStrip({
+  metrics,
+}: {
+  metrics: Array<{ label: string; value: number | string; note: string }>;
+}) {
+  return (
+    <section className="grid border border-[var(--color-line)] bg-white sm:grid-cols-2 xl:grid-cols-4">
+      {metrics.map((metric) => (
+        <div key={metric.label} className="border-b border-r border-[var(--color-line)] px-5 py-4 last:border-r-0 sm:[&:nth-last-child(-n+2)]:border-b-0 xl:border-b-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">{metric.label}</p>
+          <p className="mt-2 text-3xl font-semibold text-[var(--color-ink)]">{metric.value}</p>
+          <p className="mt-1 text-xs text-[var(--color-muted)]">{metric.note}</p>
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -2250,20 +2286,133 @@ export function AdminReportsPanel({
     [filteredClientReportRows]
   );
 
-  const overviewCards = reportModules.map((item) => (
-    <ReportLinkCard
-      key={item.key}
-      href={item.href}
-      eyebrow={item.eyebrow}
-      title={item.title}
-      description={item.description}
-    />
-  ));
+  const executiveSummary = useMemo(() => {
+    const now = reportGeneratedAt;
+    const ageInDays = (value?: string) => {
+      if (!value) {
+        return 0;
+      }
+      return Math.max(0, Math.floor((now - new Date(value).getTime()) / 86400000));
+    };
+    const openJobs = jobsReportRows.filter((job) => job.status === "open");
+    const terminalStages = new Set(["joined", "rejected", "screen-rejection"]);
+    const joined = visibleApplications.filter((application) => application.stage === "joined").length;
+    const offers = visibleApplications.filter((application) => application.stage === "offered").length;
+    const interviews = visibleApplications.filter((application) => application.stage === "interview").length;
+
+    return {
+      openJobs: openJobs.length,
+      applications: visibleApplications.length,
+      interviews,
+      offers,
+      joined,
+      fillRate: openJobs.length > 0 ? Math.round((joined / openJobs.length) * 100) : 0,
+      noApplicationJobs: openJobs.filter((job) => job.applicationCount === 0).length,
+      staleJobs: openJobs.filter((job) => ageInDays(job.latestAppliedAt || job.postedAt) >= 14).length,
+      stalledCandidates: visibleApplications.filter(
+        (application) =>
+          !terminalStages.has(application.stage || "applied") &&
+          ageInDays(application.stageUpdatedAt || application.appliedAt) >= 7
+      ).length,
+      overdueFollowUps: visibleClients.filter(
+        (client) =>
+          Boolean(client.nextFollowUpDate) &&
+          getDateKey(client.nextFollowUpDate) < new Date(now).toISOString().slice(0, 10) &&
+          client.followUpStatus !== "closed" &&
+          client.followUpStatus !== "on-boarded"
+      ).length,
+      unassignedClients: visibleClients.filter((client) => !client.assignedEmployeeId).length,
+      pendingTransfers: visibleTransferRequests.filter((request) => request.status === "pending").length,
+    };
+  }, [jobsReportRows, reportGeneratedAt, visibleApplications, visibleClients, visibleTransferRequests]);
 
   if (module === "overview") {
+    const actionRows = [
+      { label: "Open jobs without applications", count: executiveSummary.noApplicationJobs, priority: "Critical", href: "/admin/reports/jobs/performance" },
+      { label: "Open jobs inactive for 14+ days", count: executiveSummary.staleJobs, priority: "High", href: "/admin/reports/aging" },
+      { label: "Candidates stalled for 7+ days", count: executiveSummary.stalledCandidates, priority: "High", href: "/admin/reports/aging" },
+      { label: "Overdue client follow-ups", count: executiveSummary.overdueFollowUps, priority: "High", href: "/admin/reports/clients/followups" },
+      { label: "Clients without an owner", count: executiveSummary.unassignedClients, priority: "Medium", href: "/admin/reports/clients/coverage" },
+      { label: "Pending client transfers", count: executiveSummary.pendingTransfers, priority: "Medium", href: "/admin/reports/clients/transfers" },
+    ];
+
     return (
       <div className="space-y-6">
-        <section className="grid gap-5 lg:grid-cols-2">{overviewCards}</section>
+        <AdminReportNavigation />
+
+        {error ? <p className="border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p> : null}
+
+        <ReportMetricStrip
+          metrics={[
+            { label: "Open jobs", value: executiveSummary.openJobs, note: "Current active mandates" },
+            { label: "Applications", value: executiveSummary.applications, note: "Candidates in report scope" },
+            { label: "Interviews", value: executiveSummary.interviews, note: "Current interview stage" },
+            { label: "Offers", value: executiveSummary.offers, note: "Current offered stage" },
+            { label: "Joined", value: executiveSummary.joined, note: "Confirmed outcomes" },
+            { label: "Fill indicator", value: `${executiveSummary.fillRate}%`, note: "Joins per open mandate" },
+            { label: "Active clients", value: visibleClients.filter((client) => client.status === "active").length, note: "Clients currently active" },
+            { label: "Active employees", value: visibleEmployees.filter((employee) => employee.status === "active").length, note: "Current team strength" },
+          ]}
+        />
+
+        <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="overflow-hidden border border-[var(--color-line)] bg-white">
+            <div className="border-b border-[var(--color-line)] px-5 py-4">
+              <p className="eyebrow">Management action queue</p>
+              <h2 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">Items requiring follow-up</h2>
+            </div>
+            <table className="min-w-full border-collapse">
+              <thead className="bg-[rgba(8,96,108,0.05)] text-left">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">Exception</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">Count</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">Priority</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {actionRows.map((row, index) => (
+                  <tr key={row.label} className={index === actionRows.length - 1 ? "" : "border-b border-[var(--color-line)]"}>
+                    <td className="px-4 py-3 text-sm font-medium text-[var(--color-ink)]">{row.label}</td>
+                    <td className="px-4 py-3 text-center text-sm font-semibold text-[var(--color-ink)]">{isLoading ? "—" : row.count}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--color-muted)]">{row.priority}</td>
+                    <td className="px-4 py-3 text-right"><Link href={row.href} className="text-sm font-semibold text-[var(--color-accent-strong)] hover:underline">Review</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="overflow-hidden border border-[var(--color-line)] bg-white">
+            <div className="border-b border-[var(--color-line)] px-5 py-4">
+              <p className="eyebrow">Hiring funnel</p>
+              <h2 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">Current pipeline distribution</h2>
+            </div>
+            <table className="min-w-full border-collapse">
+              <tbody>
+                {funnelRows.slice(0, 5).map((row, index) => (
+                  <tr key={row.key} className={index === 4 ? "" : "border-b border-[var(--color-line)]"}>
+                    <td className="px-4 py-3 text-sm font-medium text-[var(--color-ink)]">{row.label}</td>
+                    <td className="px-4 py-3 text-right text-sm font-semibold text-[var(--color-ink)]">{row.count}</td>
+                    <td className="w-28 px-4 py-3 text-right text-sm text-[var(--color-muted)]">{row.share}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="border-t border-[var(--color-line)] px-4 py-3 text-right">
+              <Link href="/admin/reports/jobs/hiring-funnel" className="text-sm font-semibold text-[var(--color-accent-strong)] hover:underline">Open full funnel</Link>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-3">
+            <p className="eyebrow">Report catalogue</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">Complete reporting structure</h2>
+            <p className="muted-copy mt-1 text-sm">Daily exception reports support operations; weekly performance reports support management review.</p>
+          </div>
+          <ReportDirectory reports={reportModules} />
+        </section>
       </div>
     );
   }
@@ -2271,17 +2420,13 @@ export function AdminReportsPanel({
   if (report === "index") {
     return (
       <div className="space-y-6">
-        <section className="grid gap-5 xl:grid-cols-2">
-          {moduleReportScreens[module].map((item) => (
-            <ReportLinkCard
-              key={item.key}
-              href={item.href}
-              eyebrow={item.eyebrow}
-              title={item.title}
-              description={item.description}
-            />
-          ))}
+        <AdminReportNavigation />
+        <section className="border border-[var(--color-line)] bg-white px-5 py-4">
+          <p className="eyebrow">{module} reporting</p>
+          <h2 className="mt-2 text-xl font-semibold text-[var(--color-ink)]">Choose the report that answers your management question.</h2>
+          <p className="muted-copy mt-2 text-sm">Each report has focused filters, an exportable detail table, and a defined review purpose.</p>
         </section>
+        <ReportDirectory reports={moduleReportScreens[module]} />
       </div>
     );
   }
@@ -2308,6 +2453,7 @@ export function AdminReportsPanel({
 
     return (
       <div className="space-y-6">
+        <AdminReportNavigation />
         <ReportFilterBar
           startDate={startDate}
           endDate={endDate}
@@ -2362,6 +2508,15 @@ export function AdminReportsPanel({
           exportLabel="Download HR Report"
           onSaveView={saveCurrentReportView}
           saveFeedback={viewMessage}
+        />
+
+        <ReportMetricStrip
+          metrics={[
+            { label: "Active employees", value: activeEmployees, note: "Current active workforce" },
+            { label: "Inactive employees", value: inactiveEmployees, note: "Inactive records" },
+            { label: "Live sessions", value: activeSessions, note: "Open attendance sessions" },
+            { label: "Average screen time", value: formatDuration(averageScreenTime), note: "For selected attendance rows" },
+          ]}
         />
 
         {report === "hr-attendance" && (
@@ -2557,6 +2712,7 @@ export function AdminReportsPanel({
 
     return (
       <div className="space-y-6">
+        <AdminReportNavigation />
         <ReportFilterBar
           startDate={startDate}
           endDate={endDate}
@@ -2599,6 +2755,15 @@ export function AdminReportsPanel({
           exportLabel="Download Jobs Report"
           onSaveView={saveCurrentReportView}
           saveFeedback={viewMessage}
+        />
+
+        <ReportMetricStrip
+          metrics={[
+            { label: "Open jobs", value: openJobs, note: "Active mandates" },
+            { label: "Draft jobs", value: draftJobs, note: "Awaiting publication" },
+            { label: "Closed jobs", value: closedJobs, note: "Completed or closed" },
+            { label: "Active recruiters", value: activeRecruiters, note: "Recruiters owning mandates" },
+          ]}
         />
 
         {report === "jobs-performance" && (
@@ -2830,6 +2995,7 @@ export function AdminReportsPanel({
   if (module === "candidates") {
     return (
       <div className="space-y-6">
+        <AdminReportNavigation />
         <ReportFilterBar
           startDate={startDate}
           endDate={endDate}
@@ -2878,6 +3044,15 @@ export function AdminReportsPanel({
           exportLabel="Download Candidates Report"
           onSaveView={saveCurrentReportView}
           saveFeedback={viewMessage}
+        />
+
+        <ReportMetricStrip
+          metrics={[
+            { label: "Applications", value: filteredApplicationTotals.totalApplications, note: "Selected report scope" },
+            { label: "Shortlisted", value: filteredApplicationTotals.shortlisted, note: "Current shortlist stage" },
+            { label: "Interviews", value: filteredApplicationTotals.interview, note: "Current interview stage" },
+            { label: "Joined", value: filteredApplicationTotals.joined, note: "Confirmed outcomes" },
+          ]}
         />
 
         {report === "interview-scheduler" && (
@@ -3182,7 +3357,9 @@ export function AdminReportsPanel({
 
   return (
     <div className="space-y-6">
-      <ReportFilterBar
+      <AdminReportNavigation />
+      {report !== "clients-followups" && report !== "clients-team-followups" ? (
+        <ReportFilterBar
         startDate={startDate}
         endDate={endDate}
         onStartDateChange={setStartDate}
@@ -3220,6 +3397,16 @@ export function AdminReportsPanel({
         exportLabel="Download Clients Report"
         onSaveView={saveCurrentReportView}
         saveFeedback={viewMessage}
+        />
+      ) : null}
+
+      <ReportMetricStrip
+        metrics={[
+          { label: "Clients", value: filteredClientReportRows.length, note: "Selected report scope" },
+          { label: "Unassigned", value: unassignedClients, note: "Clients without an owner" },
+          { label: "Transfers approved", value: approvedTransfers, note: "Approved in selected period" },
+          { label: "Transfers rejected", value: rejectedTransfers, note: "Rejected in selected period" },
+        ]}
       />
 
       {report === "clients-coverage" && (

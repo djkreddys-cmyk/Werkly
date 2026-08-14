@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ClientRecord, EmployeeRecord } from "@/lib/crm";
 import type { JobApplication, JobSummary } from "@/lib/jobs";
+import { AdminReportNavigation } from "@/components/admin-report-navigation";
 
 function formatDate(value?: string) {
   if (!value) {
@@ -239,9 +240,28 @@ export function AdminOperationsReports({ type }: { type: "aging" | "trends" }) {
   }
 
   const rows = type === "aging" ? agingRows : trendRows;
+  const latestTrend = trendRows.at(-1);
+  const previousTrend = trendRows.at(-2);
+  const trendDelta = (current = 0, previous = 0) =>
+    previous > 0 ? `${Math.round(((current - previous) / previous) * 100)}%` : current > 0 ? "New" : "0%";
+  const summaryMetrics =
+    type === "aging"
+      ? [
+          { label: "Critical 30+ days", value: agingRows.filter((row) => row.ageDays >= 30).length, note: "Immediate management review" },
+          { label: "High 14+ days", value: agingRows.filter((row) => row.ageDays >= 14 && row.ageDays < 30).length, note: "Owner action required" },
+          { label: "Unassigned", value: agingRows.filter((row) => row.owner === "Unassigned" || row.owner === "Not assigned").length, note: "No accountable owner" },
+          { label: "Total exceptions", value: agingRows.length, note: "Jobs, clients, and candidates" },
+        ]
+      : [
+          { label: "Jobs this month", value: latestTrend?.jobsCount ?? 0, note: `${trendDelta(latestTrend?.jobsCount, previousTrend?.jobsCount)} vs previous month` },
+          { label: "Candidates this month", value: latestTrend?.candidatesCount ?? 0, note: `${trendDelta(latestTrend?.candidatesCount, previousTrend?.candidatesCount)} vs previous month` },
+          { label: "Clients this month", value: latestTrend?.clientsCount ?? 0, note: `${trendDelta(latestTrend?.clientsCount, previousTrend?.clientsCount)} vs previous month` },
+          { label: "Active employees", value: latestTrend?.activeEmployees ?? 0, note: "Current reporting month" },
+        ];
 
   return (
     <div className="space-y-6">
+      <AdminReportNavigation />
       <section className="accent-card p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -266,6 +286,16 @@ export function AdminOperationsReports({ type }: { type: "aging" | "trends" }) {
             Export Current View
           </button>
         </div>
+      </section>
+
+      <section className="grid border border-[var(--color-line)] bg-white sm:grid-cols-2 xl:grid-cols-4">
+        {summaryMetrics.map((metric) => (
+          <div key={metric.label} className="border-b border-r border-[var(--color-line)] px-5 py-4 last:border-r-0 sm:[&:nth-last-child(-n+2)]:border-b-0 xl:border-b-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">{metric.label}</p>
+            <p className="mt-2 text-3xl font-semibold text-[var(--color-ink)]">{metric.value}</p>
+            <p className="mt-1 text-xs text-[var(--color-muted)]">{metric.note}</p>
+          </div>
+        ))}
       </section>
 
       {error ? <p className="text-sm font-medium text-red-700">{error}</p> : null}
