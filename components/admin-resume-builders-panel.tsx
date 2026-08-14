@@ -523,7 +523,13 @@ export function AdminResumeBuildersPanel() {
                 </button>
               </div>
             </div>
-            {previewMimeType === "application/pdf" && previewObjectUrl ? (
+            {previewMarkup ? (
+              <iframe
+                title={`${previewSubmission.candidateName} resume preview`}
+                srcDoc={previewMarkup}
+                className="h-[76vh] w-full bg-white"
+              />
+            ) : previewMimeType === "application/pdf" && previewObjectUrl ? (
               <iframe
                 title={`${previewSubmission.candidateName} PDF resume preview`}
                 src={previewObjectUrl}
@@ -535,12 +541,6 @@ export function AdminResumeBuildersPanel() {
                   Loading PDF preview...
                 </p>
               </div>
-            ) : previewMarkup ? (
-              <iframe
-                title={`${previewSubmission.candidateName} resume preview`}
-                srcDoc={previewMarkup}
-                className="h-[76vh] w-full bg-white"
-              />
             ) : (
               <div className="p-6">
                 <p className="text-sm font-medium text-red-700">
