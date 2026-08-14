@@ -4,6 +4,47 @@ import { useEffect, useMemo, useState } from "react";
 import type { ResumeBuilderSubmission } from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
 
+function getStoredResumeMimeType(item: ResumeBuilderSubmission) {
+  const dataUrlMimeType = item.resumeFileData?.match(/^data:([^;,]+)/i)?.[1];
+  if (dataUrlMimeType) {
+    return dataUrlMimeType.toLowerCase();
+  }
+
+  if (item.resumeFileType) {
+    return item.resumeFileType.toLowerCase();
+  }
+
+  const fileName = item.resumeFileName?.toLowerCase() ?? "";
+  if (fileName.endsWith(".pdf")) {
+    return "application/pdf";
+  }
+  if (fileName.endsWith(".html") || fileName.endsWith(".htm")) {
+    return "text/html";
+  }
+
+  return "application/octet-stream";
+}
+
+function createStoredResumeObjectUrl(dataUrl: string, mimeType: string) {
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex === -1) {
+    return "";
+  }
+
+  const header = dataUrl.slice(0, commaIndex);
+  const payload = dataUrl.slice(commaIndex + 1);
+
+  try {
+    const binary = /;base64/i.test(header)
+      ? window.atob(payload)
+      : decodeURIComponent(payload);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  } catch {
+    return "";
+  }
+}
+
 function formatDateTime(value?: string) {
   if (!value) {
     return "Not captured";
@@ -26,6 +67,7 @@ export function AdminResumeBuildersPanel() {
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
   const [previewSubmission, setPreviewSubmission] = useState<ResumeBuilderSubmission | null>(null);
+  const [previewObjectUrl, setPreviewObjectUrl] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -57,6 +99,28 @@ export function AdminResumeBuildersPanel() {
       .finally(() => setIsLoading(false));
   }, [token]);
 
+  useEffect(() => {
+    if (
+      !previewSubmission?.resumeFileData ||
+      getStoredResumeMimeType(previewSubmission) !== "application/pdf"
+    ) {
+      setPreviewObjectUrl("");
+      return;
+    }
+
+    const objectUrl = createStoredResumeObjectUrl(
+      previewSubmission.resumeFileData,
+      "application/pdf"
+    );
+    setPreviewObjectUrl(objectUrl);
+
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [previewSubmission]);
+
   const filteredSubmissions = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) {
@@ -80,20 +144,23 @@ export function AdminResumeBuildersPanel() {
     );
   }, [query, submissions]);
 
-  function decodeStoredResume(dataUrl?: string) {
-    if (!dataUrl) {
+  function decodeStoredResume(item?: ResumeBuilderSubmission | null) {
+    if (!item?.resumeFileData || getStoredResumeMimeType(item) === "application/pdf") {
       return "";
     }
 
-    const [, payload = ""] = dataUrl.split(",");
+    const [header = "", payload = ""] = item.resumeFileData.split(",", 2);
     if (!payload) {
       return "";
     }
 
     try {
-      const binary = window.atob(payload);
+      const binary = /;base64/i.test(header)
+        ? window.atob(payload)
+        : decodeURIComponent(payload);
       const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-      return new TextDecoder().decode(bytes);
+      const markup = new TextDecoder().decode(bytes);
+      return markup.trimStart().startsWith("<") ? markup : "";
     } catch {
       return "";
     }
@@ -113,7 +180,18 @@ export function AdminResumeBuildersPanel() {
   }
 
   function printStoredResume(item: ResumeBuilderSubmission) {
-    const markup = decodeStoredResume(item.resumeFileData);
+    if (getStoredResumeMimeType(item) === "application/pdf" && item.resumeFileData) {
+      const objectUrl = createStoredResumeObjectUrl(item.resumeFileData, "application/pdf");
+      if (!objectUrl) {
+        return;
+      }
+
+      window.open(objectUrl, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      return;
+    }
+
+    const markup = decodeStoredResume(item);
     if (!markup) {
       return;
     }
@@ -179,7 +257,10 @@ export function AdminResumeBuildersPanel() {
     }
   }
 
-  const previewMarkup = previewSubmission ? decodeStoredResume(previewSubmission.resumeFileData) : "";
+  const previewMimeType = previewSubmission
+    ? getStoredResumeMimeType(previewSubmission)
+    : "";
+  const previewMarkup = decodeStoredResume(previewSubmission);
 
   return (
     <div className="space-y-6">
@@ -335,7 +416,7 @@ export function AdminResumeBuildersPanel() {
                 <button
                   type="button"
                   onClick={() => printStoredResume(previewSubmission)}
-                  disabled={!previewMarkup}
+                  disabled={!previewMarkup && previewMimeType !== "application/pdf"}
                   className="rounded-2xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Print / Save PDF
@@ -356,7 +437,19 @@ export function AdminResumeBuildersPanel() {
                 </button>
               </div>
             </div>
-            {previewMarkup ? (
+            {previewMimeType === "application/pdf" && previewObjectUrl ? (
+              <iframe
+                title={`${previewSubmission.candidateName} PDF resume preview`}
+                src={previewObjectUrl}
+                className="h-[76vh] w-full bg-white"
+              />
+            ) : previewMimeType === "application/pdf" ? (
+              <div className="flex h-[76vh] items-center justify-center p-6">
+                <p className="text-sm font-medium text-[var(--color-muted)]">
+                  Loading PDF preview...
+                </p>
+              </div>
+            ) : previewMarkup ? (
               <iframe
                 title={`${previewSubmission.candidateName} resume preview`}
                 srcDoc={previewMarkup}
@@ -365,7 +458,8 @@ export function AdminResumeBuildersPanel() {
             ) : (
               <div className="p-6">
                 <p className="text-sm font-medium text-red-700">
-                  This stored resume could not be opened for preview.
+                  This file format cannot be previewed safely. Use Download to open the original
+                  resume.
                 </p>
               </div>
             )}
