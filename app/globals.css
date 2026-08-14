@@ -189,6 +189,59 @@ body {
   box-shadow: none !important;
 }
 
+/* Convert repeated admin metric cards into continuous ERP summary strips. */
+.crm-erp main .grid:has(> article.accent-card) {
+  gap: 0 !important;
+  overflow: hidden;
+  border-top: 1px solid #d6dee2;
+  border-bottom: 1px solid #d6dee2;
+  background: #f8fafb;
+}
+
+.crm-erp main .grid > article.accent-card {
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid #d6dee2;
+  border-radius: 0 !important;
+  background: transparent;
+  padding: 0.8rem 1rem !important;
+}
+
+.crm-erp main .grid > article.accent-card:last-child {
+  border-right: 0;
+}
+
+/* Flatten custom one-off dashboard panels that do not use accent-card. */
+.crm-erp main section[class*="shadow-"],
+.crm-erp main article[class*="shadow-"],
+.crm-erp main div[class*="shadow-"] {
+  box-shadow: none !important;
+}
+
+.crm-erp main section[class*="rounded-"],
+.crm-erp main article[class*="rounded-"] {
+  border-radius: 0.25rem !important;
+}
+
+.crm-erp main section button[class*="rounded-"][class*="border"],
+.crm-erp main article button[class*="rounded-"][class*="border"] {
+  border-radius: 0.2rem !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.crm-erp main [class*="hover:-translate-y"]:hover {
+  transform: none !important;
+}
+
+.crm-erp main .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem !important;
+}
+
+.crm-erp main .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1.25rem !important;
+}
+
 .crm-erp main table thead tr {
   background: #edf2f4 !important;
 }
