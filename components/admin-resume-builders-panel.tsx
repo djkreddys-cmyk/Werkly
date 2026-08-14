@@ -349,42 +349,42 @@ export function AdminResumeBuildersPanel() {
   const previewMarkup = decodeStoredResume(previewSubmission);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {error}
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <article className="accent-card p-5">
-          <p className="eyebrow">Total Built</p>
-          <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
+      <section className="grid border-y border-[var(--color-line)] bg-[#f8fafb] md:grid-cols-3">
+        <div className="border-b border-[var(--color-line)] px-4 py-3 md:border-b-0 md:border-r">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Total Built</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--color-ink)]">
             {submissions.length}
           </p>
-        </article>
-        <article className="accent-card p-5">
-          <p className="eyebrow">With Resume Copy</p>
-          <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
+        </div>
+        <div className="border-b border-[var(--color-line)] px-4 py-3 md:border-b-0 md:border-r">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">With Resume Copy</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--color-ink)]">
             {submissions.filter((item) => item.resumeAvailable || item.resumeFileData).length}
           </p>
-        </article>
-        <article className="accent-card p-5">
-          <p className="eyebrow">Filtered</p>
-          <p className="mt-3 text-3xl font-semibold text-[var(--color-ink)]">
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Filtered</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--color-ink)]">
             {filteredSubmissions.length}
           </p>
-        </article>
+        </div>
       </section>
 
-      <section className="accent-card p-7">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <section className="border border-[var(--color-line)] bg-white">
+        <div className="flex flex-col gap-4 border-b border-[var(--color-line)] bg-[#f8fafb] px-4 py-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="eyebrow">Resume Builders</p>
-            <h2 className="mt-4 text-3xl font-semibold leading-tight text-[var(--color-ink)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">Resume Builders</p>
+            <h2 className="mt-1 text-xl font-semibold leading-tight text-[var(--color-ink)]">
               Candidates who generated a resume on the website.
             </h2>
-            <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
+            <p className="muted-copy mt-1 max-w-3xl text-sm leading-6">
               Each generated resume is saved here with the final downloadable copy.
             </p>
           </div>
@@ -392,16 +392,16 @@ export function AdminResumeBuildersPanel() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search name, email, role, phone"
-            className="w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)] xl:max-w-md"
+            className="w-full rounded border border-[var(--color-line)] bg-white px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)] xl:max-w-md"
           />
         </div>
 
         {isLoading ? (
-          <p className="muted-copy mt-6 text-sm">Loading resume builder candidates...</p>
+          <p className="muted-copy px-4 py-8 text-sm">Loading resume builder candidates...</p>
         ) : filteredSubmissions.length === 0 ? (
-          <p className="muted-copy mt-6 text-sm">No resume builder candidates are available yet.</p>
+          <p className="muted-copy px-4 py-8 text-sm">No resume builder candidates are available yet.</p>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
+          <div className="overflow-hidden bg-white">
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse">
                 <thead>

@@ -183,6 +183,12 @@ body {
   box-shadow: none !important;
 }
 
+.crm-erp main section[class*="rounded-"][class*="border"],
+.crm-erp main article[class*="rounded-"][class*="border"] {
+  border-radius: 0.25rem !important;
+  box-shadow: none !important;
+}
+
 .crm-erp main table thead tr {
   background: #edf2f4 !important;
 }
