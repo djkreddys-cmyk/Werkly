@@ -1569,7 +1569,7 @@ export function AdminCandidatesPanel() {
         ) : (
           <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
             <div className="overflow-x-auto">
-              <table className="min-w-[1180px] border-collapse">
+              <table className="w-full min-w-[1180px] border-collapse">
                 <thead>
                   <tr className="bg-[rgba(8,96,108,0.05)] text-left">
                     {["Score", "Candidate", "Role", "Location", "Experience", "Salary", "Match Reasons", "Resume"].map((heading) => (
@@ -1588,8 +1588,8 @@ export function AdminCandidatesPanel() {
                       key={`${application.id}-${selectedMatchJob.id}`}
                       className={
                         index === matchedCandidates.length - 1
-                          ? "align-top"
-                          : "align-top border-b border-[var(--color-line)]"
+                          ? "align-middle"
+                          : "align-middle border-b border-[var(--color-line)]"
                       }
                     >
                       <td className="px-4 py-4">
