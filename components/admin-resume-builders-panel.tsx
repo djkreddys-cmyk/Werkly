@@ -45,6 +45,49 @@ function createStoredResumeObjectUrl(dataUrl: string, mimeType: string) {
   }
 }
 
+function addStoredResumePrintStyles(markup: string) {
+  const printStyles = `<style>
+    img.photo {
+      display: block !important;
+      width: 96px !important;
+      height: 112px !important;
+      min-width: 96px !important;
+      max-width: 96px !important;
+      min-height: 112px !important;
+      max-height: 112px !important;
+      object-fit: cover !important;
+      object-position: center top !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .photo-wrap, .hero, .top, .top-left {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+  </style>`;
+
+  return markup.includes("</head>")
+    ? markup.replace("</head>", `${printStyles}</head>`)
+    : `${printStyles}${markup}`;
+}
+
+async function waitForStoredResumeImages(printWindow: Window) {
+  await Promise.all(
+    Array.from(printWindow.document.images).map(async (image) => {
+      if (!image.complete) {
+        await new Promise<void>((resolve) => {
+          image.addEventListener("load", () => resolve(), { once: true });
+          image.addEventListener("error", () => resolve(), { once: true });
+        });
+      }
+
+      if (typeof image.decode === "function") {
+        await image.decode().catch(() => undefined);
+      }
+    })
+  );
+}
+
 function formatDateTime(value?: string) {
   if (!value) {
     return "Not captured";
@@ -179,7 +222,7 @@ export function AdminResumeBuildersPanel() {
     document.body.removeChild(link);
   }
 
-  function printStoredResume(item: ResumeBuilderSubmission) {
+  async function printStoredResume(item: ResumeBuilderSubmission) {
     if (getStoredResumeMimeType(item) === "application/pdf" && item.resumeFileData) {
       const objectUrl = createStoredResumeObjectUrl(item.resumeFileData, "application/pdf");
       if (!objectUrl) {
@@ -201,10 +244,13 @@ export function AdminResumeBuildersPanel() {
       return;
     }
 
-    printWindow.document.write(markup);
+    printWindow.document.write(addStoredResumePrintStyles(markup));
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
+    await waitForStoredResumeImages(printWindow);
+    printWindow.requestAnimationFrame(() => {
+      printWindow.requestAnimationFrame(() => printWindow.print());
+    });
   }
 
   async function loadStoredResume(item: ResumeBuilderSubmission) {
@@ -415,7 +461,7 @@ export function AdminResumeBuildersPanel() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => printStoredResume(previewSubmission)}
+                  onClick={() => void printStoredResume(previewSubmission)}
                   disabled={!previewMarkup && previewMimeType !== "application/pdf"}
                   className="rounded-2xl bg-[var(--color-dark)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
