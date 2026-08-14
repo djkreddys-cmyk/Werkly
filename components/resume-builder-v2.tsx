@@ -23,7 +23,7 @@ type EducationInput = {
   year: string;
 };
 
-type TemplateStyle =
+export type TemplateStyle =
   | "executive"
   | "sidebar"
   | "modern"
@@ -40,7 +40,7 @@ type PersonalInfoItem = {
   value: string;
 };
 
-type ResumeData = {
+export type ResumeData = {
   fullName: string;
   targetRole: string;
   contactLine: string;
@@ -211,9 +211,27 @@ function buildDataUrl(content: string, mimeType: string) {
 }
 
 function buildWordMarkup(resume: ResumeData, template: TemplateStyle, photoDataUrl?: string) {
-  return buildPdfMarkup(resume, template, photoDataUrl);
+  const markup = buildPdfMarkup(resume, template, photoDataUrl);
+
+  // Word/LibreOffice do not reliably preserve CSS grid when an HTML document is
+  // saved with a .doc extension. Use a real table for the two-column sidebar
+  // template so the photo and profile column cannot become a separate page.
+  if (getNormalizedTemplate(template) === "sidebar") {
+    return markup
+      .replace(
+        '<div class="sheet"><aside class="sidebar">',
+        '<table class="sheet" role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td class="sidebar" width="33%" valign="top">'
+      )
+      .replace(
+        '</aside><main class="main">',
+        '</td><td class="main" width="67%" valign="top">'
+      )
+      .replace('</main></div></body>', '</td></tr></table></body>');
+  }
+
+  return markup;
 }
-function buildPdfMarkup(resume: ResumeData, template: TemplateStyle, photoDataUrl?: string) {
+export function buildPdfMarkup(resume: ResumeData, template: TemplateStyle, photoDataUrl?: string) {
   const normalizedTemplate = getNormalizedTemplate(template);
   const skillsMarkup = resume.coreSkills.map((skill) => `<span class="chip">${escapeHtml(skill)}</span>`).join("");
   const strengthsMarkup = resume.strengths.map((item) => `<li>${escapeHtml(item)}</li>`).join("");

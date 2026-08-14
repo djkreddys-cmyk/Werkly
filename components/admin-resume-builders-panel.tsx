@@ -3,6 +3,44 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ResumeBuilderSubmission } from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
+import {
+  buildPdfMarkup,
+  type ResumeData,
+  type TemplateStyle,
+} from "@/components/resume-builder-v2";
+
+type StoredResumePayload = ResumeData & {
+  template?: TemplateStyle;
+  photoDataUrl?: string;
+};
+
+function getRegeneratedResumeMarkup(item?: ResumeBuilderSubmission | null) {
+  const payload = item?.resumePayload;
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const candidate = payload as Partial<StoredResumePayload>;
+  if (
+    typeof candidate.fullName !== "string" ||
+    typeof candidate.targetRole !== "string" ||
+    typeof candidate.contactLine !== "string" ||
+    !Array.isArray(candidate.personalInfo) ||
+    !Array.isArray(candidate.coreSkills) ||
+    !Array.isArray(candidate.strengths) ||
+    !Array.isArray(candidate.experience) ||
+    !Array.isArray(candidate.education) ||
+    !Array.isArray(candidate.certifications)
+  ) {
+    return "";
+  }
+
+  return buildPdfMarkup(
+    candidate as StoredResumePayload,
+    candidate.template || "executive",
+    candidate.photoDataUrl
+  );
+}
 
 function getStoredResumeMimeType(item: ResumeBuilderSubmission) {
   const dataUrlMimeType = item.resumeFileData?.match(/^data:([^;,]+)/i)?.[1];
@@ -145,7 +183,8 @@ export function AdminResumeBuildersPanel() {
   useEffect(() => {
     if (
       !previewSubmission?.resumeFileData ||
-      getStoredResumeMimeType(previewSubmission) !== "application/pdf"
+      getStoredResumeMimeType(previewSubmission) !== "application/pdf" ||
+      getRegeneratedResumeMarkup(previewSubmission)
     ) {
       setPreviewObjectUrl("");
       return;
@@ -188,6 +227,11 @@ export function AdminResumeBuildersPanel() {
   }, [query, submissions]);
 
   function decodeStoredResume(item?: ResumeBuilderSubmission | null) {
+    const regeneratedMarkup = getRegeneratedResumeMarkup(item);
+    if (regeneratedMarkup) {
+      return regeneratedMarkup;
+    }
+
     if (!item?.resumeFileData || getStoredResumeMimeType(item) === "application/pdf") {
       return "";
     }
@@ -209,8 +253,28 @@ export function AdminResumeBuildersPanel() {
     }
   }
 
-  function downloadStoredResume(item: ResumeBuilderSubmission) {
+  async function downloadStoredResume(item: ResumeBuilderSubmission) {
     if (!item.resumeFileData || !item.resumeFileName) {
+      return;
+    }
+
+    const regeneratedMarkup = getRegeneratedResumeMarkup(item);
+    if (getStoredResumeMimeType(item) === "application/pdf" && regeneratedMarkup) {
+      await printStoredResume(item);
+      return;
+    }
+
+    if (regeneratedMarkup) {
+      const objectUrl = URL.createObjectURL(
+        new Blob([regeneratedMarkup], { type: "application/msword" })
+      );
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = item.resumeFileName.replace(/\.[^.]+$/, "") + ".doc";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
       return;
     }
 
@@ -223,7 +287,8 @@ export function AdminResumeBuildersPanel() {
   }
 
   async function printStoredResume(item: ResumeBuilderSubmission) {
-    if (getStoredResumeMimeType(item) === "application/pdf" && item.resumeFileData) {
+    const markup = decodeStoredResume(item);
+    if (!markup && getStoredResumeMimeType(item) === "application/pdf" && item.resumeFileData) {
       const objectUrl = createStoredResumeObjectUrl(item.resumeFileData, "application/pdf");
       if (!objectUrl) {
         return;
@@ -234,7 +299,6 @@ export function AdminResumeBuildersPanel() {
       return;
     }
 
-    const markup = decodeStoredResume(item);
     if (!markup) {
       return;
     }
@@ -265,6 +329,7 @@ export function AdminResumeBuildersPanel() {
       resumeFileData?: string;
       resumeFileName?: string;
       resumeFileType?: string;
+      resumePayload?: unknown;
       message?: string;
     };
 
@@ -277,6 +342,7 @@ export function AdminResumeBuildersPanel() {
       resumeFileData: result.resumeFileData,
       resumeFileName: result.resumeFileName,
       resumeFileType: result.resumeFileType,
+      resumePayload: result.resumePayload,
       resumeAvailable: true,
     };
     setSubmissions((current) =>
@@ -295,7 +361,7 @@ export function AdminResumeBuildersPanel() {
 
   async function downloadStoredResumeOnDemand(item: ResumeBuilderSubmission) {
     try {
-      downloadStoredResume(await loadStoredResume(item));
+      await downloadStoredResume(await loadStoredResume(item));
     } catch (resumeError) {
       setError(
         resumeError instanceof Error ? resumeError.message : "Unable to download stored resume."

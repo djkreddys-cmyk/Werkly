@@ -24,6 +24,7 @@ export async function GET(
       resumeFileName: submission.resumeFileName,
       resumeFileType: submission.resumeFileType,
       resumeFileData: submission.resumeFileData,
+      resumePayload: submission.resumePayload,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load resume.";
