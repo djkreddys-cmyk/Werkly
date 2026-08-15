@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { JobDetail } from "@/lib/jobs";
+import type {
+  JobApplication,
+  JobApplicationStage,
+  JobApplicationsResponse,
+  JobDetail,
+} from "@/lib/jobs";
 import { formatPersonName } from "@/lib/format";
 import type { TimelineEventRecord } from "@/lib/workflow";
 import { JobShareButton } from "@/components/job-share-button";
@@ -89,11 +94,34 @@ type CandidateSuggestion = {
   aiConcerns?: string[];
 };
 
+type StageDraft = {
+  application: JobApplication;
+  stage: JobApplicationStage;
+  note: string;
+  date: string;
+  finalCtc: string;
+  dateOfJoining: string;
+};
+
+const applicationStages: JobApplicationStage[] = [
+  "applied",
+  "shortlisted",
+  "interview",
+  "offered",
+  "joined",
+  "screen-rejection",
+  "rejected",
+];
+
+const fieldClassName =
+  "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
+
 export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
   const [token] = useState(
     typeof window !== "undefined" ? window.localStorage.getItem("werklyAdminToken") ?? "" : ""
   );
   const [job, setJob] = useState<JobDetail | null>(null);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
   const [timeline, setTimeline] = useState<TimelineEventRecord[]>([]);
   const [suggestions, setSuggestions] = useState<CandidateSuggestion[]>([]);
   const [totalProfilesReviewed, setTotalProfilesReviewed] = useState(0);
@@ -108,6 +136,9 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
   const [profileLevelFilter, setProfileLevelFilter] = useState("all");
   const [profileResumeFilter, setProfileResumeFilter] = useState("all");
   const [minimumScore, setMinimumScore] = useState(0);
+  const [stageDraft, setStageDraft] = useState<StageDraft | null>(null);
+  const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!token) {
@@ -118,6 +149,9 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
       fetch(`/api/admin/jobs/${jobId}`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
+      fetch(`/api/admin/jobs/${jobId}/applications?slim=1`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
       fetch(`/api/admin/timeline?entityType=job&entityId=${jobId}&limit=40`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
@@ -125,8 +159,11 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
         headers: { Authorization: `Bearer ${token}` },
       }),
     ])
-      .then(async ([jobResponse, timelineResponse, suggestionsResponse]) => {
+      .then(async ([jobResponse, applicationsResponse, timelineResponse, suggestionsResponse]) => {
         const jobResult = (await jobResponse.json()) as JobDetail & { message?: string };
+        const applicationsResult = (await applicationsResponse.json()) as JobApplicationsResponse & {
+          message?: string;
+        };
         const timelineResult = (await timelineResponse.json()) as {
           timeline?: TimelineEventRecord[];
           message?: string;
@@ -143,11 +180,15 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
         if (!jobResponse.ok) {
           throw new Error(jobResult.message || "Unable to load job.");
         }
+        if (!applicationsResponse.ok) {
+          throw new Error(applicationsResult.message || "Unable to load job applicants.");
+        }
         if (!timelineResponse.ok) {
           throw new Error(timelineResult.message || "Unable to load job timeline.");
         }
 
         setJob(jobResult);
+        setApplications(applicationsResult.applications ?? []);
         setTimeline(timelineResult.timeline ?? []);
         if (suggestionsResponse.ok) {
           setSuggestions(suggestionsResult.suggestions ?? []);
@@ -229,6 +270,111 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
     setMinimumScore(0);
   };
 
+  const shortlistedCount = useMemo(
+    () => applications.filter((application) => application.stage === "shortlisted").length,
+    [applications]
+  );
+
+  function openStageUpdate(
+    application: JobApplication,
+    stage = (application.stage ?? "applied") as JobApplicationStage
+  ) {
+    setError("");
+    setMessage("");
+    setStageDraft({
+      application,
+      stage,
+      note: application.stageNote ?? "",
+      date: application.stageDate ?? new Date().toISOString().slice(0, 10),
+      finalCtc: application.finalCtc ?? application.currentCtc ?? "",
+      dateOfJoining:
+        application.dateOfJoining ?? application.stageDate ?? new Date().toISOString().slice(0, 10),
+    });
+  }
+
+  async function updateApplicationStage() {
+    if (!token || !stageDraft) {
+      return;
+    }
+
+    if (!stageDraft.note.trim() || !stageDraft.date) {
+      setError("Please add both remarks and date before saving the stage update.");
+      return;
+    }
+
+    if (
+      stageDraft.stage === "joined" &&
+      (!stageDraft.finalCtc.trim() || !stageDraft.dateOfJoining)
+    ) {
+      setError("Please add final CTC and date of joining before marking the candidate as joined.");
+      return;
+    }
+
+    setIsUpdatingStageId(stageDraft.application.id);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/jobs/applications/${stageDraft.application.id}/stage`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            stage: stageDraft.stage,
+            stageNote: stageDraft.note.trim(),
+            stageDate: stageDraft.date,
+            ...(stageDraft.stage === "joined"
+              ? {
+                  finalCtc: stageDraft.finalCtc.trim(),
+                  dateOfJoining: stageDraft.dateOfJoining,
+                }
+              : {}),
+          }),
+        }
+      );
+      const result = (await response.json()) as JobApplication & {
+        approvalPending?: boolean;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to update application stage.");
+      }
+
+      if (result.approvalPending) {
+        setMessage(result.message || "Stage override request submitted for approval.");
+      } else {
+        setApplications((current) =>
+          current.map((application) =>
+            application.id === stageDraft.application.id
+              ? {
+                  ...application,
+                  stage: result.stage,
+                  stageNote: result.stageNote,
+                  stageDate: result.stageDate,
+                  stageUpdatedAt: result.stageUpdatedAt,
+                  finalCtc: result.finalCtc,
+                  dateOfJoining: result.dateOfJoining,
+                }
+              : application
+          )
+        );
+        setMessage(`${formatPersonName(stageDraft.application.candidateName)} moved to ${formatLabel(stageDraft.stage)}.`);
+      }
+      setStageDraft(null);
+    } catch (stageError) {
+      setError(
+        stageError instanceof Error ? stageError.message : "Unable to update application stage."
+      );
+    } finally {
+      setIsUpdatingStageId("");
+    }
+  }
+
   if (!token) {
     return (
       <section className="accent-card p-8">
@@ -266,6 +412,16 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
 
   return (
     <div className="space-y-6">
+      {message ? (
+        <p className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          {message}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          {error}
+        </p>
+      ) : null}
       <section className="accent-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -316,11 +472,137 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
           ["Positions", String(job.positionsCount ?? 1)],
           ["Applications", String(job.applicationsCount)],
         ].map(([label, value]) => (
-          <article key={label} className="accent-card p-5">
-            <p className="eyebrow">{label}</p>
-            <p className="mt-3 text-xl font-semibold text-[var(--color-ink)]">{value}</p>
-          </article>
+          label === "Applications" ? (
+            <a key={label} href="#job-applicants" className="accent-card p-5 transition hover:border-[var(--color-dark)]">
+              <p className="eyebrow">{label}</p>
+              <p className="mt-3 text-xl font-semibold text-[var(--color-accent-strong)]">{value}</p>
+              <p className="mt-1 text-xs font-semibold text-[var(--color-muted)]">Open applicants</p>
+            </a>
+          ) : (
+            <article key={label} className="accent-card p-5">
+              <p className="eyebrow">{label}</p>
+              <p className="mt-3 text-xl font-semibold text-[var(--color-ink)]">{value}</p>
+            </article>
+          )
         ))}
+      </section>
+
+      <section id="job-applicants" className="accent-card scroll-mt-24 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow">Job Applicants</p>
+            <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+              Applicant status and shortlist
+            </h3>
+            <p className="muted-copy mt-2 max-w-3xl text-sm leading-6">
+              Update each applicant&apos;s pipeline stage from the job profile, or use Shortlist for a direct shortlist update.
+            </p>
+          </div>
+          <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.14em]">
+            <span className="bg-[rgba(8,96,108,0.08)] px-3 py-2 text-[var(--color-dark)]">
+              {applications.length} applicants
+            </span>
+            <span className="bg-[rgba(251,133,0,0.08)] px-3 py-2 text-[var(--color-accent-strong)]">
+              {shortlistedCount} shortlisted
+            </span>
+          </div>
+        </div>
+
+        {applications.length === 0 ? (
+          <p className="muted-copy mt-6 border border-[var(--color-line)] bg-white px-4 py-5 text-sm">
+            No applicants are available for this job yet.
+          </p>
+        ) : (
+          <div className="mt-6 overflow-x-auto border border-[var(--color-line)] bg-white">
+            <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+              <thead className="bg-[rgba(8,96,108,0.06)]">
+                <tr>
+                  {[
+                    "Candidate",
+                    "Contact",
+                    "Applied",
+                    "Status",
+                    "Remarks",
+                    "Actions",
+                  ].map((heading) => (
+                    <th
+                      key={heading}
+                      className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]"
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map((application) => (
+                  <tr key={application.id} className="border-t border-[var(--color-line)] align-top">
+                    <td className="px-4 py-4">
+                      <Link
+                        href={`/admin/candidates/${application.id}`}
+                        className="font-semibold text-[var(--color-ink)] hover:text-[var(--color-accent-strong)]"
+                      >
+                        {formatPersonName(application.candidateName)}
+                      </Link>
+                      <p className="mt-1 text-xs text-[var(--color-muted)]">
+                        {application.experience || "Experience not added"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      <p>{application.candidateEmail || "Email not added"}</p>
+                      <p className="mt-1">{application.candidatePhone || "Phone not added"}</p>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
+                      {formatDateTimeLabel(application.appliedAt)}
+                    </td>
+                    <td className="px-4 py-4">
+                      <select
+                        value={application.stage ?? "applied"}
+                        disabled={isUpdatingStageId === application.id}
+                        onChange={(event) =>
+                          openStageUpdate(application, event.target.value as JobApplicationStage)
+                        }
+                        className="border border-[var(--color-line)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-ink)] outline-none transition focus:border-[var(--color-dark)]"
+                      >
+                        {applicationStages.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {formatLabel(stage)}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="max-w-xs px-4 py-4 text-sm text-[var(--color-muted)]">
+                      <p>{application.stageNote || "No remarks added"}</p>
+                      {application.stageDate ? (
+                        <p className="mt-1 text-xs font-medium text-[var(--color-accent-strong)]">
+                          {formatDateLabel(application.stageDate)}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openStageUpdate(application, "shortlisted")}
+                          disabled={application.stage === "shortlisted"}
+                          className="bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:bg-slate-300"
+                        >
+                          {application.stage === "shortlisted" ? "Shortlisted" : "Shortlist"}
+                        </button>
+                        <Link
+                          href={`/admin/candidates/${application.id}`}
+                          className="border border-[var(--color-line)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                        >
+                          View Profile
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="accent-card p-6">
@@ -674,6 +956,145 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
           )}
         </article>
       </section>
+
+      {stageDraft ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-xl border border-[var(--color-line)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow">Applicant Status</p>
+                <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
+                  {formatPersonName(stageDraft.application.candidateName)}
+                </h3>
+                <p className="muted-copy mt-2 text-sm">
+                  Confirm the new status, effective date, and remarks.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStageDraft(null)}
+                className="border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Applicant Status
+                </span>
+                <select
+                  value={stageDraft.stage}
+                  onChange={(event) =>
+                    setStageDraft((current) =>
+                      current
+                        ? { ...current, stage: event.target.value as JobApplicationStage }
+                        : current
+                    )
+                  }
+                  className={fieldClassName}
+                >
+                  {applicationStages.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {formatLabel(stage)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                  Effective Date
+                </span>
+                <input
+                  type="date"
+                  value={stageDraft.date}
+                  onChange={(event) =>
+                    setStageDraft((current) =>
+                      current ? { ...current, date: event.target.value } : current
+                    )
+                  }
+                  className={fieldClassName}
+                />
+              </label>
+            </div>
+
+            <label className="mt-4 block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                Remarks
+              </span>
+              <textarea
+                value={stageDraft.note}
+                onChange={(event) =>
+                  setStageDraft((current) =>
+                    current ? { ...current, note: event.target.value } : current
+                  )
+                }
+                placeholder="Add status remarks for reporting and follow-up."
+                className={`${fieldClassName} min-h-[130px] resize-y`}
+              />
+            </label>
+
+            {stageDraft.stage === "joined" ? (
+              <div className="mt-4 grid gap-4 border border-[var(--color-line)] bg-[rgba(8,96,108,0.03)] p-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Final CTC
+                  </span>
+                  <input
+                    value={stageDraft.finalCtc}
+                    onChange={(event) =>
+                      setStageDraft((current) =>
+                        current ? { ...current, finalCtc: event.target.value } : current
+                      )
+                    }
+                    className={fieldClassName}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Date of Joining
+                  </span>
+                  <input
+                    type="date"
+                    value={stageDraft.dateOfJoining}
+                    onChange={(event) =>
+                      setStageDraft((current) =>
+                        current
+                          ? {
+                              ...current,
+                              dateOfJoining: event.target.value,
+                              date: event.target.value,
+                            }
+                          : current
+                      )
+                    }
+                    className={fieldClassName}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void updateApplicationStage()}
+                disabled={isUpdatingStageId === stageDraft.application.id}
+                className="bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isUpdatingStageId === stageDraft.application.id ? "Saving..." : "Save Status"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStageDraft(null)}
+                className="border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
