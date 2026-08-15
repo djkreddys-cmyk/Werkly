@@ -45,6 +45,79 @@ function formatDateTimeLabel(value?: string) {
   });
 }
 
+const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
+
+function toDateKey(value?: string) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) {
+    return "";
+  }
+
+  const directDateKey = rawValue.slice(0, 10);
+  if (dateKeyPattern.test(directDateKey)) {
+    return directDateKey;
+  }
+
+  const date = new Date(rawValue);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+}
+
+function getShortlistDateKey(application: JobApplication) {
+  return toDateKey(application.stageDate || application.stageUpdatedAt || application.appliedAt);
+}
+
+function getDefaultShortlistDateRange(applications: JobApplication[]) {
+  const dates = applications.map(getShortlistDateKey).filter(Boolean).sort();
+  const today = new Date();
+  const localToday = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10);
+
+  return dates.length
+    ? { fromDate: dates[0], toDate: dates[dates.length - 1] }
+    : { fromDate: localToday, toDate: localToday };
+}
+
+function normalizeDateRange(fromDate?: string, toDate?: string) {
+  const normalizedFromDate = toDateKey(fromDate);
+  const normalizedToDate = toDateKey(toDate);
+
+  return normalizedFromDate && normalizedToDate && normalizedFromDate > normalizedToDate
+    ? { fromDate: normalizedToDate, toDate: normalizedFromDate }
+    : { fromDate: normalizedFromDate, toDate: normalizedToDate };
+}
+
+function isWithinDateRange(value: string, fromDate: string, toDate: string) {
+  return Boolean(value && (!fromDate || value >= fromDate) && (!toDate || value <= toDate));
+}
+
+function formatExportDate(value: string) {
+  const dateKey = toDateKey(value);
+  return dateKey ? new Date(`${dateKey}T00:00:00`).toLocaleDateString("en-GB") : "-";
+}
+
+function formatNoticePeriod(value?: string) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return "-";
+  }
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "fresher") {
+    return "Fresher";
+  }
+  if (normalized === "immediate" || normalized === "immediate joinee") {
+    return "Immediate Joinee";
+  }
+
+  const monthMatch = normalized.match(/^(\d+)/);
+  if (monthMatch) {
+    return `${monthMatch[1]} Month${monthMatch[1] === "1" ? "" : "s"}`;
+  }
+
+  return trimmed;
+}
+
 function formatLabel(value?: string) {
   return String(value || "not-added")
     .split(/[\s._-]+/)
@@ -129,6 +202,10 @@ type ShortlistEmailDraft = {
   ccEmails: string;
   subject: string;
   body: string;
+  fromDate: string;
+  toDate: string;
+  availableCount: number;
+  resumeCount: number;
   profiles: JobApplication[];
 };
 
@@ -329,6 +406,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
 
     let contactPerson = "Client";
     let recipientEmails: string[] = [];
+    const defaultDateRange = getDefaultShortlistDateRange(shortlistedApplications);
 
     if (job.clientId) {
       try {
@@ -360,12 +438,66 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
       body: `Dear ${contactPerson},\n\nPlease find ${shortlistedApplications.length} shortlisted profile${
         shortlistedApplications.length === 1 ? "" : "s"
       } for ${job.title}. The shortlist report and available resumes are attached.\n\nRegards,\nWerkly Team`,
+      fromDate: defaultDateRange.fromDate,
+      toDate: defaultDateRange.toDate,
+      availableCount: shortlistedApplications.length,
+      resumeCount: shortlistedApplications.filter(
+        (application) =>
+          Boolean(application.resumeFileName) &&
+          Boolean(application.resumeAvailable || application.resumeFileData)
+      ).length,
       profiles: shortlistedApplications,
     });
     if (!recipientEmails.length) {
       setShortlistEmailError("Client email is not available. Add at least one recipient before sending.");
     }
     setIsPreparingShortlist(false);
+  }
+
+  function updateShortlistDateRange(fromDate: string, toDate: string) {
+    const normalizedRange = normalizeDateRange(fromDate, toDate);
+    const profiles = shortlistedApplications.filter((application) =>
+      isWithinDateRange(
+        getShortlistDateKey(application),
+        normalizedRange.fromDate,
+        normalizedRange.toDate
+      )
+    );
+
+    setShortlistEmailDraft((current) =>
+      current
+        ? {
+            ...current,
+            ...normalizedRange,
+            profiles,
+            resumeCount: profiles.filter(
+              (application) =>
+                Boolean(application.resumeFileName) &&
+                Boolean(application.resumeAvailable || application.resumeFileData)
+            ).length,
+          }
+        : current
+    );
+    setShortlistEmailError("");
+  }
+
+  function openShortlistEmailApp() {
+    if (!shortlistEmailDraft) {
+      return;
+    }
+
+    window.location.href = `mailto:${shortlistEmailDraft.toEmails}?subject=${encodeURIComponent(
+      shortlistEmailDraft.subject
+    )}&body=${encodeURIComponent(shortlistEmailDraft.body)}`;
+  }
+
+  async function copyShortlistEmailBody() {
+    if (!shortlistEmailDraft) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(shortlistEmailDraft.body);
+    setMessage("Shortlist email body copied.");
   }
 
   async function sendShortlistEmail() {
@@ -408,6 +540,8 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
           ccEmails,
           subject: shortlistEmailDraft.subject.trim(),
           message: shortlistEmailDraft.body.trim(),
+          fromDate: shortlistEmailDraft.fromDate,
+          toDate: shortlistEmailDraft.toDate,
           applicationIds: shortlistEmailDraft.profiles.map((application) => application.id),
         }),
       });
@@ -1367,7 +1501,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             role="dialog"
             aria-modal="true"
             aria-label="Send shortlisted profiles"
-            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]"
+            className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]"
           >
             <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-5 py-4 sm:px-6">
               <div>
@@ -1375,7 +1509,14 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                 <h3 className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">{job.title}</h3>
                 <p className="muted-copy mt-2 text-sm">
                   {shortlistEmailDraft.profiles.length} shortlisted profile
-                  {shortlistEmailDraft.profiles.length === 1 ? "" : "s"}; the report and available resumes will be attached.
+                  {shortlistEmailDraft.profiles.length === 1 ? "" : "s"} ready to send
+                  {shortlistEmailDraft.toEmails ? ` to ${shortlistEmailDraft.toEmails}.` : "."}
+                  {" "}The shortlist report and {shortlistEmailDraft.resumeCount} resume
+                  {shortlistEmailDraft.resumeCount === 1 ? "" : "s"} will be attached.
+                </p>
+                <p className="muted-copy mt-1 text-xs">
+                  {shortlistEmailDraft.availableCount} total shortlisted candidate
+                  {shortlistEmailDraft.availableCount === 1 ? "" : "s"} found for this job.
                 </p>
               </div>
               <button
@@ -1416,6 +1557,34 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                   />
                 </label>
               </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Shortlisted From
+                  </span>
+                  <input
+                    type="date"
+                    value={shortlistEmailDraft.fromDate}
+                    onChange={(event) =>
+                      updateShortlistDateRange(event.target.value, shortlistEmailDraft.toDate)
+                    }
+                    className={fieldClassName}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
+                    Shortlisted To
+                  </span>
+                  <input
+                    type="date"
+                    value={shortlistEmailDraft.toDate}
+                    onChange={(event) =>
+                      updateShortlistDateRange(shortlistEmailDraft.fromDate, event.target.value)
+                    }
+                    className={fieldClassName}
+                  />
+                </label>
+              </div>
               <label className="mt-4 block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Subject</span>
                 <input
@@ -1428,6 +1597,96 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                   className={fieldClassName}
                 />
               </label>
+              <div className="mt-4 overflow-x-auto border border-[var(--color-line)]">
+                <table className="w-full min-w-[1300px] table-fixed border-collapse bg-white text-sm">
+                  <colgroup>
+                    <col className="w-[5%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[11%]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-[#fff200] text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-950">
+                      {[
+                        "S No",
+                        "Date",
+                        "Position",
+                        "Candidate Name",
+                        "Mobile Number",
+                        "Email ID",
+                        "Current Organization",
+                        "Total Experience",
+                        "CTC",
+                        "Expected CTC",
+                        "Notice Period",
+                        "Current Location",
+                        "Preferred Location",
+                      ].map((heading) => (
+                        <th key={heading} className="border border-slate-900 px-3 py-2">
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shortlistEmailDraft.profiles.map((application, index) => (
+                      <tr key={application.id}>
+                        <td className="border border-slate-900 px-3 py-2">{index + 1}</td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {formatExportDate(getShortlistDateKey(application))}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.jobTitle || job.title}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {formatPersonName(application.candidateName)}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.candidatePhone || "-"}
+                        </td>
+                        <td className="break-all border border-slate-900 px-3 py-2">
+                          {application.candidateEmail || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.currentCompany || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.experience || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.currentCtc || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.expectedCtc || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {formatNoticePeriod(application.noticePeriod)}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.currentLocation || application.preferredLocation || "-"}
+                        </td>
+                        <td className="border border-slate-900 px-3 py-2">
+                          {application.preferredLocation || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {shortlistEmailDraft.profiles.length === 0 ? (
+                <p className="mt-4 border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                  No shortlisted candidates found for the selected date range.
+                </p>
+              ) : null}
               <label className="mt-4 block">
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Message</span>
                 <textarea
@@ -1451,17 +1710,31 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
               <button
                 type="button"
                 onClick={() => void sendShortlistEmail()}
-                disabled={isSendingShortlist}
+                disabled={isSendingShortlist || shortlistEmailDraft.profiles.length === 0}
                 className="bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSendingShortlist ? "Sending..." : "Send Mail"}
               </button>
               <button
                 type="button"
+                onClick={openShortlistEmailApp}
+                className="border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Open Email App
+              </button>
+              <button
+                type="button"
+                onClick={() => void copyShortlistEmailBody()}
+                className="border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Copy Email Body
+              </button>
+              <button
+                type="button"
                 onClick={() => setShortlistEmailDraft(null)}
                 className="border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
               >
-                Cancel
+                Done
               </button>
             </div>
           </div>
