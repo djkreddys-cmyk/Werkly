@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getClientById } from "@/lib/crm";
-import { getAdminJobById, getJobApplications, type JobApplication } from "@/lib/jobs";
+import {
+  getAdminApplications,
+  getAdminJobById,
+  getJobApplications,
+  type JobApplication,
+} from "@/lib/jobs";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -228,6 +233,55 @@ function buildResumeAttachments(applications: JobApplication[]): ResendAttachmen
     .filter((attachment): attachment is ResendAttachment => Boolean(attachment));
 }
 
+async function hydrateShortlistResumeFiles(
+  applications: JobApplication[],
+  token: string
+) {
+  const applicationsMissingResumeData = applications.filter(
+    (application) =>
+      Boolean(application.resumeAvailable || application.resumeFileData) &&
+      !application.resumeFileData
+  );
+
+  if (!applicationsMissingResumeData.length) {
+    return applications;
+  }
+
+  const fullApplications = await getAdminApplications(token);
+  const fullApplicationsById = new Map<string, JobApplication>();
+  fullApplications.forEach((application) => {
+    fullApplicationsById.set(application.id, application);
+    if (application.parentApplicationId && !fullApplicationsById.has(application.parentApplicationId)) {
+      fullApplicationsById.set(application.parentApplicationId, application);
+    }
+  });
+
+  return applications.map((application) => {
+    if (application.resumeFileData) {
+      return application;
+    }
+
+    const fullApplication =
+      fullApplicationsById.get(application.id) ||
+      (application.parentApplicationId
+        ? fullApplicationsById.get(application.parentApplicationId)
+        : undefined);
+    return fullApplication
+      ? {
+          ...application,
+          resumeFileName: application.resumeFileName || fullApplication.resumeFileName,
+          resumeFileType: application.resumeFileType || fullApplication.resumeFileType,
+          resumeFileData: fullApplication.resumeFileData,
+          resumeAvailable: Boolean(
+            application.resumeAvailable ||
+              fullApplication.resumeAvailable ||
+              fullApplication.resumeFileData
+          ),
+        }
+      : application;
+  });
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "").trim();
@@ -322,12 +376,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ message: "Shortlist message is required." }, { status: 400 });
     }
 
+    const profilesWithResumeFiles = await hydrateShortlistResumeFiles(profilesToSend, token);
+    const missingResumeFiles = profilesWithResumeFiles.filter(
+      (application) =>
+        Boolean(application.resumeAvailable) &&
+        !application.resumeFileData
+    );
+
+    if (missingResumeFiles.length) {
+      return NextResponse.json(
+        {
+          message: `Unable to load ${missingResumeFiles.length} available resume file(s). The email was not sent; reopen the shortlist and try again.`,
+        },
+        { status: 409 }
+      );
+    }
+
     const reportAttachment = buildShortlistReportAttachment(
       job.title,
       job.jobCode,
-      profilesToSend
+      profilesWithResumeFiles
     );
-    const resumeAttachments = buildResumeAttachments(profilesToSend);
+    const resumeAttachments = buildResumeAttachments(profilesWithResumeFiles);
     const attachments = [reportAttachment, ...resumeAttachments];
 
     const emailResponse = await fetch("https://api.resend.com/emails", {

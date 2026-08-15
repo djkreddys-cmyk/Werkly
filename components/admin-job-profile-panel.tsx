@@ -442,9 +442,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
       toDate: defaultDateRange.toDate,
       availableCount: shortlistedApplications.length,
       resumeCount: shortlistedApplications.filter(
-        (application) =>
-          Boolean(application.resumeFileName) &&
-          Boolean(application.resumeAvailable || application.resumeFileData)
+        (application) => Boolean(application.resumeAvailable || application.resumeFileData)
       ).length,
       profiles: shortlistedApplications,
     });
@@ -471,9 +469,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             ...normalizedRange,
             profiles,
             resumeCount: profiles.filter(
-              (application) =>
-                Boolean(application.resumeFileName) &&
-                Boolean(application.resumeAvailable || application.resumeFileData)
+              (application) => Boolean(application.resumeAvailable || application.resumeFileData)
             ).length,
           }
         : current

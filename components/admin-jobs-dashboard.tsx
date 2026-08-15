@@ -963,9 +963,7 @@ Werkly Team`;
       toDate: selectedDateRange.toDate,
       count: shortlistedApplications.length,
       resumeCount: shortlistedApplications.filter(
-        (application) =>
-          (application.resumeAvailable || application.resumeFileData) &&
-          application.resumeFileName
+        (application) => application.resumeAvailable || application.resumeFileData
       ).length,
       availableCount: allShortlistedApplications.length,
       usedAllApplications: false,
