@@ -124,6 +124,14 @@ type StageDraft = {
   dateOfJoining: string;
 };
 
+type ShortlistEmailDraft = {
+  toEmails: string;
+  ccEmails: string;
+  subject: string;
+  body: string;
+  profiles: JobApplication[];
+};
+
 const applicationStages: JobApplicationStage[] = [
   "applied",
   "shortlisted",
@@ -161,6 +169,10 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
   const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
   const [isAssigningSuggestionId, setIsAssigningSuggestionId] = useState("");
   const [isLoadingResumeId, setIsLoadingResumeId] = useState("");
+  const [shortlistEmailDraft, setShortlistEmailDraft] = useState<ShortlistEmailDraft | null>(null);
+  const [shortlistEmailError, setShortlistEmailError] = useState("");
+  const [isPreparingShortlist, setIsPreparingShortlist] = useState(false);
+  const [isSendingShortlist, setIsSendingShortlist] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -293,10 +305,135 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
     setMinimumScore(0);
   };
 
-  const shortlistedCount = useMemo(
-    () => applications.filter((application) => application.stage === "shortlisted").length,
+  const shortlistedApplications = useMemo(
+    () => applications.filter((application) => application.stage === "shortlisted"),
     [applications]
   );
+  const shortlistedCount = shortlistedApplications.length;
+
+  async function prepareShortlistEmail() {
+    if (!token || !job) {
+      setError("Please sign in again before preparing the shortlist email.");
+      return;
+    }
+
+    if (!shortlistedApplications.length) {
+      setError("Shortlist at least one candidate before sending the client email.");
+      return;
+    }
+
+    setIsPreparingShortlist(true);
+    setError("");
+    setMessage("");
+    setShortlistEmailError("");
+
+    let contactPerson = "Client";
+    let recipientEmails: string[] = [];
+
+    if (job.clientId) {
+      try {
+        const response = await fetch(`/api/admin/clients/${job.clientId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const client = (await response.json()) as {
+          contactPerson?: string;
+          contactEmail?: string;
+          secondaryContactEmail?: string;
+          message?: string;
+        };
+
+        if (response.ok) {
+          contactPerson = client.contactPerson?.trim() || "Client";
+          recipientEmails = [client.contactEmail, client.secondaryContactEmail]
+            .map((email) => String(email || "").trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // The recipient can still be entered manually in the review dialog.
+      }
+    }
+
+    setShortlistEmailDraft({
+      toEmails: Array.from(new Set(recipientEmails)).join(", "),
+      ccEmails: "hr@werkly.in",
+      subject: `Shortlisted profiles for ${job.title}`,
+      body: `Dear ${contactPerson},\n\nPlease find ${shortlistedApplications.length} shortlisted profile${
+        shortlistedApplications.length === 1 ? "" : "s"
+      } for ${job.title}. The shortlist report and available resumes are attached.\n\nRegards,\nWerkly Team`,
+      profiles: shortlistedApplications,
+    });
+    if (!recipientEmails.length) {
+      setShortlistEmailError("Client email is not available. Add at least one recipient before sending.");
+    }
+    setIsPreparingShortlist(false);
+  }
+
+  async function sendShortlistEmail() {
+    if (!token || !job || !shortlistEmailDraft) {
+      return;
+    }
+
+    const toEmails = shortlistEmailDraft.toEmails
+      .split(",")
+      .map((email) => email.trim())
+      .filter(Boolean);
+    const ccEmails = shortlistEmailDraft.ccEmails
+      .split(",")
+      .map((email) => email.trim())
+      .filter(Boolean);
+
+    if (!toEmails.length) {
+      setShortlistEmailError("Add at least one client email before sending.");
+      return;
+    }
+    if (!shortlistEmailDraft.subject.trim() || !shortlistEmailDraft.body.trim()) {
+      setShortlistEmailError("Subject and message are required before sending.");
+      return;
+    }
+
+    setIsSendingShortlist(true);
+    setShortlistEmailError("");
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/jobs/${job.id}/shortlist-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          toEmails,
+          ccEmails,
+          subject: shortlistEmailDraft.subject.trim(),
+          message: shortlistEmailDraft.body.trim(),
+          applicationIds: shortlistEmailDraft.profiles.map((application) => application.id),
+        }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        candidatesCount?: number;
+        resumeAttachmentsCount?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to send shortlist email.");
+      }
+
+      setShortlistEmailDraft(null);
+      setMessage(
+        result.message ||
+          `Shortlist email sent for ${result.candidatesCount ?? shortlistEmailDraft.profiles.length} candidate(s).`
+      );
+    } catch (sendError) {
+      setShortlistEmailError(
+        sendError instanceof Error ? sendError.message : "Unable to send shortlist email."
+      );
+    } finally {
+      setIsSendingShortlist(false);
+    }
+  }
 
   function openStageUpdate(
     application: JobApplication,
@@ -690,13 +827,24 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
               Update each applicant&apos;s pipeline stage from the job profile and open the stored resume from the same row.
             </p>
           </div>
-          <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.14em]">
-            <span className="bg-[rgba(8,96,108,0.08)] px-3 py-2 text-[var(--color-dark)]">
-              {applications.length} applicants
-            </span>
-            <span className="bg-[rgba(251,133,0,0.08)] px-3 py-2 text-[var(--color-accent-strong)]">
-              {shortlistedCount} shortlisted
-            </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => void prepareShortlistEmail()}
+              disabled={isPreparingShortlist || shortlistedCount === 0}
+              title={shortlistedCount === 0 ? "Shortlist at least one candidate first" : undefined}
+              className="bg-[var(--color-dark)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isPreparingShortlist ? "Preparing..." : "Send Shortlist"}
+            </button>
+            <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.14em]">
+              <span className="bg-[rgba(8,96,108,0.08)] px-3 py-2 text-[var(--color-dark)]">
+                {applications.length} applicants
+              </span>
+              <span className="bg-[rgba(251,133,0,0.08)] px-3 py-2 text-[var(--color-accent-strong)]">
+                {shortlistedCount} shortlisted
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1212,6 +1360,113 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
           )}
         </article>
       </section>
+
+      {shortlistEmailDraft ? (
+        <div className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-950/55 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Send shortlisted profiles"
+            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]"
+          >
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-5 py-4 sm:px-6">
+              <div>
+                <p className="eyebrow">Send Shortlist</p>
+                <h3 className="mt-2 text-2xl font-semibold text-[var(--color-ink)]">{job.title}</h3>
+                <p className="muted-copy mt-2 text-sm">
+                  {shortlistEmailDraft.profiles.length} shortlisted profile
+                  {shortlistEmailDraft.profiles.length === 1 ? "" : "s"}; the report and available resumes will be attached.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShortlistEmailDraft(null)}
+                className="border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">To</span>
+                  <input
+                    value={shortlistEmailDraft.toEmails}
+                    onChange={(event) =>
+                      setShortlistEmailDraft((current) =>
+                        current ? { ...current, toEmails: event.target.value } : current
+                      )
+                    }
+                    placeholder="client@example.com"
+                    className={fieldClassName}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">CC</span>
+                  <input
+                    value={shortlistEmailDraft.ccEmails}
+                    onChange={(event) =>
+                      setShortlistEmailDraft((current) =>
+                        current ? { ...current, ccEmails: event.target.value } : current
+                      )
+                    }
+                    placeholder="hr@werkly.in"
+                    className={fieldClassName}
+                  />
+                </label>
+              </div>
+              <label className="mt-4 block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Subject</span>
+                <input
+                  value={shortlistEmailDraft.subject}
+                  onChange={(event) =>
+                    setShortlistEmailDraft((current) =>
+                      current ? { ...current, subject: event.target.value } : current
+                    )
+                  }
+                  className={fieldClassName}
+                />
+              </label>
+              <label className="mt-4 block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">Message</span>
+                <textarea
+                  value={shortlistEmailDraft.body}
+                  onChange={(event) =>
+                    setShortlistEmailDraft((current) =>
+                      current ? { ...current, body: event.target.value } : current
+                    )
+                  }
+                  className={`${fieldClassName} min-h-[180px] resize-y`}
+                />
+              </label>
+              {shortlistEmailError ? (
+                <p className="mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {shortlistEmailError}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex shrink-0 flex-wrap gap-3 border-t border-[var(--color-line)] px-5 py-4 sm:px-6">
+              <button
+                type="button"
+                onClick={() => void sendShortlistEmail()}
+                disabled={isSendingShortlist}
+                className="bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSendingShortlist ? "Sending..." : "Send Mail"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShortlistEmailDraft(null)}
+                className="border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {stageDraft ? (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/55 p-4">
