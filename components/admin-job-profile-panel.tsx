@@ -615,8 +615,8 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
         </p>
       ) : null}
       <section className="accent-card p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4 xl:flex-nowrap">
+          <div className="min-w-0 flex-1">
             <p className="eyebrow">Job Detail</p>
             <h2 className="mt-4 text-3xl font-semibold text-[var(--color-ink)]">{job.title}</h2>
             <p className="muted-copy mt-3 max-w-3xl text-base leading-7">
@@ -624,7 +624,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
               timeline on a full CRM page instead of only a quick modal.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex shrink-0 flex-wrap justify-end gap-3">
             {job.slug && isLiveOnWebsite(job) ? (
               <JobShareButton
                 title={job.title}
@@ -656,7 +656,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {[
           ["Job ID", job.jobCode || "Pending"],
           ["Client", job.clientName || "Not assigned"],
@@ -706,7 +706,15 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
           </p>
         ) : (
           <div className="mt-6 overflow-x-auto border border-[var(--color-line)] bg-white">
-            <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+            <table className="w-full min-w-[1040px] table-fixed border-collapse text-left text-sm">
+              <colgroup>
+                <col className="w-[15%]" />
+                <col className="w-[20%]" />
+                <col className="w-[13%]" />
+                <col className="w-[14%]" />
+                <col className="w-[25%]" />
+                <col className="w-[13%]" />
+              </colgroup>
               <thead className="bg-[rgba(8,96,108,0.06)]">
                 <tr>
                   {[
@@ -741,7 +749,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                       </p>
                     </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
-                      <p>{application.candidateEmail || "Email not added"}</p>
+                      <p className="break-all">{application.candidateEmail || "Email not added"}</p>
                       <p className="mt-1">{application.candidatePhone || "Phone not added"}</p>
                     </td>
                     <td className="px-4 py-4 text-sm text-[var(--color-muted)]">
@@ -909,7 +917,19 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             </div>
 
             <div className="overflow-x-auto rounded-[1.25rem] border border-[var(--color-line)] bg-white">
-              <table className="min-w-[1340px] w-full border-collapse text-left text-sm">
+              <table className="w-full min-w-[1520px] table-fixed border-collapse text-left text-sm">
+                <colgroup>
+                  <col className="w-[5%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[9%]" />
+                </colgroup>
                 <thead className="bg-[rgba(8,96,108,0.06)]">
                   <tr>
                     {[
@@ -957,12 +977,22 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                             <p className="font-semibold text-[var(--color-ink)]">
                               {formatPersonName(profile.candidateName)}
                             </p>
-                            <p className="mt-1 text-xs text-[var(--color-muted)]">
+                            <p
+                              className="mt-1 line-clamp-3 text-xs leading-5 text-[var(--color-muted)]"
+                              title={profile.currentCompany || "Company not added"}
+                            >
                               {profile.currentCompany || "Company not added"}
                             </p>
                           </td>
                           <td className="px-4 py-4">
-                            <p className="font-medium text-[var(--color-ink)]">
+                            <p
+                              className="line-clamp-4 font-medium leading-5 text-[var(--color-ink)]"
+                              title={
+                                profile.preferredRole ||
+                                profile.currentDesignation ||
+                                "Role preference not added"
+                              }
+                            >
                               {profile.preferredRole ||
                                 profile.currentDesignation ||
                                 "Role preference not added"}
@@ -974,7 +1004,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                             ) : null}
                           </td>
                           <td className="px-4 py-4">
-                            <p className="font-medium text-[var(--color-ink)]">
+                            <p className="break-all font-medium text-[var(--color-ink)]">
                               {profile.candidateEmail || "Email not added"}
                             </p>
                             <p className="mt-1 text-xs text-[var(--color-muted)]">
@@ -982,17 +1012,23 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                             </p>
                           </td>
                           <td className="px-4 py-4">
-                            {profile.preferredLocation || profile.currentLocation || "Not added"}
+                            <p
+                              className="line-clamp-3 leading-5"
+                              title={profile.preferredLocation || profile.currentLocation || "Not added"}
+                            >
+                              {profile.preferredLocation || profile.currentLocation || "Not added"}
+                            </p>
                           </td>
                           <td className="px-4 py-4">{profile.experience || "Not added"}</td>
-                          <td className="px-4 py-4">{profile.source}</td>
+                          <td className="px-4 py-4 break-words">{profile.source}</td>
                           <td className="px-4 py-4">
-                            <div className="flex max-w-[360px] flex-wrap gap-2">
+                            <div className="flex flex-col items-start gap-1.5">
                               {reasons.length ? (
-                                reasons.slice(0, 4).map((reason) => (
+                                reasons.slice(0, 3).map((reason) => (
                                   <span
                                     key={reason}
-                                    className="rounded-full bg-[rgba(251,133,0,0.08)] px-2.5 py-1 text-xs font-semibold text-[var(--color-accent-strong)]"
+                                    className="line-clamp-2 max-w-full rounded-full bg-[rgba(251,133,0,0.08)] px-2.5 py-1 text-xs font-semibold leading-4 text-[var(--color-accent-strong)]"
+                                    title={reason}
                                   >
                                     {reason}
                                   </span>
@@ -1006,19 +1042,19 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                           </td>
                           <td className="px-4 py-4">
                             {profile.resumeFileData && profile.resumeFileName ? (
-                              <div className="flex flex-col gap-2">
+                              <div className="flex w-full flex-col gap-2">
                                 <a
                                   href={profile.resumeFileData}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="rounded-xl border border-[var(--color-line)] px-3 py-2 text-center text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
+                                  className="w-full rounded-xl border border-[var(--color-line)] px-3 py-2 text-center text-xs font-semibold text-[var(--color-ink)] transition hover:border-[var(--color-dark)]"
                                 >
                                   View
                                 </a>
                                 <a
                                   href={profile.resumeFileData}
                                   download={profile.resumeFileName}
-                                  className="rounded-xl bg-[var(--color-dark)] px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
+                                  className="w-full rounded-xl bg-[var(--color-dark)] px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
                                 >
                                   Download
                                 </a>
@@ -1035,7 +1071,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                                 isAssigningSuggestionId === `${profile.source}:${profile.id}` ||
                                 (!profile.candidateEmail && !profile.candidatePhone)
                               }
-                              className="min-w-[142px] bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:bg-slate-300"
+                              className="w-full whitespace-nowrap bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
                               {isAssigningSuggestionId === `${profile.source}:${profile.id}`
                                 ? "Assigning..."
