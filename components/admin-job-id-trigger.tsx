@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { JobDetail } from "@/lib/jobs";
 
 function getPreviewItems(items?: string[]) {
@@ -46,6 +47,7 @@ export function AdminJobIdTrigger({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const modalScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -67,6 +69,12 @@ export function AdminJobIdTrigger({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      modalScrollRef.current?.scrollTo({ top: 0 });
+    }
+  }, [isOpen, job]);
 
   async function openJobDetails() {
     if (!jobId) {
@@ -122,7 +130,7 @@ export function AdminJobIdTrigger({
         {jobCode || fallbackLabel}
       </button>
 
-      {isOpen ? (
+      {isOpen ? createPortal(
         <div
           className="fixed inset-0 z-[150] flex items-start justify-center overflow-hidden bg-slate-950/55 p-3 sm:items-center sm:p-5"
           onMouseDown={(event) => {
@@ -156,7 +164,10 @@ export function AdminJobIdTrigger({
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            <div
+              ref={modalScrollRef}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
+            >
               {isLoading ? (
                 <p className="muted-copy text-sm">Loading job details...</p>
               ) : error ? (
@@ -250,7 +261,8 @@ export function AdminJobIdTrigger({
               </div>
             ) : null}
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );
