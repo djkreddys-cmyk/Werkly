@@ -53,6 +53,25 @@ function formatLabel(value?: string) {
     .join(" ");
 }
 
+function createResumeObjectUrl(dataUrl: string, fallbackType = "application/octet-stream") {
+  const normalizedDataUrl = dataUrl.startsWith("data:")
+    ? dataUrl
+    : `data:${fallbackType};base64,${dataUrl}`;
+  const [header, content = ""] = normalizedDataUrl.split(",", 2);
+  const mimeType = header.match(/^data:(.*?)(?:;base64)?$/)?.[1] || fallbackType;
+  const binary = header.includes(";base64") ? window.atob(content) : decodeURIComponent(content);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return window.URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+}
+
+function escapePreviewText(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function isLiveOnWebsite(job: JobDetail) {
   if (job.isHidden || job.status !== "open") {
     return false;
@@ -141,6 +160,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
   const [stageDraft, setStageDraft] = useState<StageDraft | null>(null);
   const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
   const [isAssigningSuggestionId, setIsAssigningSuggestionId] = useState("");
+  const [isLoadingResumeId, setIsLoadingResumeId] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -478,6 +498,75 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
     }
   }
 
+  async function viewApplicantResume(application: JobApplication) {
+    if (!token) {
+      setError("Please sign in again before viewing the resume.");
+      return;
+    }
+
+    const previewWindow = window.open("", "_blank");
+    previewWindow?.document.write(
+      '<!doctype html><title>Loading resume</title><body style="font-family:Arial,sans-serif;padding:24px">Loading resume...</body>'
+    );
+    setIsLoadingResumeId(application.id);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/admin/applications/${application.id}/resume`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = (await response.json()) as {
+        resumeFileName?: string;
+        resumeFileType?: string;
+        resumeFileData?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !result.resumeFileData) {
+        throw new Error(result.message || "Unable to load resume.");
+      }
+
+      const resumeUrl = createResumeObjectUrl(
+        result.resumeFileData,
+        result.resumeFileType || "application/pdf"
+      );
+      const fileName = escapePreviewText(result.resumeFileName || "Candidate resume");
+      const previewMarkup = `<!doctype html>
+        <html>
+          <head>
+            <title>${fileName}</title>
+            <style>
+              html, body { margin: 0; min-height: 100%; font-family: Arial, sans-serif; color: #082f37; background: #f8fbfc; }
+              .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid #d8e7eb; background: #fff; }
+              .title { margin: 0; font-size: 15px; font-weight: 700; }
+              .button { border: 1px solid #cfe0e4; padding: 9px 13px; color: #082f37; text-decoration: none; font-size: 13px; font-weight: 700; }
+              iframe { display: block; width: 100%; height: calc(100vh - 58px); border: 0; background: #fff; }
+            </style>
+          </head>
+          <body>
+            <div class="bar">
+              <p class="title">${fileName}</p>
+              <a class="button" href="${resumeUrl}" download="${fileName}">Download Resume</a>
+            </div>
+            <iframe src="${resumeUrl}" title="${fileName}"></iframe>
+          </body>
+        </html>`;
+
+      if (previewWindow) {
+        previewWindow.document.open();
+        previewWindow.document.write(previewMarkup);
+        previewWindow.document.close();
+      } else {
+        window.open(resumeUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (resumeError) {
+      previewWindow?.close();
+      setError(resumeError instanceof Error ? resumeError.message : "Unable to load resume.");
+    } finally {
+      setIsLoadingResumeId("");
+    }
+  }
+
   if (!token) {
     return (
       <section className="accent-card p-8">
@@ -595,10 +684,10 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
           <div>
             <p className="eyebrow">Job Applicants</p>
             <h3 className="mt-3 text-2xl font-semibold text-[var(--color-ink)]">
-              Applicant status and shortlist
+              Applicant status and resume
             </h3>
             <p className="muted-copy mt-2 max-w-3xl text-sm leading-6">
-              Update each applicant&apos;s pipeline stage from the job profile, or use Shortlist for a direct shortlist update.
+              Update each applicant&apos;s pipeline stage from the job profile and open the stored resume from the same row.
             </p>
           </div>
           <div className="flex gap-2 text-xs font-semibold uppercase tracking-[0.14em]">
@@ -686,11 +775,18 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => openStageUpdate(application, "shortlisted")}
-                          disabled={application.stage === "shortlisted"}
+                          onClick={() => void viewApplicantResume(application)}
+                          disabled={
+                            isLoadingResumeId === application.id ||
+                            !(application.resumeAvailable || application.resumeFileData)
+                          }
                           className="bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
-                          {application.stage === "shortlisted" ? "Shortlisted" : "Shortlist"}
+                          {isLoadingResumeId === application.id
+                            ? "Loading..."
+                            : application.resumeAvailable || application.resumeFileData
+                              ? "View Resume"
+                              : "No Resume"}
                         </button>
                         <Link
                           href={`/admin/candidates/${application.id}`}
