@@ -1501,7 +1501,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             role="dialog"
             aria-modal="true"
             aria-label="Send shortlisted profiles"
-            className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]"
+            className="flex max-h-[90vh] w-full max-w-[96vw] flex-col overflow-hidden border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)] xl:max-w-[1500px]"
           >
             <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-5 py-4 sm:px-6">
               <div>
@@ -1598,21 +1598,21 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                 />
               </label>
               <div className="mt-4 overflow-x-auto border border-[var(--color-line)]">
-                <table className="w-full min-w-[1300px] table-fixed border-collapse bg-white text-sm">
+                <table className="w-full min-w-[1960px] table-fixed border-collapse bg-white text-sm">
                   <colgroup>
-                    <col className="w-[5%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[14%]" />
-                    <col className="w-[13%]" />
-                    <col className="w-[9%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[9%]" />
-                    <col className="w-[9%]" />
-                    <col className="w-[11%]" />
-                    <col className="w-[11%]" />
+                    <col className="w-[60px]" />
+                    <col className="w-[100px]" />
+                    <col className="w-[150px]" />
+                    <col className="w-[180px]" />
+                    <col className="w-[140px]" />
+                    <col className="w-[230px]" />
+                    <col className="w-[230px]" />
+                    <col className="w-[135px]" />
+                    <col className="w-[120px]" />
+                    <col className="w-[130px]" />
+                    <col className="w-[150px]" />
+                    <col className="w-[160px]" />
+                    <col className="w-[175px]" />
                   </colgroup>
                   <thead>
                     <tr className="bg-[#fff200] text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-950">
@@ -1631,7 +1631,10 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                         "Current Location",
                         "Preferred Location",
                       ].map((heading) => (
-                        <th key={heading} className="border border-slate-900 px-3 py-2">
+                        <th
+                          key={heading}
+                          className="!whitespace-normal border border-slate-900 px-3 py-2 text-center align-middle leading-4"
+                        >
                           {heading}
                         </th>
                       ))}
@@ -1640,41 +1643,41 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                   <tbody>
                     {shortlistEmailDraft.profiles.map((application, index) => (
                       <tr key={application.id}>
-                        <td className="border border-slate-900 px-3 py-2">{index + 1}</td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 text-center align-top leading-5">{index + 1}</td>
+                        <td className="whitespace-nowrap border border-slate-900 px-3 py-2 align-top leading-5">
                           {formatExportDate(getShortlistDateKey(application))}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.jobTitle || job.title}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {formatPersonName(application.candidateName)}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="whitespace-nowrap border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.candidatePhone || "-"}
                         </td>
-                        <td className="break-all border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5 [overflow-wrap:anywhere]">
                           {application.candidateEmail || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.currentCompany || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="whitespace-nowrap border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.experience || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.currentCtc || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.expectedCtc || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {formatNoticePeriod(application.noticePeriod)}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.currentLocation || application.preferredLocation || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.preferredLocation || "-"}
                         </td>
                       </tr>

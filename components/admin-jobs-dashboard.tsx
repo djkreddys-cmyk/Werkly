@@ -3305,7 +3305,7 @@ Werkly Team`;
 
       {shortlistDraft ? (
         <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+          <div className="flex max-h-[90vh] w-full max-w-[96vw] flex-col overflow-hidden rounded-[1.8rem] border border-[var(--color-line)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)] xl:max-w-[1500px]">
             <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-line)] px-6 py-5">
               <div>
                 <p className="eyebrow">Send Shortlist</p>
@@ -3395,7 +3395,22 @@ Werkly Team`;
                 />
               </label>
               <div className="mb-4 overflow-auto rounded-2xl border border-[var(--color-line)]">
-                <table className="w-full min-w-[1050px] border-collapse bg-white text-sm">
+                <table className="w-full min-w-[1960px] table-fixed border-collapse bg-white text-sm">
+                  <colgroup>
+                    <col className="w-[60px]" />
+                    <col className="w-[100px]" />
+                    <col className="w-[150px]" />
+                    <col className="w-[180px]" />
+                    <col className="w-[140px]" />
+                    <col className="w-[230px]" />
+                    <col className="w-[230px]" />
+                    <col className="w-[135px]" />
+                    <col className="w-[120px]" />
+                    <col className="w-[130px]" />
+                    <col className="w-[150px]" />
+                    <col className="w-[160px]" />
+                    <col className="w-[175px]" />
+                  </colgroup>
                   <thead>
                     <tr className="bg-[#fff200] text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-950">
                       {[
@@ -3413,7 +3428,10 @@ Werkly Team`;
                         "Current Location",
                         "Preferred Location",
                       ].map((heading) => (
-                        <th key={heading} className="border border-slate-900 px-3 py-2">
+                        <th
+                          key={heading}
+                          className="!whitespace-normal border border-slate-900 px-3 py-2 text-center align-middle leading-4"
+                        >
                           {heading}
                         </th>
                       ))}
@@ -3422,41 +3440,41 @@ Werkly Team`;
                   <tbody>
                     {shortlistDraft.profiles.map((application, index) => (
                       <tr key={application.id}>
-                        <td className="border border-slate-900 px-3 py-2">{index + 1}</td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 text-center align-top leading-5">{index + 1}</td>
+                        <td className="whitespace-nowrap border border-slate-900 px-3 py-2 align-top leading-5">
                           {formatExportDate(getShortlistDateKey(application))}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.jobTitle || shortlistDraft.jobTitle}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {formatPersonName(application.candidateName)}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="whitespace-nowrap border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.candidatePhone || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5 [overflow-wrap:anywhere]">
                           {application.candidateEmail || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.currentCompany || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="whitespace-nowrap border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.experience || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.currentCtc || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.expectedCtc || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {formatNoticePeriod(application.noticePeriod)}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.currentLocation || application.preferredLocation || "-"}
                         </td>
-                        <td className="border border-slate-900 px-3 py-2">
+                        <td className="border border-slate-900 px-3 py-2 align-top leading-5">
                           {application.preferredLocation || "-"}
                         </td>
                       </tr>
