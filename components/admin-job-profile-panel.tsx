@@ -69,6 +69,8 @@ function isLiveOnWebsite(job: JobDetail) {
 
 type CandidateSuggestion = {
   id: string;
+  applicationId?: string;
+  assignedJobIds?: string[];
   source: string;
   candidateName: string;
   candidateEmail?: string;
@@ -138,6 +140,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
   const [minimumScore, setMinimumScore] = useState(0);
   const [stageDraft, setStageDraft] = useState<StageDraft | null>(null);
   const [isUpdatingStageId, setIsUpdatingStageId] = useState("");
+  const [isAssigningSuggestionId, setIsAssigningSuggestionId] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -372,6 +375,106 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
       );
     } finally {
       setIsUpdatingStageId("");
+    }
+  }
+
+  async function assignAndShortlistSuggestion(profile: CandidateSuggestion) {
+    if (!token || !job) {
+      setError("Please sign in again before assigning this candidate.");
+      return;
+    }
+
+    if (!profile.candidateName || (!profile.candidateEmail && !profile.candidatePhone)) {
+      setError("Candidate name and either email or phone are required before assignment.");
+      return;
+    }
+
+    const suggestionKey = `${profile.source}:${profile.id}`;
+    setIsAssigningSuggestionId(suggestionKey);
+    setError("");
+    setMessage("");
+
+    const stageDate = new Date().toISOString().slice(0, 10);
+    const stageNote = `Assigned and shortlisted from ${matchingMode === "ai" ? "AI" : "rule-based"} job matches.`;
+
+    try {
+      const response = profile.applicationId
+        ? await fetch(`/api/admin/jobs/applications/${profile.applicationId}/assign-job`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              jobId: job.id,
+              initialStage: "shortlisted",
+              stageNote,
+              stageDate,
+            }),
+          })
+        : await fetch(`/api/admin/jobs/${job.id}/applications`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              candidateName: profile.candidateName,
+              candidateEmail: profile.candidateEmail,
+              candidatePhone: profile.candidatePhone,
+              experience: profile.experience,
+              currentCompany: profile.currentCompany,
+              currentLocation: profile.currentLocation,
+              currentDesignation: profile.currentDesignation,
+              preferredRole: profile.preferredRole,
+              preferredLocation: profile.preferredLocation,
+              preferredSector: profile.preferredSector,
+              sourceType: profile.source,
+              sourceNote: `${matchingMode === "ai" ? "AI" : "Rule-based"} match score: ${profile.aiMatchScore ?? profile.matchScore}`,
+              initialStage: "shortlisted",
+              stageNote,
+              stageDate,
+              resumeFileName: profile.resumeFileName,
+              resumeFileData: profile.resumeFileData,
+              jobTitle: job.title,
+            }),
+          });
+
+      const assigned = (await response.json()) as JobApplication & { message?: string };
+      if (!response.ok) {
+        throw new Error(assigned.message || "Unable to assign and shortlist this candidate.");
+      }
+
+      setApplications((current) =>
+        current.some((application) => application.id === assigned.id)
+          ? current
+          : [assigned, ...current]
+      );
+      setSuggestions((current) =>
+        current.filter(
+          (suggestion) =>
+            !(
+              suggestion.id === profile.id &&
+              suggestion.source === profile.source
+            )
+        )
+      );
+      setJob((current) =>
+        current
+          ? { ...current, applicationsCount: (current.applicationsCount ?? 0) + 1 }
+          : current
+      );
+      setMessage(
+        `${formatPersonName(assigned.candidateName || profile.candidateName)} assigned and shortlisted for ${job.title}.`
+      );
+    } catch (assignmentError) {
+      setError(
+        assignmentError instanceof Error
+          ? assignmentError.message
+          : "Unable to assign and shortlist this candidate."
+      );
+    } finally {
+      setIsAssigningSuggestionId("");
     }
   }
 
@@ -710,7 +813,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
             </div>
 
             <div className="overflow-x-auto rounded-[1.25rem] border border-[var(--color-line)] bg-white">
-              <table className="min-w-[1180px] w-full border-collapse text-left text-sm">
+              <table className="min-w-[1340px] w-full border-collapse text-left text-sm">
                 <thead className="bg-[rgba(8,96,108,0.06)]">
                   <tr>
                     {[
@@ -723,6 +826,7 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                       "Source",
                       "Match Reasons",
                       "Resume",
+                      "Action",
                     ].map((heading) => (
                       <th
                         key={heading}
@@ -827,12 +931,32 @@ export function AdminJobProfilePanel({ jobId }: { jobId: string }) {
                               <span className="text-xs text-[var(--color-muted)]">No resume</span>
                             )}
                           </td>
+                          <td className="px-4 py-4">
+                            <button
+                              type="button"
+                              onClick={() => void assignAndShortlistSuggestion(profile)}
+                              disabled={
+                                isAssigningSuggestionId === `${profile.source}:${profile.id}` ||
+                                (!profile.candidateEmail && !profile.candidatePhone)
+                              }
+                              className="min-w-[142px] bg-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--color-accent-strong)] disabled:cursor-not-allowed disabled:bg-slate-300"
+                            >
+                              {isAssigningSuggestionId === `${profile.source}:${profile.id}`
+                                ? "Assigning..."
+                                : "Assign & Shortlist"}
+                            </button>
+                            {!profile.candidateEmail && !profile.candidatePhone ? (
+                              <p className="mt-2 max-w-[150px] text-xs text-red-700">
+                                Add contact details first
+                              </p>
+                            ) : null}
+                          </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={9} className="px-4 py-6 text-sm text-[var(--color-muted)]">
+                      <td colSpan={10} className="px-4 py-6 text-sm text-[var(--color-muted)]">
                         No profiles match the current filters.
                       </td>
                     </tr>

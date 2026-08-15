@@ -12,6 +12,8 @@ import {
 
 type CrmProfile = {
   id: string;
+  applicationId?: string;
+  assignedJobIds?: string[];
   source: string;
   candidateName: string;
   candidateEmail?: string;
@@ -231,6 +233,10 @@ function mergeProfile(existing: CrmProfile, next: CrmProfile): CrmProfile {
   const sourceParts = Array.from(new Set([...existing.source.split(", "), next.source]));
   return {
     ...existing,
+    applicationId: existing.applicationId || next.applicationId,
+    assignedJobIds: Array.from(
+      new Set([...(existing.assignedJobIds ?? []), ...(next.assignedJobIds ?? [])])
+    ),
     source: sourceParts.join(", "),
     candidateName: existing.candidateName || next.candidateName,
     candidateEmail: existing.candidateEmail || next.candidateEmail,
@@ -285,6 +291,8 @@ function applicationToProfile(application: JobApplication): CrmProfile {
 
   return {
     id: application.id,
+    applicationId: application.id,
+    assignedJobIds: [application.jobId],
     source: "Job Applicants",
     candidateName: application.candidateName,
     candidateEmail: application.candidateEmail,
@@ -563,6 +571,7 @@ export async function GET(
     resumeSubmissions.map(resumeBuilderToProfile).forEach(addProfile);
 
     const ruleBasedSuggestions = Array.from(profiles.values())
+      .filter((profile) => !(profile.assignedJobIds ?? []).includes(job.id))
       .map((profile) => scoreProfile(job, profile))
       .sort((a, b) => {
         if (b.matchScore !== a.matchScore) {
