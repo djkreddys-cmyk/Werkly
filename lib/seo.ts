@@ -1,7 +1,7 @@
 import type { JobSummary } from "@/lib/jobs";
 
 export const SITE_NAME = "Werkly Consulting Pvt LTD";
-export const SITE_URL = "https://werkly.in";
+export const SITE_URL = "https://www.werkly.in";
 export const DEFAULT_TITLE = `${SITE_NAME} | IT and Non-IT Hiring Partner`;
 export const DEFAULT_DESCRIPTION =
   "Werkly Consulting Pvt LTD provides structured recruitment and HR consulting for IT, engineering, business, operations, and Non-IT hiring across India.";
@@ -57,4 +57,3 @@ export function normalizeEmploymentType(value: string) {
 
   return employmentTypes[normalized] || value.toUpperCase().replace(/\s+/g, "_");
 }
-
