@@ -1,20 +1,81 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { getJobBySlug } from "@/lib/jobs";
 import { EnquiryModal } from "@/components/enquiry-modal";
 import { JobShareButton } from "@/components/job-share-button";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { StructuredData } from "@/components/structured-data";
+import {
+  SITE_NAME,
+  SITE_URL,
+  absoluteUrl,
+  cleanSeoText,
+  isJobIndexable,
+  normalizeEmploymentType,
+} from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export default async function JobDetailPage({
-  params,
-}: {
+const getJob = cache(async (slug: string) => getJobBySlug(slug).catch(() => null));
+
+type JobPageProps = {
   params: Promise<{ slug: string }>;
-}) {
+};
+
+export async function generateMetadata({ params }: JobPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const job = await getJobBySlug(slug).catch(() => null);
+  const job = await getJob(slug);
+
+  if (!job) {
+    return {
+      title: "Job Not Found",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const canonicalPath = `/jobs/${encodeURIComponent(job.slug)}`;
+  const description = cleanSeoText(
+    job.description || job.summary,
+    `${job.title} job opportunity in ${job.location}. Review the experience, skills, and role details and apply through Werkly.`
+  );
+  const title = `${job.title} Job in ${job.location}`;
+  const indexable = isJobIndexable(job);
+
+  return {
+    title,
+    description,
+    keywords: [job.title, job.location, job.sector, ...job.skills].filter(Boolean),
+    alternates: { canonical: canonicalPath },
+    openGraph: {
+      type: "website",
+      title: `${title} | ${SITE_NAME}`,
+      description,
+      url: canonicalPath,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | ${SITE_NAME}`,
+      description,
+    },
+    robots: {
+      index: indexable,
+      follow: indexable,
+    },
+  };
+}
+
+function toIsoDate(value: string | undefined) {
+  if (!value) return undefined;
+  const date = new Date(value.length === 10 ? `${value}T23:59:59+05:30` : value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
+export default async function JobDetailPage({ params }: JobPageProps) {
+  const { slug } = await params;
+  const job = await getJob(slug);
 
   if (!job) {
     notFound();
@@ -24,8 +85,80 @@ export default async function JobDetailPage({
     job.description?.trim() ||
     `${job.title} opportunity in ${job.location} for ${job.sector} professionals with ${job.experience} experience.`;
 
+  const jobDescription = [
+    introCopy,
+    job.responsibilities.length ? `Responsibilities: ${job.responsibilities.join("; ")}` : "",
+    job.requirements.length ? `Requirements: ${job.requirements.join("; ")}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const jobPosting = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: job.title,
+    description: jobDescription,
+    identifier: {
+      "@type": "PropertyValue",
+      name: SITE_NAME,
+      value: job.jobCode || job.id,
+    },
+    datePosted: toIsoDate(job.postedAt),
+    validThrough: toIsoDate(job.lastDateToApply),
+    employmentType: normalizeEmploymentType(job.employmentType),
+    hiringOrganization: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      sameAs: SITE_URL,
+      logo: absoluteUrl("/Werkly%20Logo.png"),
+    },
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: job.location,
+        addressCountry: "IN",
+      },
+    },
+    industry: job.sector,
+    skills: job.skills.join(", ") || undefined,
+    experienceRequirements: job.experience,
+    totalJobOpenings: job.positionsCount,
+    directApply: true,
+    url: absoluteUrl(`/jobs/${encodeURIComponent(job.slug)}`),
+  };
+
   return (
     <div className="min-h-screen bg-[var(--color-paper)]">
+      <StructuredData
+        data={[
+          jobPosting,
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: SITE_URL,
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Jobs",
+                item: absoluteUrl("/jobs"),
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: job.title,
+                item: absoluteUrl(`/jobs/${encodeURIComponent(job.slug)}`),
+              },
+            ],
+          },
+        ]}
+      />
       <SiteHeader />
       <main className="pt-[76px]">
         <section className="hero-surface border-b border-[var(--color-line)]">

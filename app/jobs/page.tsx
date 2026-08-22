@@ -2,6 +2,8 @@ import { getJobs, type JobSummary } from "@/lib/jobs";
 import { PublicJobsTable } from "@/components/public-jobs-table";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { StructuredData } from "@/components/structured-data";
+import { SITE_NAME, absoluteUrl, isJobIndexable } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,21 @@ export default async function JobsPage() {
 
   return (
     <div className="min-h-screen bg-[var(--color-paper)]">
+      {jobs.length ? (
+        <StructuredData
+          data={{
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: `Current job openings at ${SITE_NAME}`,
+            itemListElement: jobs.filter(isJobIndexable).map((job, index) => ({
+              "@type": "ListItem",
+              position: index + 1,
+              name: job.title,
+              url: absoluteUrl(`/jobs/${encodeURIComponent(job.slug)}`),
+            })),
+          }}
+        />
+      ) : null}
       <SiteHeader />
       <main className="pt-[76px]">
         <section className="hero-surface border-b border-[var(--color-line)]">
