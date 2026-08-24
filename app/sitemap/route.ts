@@ -1,5 +1,6 @@
 import { getJobs } from "@/lib/jobs";
 import { SITE_URL, absoluteUrl, isJobIndexable } from "@/lib/seo";
+import { careerGuides } from "@/lib/career-guides";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,21 @@ export async function GET() {
   const entries = [
     urlEntry({ url: SITE_URL, changeFrequency: "weekly", priority: 1 }),
     urlEntry({ url: absoluteUrl("/jobs"), changeFrequency: "daily", priority: 0.9 }),
+    urlEntry({ url: absoluteUrl("/about"), changeFrequency: "weekly", priority: 0.7 }),
+    urlEntry({ url: absoluteUrl("/services"), changeFrequency: "weekly", priority: 0.8 }),
+    urlEntry({ url: absoluteUrl("/career-guides"), changeFrequency: "weekly", priority: 0.8 }),
+    urlEntry({ url: absoluteUrl("/contact"), changeFrequency: "weekly", priority: 0.6 }),
+    urlEntry({ url: absoluteUrl("/privacy-policy"), changeFrequency: "weekly", priority: 0.3 }),
+    urlEntry({ url: absoluteUrl("/terms"), changeFrequency: "weekly", priority: 0.3 }),
+    urlEntry({ url: absoluteUrl("/editorial-policy"), changeFrequency: "weekly", priority: 0.4 }),
+    ...careerGuides.map((guide) =>
+      urlEntry({
+        url: absoluteUrl(`/career-guides/${guide.slug}`),
+        lastModified: guide.updatedAt,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      })
+    ),
   ];
 
   try {
@@ -66,4 +82,3 @@ export async function GET() {
     },
   });
 }
-

@@ -92,6 +92,33 @@ body {
   color: var(--color-muted);
 }
 
+.content-copy p {
+  max-width: 78ch;
+}
+
+.content-copy ul,
+.content-copy ol {
+  max-width: 78ch;
+  padding-left: 1.4rem;
+}
+
+.content-copy ul {
+  list-style: disc;
+}
+
+.content-copy ol {
+  list-style: decimal;
+}
+
+.content-copy li {
+  margin-top: 0.65rem;
+  padding-left: 0.25rem;
+}
+
+.content-copy strong {
+  color: var(--color-ink);
+}
+
 .hero-frame {
   box-shadow: 0 28px 60px rgba(9, 19, 24, 0.12);
 }

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import qrCode from "../qr-1775155944413.png";
 import { RevealSection } from "@/components/reveal-section";
 import { ResumeBuilderClient } from "@/components/resume-builder-client";
@@ -283,6 +284,57 @@ export default function Home() {
               </div>
             </div>
           </div>
+          </RevealSection>
+        </section>
+
+        <section className="section-shell py-12 sm:py-20">
+          <RevealSection delay={140}>
+            <div className="mx-auto max-w-4xl text-center">
+              <p className="eyebrow">Candidate Resources</p>
+              <h2 className="mt-4 section-title">Clear guidance for decisions before, during, and after an interview.</h2>
+              <p className="muted-copy mt-5 text-base leading-8 sm:text-lg">
+                Werkly&apos;s career library explains practical steps candidates can use without promising a job outcome.
+              </p>
+            </div>
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {[
+                {
+                  href: "/career-guides/write-a-recruiter-friendly-resume",
+                  label: "Resume guidance",
+                  title: "Write a recruiter-friendly resume",
+                  copy: "Structure experience, skills, and evidence so a reviewer can understand your fit quickly.",
+                },
+                {
+                  href: "/career-guides/interview-preparation-checklist",
+                  label: "Interview preparation",
+                  title: "Prepare examples, questions, and logistics",
+                  copy: "Use a practical checklist for role research, evidence-based answers, and interview setup.",
+                },
+                {
+                  href: "/career-guides/evaluate-a-job-offer",
+                  label: "Career decisions",
+                  title: "Evaluate an offer beyond salary",
+                  copy: "Compare role scope, pay structure, manager expectations, location, and joining conditions.",
+                },
+              ].map((guide) => (
+                <article key={guide.href} className="accent-card flex flex-col p-7">
+                  <p className="eyebrow">{guide.label}</p>
+                  <h3 className="mt-4 text-2xl font-semibold leading-snug text-[var(--color-ink)]">{guide.title}</h3>
+                  <p className="muted-copy mt-4 flex-1 text-base leading-7">{guide.copy}</p>
+                  <Link href={guide.href} className="mt-6 font-semibold text-[var(--color-dark)]">
+                    Read the guide →
+                  </Link>
+                </article>
+              ))}
+            </div>
+            <div className="mt-8 text-center">
+              <Link
+                href="/career-guides"
+                className="inline-flex rounded-2xl border border-[var(--color-dark)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-dark)]"
+              >
+                View all career guides
+              </Link>
+            </div>
           </RevealSection>
         </section>
 

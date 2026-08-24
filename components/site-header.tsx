@@ -6,10 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { EnquiryModal } from "@/components/enquiry-modal";
 
 const navItems = [
+  { label: "About", href: "/about" },
   { label: "Jobs", href: "/jobs" },
-  { label: "Sectors", target: "expertise" },
-  { label: "Process", target: "process" },
-  { label: "Contact", target: "contact" },
+  { label: "Services", href: "/services" },
+  { label: "Career Guides", href: "/career-guides" },
+  { label: "Contact", href: "/contact" },
   { label: "Resume Builder", target: "resume-builder" },
 ];
 
@@ -68,7 +69,7 @@ export function SiteHeader() {
             priority
           />
         </button>
-        <nav className="hidden items-center gap-9 text-sm font-medium uppercase tracking-[0.16em] text-white/78 md:flex">
+        <nav className="hidden items-center gap-5 text-xs font-medium uppercase tracking-[0.13em] text-white/78 lg:flex xl:gap-7">
           {navItems.map((item) => (
             isLinkItem(item) ? (
               <Link key={item.href} href={item.href} className="transition hover:text-white">
@@ -86,6 +87,29 @@ export function SiteHeader() {
             )
           ))}
         </nav>
+        <details className="relative ml-auto lg:hidden">
+          <summary className="cursor-pointer list-none rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
+            Menu
+          </summary>
+          <div className="absolute right-0 top-12 z-50 grid min-w-56 gap-1 rounded-2xl border border-[var(--color-line)] bg-white p-2 text-sm font-medium text-[var(--color-ink)] shadow-xl">
+            {navItems.map((item) =>
+              isLinkItem(item) ? (
+                <Link key={item.href} href={item.href} className="rounded-xl px-4 py-3 hover:bg-slate-50">
+                  {item.label}
+                </Link>
+              ) : (
+                <button
+                  key={item.target}
+                  type="button"
+                  onClick={() => handleNavClick(item.target)}
+                  className="rounded-xl px-4 py-3 text-left hover:bg-slate-50"
+                >
+                  {item.label}
+                </button>
+              )
+            )}
+          </div>
+        </details>
         <EnquiryModal />
       </div>
     </header>

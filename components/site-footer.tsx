@@ -4,11 +4,18 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const quickLinks = [
+  { label: "About", href: "/about" },
   { label: "Jobs", href: "/jobs" },
-  { label: "Sectors", target: "expertise" },
-  { label: "Process", target: "process" },
-  { label: "Contact", target: "contact" },
+  { label: "Services", href: "/services" },
+  { label: "Career Guides", href: "/career-guides" },
+  { label: "Contact", href: "/contact" },
   { label: "Resume Builder", target: "resume-builder" },
+];
+
+const policyLinks = [
+  { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Terms of Use", href: "/terms" },
+  { label: "Editorial Policy", href: "/editorial-policy" },
 ];
 
 function isLinkItem(
@@ -95,6 +102,16 @@ export function SiteFooter() {
             WhatsApp: Chat on WhatsApp
           </a>
         </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-white/10 pt-5 text-xs text-white/65">
+          {policyLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="transition hover:text-white">
+              {link.label}
+            </Link>
+          ))}
+        </div>
+        <p className="text-xs text-white/55">
+          © {new Date().getFullYear()} Werkly Consulting Pvt LTD. Recruitment information does not guarantee employment or selection.
+        </p>
       </div>
     </footer>
   );
