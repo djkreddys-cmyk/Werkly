@@ -52,73 +52,52 @@ const sectors = [
 
 export default function Home() {
   return (
-    <div id="top" className="relative">
+    <div id="top" className="public-site relative">
       <SiteHeader />
-      <main className="pt-[76px]">
-        <section className="relative overflow-hidden bg-[var(--color-dark)]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(241,166,75,0.16),transparent_24%),radial-gradient(circle_at_80%_24%,rgba(255,255,255,0.08),transparent_24%),linear-gradient(180deg,rgba(8,96,108,0.98),rgba(8,96,108,1))]" />
-          <div className="section-shell relative py-16 sm:py-20 lg:py-24">
-            <div className="grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+      <main className="pt-[72px]">
+        <section className="relative overflow-hidden bg-[#074852]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_16%,rgba(241,166,75,0.2),transparent_24rem),radial-gradient(circle_at_90%_14%,rgba(255,255,255,0.09),transparent_26rem),linear-gradient(135deg,rgba(7,72,82,0.98),rgba(8,96,108,0.96))]" />
+          <div className="section-shell relative py-14 sm:py-16 lg:py-20">
+            <div className="grid gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
               <div className="motion-rise text-white">
-                <p className="text-sm font-semibold uppercase tracking-[0.32em] text-[var(--color-accent)]">
-                  Werkly Consulting Pvt LTD
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--color-accent)]">
+                  Talent search and selection
                 </p>
-                <h1 className="mt-6 max-w-2xl font-[family-name:var(--font-display)] text-[3.3rem] leading-[0.98] sm:text-[4.35rem] lg:text-[4.85rem]">
-                  Recruitment solutions for IT and Non-IT hiring teams.
+                <h1 className="mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[2.75rem] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[3.75rem] lg:text-[4.25rem]">
+                  Better hiring starts with a clearer search.
                 </h1>
-                <p className="mt-5 max-w-xl text-[1.03rem] leading-8 text-white/80 sm:text-[1.08rem]">
-                  Structured search and selection support for companies that need stronger hiring pipelines across technology, business, engineering, operations, and leadership functions.
+                <p className="mt-5 max-w-xl text-base leading-8 text-white/76 sm:text-lg">
+                  Werkly helps IT and Non-IT teams define the requirement, reach relevant talent,
+                  screen with context, and move qualified candidates through the hiring process.
                 </p>
-                <div className="mt-8 grid max-w-2xl gap-4 sm:grid-cols-3">
-                  <div className="rounded-[1.35rem] border border-white/12 bg-white/8 px-5 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                      Hiring Coverage
-                    </p>
-                    <p className="mt-3 text-2xl font-semibold text-white">IT + Non-IT</p>
-                  </div>
-                  <div className="rounded-[1.35rem] border border-white/12 bg-white/8 px-5 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                      Delivery Model
-                    </p>
-                    <p className="mt-3 text-2xl font-semibold text-white">Structured Search</p>
-                  </div>
-                  <div className="rounded-[1.35rem] border border-white/12 bg-white/8 px-5 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                      Support Style
-                    </p>
-                    <p className="mt-3 text-2xl font-semibold text-white">Fast + Focused</p>
-                  </div>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Link href="/jobs" className="inline-flex items-center justify-center rounded-xl bg-[var(--color-accent)] px-5 py-3 text-sm font-bold text-[#17353d] transition hover:bg-[#f6b762]">
+                    Explore current jobs
+                  </Link>
+                  <Link href="/services" className="inline-flex items-center justify-center rounded-xl border border-white/22 bg-white/6 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/12">
+                    View recruitment services
+                  </Link>
+                </div>
+                <div className="mt-9 flex flex-wrap gap-x-7 gap-y-3 border-t border-white/12 pt-6 text-sm text-white/68">
+                  <span><strong className="text-white">IT + Non-IT</strong> coverage</span>
+                  <span><strong className="text-white">Role-aligned</strong> screening</span>
+                  <span><strong className="text-white">India-wide</strong> opportunities</span>
                 </div>
               </div>
-              <div className="motion-rise motion-rise-delay-1 grid gap-5 sm:grid-cols-[1.05fr_0.95fr]">
-                <div className="hero-frame overflow-hidden rounded-[1.8rem] border border-white/12 bg-white/8 p-3">
+              <div className="motion-rise motion-rise-delay-1 relative mx-auto w-full max-w-2xl lg:mx-0">
+                <div className="overflow-hidden rounded-[1.5rem] border border-white/14 bg-white/8 p-3 shadow-[0_32px_70px_rgba(4,30,35,0.28)]">
                   <Image
                     src="/consultancy-team-primary.svg"
                     alt="Three consultants collaborating at a meeting table"
                     width={1200}
                     height={900}
-                    className="h-full w-full rounded-[1.3rem] object-cover"
+                    className="aspect-[4/3] w-full rounded-[1.05rem] object-cover"
                     priority
                   />
                 </div>
-                <div className="grid gap-5">
-                  <div className="hero-frame overflow-hidden rounded-[1.55rem] border border-white/12 bg-white/8 p-3">
-                    <Image
-                      src="/consultancy-team-secondary.svg"
-                      alt="Two professionals reviewing a consultancy plan together"
-                      width={900}
-                      height={720}
-                      className="h-full w-full rounded-[1rem] object-cover"
-                    />
-                  </div>
-                  <div className="rounded-[1.55rem] border border-[rgba(241,166,75,0.28)] bg-white/8 p-6 text-white">
-                    <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                      Established in 2025
-                    </p>
-                    <p className="mt-3 text-lg leading-8 text-white/86">
-                      Forward-thinking search and selection support for both IT and Non-IT hiring mandates.
-                    </p>
-                  </div>
+                <div className="absolute -bottom-5 left-4 right-4 rounded-2xl border border-white/20 bg-white px-5 py-4 shadow-xl sm:left-auto sm:right-5 sm:max-w-xs">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">Candidate-first coordination</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-ink)]">Clear role details, interview updates, and verified application channels.</p>
                 </div>
               </div>
             </div>

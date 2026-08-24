@@ -135,6 +135,19 @@ body {
   border-bottom: 1px solid rgba(8, 96, 108, 0.08);
 }
 
+.public-page-hero {
+  background:
+    radial-gradient(circle at 88% 12%, rgba(241, 166, 75, 0.13), transparent 22rem),
+    radial-gradient(circle at 4% 100%, rgba(8, 96, 108, 0.08), transparent 26rem),
+    linear-gradient(180deg, #fffefb 0%, #f7f5ef 100%);
+  border-bottom: 1px solid rgba(8, 96, 108, 0.1);
+}
+
+.public-site .accent-card {
+  border-radius: 1.1rem;
+  box-shadow: 0 12px 32px rgba(15, 47, 54, 0.06);
+}
+
 .crm-shell-bg {
   background:
     linear-gradient(180deg, rgba(238, 243, 246, 0.95), rgba(246, 249, 251, 0.98)),

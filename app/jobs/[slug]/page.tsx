@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: JobPageProps): Promise<Metada
   const indexable = isJobIndexable(job);
 
   return {
-    title,
+    title: { absolute: `${title} | ${SITE_NAME}` },
     description,
     keywords: [job.title, job.location, job.sector, ...job.skills].filter(Boolean),
     alternates: { canonical: canonicalPath },
@@ -129,7 +129,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-paper)]">
+    <div className="public-site min-h-screen bg-[var(--color-paper)]">
       <StructuredData
         data={[
           jobPosting,
@@ -160,73 +160,67 @@ export default async function JobDetailPage({ params }: JobPageProps) {
         ]}
       />
       <SiteHeader />
-      <main className="pt-[76px]">
-        <section className="hero-surface border-b border-[var(--color-line)]">
-          <div className="section-shell py-16 sm:py-20">
+      <main className="pt-[72px]">
+        <section className="public-page-hero">
+          <div className="section-shell py-10 sm:py-14 lg:py-16">
             <Link
               href="/jobs"
-              className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--color-accent-strong)]"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-dark)] transition hover:text-[var(--color-accent-strong)]"
             >
-              Back to Jobs
+              ← Back to all jobs
             </Link>
-            <p className="eyebrow mt-6">{job.sector}</p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-tight text-[var(--color-ink)] sm:text-5xl">
-              {job.title}
-            </h1>
-            {job.jobCode ? (
-              <p className="mt-5 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">
-                Job ID {job.jobCode}
-              </p>
-            ) : null}
-            <div className="mt-6 flex flex-wrap gap-3 text-sm text-[var(--color-muted)]">
-              <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                {job.location}
-              </span>
-              <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                {job.experience}
-              </span>
-              <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                {job.employmentType}
-              </span>
-              <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                {job.positionsCount ?? 1} {(job.positionsCount ?? 1) === 1 ? "opening" : "openings"}
-              </span>
-              {job.packagePerAnnum ? (
-                <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                  {job.packagePerAnnum}
-                </span>
-              ) : null}
-              {job.lastDateToApply ? (
-                <span className="rounded-full border border-[var(--color-line)] px-3 py-1">
-                  Apply by {new Date(job.lastDateToApply).toLocaleDateString("en-IN")}
-                </span>
-              ) : null}
-            </div>
-            <p className="muted-copy mt-6 max-w-3xl text-base leading-8 sm:text-lg">{introCopy}</p>
-            <div className="mt-7">
-              <JobShareButton
-                title={job.title}
-                slug={job.slug}
-                jobCode={job.jobCode}
-                sector={job.sector}
-                location={job.location}
-                experience={job.experience}
-                employmentType={job.employmentType}
-                positionsCount={job.positionsCount}
-                lastDateToApply={job.lastDateToApply}
-                salary={job.salary}
-                packagePerAnnum={job.packagePerAnnum}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--color-dark)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-dark)] shadow-sm transition hover:bg-[rgba(8,96,108,0.07)]"
-              />
+            <div className="mt-7 grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="eyebrow">{job.sector}</p>
+                  {job.jobCode ? <span className="text-xs font-semibold text-[var(--color-muted)]">Job ID {job.jobCode}</span> : null}
+                </div>
+                <h1 className="mt-4 max-w-4xl font-[family-name:var(--font-display)] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.04em] text-[var(--color-ink)] sm:text-5xl lg:text-[3.5rem]">
+                  {job.title}
+                </h1>
+                <p className="muted-copy mt-5 max-w-3xl text-base leading-8 sm:text-lg">{introCopy}</p>
+                <div className="mt-6 flex flex-wrap gap-2 text-sm text-[var(--color-muted)]">
+                  {[job.location, job.experience, job.employmentType, `${job.positionsCount ?? 1} ${(job.positionsCount ?? 1) === 1 ? "opening" : "openings"}`].map((item) => (
+                    <span key={item} className="rounded-full border border-[var(--color-line)] bg-white px-3.5 py-1.5">{item}</span>
+                  ))}
+                </div>
+              </div>
+              <aside className="rounded-2xl border border-[var(--color-line)] bg-white p-5 shadow-[0_14px_36px_rgba(15,47,54,0.08)]">
+                <p className="text-sm font-semibold text-[var(--color-ink)]">Interested in this opportunity?</p>
+                <p className="muted-copy mt-2 text-sm leading-6">Apply through Werkly and attach your latest resume for the recruitment team.</p>
+                <div className="mt-5 grid gap-3">
+                  <EnquiryModal
+                    triggerLabel="Apply for this job"
+                    jobSlug={job.slug}
+                    jobTitle={job.title}
+                    triggerClassName="inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-dark)] px-5 py-3 text-sm font-bold text-white transition hover:bg-[var(--color-accent-strong)]"
+                  />
+                  <JobShareButton
+                    title={job.title}
+                    slug={job.slug}
+                    jobCode={job.jobCode}
+                    sector={job.sector}
+                    location={job.location}
+                    experience={job.experience}
+                    employmentType={job.employmentType}
+                    positionsCount={job.positionsCount}
+                    lastDateToApply={job.lastDateToApply}
+                    salary={job.salary}
+                    packagePerAnnum={job.packagePerAnnum}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-dark)] bg-white px-5 py-3 text-sm font-bold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
+                  />
+                </div>
+              </aside>
             </div>
           </div>
         </section>
 
-        <section className="section-shell py-16 sm:py-20">
-          <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="section-shell py-10 sm:py-14">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
             <div className="space-y-5">
-              <article className="accent-card p-7">
-                <p className="eyebrow">Job Description</p>
+              {job.responsibilities.length ? <article className="rounded-2xl border border-[var(--color-line)] bg-white p-6 shadow-[0_10px_28px_rgba(15,47,54,0.05)] sm:p-8">
+                <p className="eyebrow">The role</p>
+                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-[var(--color-ink)]">Responsibilities</h2>
                 <ul className="mt-5 space-y-4 text-base leading-7 text-[var(--color-ink)]">
                   {job.responsibilities.map((item) => (
                     <li key={item} className="flex gap-3">
@@ -235,9 +229,10 @@ export default async function JobDetailPage({ params }: JobPageProps) {
                     </li>
                   ))}
                 </ul>
-              </article>
-              <article className="accent-card p-7">
-                <p className="eyebrow">Key Skills</p>
+              </article> : null}
+              {job.requirements.length ? <article className="rounded-2xl border border-[var(--color-line)] bg-white p-6 shadow-[0_10px_28px_rgba(15,47,54,0.05)] sm:p-8">
+                <p className="eyebrow">Candidate profile</p>
+                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-[var(--color-ink)]">Skills and requirements</h2>
                 <ul className="mt-5 space-y-4 text-base leading-7 text-[var(--color-ink)]">
                   {job.requirements.map((item) => (
                     <li key={item} className="flex gap-3">
@@ -246,62 +241,55 @@ export default async function JobDetailPage({ params }: JobPageProps) {
                     </li>
                   ))}
                 </ul>
-              </article>
+              </article> : null}
+              {!job.responsibilities.length && !job.requirements.length ? (
+                <article className="rounded-2xl border border-[var(--color-line)] bg-white p-6 shadow-[0_10px_28px_rgba(15,47,54,0.05)] sm:p-8">
+                  <p className="eyebrow">Role information</p>
+                  <h2 className="mt-3 text-2xl font-semibold tracking-[-0.025em] text-[var(--color-ink)]">Detailed brief available during screening</h2>
+                  <p className="muted-copy mt-4 max-w-3xl text-base leading-8">
+                    The employer&apos;s detailed responsibilities and skill priorities are being confirmed. Apply with Job ID {job.jobCode || job.id} and the Werkly team will verify the current brief before progressing your profile.
+                  </p>
+                </article>
+              ) : null}
             </div>
 
-            <aside className="space-y-5">
-              <article className="accent-card p-7">
-                <p className="eyebrow">Role Snapshot</p>
-                <div className="mt-5 space-y-4 text-base">
+            <aside className="space-y-5 lg:sticky lg:top-24">
+              <article className="rounded-2xl border border-[var(--color-line)] bg-white p-6 shadow-[0_10px_28px_rgba(15,47,54,0.05)]">
+                <p className="eyebrow">Role snapshot</p>
+                <dl className="mt-5 divide-y divide-[var(--color-line)] text-base">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Salary</p>
-                    <p className="mt-1 font-semibold text-[var(--color-ink)]">
+                    <dt className="text-xs uppercase tracking-[0.14em] text-slate-400">Salary</dt>
+                    <dd className="mt-1 pb-4 font-semibold text-[var(--color-ink)]">
                       {job.salary ?? "Competitive"}
-                    </p>
+                    </dd>
                   </div>
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Package Per Annum</p>
-                    <p className="mt-1 font-semibold text-[var(--color-ink)]">
+                  <div className="pt-4">
+                    <dt className="text-xs uppercase tracking-[0.14em] text-slate-400">Package per annum</dt>
+                    <dd className="mt-1 pb-4 font-semibold text-[var(--color-ink)]">
                       {job.packagePerAnnum ?? "Discussed with shortlisted candidates"}
-                    </p>
+                    </dd>
                   </div>
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Open Positions</p>
-                    <p className="mt-1 font-semibold text-[var(--color-ink)]">
+                  <div className="pt-4">
+                    <dt className="text-xs uppercase tracking-[0.14em] text-slate-400">Open positions</dt>
+                    <dd className="mt-1 pb-4 font-semibold text-[var(--color-ink)]">
                       {job.positionsCount ?? 1}
-                    </p>
+                    </dd>
                   </div>
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Last Date to Apply</p>
-                    <p className="mt-1 font-semibold text-[var(--color-ink)]">
+                  <div className="pt-4">
+                    <dt className="text-xs uppercase tracking-[0.14em] text-slate-400">Apply by</dt>
+                    <dd className="mt-1 pb-4 font-semibold text-[var(--color-ink)]">
                       {job.lastDateToApply
                         ? new Date(job.lastDateToApply).toLocaleDateString("en-IN")
                         : "Open until filled"}
-                    </p>
+                    </dd>
                   </div>
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.16em] text-slate-400">Applied People</p>
-                    <p className="mt-1 font-semibold text-[var(--color-ink)]">
+                  <div className="pt-4">
+                    <dt className="text-xs uppercase tracking-[0.14em] text-slate-400">Applications received</dt>
+                    <dd className="mt-1 font-semibold text-[var(--color-ink)]">
                       {job.applicationsCount}
-                    </p>
+                    </dd>
                   </div>
-                </div>
-              </article>
-
-              <article className="accent-card p-7">
-                <p className="eyebrow">Apply</p>
-                <p className="muted-copy mt-4 text-base leading-7">
-                  Use Werkly&apos;s enquiry flow to apply for this job and share your resume
-                  directly with the recruitment team.
-                </p>
-                <div className="mt-5">
-                  <EnquiryModal
-                    triggerLabel="Apply Now"
-                    jobSlug={job.slug}
-                    jobTitle={job.title}
-                    triggerClassName="inline-flex items-center justify-center rounded-2xl bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-accent-strong)]"
-                  />
-                </div>
+                </dl>
               </article>
             </aside>
           </div>

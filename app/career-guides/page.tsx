@@ -22,10 +22,13 @@ export default function CareerGuidesPage() {
       title="Practical guidance for more informed job searches."
       intro="These guides are written to help candidates present experience accurately, prepare with evidence, and evaluate opportunities beyond surface-level details."
     >
-      <div className="grid gap-5 lg:grid-cols-3">
-        {careerGuides.map((guide) => (
-          <article key={guide.slug} className="accent-card flex flex-col p-7">
-            <p className="eyebrow">{guide.category}</p>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {careerGuides.map((guide, index) => (
+          <article key={guide.slug} className="accent-card flex flex-col p-7 sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <p className="eyebrow">{guide.category}</p>
+              <span className="text-3xl font-semibold text-[rgba(8,96,108,0.18)]">0{index + 1}</span>
+            </div>
             <h2 className="mt-4 text-2xl font-semibold leading-snug text-[var(--color-ink)]">
               <Link href={`/career-guides/${guide.slug}`} className="hover:text-[var(--color-dark)]">
                 {guide.title}
@@ -57,4 +60,3 @@ export default function CareerGuidesPage() {
     </PublicContentPage>
   );
 }
-

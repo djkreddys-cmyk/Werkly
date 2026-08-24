@@ -16,7 +16,7 @@ export default function ContactPage() {
       title="Use an official Werkly channel for every enquiry."
       intro="Contact us about employer requirements, a published vacancy, candidate information, or a privacy request. Include only the information needed for us to respond."
     >
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <section className="accent-card p-7">
           <p className="eyebrow">Email</p>
           <h2 className="mt-4 text-xl font-semibold text-[var(--color-ink)]">Hiring and candidate enquiries</h2>
@@ -68,4 +68,3 @@ export default function ContactPage() {
     </PublicContentPage>
   );
 }
-

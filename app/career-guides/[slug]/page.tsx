@@ -71,40 +71,55 @@ export default async function CareerGuidePage({ params }: GuidePageProps) {
         title={guide.title}
         intro={guide.description}
       >
-        <article className="mx-auto max-w-5xl">
-          <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-[var(--color-line)] pb-5 text-sm text-[var(--color-muted)]">
-            <span>Published 24 August 2026</span>
-            <span aria-hidden="true">•</span>
-            <span>{guide.readingTime}</span>
-            <span aria-hidden="true">•</span>
-            <span>Reviewed by Werkly Consulting</span>
-          </div>
-          {guide.sections.map((section) => (
-            <ContentSection key={section.heading} title={section.heading}>
-              {section.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-              {section.bullets ? (
-                <ul>
-                  {section.bullets.map((bullet) => (
-                    <li key={bullet}>{bullet}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </ContentSection>
-          ))}
-          <div className="mt-9 bg-[rgba(8,96,108,0.06)] p-6 text-sm leading-7 text-[var(--color-muted)]">
-            This guide provides general career information, not a promise of placement, interview selection, compensation, or employment. Always verify role and employer details before making a decision.
-          </div>
-          <RelatedLinks links={related} />
-          <p className="mt-8 text-sm text-[var(--color-muted)]">
-            <Link href="/career-guides" className="font-semibold text-[var(--color-dark)]">
-              ← View all career guides
-            </Link>
-          </p>
-        </article>
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16">
+          <aside className="hidden lg:block">
+            <nav aria-label="Guide contents" className="sticky top-28 border-l border-[var(--color-line)] pl-5">
+              <p className="eyebrow">In this guide</p>
+              <ol className="mt-4 space-y-3 text-sm leading-6 text-[var(--color-muted)]">
+                {guide.sections.map((section, index) => (
+                  <li key={section.heading}>
+                    <a href={`#section-${index + 1}`} className="transition hover:text-[var(--color-dark)]">
+                      {section.heading}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          </aside>
+          <article className="min-w-0 max-w-3xl">
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--color-line)] pb-6 text-sm text-[var(--color-muted)]">
+              <span>Published 24 August 2026</span>
+              <span aria-hidden="true">•</span>
+              <span>{guide.readingTime}</span>
+              <span aria-hidden="true">•</span>
+              <span>Reviewed by Werkly Consulting</span>
+            </div>
+            {guide.sections.map((section, index) => (
+              <ContentSection id={`section-${index + 1}`} key={section.heading} title={section.heading}>
+                {section.paragraphs.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+                {section.bullets ? (
+                  <ul>
+                    {section.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </ContentSection>
+            ))}
+            <div className="mt-9 rounded-2xl border border-[rgba(8,96,108,0.16)] bg-[rgba(8,96,108,0.05)] p-6 text-sm leading-7 text-[var(--color-muted)]">
+              This guide provides general career information, not a promise of placement, interview selection, compensation, or employment. Always verify role and employer details before making a decision.
+            </div>
+            <RelatedLinks links={related} />
+            <p className="mt-8 text-sm text-[var(--color-muted)]">
+              <Link href="/career-guides" className="font-semibold text-[var(--color-dark)]">
+                ← View all career guides
+              </Link>
+            </p>
+          </article>
+        </div>
       </PublicContentPage>
     </>
   );
 }
-

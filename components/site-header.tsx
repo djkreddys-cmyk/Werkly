@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { EnquiryModal } from "@/components/enquiry-modal";
 
 const navItems = [
@@ -14,22 +15,20 @@ const navItems = [
   { label: "Resume Builder", target: "resume-builder" },
 ];
 
-function isLinkItem(
-  item: (typeof navItems)[number]
-): item is { label: string; href: string } {
+function isLinkItem(item: (typeof navItems)[number]): item is { label: string; href: string } {
   return "href" in item;
 }
-
 export function SiteHeader() {
   const router = useRouter();
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isAdminHost = () =>
-    typeof window !== "undefined" && window.location.hostname === "admin.werkly.in";
+  useEffect(() => setMobileOpen(false), [pathname]);
 
   const handleNavClick = (target: string) => {
+    setMobileOpen(false);
     if (typeof window === "undefined") return;
-    if (isAdminHost()) {
+    if (window.location.hostname === "admin.werkly.in") {
       window.location.assign(`https://www.werkly.in/#${target}`);
       return;
     }
@@ -37,42 +36,36 @@ export function SiteHeader() {
       router.push(`/#${target}`);
       return;
     }
-    const nextUrl = `${window.location.pathname}#${target}`;
-    window.history.pushState(null, "", nextUrl);
+    window.history.pushState(null, "", `${window.location.pathname}#${target}`);
     document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const handleLogoClick = () => {
-    if (typeof window === "undefined") return;
-    if (isAdminHost()) {
-      window.location.assign("https://www.werkly.in/");
-      return;
-    }
-    if (pathname !== "/") {
-      router.push("/");
-      return;
-    }
-    window.history.pushState(null, "", window.location.pathname);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-[rgba(8,96,108,0.94)] backdrop-blur-xl">
-      <div className="mx-auto flex h-[76px] w-full max-w-[92rem] items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
-        <button type="button" onClick={handleLogoClick} className="flex items-center">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[rgba(7,72,82,0.96)] shadow-[0_10px_30px_rgba(7,45,52,0.12)] backdrop-blur-xl">
+      <div className="section-shell flex h-[72px] items-center gap-3">
+        <Link href="/" aria-label="Werkly Consulting home" className="shrink-0">
           <Image
             src="/Werkly Logo.png"
-            alt="Werkly logo"
+            alt="Werkly Consulting"
             width={640}
             height={176}
-            className="h-[136px] w-auto object-contain"
+            className="h-11 w-auto object-contain sm:h-12"
             priority
           />
-        </button>
-        <nav className="hidden items-center gap-5 text-xs font-medium uppercase tracking-[0.13em] text-white/78 lg:flex xl:gap-7">
-          {navItems.map((item) => (
+        </Link>
+
+        <nav className="ml-auto hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
+          {navItems.map((item) =>
             isLinkItem(item) ? (
-              <Link key={item.href} href={item.href} className="transition hover:text-white">
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`rounded-xl px-3 py-2 text-[0.78rem] font-semibold tracking-[0.03em] transition xl:px-4 ${
+                  pathname === item.href || pathname.startsWith(`${item.href}/`)
+                    ? "bg-white/10 text-white"
+                    : "text-white/72 hover:bg-white/7 hover:text-white"
+                }`}
+              >
                 {item.label}
               </Link>
             ) : (
@@ -80,38 +73,54 @@ export function SiteHeader() {
                 key={item.target}
                 type="button"
                 onClick={() => handleNavClick(item.target)}
-                className="transition hover:text-white"
+                className="rounded-xl px-3 py-2 text-[0.78rem] font-semibold tracking-[0.03em] text-white/72 transition hover:bg-white/7 hover:text-white xl:px-4"
               >
                 {item.label}
               </button>
             )
-          ))}
+          )}
         </nav>
-        <details className="relative ml-auto lg:hidden">
-          <summary className="cursor-pointer list-none rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
-            Menu
-          </summary>
-          <div className="absolute right-0 top-12 z-50 grid min-w-56 gap-1 rounded-2xl border border-[var(--color-line)] bg-white p-2 text-sm font-medium text-[var(--color-ink)] shadow-xl">
+
+        <div className="ml-auto lg:ml-3">
+          <EnquiryModal
+            triggerLabel="Enquire"
+            triggerClassName="inline-flex items-center justify-center rounded-xl bg-[var(--color-accent)] px-4 py-2.5 text-sm font-bold text-[#17353d] shadow-sm transition hover:bg-[#f6b762] sm:px-5"
+          />
+        </div>
+
+        <button
+          type="button"
+          aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((current) => !current)}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/18 text-white lg:hidden"
+        >
+          <span className="sr-only">Menu</span>
+          <span className="grid gap-1.5" aria-hidden="true">
+            <span className={`block h-0.5 w-5 bg-current transition ${mobileOpen ? "translate-y-2 rotate-45" : ""}`} />
+            <span className={`block h-0.5 w-5 bg-current transition ${mobileOpen ? "opacity-0" : ""}`} />
+            <span className={`block h-0.5 w-5 bg-current transition ${mobileOpen ? "-translate-y-2 -rotate-45" : ""}`} />
+          </span>
+        </button>
+      </div>
+
+      {mobileOpen ? (
+        <nav className="border-t border-white/10 bg-[#074852] px-4 py-3 lg:hidden" aria-label="Mobile navigation">
+          <div className="mx-auto grid max-w-[92rem] grid-cols-2 gap-2">
             {navItems.map((item) =>
               isLinkItem(item) ? (
-                <Link key={item.href} href={item.href} className="rounded-xl px-4 py-3 hover:bg-slate-50">
+                <Link key={item.href} href={item.href} className="rounded-xl px-4 py-3 text-sm font-semibold text-white/85 hover:bg-white/8 hover:text-white">
                   {item.label}
                 </Link>
               ) : (
-                <button
-                  key={item.target}
-                  type="button"
-                  onClick={() => handleNavClick(item.target)}
-                  className="rounded-xl px-4 py-3 text-left hover:bg-slate-50"
-                >
+                <button key={item.target} type="button" onClick={() => handleNavClick(item.target)} className="rounded-xl px-4 py-3 text-left text-sm font-semibold text-white/85 hover:bg-white/8 hover:text-white">
                   {item.label}
                 </button>
               )
             )}
           </div>
-        </details>
-        <EnquiryModal />
-      </div>
+        </nav>
+      ) : null}
     </header>
   );
 }

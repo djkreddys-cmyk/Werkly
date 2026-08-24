@@ -18,7 +18,7 @@ export default async function JobsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-paper)]">
+    <div className="public-site min-h-screen bg-[var(--color-paper)]">
       {jobs.length ? (
         <StructuredData
           data={{
@@ -35,40 +35,34 @@ export default async function JobsPage() {
         />
       ) : null}
       <SiteHeader />
-      <main className="pt-[76px]">
-        <section className="hero-surface border-b border-[var(--color-line)]">
-          <div className="section-shell py-16 sm:py-20">
-            <p className="eyebrow">Current Openings</p>
-            <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-tight text-[var(--color-ink)] sm:text-5xl">
-              Explore active IT and Non-IT hiring opportunities from Werkly.
-            </h1>
-            <p className="muted-copy mt-5 max-w-3xl text-base leading-8 sm:text-lg">
-              Review live openings in technology, business, engineering, operations, and leadership functions through one clear public jobs board.
-            </p>
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              <article className="accent-card p-5">
-                <p className="eyebrow">Filter First</p>
-                <p className="mt-3 text-sm leading-7 text-[var(--color-muted)]">
-                  Use sector, location, and employment filters to quickly verify the roles relevant to your profile.
+      <main className="pt-[72px]">
+        <section className="public-page-hero">
+          <div className="section-shell py-12 sm:py-16 lg:py-20">
+            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <p className="eyebrow">Current Openings</p>
+                <h1 className="mt-4 max-w-4xl font-[family-name:var(--font-display)] text-[2.35rem] font-semibold leading-[1.08] tracking-[-0.04em] text-[var(--color-ink)] sm:text-5xl lg:text-[3.6rem]">
+                  Find the role that fits your experience and next step.
+                </h1>
+                <p className="muted-copy mt-5 max-w-3xl text-base leading-8 sm:text-lg">
+                  Search active opportunities, review the complete role, and apply through a verified Werkly channel.
                 </p>
-              </article>
-              <article className="accent-card p-5">
-                <p className="eyebrow">Clear Visibility</p>
-                <p className="mt-3 text-sm leading-7 text-[var(--color-muted)]">
-                  See job IDs, position details, experience expectations, and deadlines in a cleaner table layout.
-                </p>
-              </article>
-              <article className="accent-card p-5">
-                <p className="eyebrow">Direct Apply Flow</p>
-                <p className="mt-3 text-sm leading-7 text-[var(--color-muted)]">
-                  Open any role to review the full mandate and continue into the application process with better clarity.
-                </p>
-              </article>
+              </div>
+              <div className="flex gap-6 border-l-0 border-[var(--color-line)] lg:border-l lg:pl-8">
+                <div>
+                  <p className="text-3xl font-semibold text-[var(--color-dark)]">{jobs.length}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--color-muted)]">Live roles</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-semibold text-[var(--color-dark)]">IT + Non-IT</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--color-muted)]">Hiring coverage</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="section-shell py-16 sm:py-20">
+        <section className="section-shell py-10 sm:py-14">
           {jobsError ? (
             <div className="accent-card p-8 text-center">
               <p className="eyebrow">Current Openings</p>

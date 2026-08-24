@@ -66,7 +66,7 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
 
   return (
     <section className="space-y-6">
-      <div className="accent-card p-6">
+      <div className="rounded-2xl border border-[var(--color-line)] bg-white p-5 shadow-[0_10px_28px_rgba(15,47,54,0.05)] sm:p-6">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(320px,1.4fr)_220px_220px_220px] xl:items-end">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
@@ -155,11 +155,75 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
         </div>
       </div>
 
-      <div className="accent-card overflow-hidden">
+      <div className="grid gap-4 lg:hidden">
+        {filteredJobs.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--color-line)] bg-white px-5 py-10 text-center text-sm text-[var(--color-muted)]">
+            No jobs matched the current filters.
+          </div>
+        ) : (
+          filteredJobs.map((job) => (
+            <article key={job.id} className="rounded-2xl border border-[var(--color-line)] bg-white p-5 shadow-[0_10px_28px_rgba(15,47,54,0.05)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--color-accent-strong)]">
+                    Job {job.jobCode || "Pending"}
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold leading-snug text-[var(--color-ink)]">{job.title}</h2>
+                  <p className="mt-1 text-sm text-[var(--color-muted)]">{job.sector}</p>
+                </div>
+                <span className="rounded-full bg-[rgba(8,96,108,0.08)] px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--color-dark)]">
+                  {job.status}
+                </span>
+              </div>
+
+              <dl className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4 border-y border-[var(--color-line)] py-4 text-sm">
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.1em] text-slate-400">Location</dt>
+                  <dd className="mt-1 font-semibold text-[var(--color-ink)]">{job.location}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.1em] text-slate-400">Experience</dt>
+                  <dd className="mt-1 font-semibold text-[var(--color-ink)]">{job.experience}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.1em] text-slate-400">Type</dt>
+                  <dd className="mt-1 font-semibold text-[var(--color-ink)]">{job.employmentType}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-[0.1em] text-slate-400">Apply by</dt>
+                  <dd className="mt-1 font-semibold text-[var(--color-ink)]">{formatDate(job.lastDateToApply)}</dd>
+                </div>
+              </dl>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <Link href={`/jobs/${job.slug}`} className="inline-flex items-center justify-center rounded-xl bg-[var(--color-dark)] px-4 py-3 text-sm font-bold text-white transition hover:bg-[var(--color-accent-strong)]">
+                  View details
+                </Link>
+                <JobShareButton
+                  title={job.title}
+                  slug={job.slug}
+                  jobCode={job.jobCode}
+                  sector={job.sector}
+                  location={job.location}
+                  experience={job.experience}
+                  employmentType={job.employmentType}
+                  positionsCount={job.positionsCount}
+                  lastDateToApply={job.lastDateToApply}
+                  salary={job.salary}
+                  packagePerAnnum={job.packagePerAnnum}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-dark)] px-4 py-3 text-sm font-bold text-[var(--color-dark)]"
+                />
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-[var(--color-line)] bg-white shadow-[0_10px_28px_rgba(15,47,54,0.05)] lg:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1120px] border-collapse">
             <thead>
-              <tr className="bg-[rgba(8,96,108,0.05)] text-left">
+              <tr className="bg-[#eef5f5] text-left">
                 {[
                   "Job ID",
                   "Position",

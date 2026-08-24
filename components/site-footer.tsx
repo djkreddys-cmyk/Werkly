@@ -1,15 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-const quickLinks = [
-  { label: "About", href: "/about" },
-  { label: "Jobs", href: "/jobs" },
-  { label: "Services", href: "/services" },
-  { label: "Career Guides", href: "/career-guides" },
+const companyLinks = [
+  { label: "About Werkly", href: "/about" },
+  { label: "Recruitment Services", href: "/services" },
   { label: "Contact", href: "/contact" },
-  { label: "Resume Builder", target: "resume-builder" },
 ];
 
 const policyLinks = [
@@ -18,101 +16,80 @@ const policyLinks = [
   { label: "Editorial Policy", href: "/editorial-policy" },
 ];
 
-function isLinkItem(
-  item: (typeof quickLinks)[number]
-): item is { label: string; href: string } {
-  return "href" in item;
-}
-
 export function SiteFooter() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const handleNavClick = (target: string) => {
-    if (typeof window === "undefined") return;
+  const openSection = (target: string) => {
     if (pathname !== "/") {
       router.push(`/#${target}`);
       return;
     }
-    const nextUrl = `${window.location.pathname}#${target}`;
-    window.history.pushState(null, "", nextUrl);
+    window.history.pushState(null, "", `${window.location.pathname}#${target}`);
     document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
-    <footer className="border-t border-white/10 bg-[var(--color-dark)] text-white">
-      <div className="mx-auto flex w-full max-w-[92rem] flex-col items-center gap-5 px-4 py-8 text-center sm:px-6 lg:px-8">
-        <div className="w-full max-w-[640px] space-y-3">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[var(--color-accent)]/90">
-            Werkly
-          </p>
-          <h2 className="mx-auto w-full max-w-[560px] font-[family-name:var(--font-display)] text-[1.85rem] leading-[1.18] text-white">
-            Recruitment support built for both IT and Non-IT hiring teams.
-          </h2>
-          <p className="mx-auto w-full max-w-[620px] text-sm leading-7 text-white/68">
-            Werkly Consulting Pvt LTD supports companies with customized search and selection solutions across technology, business, engineering, operations, and leadership hiring.
-          </p>
+    <footer className="bg-[#073f48] text-white">
+      <div className="section-shell py-12 sm:py-14">
+        <div className="grid gap-10 border-b border-white/10 pb-10 md:grid-cols-2 lg:grid-cols-[1.45fr_0.8fr_0.8fr_1fr]">
+          <div className="max-w-md">
+            <Image src="/Werkly Logo.png" alt="Werkly Consulting" width={640} height={176} className="h-14 w-auto object-contain" />
+            <p className="mt-5 text-sm leading-7 text-white/68">
+              Structured IT and Non-IT recruitment support for technology, engineering,
+              operations, commercial, and leadership teams across India.
+            </p>
+            <p className="mt-4 text-xs leading-6 text-white/50">
+              Werkly does not charge candidates to obtain an interview or job offer.
+            </p>
+          </div>
+
+          <FooterColumn title="Company" links={companyLinks} />
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-accent)]">Candidates</p>
+            <div className="mt-4 grid gap-3 text-sm text-white/72">
+              <Link href="/jobs" className="transition hover:text-white">Current Jobs</Link>
+              <Link href="/career-guides" className="transition hover:text-white">Career Guides</Link>
+              <button type="button" onClick={() => openSection("resume-builder")} className="text-left transition hover:text-white">Resume Builder</button>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-accent)]">Connect</p>
+            <div className="mt-4 grid gap-3 text-sm text-white/72">
+              <a href="mailto:hr@werkly.in" className="transition hover:text-white">hr@werkly.in</a>
+              <a href="tel:+917036797909" className="transition hover:text-white">+91 70367 97909</a>
+              <a href="https://wa.me/917036797909" target="_blank" rel="noreferrer" className="transition hover:text-white">WhatsApp</a>
+              <div className="mt-2 flex gap-2">
+                <a href="https://www.linkedin.com/in/werkly-consulting-35603b3ba/" target="_blank" rel="noreferrer" className="rounded-lg border border-white/14 px-3 py-2 text-xs font-semibold hover:border-white/30 hover:text-white">LinkedIn</a>
+                <a href="https://www.instagram.com/werklyconsulting/" target="_blank" rel="noreferrer" className="rounded-lg border border-white/14 px-3 py-2 text-xs font-semibold hover:border-white/30 hover:text-white">Instagram</a>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-white/80">
-          {quickLinks.map((item) => (
-            isLinkItem(item) ? (
-              <Link key={item.href} href={item.href} className="transition hover:text-white">
-                {item.label}
-              </Link>
-            ) : (
-              <button
-                key={item.target}
-                type="button"
-                onClick={() => handleNavClick(item.target)}
-                className="transition hover:text-white"
-              >
-                {item.label}
-              </button>
-            )
-          ))}
+
+        <div className="flex flex-col gap-4 pt-6 text-xs text-white/48 lg:flex-row lg:items-center lg:justify-between">
+          <p>© {new Date().getFullYear()} Werkly Consulting Pvt LTD. All rights reserved.</p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {policyLinks.map((link) => (
+              <Link key={link.href} href={link.href} className="transition hover:text-white">{link.label}</Link>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
-          <a
-            href="https://www.linkedin.com/in/werkly-consulting-35603b3ba/"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-2xl border border-white/12 px-4 py-2 text-white/80 transition hover:border-white/25 hover:text-white"
-          >
-            LinkedIn
-          </a>
-          <a
-            href="https://www.instagram.com/werklyconsulting/"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-2xl border border-white/12 px-4 py-2 text-white/80 transition hover:border-white/25 hover:text-white"
-          >
-            Instagram
-          </a>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-white/80">
-          <a href="tel:+917036797909" className="transition hover:text-white">
-            Phone: +91 7036797909
-          </a>
-          <a
-            href="https://wa.me/917036797909"
-            target="_blank"
-            rel="noreferrer"
-            className="transition hover:text-white"
-          >
-            WhatsApp: Chat on WhatsApp
-          </a>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-white/10 pt-5 text-xs text-white/65">
-          {policyLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="transition hover:text-white">
-              {link.label}
-            </Link>
-          ))}
-        </div>
-        <p className="text-xs text-white/55">
-          © {new Date().getFullYear()} Werkly Consulting Pvt LTD. Recruitment information does not guarantee employment or selection.
-        </p>
       </div>
     </footer>
+  );
+}
+function FooterColumn({ title, links }: { title: string; links: { label: string; href: string }[] }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-accent)]">{title}</p>
+      <div className="mt-4 grid gap-3 text-sm text-white/72">
+        {links.map((link) => (
+          <Link key={link.href} href={link.href} className="transition hover:text-white">{link.label}</Link>
+        ))}
+      </div>
+    </div>
   );
 }
