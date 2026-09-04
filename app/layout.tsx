@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
+import { AdSenseScript } from "@/components/adsense-script";
 import { StructuredData } from "@/components/structured-data";
 import {
   DEFAULT_DESCRIPTION,
@@ -81,13 +82,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <head>
-        <script
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${googleAdSenseClientId}`}
-          crossOrigin="anonymous"
-        />
-      </head>
       <body className="min-h-screen bg-[var(--color-paper)] text-slate-950 antialiased">
         <StructuredData
           data={[
@@ -122,6 +116,7 @@ export default function RootLayout({
             },
           ]}
         />
+        <AdSenseScript />
         {children}
         <Analytics />
       </body>

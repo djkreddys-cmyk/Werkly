@@ -16,37 +16,49 @@ export const metadata: Metadata = {
 };
 
 export default function CareerGuidesPage() {
+  const candidateGuides = careerGuides.filter((guide) => guide.audience === "Candidates");
+  const employerGuides = careerGuides.filter((guide) => guide.audience === "Employers");
+
   return (
     <PublicContentPage
       eyebrow="Career Resources"
       title="Practical guidance for more informed job searches."
       intro="These guides are written to help candidates present experience accurately, prepare with evidence, and evaluate opportunities beyond surface-level details."
     >
-      <div className="grid gap-4 lg:grid-cols-3">
-        {careerGuides.map((guide, index) => (
-          <article key={guide.slug} className="accent-card flex flex-col p-7 sm:p-8">
-            <div className="flex items-center justify-between gap-4">
-              <p className="eyebrow">{guide.category}</p>
-              <span className="text-3xl font-semibold text-[rgba(8,96,108,0.18)]">0{index + 1}</span>
-            </div>
-            <h2 className="mt-4 text-2xl font-semibold leading-snug text-[var(--color-ink)]">
-              <Link href={`/career-guides/${guide.slug}`} className="hover:text-[var(--color-dark)]">
-                {guide.title}
-              </Link>
-            </h2>
-            <p className="muted-copy mt-4 flex-1 text-base leading-7">{guide.description}</p>
-            <div className="mt-6 flex items-center justify-between border-t border-[var(--color-line)] pt-4 text-sm">
-              <span className="text-[var(--color-muted)]">{guide.readingTime}</span>
-              <Link
-                href={`/career-guides/${guide.slug}`}
-                className="font-semibold text-[var(--color-dark)]"
-              >
-                Read guide →
-              </Link>
-            </div>
-          </article>
-        ))}
-      </div>
+      {[
+        { title: "For candidates", intro: "Make clearer application, interview, safety, and career decisions.", guides: candidateGuides },
+        { title: "For employers", intro: "Improve role intake, assessment consistency, and candidate communication.", guides: employerGuides },
+      ].map((group, groupIndex) => (
+        <section key={group.title} className={groupIndex ? "mt-14 border-t border-[var(--color-line)] pt-12" : ""}>
+          <div className="mb-7 max-w-3xl">
+            <p className="eyebrow">Knowledge library</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-[var(--color-ink)]">{group.title}</h2>
+            <p className="muted-copy mt-2 text-base leading-7">{group.intro}</p>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {group.guides.map((guide, index) => (
+              <article key={guide.slug} className="accent-card flex flex-col p-7 sm:p-8">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="eyebrow">{guide.category}</p>
+                  <span className="text-3xl font-semibold text-[rgba(8,96,108,0.18)]">0{index + 1}</span>
+                </div>
+                <h3 className="mt-4 text-2xl font-semibold leading-snug text-[var(--color-ink)]">
+                  <Link href={`/career-guides/${guide.slug}`} className="hover:text-[var(--color-dark)]">
+                    {guide.title}
+                  </Link>
+                </h3>
+                <p className="muted-copy mt-4 flex-1 text-base leading-7">{guide.description}</p>
+                <div className="mt-6 flex items-center justify-between border-t border-[var(--color-line)] pt-4 text-sm">
+                  <span className="text-[var(--color-muted)]">{guide.readingTime}</span>
+                  <Link href={`/career-guides/${guide.slug}`} className="font-semibold text-[var(--color-dark)]">
+                    Read guide →
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
       <div className="mt-10 border-l-2 border-[var(--color-accent)] bg-white p-6">
         <h2 className="text-xl font-semibold text-[var(--color-ink)]">How this content is prepared</h2>
         <p className="muted-copy mt-3 max-w-4xl text-base leading-7">

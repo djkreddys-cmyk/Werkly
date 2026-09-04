@@ -41,6 +41,8 @@ export default async function CareerGuidePage({ params }: GuidePageProps) {
   const canonicalUrl = absoluteUrl(`/career-guides/${guide.slug}`);
   const related = careerGuides
     .filter((item) => item.slug !== guide.slug)
+    .sort((first, second) => Number(second.audience === guide.audience) - Number(first.audience === guide.audience))
+    .slice(0, 4)
     .map((item) => ({
       href: `/career-guides/${item.slug}`,
       label: item.title,
@@ -67,7 +69,7 @@ export default async function CareerGuidePage({ params }: GuidePageProps) {
         }}
       />
       <PublicContentPage
-        eyebrow={guide.category}
+        eyebrow={`${guide.audience} · ${guide.category}`}
         title={guide.title}
         intro={guide.description}
       >
@@ -88,7 +90,13 @@ export default async function CareerGuidePage({ params }: GuidePageProps) {
           </aside>
           <article className="min-w-0 max-w-3xl">
             <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--color-line)] pb-6 text-sm text-[var(--color-muted)]">
-              <span>Published 24 August 2026</span>
+              <span>
+                Published {new Date(`${guide.publishedAt}T00:00:00`).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </span>
               <span aria-hidden="true">•</span>
               <span>{guide.readingTime}</span>
               <span aria-hidden="true">•</span>
