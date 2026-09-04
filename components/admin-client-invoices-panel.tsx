@@ -538,9 +538,6 @@ export function AdminClientInvoicesPanel({
     if (!selectedClient.gstNumber?.trim()) {
       missing.push("Client GST number");
     }
-    if (!selectedClient.panNumber?.trim()) {
-      missing.push("Client PAN number");
-    }
     if (!selectedClient.communicationAddress?.trim()) {
       missing.push("Client communication address");
     }
