@@ -14,6 +14,7 @@ import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
 import { JobShareButton } from "@/components/job-share-button";
+import { LinkedInJobShareButton } from "@/components/linkedin-job-share-button";
 import { TableActionMenu } from "@/components/table-action-menu";
 
 type JobEditorState = {
@@ -2439,20 +2440,27 @@ Werkly Team`;
                             Send Shortlist
                           </button>
                           {job.slug && isLiveOnWebsite(job) ? (
-                            <JobShareButton
-                              title={job.title}
-                              slug={job.slug}
-                              jobCode={job.jobCode}
-                              sector={job.sector}
-                              location={job.location}
-                              experience={job.experience}
-                              employmentType={job.employmentType}
-                              positionsCount={job.positionsCount}
-                              lastDateToApply={job.lastDateToApply}
-                              salary={job.salary}
-                              packagePerAnnum={job.packagePerAnnum}
-                              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--color-dark)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.07)]"
-                            />
+                            <>
+                              <JobShareButton
+                                title={job.title}
+                                slug={job.slug}
+                                jobCode={job.jobCode}
+                                sector={job.sector}
+                                location={job.location}
+                                experience={job.experience}
+                                employmentType={job.employmentType}
+                                positionsCount={job.positionsCount}
+                                lastDateToApply={job.lastDateToApply}
+                                salary={job.salary}
+                                packagePerAnnum={job.packagePerAnnum}
+                                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--color-dark)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.07)]"
+                              />
+                              <LinkedInJobShareButton
+                                title={job.title}
+                                slug={job.slug}
+                                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#0a66c2] bg-white px-3 py-2 text-xs font-semibold text-[#0a66c2] transition hover:bg-[#eef6ff]"
+                              />
+                            </>
                           ) : null}
                           <TableActionMenu
                             label={`Open actions for ${job.title}`}

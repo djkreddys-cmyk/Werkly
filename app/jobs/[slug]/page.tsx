@@ -5,6 +5,7 @@ import { cache } from "react";
 import { getJobBySlug } from "@/lib/jobs";
 import { EnquiryModal } from "@/components/enquiry-modal";
 import { JobShareButton } from "@/components/job-share-button";
+import { LinkedInJobShareButton } from "@/components/linkedin-job-share-button";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StructuredData } from "@/components/structured-data";
@@ -209,6 +210,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
                     packagePerAnnum={job.packagePerAnnum}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-dark)] bg-white px-5 py-3 text-sm font-bold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.06)]"
                   />
+                  <LinkedInJobShareButton title={job.title} slug={job.slug} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#0a66c2] bg-white px-5 py-3 text-sm font-bold text-[#0a66c2] transition hover:bg-[#eef6ff]" />
                 </div>
               </aside>
             </div>
