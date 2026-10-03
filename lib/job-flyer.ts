@@ -1,4 +1,5 @@
 import type { JobSummary } from "./jobs";
+import { isJobIndexable } from "./seo";
 
 export async function renderJobFlyer(job: JobSummary): Promise<HTMLCanvasElement> {
   const QRCode = (await import("qrcode")).default;
@@ -10,7 +11,8 @@ export async function renderJobFlyer(job: JobSummary): Promise<HTMLCanvasElement
   const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("Unable to load flyer artwork.")); image.src = src;
   });
-  const url = `https://www.werkly.in/jobs/${encodeURIComponent(job.slug)}`;
+  const live = isJobIndexable(job) && Boolean(job.slug);
+  const url = live ? `https://www.werkly.in/jobs/${encodeURIComponent(job.slug)}` : "https://www.werkly.in/jobs";
   const [logo, qr] = await Promise.all([load("/werkly-logo-compact.webp"), load(await QRCode.toDataURL(url, { width: 240, margin: 2, errorCorrectionLevel: "M" }))]);
   ctx.fillStyle = "#0b2832"; ctx.fillRect(0, 0, 1080, 1350);
   ctx.fillStyle = "#f1b965"; ctx.fillRect(0, 0, 1080, 14);
@@ -32,7 +34,7 @@ export async function renderJobFlyer(job: JobSummary): Promise<HTMLCanvasElement
       text(line, x, y + i * size * 1.25, size, color, true);
     });
   };
-  text("WE ARE HIRING", 70, 235, 28, "#f1b965", true);
+  text(live ? "WE ARE HIRING" : "JOB PREVIEW · NOT OPEN FOR APPLICATIONS", 70, 235, 28, "#f1b965", true);
   lines(job.title, 70, 325, 930, 64, 3);
   text(`JOB ID  ${job.jobCode || job.id}`, 70, 550, 23, "#bdcdd0");
   const fields = [["LOCATION", job.location], ["EXPERIENCE", job.experience], ["EMPLOYMENT", job.employmentType], ["SALARY", job.packagePerAnnum || job.salary || "Not disclosed"]];
@@ -45,10 +47,10 @@ export async function renderJobFlyer(job: JobSummary): Promise<HTMLCanvasElement
   ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 990, 1080, 360);
   ctx.drawImage(qr, 770, 1030, 240, 240);
   text("YOUR NEXT MOVE STARTS HERE", 70, 1060, 23, "#08606c", true);
-  text("Apply now", 70, 1130, 54, "#0b2832", true);
-  text("Scan the QR code for details & application", 70, 1180, 25, "#0b2832");
+  text(live ? "Apply now" : "Explore live jobs", 70, 1130, 54, "#0b2832", true);
+  text(live ? "Scan the QR code for details & application" : "Scan for other current openings at Werkly", 70, 1180, 25, "#0b2832");
   text("www.werkly.in/jobs", 70, 1230, 28, "#08606c", true);
-  if (job.lastDateToApply && !Number.isNaN(Date.parse(job.lastDateToApply))) text(`Apply by ${new Date(job.lastDateToApply).toLocaleDateString("en-IN")}`, 70, 1275, 22, "#0b2832");
+  if (live && job.lastDateToApply && !Number.isNaN(Date.parse(job.lastDateToApply))) text(`Apply by ${new Date(job.lastDateToApply).toLocaleDateString("en-IN")}`, 70, 1275, 22, "#0b2832");
   text("Werkly does not charge candidates for job offers.", 70, 1320, 19, "#48616a");
   return canvas;
 }

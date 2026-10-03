@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import type { JobSummary } from "@/lib/jobs";
-import { isJobIndexable } from "@/lib/seo";
 
 export function JobFlyerButton({ job }: { job: JobSummary }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -10,7 +9,6 @@ export function JobFlyerButton({ job }: { job: JobSummary }) {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const eligible = isJobIndexable(job);
   async function open() {
     dialog.current?.showModal(); setBusy(true); setError(""); setPreview(""); canvas.current = null;
     try {
@@ -36,7 +34,7 @@ export function JobFlyerButton({ job }: { job: JobSummary }) {
     } catch { setError("Unable to download. Please try again."); } finally { setBusy(false); }
   }
   return <>
-    <button type="button" disabled={!eligible} title={!eligible ? "Flyers are available for live, unexpired jobs only" : "Create a branded job flyer"} onClick={open} className="rounded border border-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-[var(--color-dark)] disabled:opacity-40">Create Flyer</button>
+    <button type="button" title="Create a branded job flyer" onClick={open} className="shrink-0 whitespace-nowrap rounded border border-[var(--color-dark)] px-3 py-2 text-xs font-semibold text-[var(--color-dark)]">Create Flyer</button>
     <dialog ref={dialog} aria-label={`Job flyer for ${job.title}`} className="fixed inset-0 m-auto max-h-[90dvh] w-[min(94vw,650px)] overflow-auto rounded-xl bg-white p-5 backdrop:bg-black/60">
       <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">Job promotional flyer</h2><button type="button" onClick={() => dialog.current?.close()} className="rounded border px-3 py-2">Close</button></div>
       {busy && <p role="status">Preparing flyer…</p>}{error && <p role="alert" className="text-red-700">{error}</p>}

@@ -15,7 +15,6 @@ import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
 import { JobShareButton } from "@/components/job-share-button";
 import { JobFlyerButton } from "@/components/job-flyer-button";
-import { LinkedInJobShareButton } from "@/components/linkedin-job-share-button";
 import { TableActionMenu } from "@/components/table-action-menu";
 
 type JobEditorState = {
@@ -2425,7 +2424,7 @@ Werkly Team`;
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <div className="flex flex-nowrap items-center gap-2">
+                        <div className="flex flex-wrap items-start content-start gap-2">
                           {canAddCandidates ? (
                             <button
                               type="button"
@@ -2457,11 +2456,6 @@ Werkly Team`;
                                 salary={job.salary}
                                 packagePerAnnum={job.packagePerAnnum}
                                 className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[var(--color-dark)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-dark)] transition hover:bg-[rgba(8,96,108,0.07)]"
-                              />
-                              <LinkedInJobShareButton
-                                title={job.title}
-                                slug={job.slug}
-                                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#0a66c2] bg-white px-3 py-2 text-xs font-semibold text-[#0a66c2] transition hover:bg-[#eef6ff]"
                               />
                             </>
                           ) : null}
