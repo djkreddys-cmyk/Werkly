@@ -142,7 +142,7 @@ body {
 }
 .public-page-hero h1 { color: white; max-width: 950px; }
 .jobs-image-banner { position: relative; overflow: hidden; background: #071629; }
-.jobs-image-banner-photo { position: absolute; inset: 0 -12% 0 12%; }
+.jobs-image-banner-photo { position: absolute; inset: 0 -22% 0 22%; }
 .jobs-image-banner-photo img { object-position: center; }
 .jobs-image-banner-overlay {
   position: absolute; inset: 0;
