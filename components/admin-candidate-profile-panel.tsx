@@ -8,12 +8,13 @@ import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 const stageOptions: JobApplicationStage[] = [
   "applied",
-  "shortlisted",
+  "declined",
   "interview",
-  "offered",
   "joined",
-  "screen-rejection",
+  "offered",
   "rejected",
+  "screen-rejection",
+  "shortlisted",
 ];
 
 function formatDateTime(value?: string) {

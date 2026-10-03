@@ -2295,7 +2295,7 @@ export function AdminReportsPanel({
       return Math.max(0, Math.floor((now - new Date(value).getTime()) / 86400000));
     };
     const openJobs = jobsReportRows.filter((job) => job.status === "open");
-    const terminalStages = new Set(["joined", "rejected", "screen-rejection"]);
+    const terminalStages = new Set(["joined", "rejected", "screen-rejection", "declined"]);
     const joined = visibleApplications.filter((application) => application.stage === "joined").length;
     const offers = visibleApplications.filter((application) => application.stage === "offered").length;
     const interviews = visibleApplications.filter((application) => application.stage === "interview").length;

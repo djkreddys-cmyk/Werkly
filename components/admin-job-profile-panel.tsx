@@ -211,12 +211,13 @@ type ShortlistEmailDraft = {
 
 const applicationStages: JobApplicationStage[] = [
   "applied",
-  "shortlisted",
+  "declined",
   "interview",
-  "offered",
   "joined",
-  "screen-rejection",
+  "offered",
   "rejected",
+  "screen-rejection",
+  "shortlisted",
 ];
 
 const fieldClassName =

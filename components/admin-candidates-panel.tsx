@@ -17,12 +17,13 @@ import { TableActionMenu } from "@/components/table-action-menu";
 
 const stageOptions: JobApplicationStage[] = [
   "applied",
-  "shortlisted",
+  "declined",
   "interview",
-  "offered",
   "joined",
-  "screen-rejection",
+  "offered",
   "rejected",
+  "screen-rejection",
+  "shortlisted",
 ];
 
 function sortJobsByOpenAndClosingDate(jobs: JobSummary[]) {

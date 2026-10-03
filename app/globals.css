@@ -142,11 +142,11 @@ body {
 }
 .public-page-hero h1 { color: white; max-width: 950px; }
 .jobs-image-banner { position: relative; overflow: hidden; background: #071629; }
-.jobs-image-banner-photo { position: absolute; inset: 0; }
+.jobs-image-banner-photo { position: absolute; inset: 0 -12% 0 12%; }
 .jobs-image-banner-photo img { object-position: center; }
 .jobs-image-banner-overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(4,17,35,.97), rgba(4,17,35,.86) 32%, rgba(4,17,35,.32) 62%, rgba(4,17,35,.05));
+  background: linear-gradient(90deg, #071629 0%, rgba(7,22,41,.98) 36%, rgba(7,22,41,.94) 49%, rgba(7,22,41,.58) 64%, rgba(7,22,41,.08) 82%);
 }
 .jobs-image-banner-copy { max-width: 650px; padding: 90px 0; }
 @media (max-width: 767px) {

@@ -188,6 +188,7 @@ export type CandidateEnquiryPayload = {
 
 export type JobApplicationStage =
   | "applied"
+  | "declined"
   | "shortlisted"
   | "interview"
   | "offered"

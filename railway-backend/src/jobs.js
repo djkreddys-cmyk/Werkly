@@ -1832,7 +1832,7 @@ export async function getCandidateAnalytics(candidateId) {
   );
   const progressed = applications.filter((application) => {
     const stage = String(application.stage || "").toLowerCase();
-    return stage && stage !== "applied" && stage !== "rejected";
+    return stage && stage !== "applied" && stage !== "rejected" && stage !== "declined";
   }).length;
 
   return {
