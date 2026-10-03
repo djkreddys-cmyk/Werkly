@@ -45,12 +45,12 @@ export function SiteHeader() {
       <div className="section-shell flex h-[72px] items-center gap-3">
         <Link href="/" aria-label="Werkly Consulting home" className="shrink-0">
           <Image
-            src="/Werkly Logo.png"
+            src="/werkly-logo-compact.webp"
             alt="Werkly Consulting"
-            width={640}
-            height={176}
-            className="h-11 w-auto object-contain sm:h-12"
-            priority
+            width={720}
+            height={204}
+            className="h-auto w-[150px] object-contain sm:w-[190px]"
+            preload
           />
         </Link>
 
@@ -60,6 +60,7 @@ export function SiteHeader() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={pathname === item.href ? "page" : undefined}
                 className={`rounded-xl px-3 py-2 text-[0.78rem] font-semibold tracking-[0.03em] transition xl:px-4 ${
                   pathname === item.href || pathname.startsWith(`${item.href}/`)
                     ? "bg-white/10 text-white"

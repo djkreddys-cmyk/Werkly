@@ -65,9 +65,9 @@ export function PublicJobsTable({ jobs }: { jobs: JobSummary[] }) {
   }, [employmentTypeFilter, jobs, locationFilter, query, sectorFilter]);
 
   return (
-    <section className="space-y-6">
+    <section className="public-job-results space-y-6">
       <div className="rounded-2xl border border-[var(--color-line)] bg-white p-5 shadow-[0_10px_28px_rgba(15,47,54,0.05)] sm:p-6">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(320px,1.4fr)_220px_220px_220px] xl:items-end">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] xl:items-end">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-muted)]">
               Search Jobs

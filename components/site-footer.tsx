@@ -30,11 +30,17 @@ export function SiteFooter() {
   };
 
   return (
-    <footer className="bg-[#073f48] text-white">
+    <footer className="public-footer bg-[#102f34] text-white">
+      <div className="section-shell">
+        <div className="flex flex-col gap-6 border-b border-white/15 py-10 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f1b965]">Your next step starts here</p><h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Great teams. Meaningful careers.</h2></div>
+          <div className="flex flex-wrap gap-3"><Link href="/jobs" className="hero-primary-action">Explore jobs ↗</Link><Link href="/contact" className="hero-secondary-action">Talk to Werkly ↗</Link></div>
+        </div>
+      </div>
       <div className="section-shell py-12 sm:py-14">
         <div className="grid gap-10 border-b border-white/10 pb-10 md:grid-cols-2 lg:grid-cols-[1.45fr_0.8fr_0.8fr_1fr]">
           <div className="max-w-md">
-            <Image src="/Werkly Logo.png" alt="Werkly Consulting" width={640} height={176} className="h-14 w-auto object-contain" />
+            <Image src="/werkly-logo-compact.webp" alt="Werkly Consulting" width={720} height={204} className="h-auto w-[220px] max-w-full object-contain" />
             <p className="mt-5 text-sm leading-7 text-white/68">
               Structured IT and Non-IT recruitment support for technology, engineering,
               operations, commercial, and leadership teams across India.

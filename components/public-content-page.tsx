@@ -20,6 +20,7 @@ export function PublicContentPage({
       <main className="pt-[72px]">
         <header className="public-page-hero">
           <div className="section-shell py-12 sm:py-16 lg:py-20">
+            <nav aria-label="Breadcrumb" className="mb-8 flex gap-3 text-xs text-white/70"><Link href="/" className="hover:text-white">Home</Link><span aria-hidden="true">/</span><span>{eyebrow}</span></nav>
             <p className="eyebrow">{eyebrow}</p>
             <h1 className="mt-4 max-w-4xl font-[family-name:var(--font-display)] text-[2.35rem] font-semibold leading-[1.08] tracking-[-0.04em] text-[var(--color-ink)] sm:text-5xl lg:text-[3.6rem]">
               {title}
@@ -44,7 +45,7 @@ export function ContentSection({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-28 border-b border-[var(--color-line)] py-8 first:pt-0 last:border-0 last:pb-0 sm:py-10">
+    <section id={id} className="public-editorial-section scroll-mt-28 border-b border-[var(--color-line)] py-8 first:pt-0 last:border-0 last:pb-0 sm:py-10">
       <h2 className="text-2xl font-semibold leading-snug tracking-[-0.025em] text-[var(--color-ink)] sm:text-[2rem]">
         {title}
       </h2>

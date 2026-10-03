@@ -166,7 +166,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
           <div className="section-shell py-10 sm:py-14 lg:py-16">
             <Link
               href="/jobs"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-dark)] transition hover:text-[var(--color-accent-strong)]"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-white/80 transition hover:text-white"
             >
               ← Back to all jobs
             </Link>
@@ -174,7 +174,7 @@ export default async function JobDetailPage({ params }: JobPageProps) {
               <div>
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="eyebrow">{job.sector}</p>
-                  {job.jobCode ? <span className="text-xs font-semibold text-[var(--color-muted)]">Job ID {job.jobCode}</span> : null}
+                  {job.jobCode ? <span className="text-xs font-semibold text-white/75">Job ID {job.jobCode}</span> : null}
                 </div>
                 <h1 className="mt-4 max-w-4xl font-[family-name:var(--font-display)] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.04em] text-[var(--color-ink)] sm:text-5xl lg:text-[3.5rem]">
                   {job.title}

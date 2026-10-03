@@ -50,12 +50,12 @@ export default async function JobsPage() {
               </div>
               <div className="flex gap-6 border-l-0 border-[var(--color-line)] lg:border-l lg:pl-8">
                 <div>
-                  <p className="text-3xl font-semibold text-[var(--color-dark)]">{jobs.length}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--color-muted)]">Live roles</p>
+                  <p className="text-3xl font-semibold text-[#f1b965]">{jobs.length}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-white/75">Live roles</p>
                 </div>
                 <div>
-                  <p className="text-3xl font-semibold text-[var(--color-dark)]">IT + Non-IT</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--color-muted)]">Hiring coverage</p>
+                  <p className="text-3xl font-semibold text-[#f1b965]">IT + Non-IT</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-white/75">Hiring coverage</p>
                 </div>
               </div>
             </div>
