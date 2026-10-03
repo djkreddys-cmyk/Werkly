@@ -37,9 +37,13 @@ export default async function JobsPage() {
       ) : null}
       <SiteHeader />
       <main className="pt-[72px]">
-        <section className="public-page-hero">
-          <div className="section-shell py-12 sm:py-16 lg:py-20">
-            <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:items-center">
+        <section className="public-page-hero jobs-image-banner">
+          <div className="jobs-image-banner-photo">
+            <Image src="/werkly-jobs-hiring.webp" alt="" fill sizes="100vw" preload className="object-cover" />
+          </div>
+          <div className="jobs-image-banner-overlay" />
+          <div className="section-shell relative z-10">
+            <div className="jobs-image-banner-copy">
               <div>
                 <p className="eyebrow">Current Openings</p>
                 <h1 className="mt-4 max-w-4xl font-[family-name:var(--font-display)] text-[2.35rem] font-semibold leading-[1.08] tracking-[-0.04em] text-[var(--color-ink)] sm:text-5xl lg:text-[3.6rem]">
@@ -49,16 +53,6 @@ export default async function JobsPage() {
                   Search active opportunities, review the complete role, and apply through a verified Werkly channel.
                 </p>
               </div>
-              <div className="min-w-0">
-                <Image
-                  src="/werkly-jobs-hiring.webp"
-                  alt="We are hiring — a recruitment search graphic"
-                  width={2000}
-                  height={833}
-                  sizes="(max-width: 1023px) 100vw, 50vw"
-                  preload
-                  className="h-auto w-full rounded-xl border border-white/15"
-                />
               <div className="mt-6 flex flex-wrap gap-6 border-t border-white/15 pt-5">
                 <div>
                   <p className="text-3xl font-semibold text-[#f1b965]">{jobs.length}</p>
@@ -68,7 +62,6 @@ export default async function JobsPage() {
                   <p className="text-3xl font-semibold text-[#f1b965]">IT + Non-IT</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.14em] text-white/75">Hiring coverage</p>
                 </div>
-              </div>
               </div>
             </div>
           </div>
