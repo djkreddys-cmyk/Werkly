@@ -131,10 +131,10 @@ export default function Home() {
           </RevealSection>
         </section>
 
-        <section id="process" className="anchor-section py-16 sm:py-24">
+        <section id="process" className="anchor-section py-12 sm:py-14">
           <div className="section-shell">
             <RevealSection delay={80}>
-            <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+            <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-stretch">
               <div className="accent-card p-7 sm:p-8">
                 <p className="eyebrow">Process</p>
                 <h2 className="mt-4 max-w-lg section-title">
@@ -168,10 +168,10 @@ export default function Home() {
 
         <section id="contact" className="section-shell anchor-section py-16 sm:py-24">
           <RevealSection delay={120}>
-          <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-            <div className="accent-card p-8 sm:p-9">
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+            <div className="accent-card p-6 sm:p-8">
               <p className="eyebrow">Client Engagement</p>
-              <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
+              <h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl leading-tight text-slate-950 sm:text-4xl">
                 Engage Werkly for structured, results-driven hiring support.
               </h2>
               <p className="mt-5 max-w-2xl text-base leading-7 muted-copy sm:text-lg">
@@ -181,15 +181,16 @@ export default function Home() {
                 Use the Enquiry button in the navigation to open either the candidate form or the company requirements form.
               </p>
             </div>
-            <div className="accent-card p-8">
-              <div className="space-y-6">
+            <div className="accent-card p-6 sm:p-8">
+              <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-center">
+                <div className="min-w-0 space-y-6">
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Company</p>
                   <p className="mt-2 text-lg font-semibold text-slate-950">Werkly Consulting Pvt LTD</p>
                 </div>
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Branches</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">Hyd, Vja</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-950">Hyderabad, Vijayawada</p>
                 </div>
                 <div>
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Hiring Enquiries</p>
@@ -197,16 +198,17 @@ export default function Home() {
                     hr@werkly.in
                   </a>
                 </div>
-                <div className="rounded-[1.4rem] border-2 border-[var(--color-accent)]/45 bg-[linear-gradient(135deg,rgba(241,166,75,0.12),rgba(8,96,108,0.06))] p-5 text-center shadow-[0_18px_45px_rgba(15,47,54,0.08)]">
+                </div>
+                <div className="mx-auto w-[180px] max-w-full rounded-xl border border-[var(--color-line)] bg-[#f8faf9] p-3 text-center">
                   <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Scan to Connect</p>
                   <div className="mt-4 flex justify-center">
                     <div className="overflow-hidden rounded-2xl border-2 border-[var(--color-accent)]/35 bg-white p-2 shadow-md">
                       <Image
                         src={qrCode}
                         alt="QR code to connect with Werkly on social channels"
-                        width={144}
-                        height={144}
-                        className="h-36 w-36 rounded-xl object-contain"
+                        width={128}
+                        height={128}
+                        className="h-32 w-32 rounded-lg object-contain"
                       />
                     </div>
                   </div>

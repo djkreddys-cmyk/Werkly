@@ -119,6 +119,7 @@ function formatNoticePeriod(value?: string) {
 }
 
 function formatLabel(value?: string) {
+  if (value === "declined") return "Offer Decline";
   return String(value || "not-added")
     .split(/[\s._-]+/)
     .filter(Boolean)
@@ -211,9 +212,9 @@ type ShortlistEmailDraft = {
 
 const applicationStages: JobApplicationStage[] = [
   "applied",
-  "declined",
   "interview",
   "joined",
+  "declined",
   "offered",
   "rejected",
   "screen-rejection",

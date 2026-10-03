@@ -475,6 +475,7 @@ function getCandidateSourceLabel(application: JobApplication) {
 }
 
 function getStageLabel(stage?: string) {
+  if (stage === "declined") return "Offer Decline";
   const safeStage = stage || "applied";
   return safeStage
     .split(/[\s_-]+/)

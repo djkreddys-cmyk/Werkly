@@ -14,6 +14,7 @@ import { formatPersonName } from "@/lib/format";
 import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 import { AdminCandidateEditModal } from "@/components/admin-candidate-edit-modal";
 import { JobShareButton } from "@/components/job-share-button";
+import { JobFlyerButton } from "@/components/job-flyer-button";
 import { LinkedInJobShareButton } from "@/components/linkedin-job-share-button";
 import { TableActionMenu } from "@/components/table-action-menu";
 
@@ -133,9 +134,9 @@ const jobsTableColumnClassName: Record<string, string> = {
 
 const applicationStages: JobApplicationStage[] = [
   "applied",
-  "declined",
   "interview",
   "joined",
+  "declined",
   "offered",
   "rejected",
   "screen-rejection",
@@ -432,6 +433,7 @@ function buildShortlistTextTable(jobTitle: string, applications: JobApplication[
 }
 
 function formatStageLabel(stage: string) {
+  if (stage === "declined") return "Offer Decline";
   return stage
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -2463,6 +2465,7 @@ Werkly Team`;
                               />
                             </>
                           ) : null}
+                          <JobFlyerButton job={job} />
                           <TableActionMenu
                             label={`Open actions for ${job.title}`}
                             isOpen={actionMenuJobId === job.id}

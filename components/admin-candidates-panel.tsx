@@ -17,9 +17,9 @@ import { TableActionMenu } from "@/components/table-action-menu";
 
 const stageOptions: JobApplicationStage[] = [
   "applied",
-  "declined",
   "interview",
   "joined",
+  "declined",
   "offered",
   "rejected",
   "screen-rejection",
@@ -53,6 +53,7 @@ function sortJobsByOpenAndClosingDate(jobs: JobSummary[]) {
 }
 
 function labelizeStage(stage: JobApplicationStage) {
+  if (stage === "declined") return "Offer Decline";
   return stage
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

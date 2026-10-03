@@ -8,9 +8,9 @@ import { AdminJobIdTrigger } from "@/components/admin-job-id-trigger";
 
 const stageOptions: JobApplicationStage[] = [
   "applied",
-  "declined",
   "interview",
   "joined",
+  "declined",
   "offered",
   "rejected",
   "screen-rejection",
@@ -29,6 +29,7 @@ function formatDateTime(value?: string) {
 }
 
 function formatLabel(value?: string) {
+  if (value === "declined") return "Offer Decline";
   if (!value) {
     return "Not added";
   }
