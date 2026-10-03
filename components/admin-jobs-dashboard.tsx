@@ -121,14 +121,14 @@ const fieldClassName =
   "w-full rounded-2xl border border-[var(--color-line)] bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-[var(--color-dark)]";
 
 const jobsTableColumnClassName: Record<string, string> = {
-  Job: "w-[22%] min-w-[230px]",
-  Client: "w-[12%] min-w-[130px]",
-  Recruiter: "w-[12%] min-w-[130px]",
-  Location: "w-[20%] min-w-[220px]",
-  Positions: "w-[7%] min-w-[90px]",
-  Applications: "w-[8%] min-w-[105px]",
-  Status: "w-[9%] min-w-[115px]",
-  Actions: "w-[390px] min-w-[390px]",
+  Job: "",
+  Client: "w-[180px]",
+  Recruiter: "w-[150px]",
+  Location: "w-[150px]",
+  Positions: "w-[100px]",
+  Applications: "w-[130px]",
+  Status: "w-[130px]",
+  Actions: "w-[440px]",
 };
 
 const applicationStages: JobApplicationStage[] = [
@@ -2327,7 +2327,7 @@ Werkly Team`;
         ) : (
           <div className="mt-6 overflow-hidden rounded-[1.6rem] border border-[var(--color-line)] bg-white">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1220px] table-fixed border-collapse">
+              <table className="w-full min-w-[1510px] table-fixed border-collapse">
                 <thead>
                   <tr className="sticky top-0 z-10 bg-[#f3f8f9] text-left shadow-[0_1px_0_var(--color-line)]">
                     {[
@@ -2424,7 +2424,7 @@ Werkly Team`;
                         </p>
                       </td>
                       <td className="px-4 py-4 align-top">
-                        <div className="flex flex-wrap items-start content-start gap-2">
+                        <div className="flex flex-nowrap items-center gap-2">
                           {canAddCandidates ? (
                             <button
                               type="button"
