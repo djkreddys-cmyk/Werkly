@@ -144,8 +144,38 @@ body {
 }
 
 .public-site .accent-card {
-  border-radius: 1.1rem;
-  box-shadow: 0 12px 32px rgba(15, 47, 54, 0.06);
+  border-radius: 0.75rem;
+  box-shadow: none;
+}
+
+.public-site { background: #fafbf9; }
+.public-site a:focus-visible, .public-site button:focus-visible {
+  outline: 3px solid #ce7424;
+  outline-offset: 5px;
+}
+.recruitment-hero { position: relative; overflow: hidden; background: #10292c; }
+.recruitment-hero-image { position: absolute; inset: 0 0 120px; }
+.recruitment-hero-image img { object-position: 62% center; }
+.recruitment-hero-shade {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(7,27,29,.97) 0%, rgba(7,27,29,.88) 32%, rgba(7,27,29,.25) 64%, rgba(7,27,29,.05) 100%);
+}
+.recruitment-hero-copy { max-width: 680px; padding: 100px 0 105px; }
+.hero-primary-action, .hero-secondary-action {
+  display: inline-flex; align-items: center; justify-content: center; gap: 24px;
+  padding: 15px 22px; border-radius: 6px; font-size: 14px; font-weight: 700;
+  transition: background-color .2s;
+}
+.hero-primary-action { background: #f1b965; color: #10292c; }
+.hero-primary-action:hover { background: #ffd18d; }
+.hero-secondary-action { border: 1px solid #ffffff80; color: white; background: #10292c80; }
+.hero-secondary-action:hover { background: #245359; }
+@media (max-width: 767px) {
+  .recruitment-hero-image { position: relative; inset: auto; height: 245px; }
+  .recruitment-hero-image img { object-position: 65% center; }
+  .recruitment-hero-shade { background: linear-gradient(180deg, transparent 120px, #10292c 250px); }
+  .recruitment-hero-copy { padding: 12px 0 38px; }
+  .hero-primary-action, .hero-secondary-action { flex: 1 1 160px; }
 }
 
 .crm-shell-bg {

@@ -5,6 +5,7 @@ import { RevealSection } from "@/components/reveal-section";
 import { ResumeBuilderClient } from "@/components/resume-builder-client";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { RecruitmentHero } from "@/components/recruitment-hero";
 
 const approachPoints = [
   "Understanding client business models and workforce strategy",
@@ -55,61 +56,14 @@ export default function Home() {
     <div id="top" className="public-site relative">
       <SiteHeader />
       <main className="pt-[72px]">
-        <section className="relative overflow-hidden bg-[#074852]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_16%,rgba(241,166,75,0.2),transparent_24rem),radial-gradient(circle_at_90%_14%,rgba(255,255,255,0.09),transparent_26rem),linear-gradient(135deg,rgba(7,72,82,0.98),rgba(8,96,108,0.96))]" />
-          <div className="section-shell relative py-14 sm:py-16 lg:py-20">
-            <div className="grid gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
-              <div className="motion-rise text-white">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--color-accent)]">
-                  Talent search and selection
-                </p>
-                <h1 className="mt-5 max-w-2xl font-[family-name:var(--font-display)] text-[2.75rem] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[3.75rem] lg:text-[4.25rem]">
-                  Better hiring starts with a clearer search.
-                </h1>
-                <p className="mt-5 max-w-xl text-base leading-8 text-white/76 sm:text-lg">
-                  Werkly helps IT and Non-IT teams define the requirement, reach relevant talent,
-                  screen with context, and move qualified candidates through the hiring process.
-                </p>
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <Link href="/jobs" className="inline-flex items-center justify-center rounded-xl bg-[var(--color-accent)] px-5 py-3 text-sm font-bold text-[#17353d] transition hover:bg-[#f6b762]">
-                    Explore current jobs
-                  </Link>
-                  <Link href="/services" className="inline-flex items-center justify-center rounded-xl border border-white/22 bg-white/6 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/12">
-                    View recruitment services
-                  </Link>
-                </div>
-                <div className="mt-9 flex flex-wrap gap-x-7 gap-y-3 border-t border-white/12 pt-6 text-sm text-white/68">
-                  <span><strong className="text-white">IT + Non-IT</strong> coverage</span>
-                  <span><strong className="text-white">Role-aligned</strong> screening</span>
-                  <span><strong className="text-white">India-wide</strong> opportunities</span>
-                </div>
-              </div>
-              <div className="motion-rise motion-rise-delay-1 relative mx-auto w-full max-w-2xl lg:mx-0">
-                <div className="overflow-hidden rounded-[1.5rem] border border-white/14 bg-white/8 p-3 shadow-[0_32px_70px_rgba(4,30,35,0.28)]">
-                  <Image
-                    src="/consultancy-team-primary.svg"
-                    alt="Three consultants collaborating at a meeting table"
-                    width={1200}
-                    height={900}
-                    className="aspect-[4/3] w-full rounded-[1.05rem] object-cover"
-                    priority
-                  />
-                </div>
-                <div className="absolute -bottom-5 left-4 right-4 rounded-2xl border border-white/20 bg-white px-5 py-4 shadow-xl sm:left-auto sm:right-5 sm:max-w-xs">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-accent-strong)]">Candidate-first coordination</p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[var(--color-ink)]">Clear role details, interview updates, and verified application channels.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <RecruitmentHero />
 
         <section className="section-shell py-16 sm:py-20">
           <RevealSection>
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">What We Do Best</p>
             <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
-              Recruitment support designed for clarity, speed, and hiring confidence across multiple functions.
+              A clearer path from hiring need to shortlist.
             </h2>
           </div>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
@@ -160,21 +114,18 @@ export default function Home() {
           <div className="mx-auto max-w-4xl text-center">
             <p className="eyebrow">Sectors</p>
             <h2 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight text-slate-950 sm:text-5xl">
-              Recruitment support built around the sectors you actually hire for.
+              Specialist understanding. Across industries.
             </h2>
             <p className="mt-5 text-base leading-7 muted-copy sm:text-lg">
               Werkly brings role context into search and selection so briefs move faster, screening gets sharper, and closures happen with better alignment across IT and Non-IT teams.
             </p>
           </div>
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {sectors.map((sector) => (
-              <article key={sector} className="accent-card flex min-h-[172px] flex-col justify-between p-6">
-                <p className="eyebrow">Hiring Vertical</p>
-                <h3 className="mt-5 text-2xl font-semibold leading-snug text-[var(--color-ink)]">
-                  {sector}
-                </h3>
-                <div className="mt-6 h-px w-16 bg-[var(--color-brand-cyan)]/35" />
-              </article>
+          <div className="sector-directory mt-12 grid gap-x-10 sm:grid-cols-2 xl:grid-cols-3">
+            {sectors.map((sector, index) => (
+              <div key={sector} className="flex items-start gap-4 border-b border-[var(--color-line)] py-6">
+                <span className="pt-1 text-xs font-semibold text-[var(--color-accent-strong)]">{String(index + 1).padStart(2, "0")}</span>
+                <h3 className="text-lg font-semibold leading-snug text-[var(--color-ink)]">{sector}</h3>
+              </div>
             ))}
           </div>
           </RevealSection>
