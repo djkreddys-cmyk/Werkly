@@ -5,7 +5,7 @@ export async function renderJobFlyer(job: JobSummary): Promise<HTMLCanvasElement
   const QRCode = (await import("qrcode")).default;
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
-  canvas.height = 1350;
+  canvas.height = 1080;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Your browser cannot create a flyer.");
   const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
@@ -14,9 +14,9 @@ export async function renderJobFlyer(job: JobSummary): Promise<HTMLCanvasElement
   const live = isJobIndexable(job) && Boolean(job.slug);
   const url = live ? `https://www.werkly.in/jobs/${encodeURIComponent(job.slug)}` : "https://www.werkly.in/jobs";
   const [logo, qr] = await Promise.all([load("/werkly-logo-compact.webp"), load(await QRCode.toDataURL(url, { width: 240, margin: 2, errorCorrectionLevel: "M" }))]);
-  ctx.fillStyle = "#0b2832"; ctx.fillRect(0, 0, 1080, 1350);
+  ctx.fillStyle = "#0b2832"; ctx.fillRect(0, 0, 1080, 1080);
   ctx.fillStyle = "#f1b965"; ctx.fillRect(0, 0, 1080, 14);
-  ctx.drawImage(logo, 70, 62, 320, 91);
+  ctx.drawImage(logo, 70, 50, 280, 80);
   const text = (value: string, x: number, y: number, size: number, color = "#ffffff", bold = false) => {
     ctx.font = `${bold ? "700" : "400"} ${size}px Arial`; ctx.fillStyle = color; ctx.fillText(value, x, y);
   };
@@ -34,23 +34,23 @@ export async function renderJobFlyer(job: JobSummary): Promise<HTMLCanvasElement
       text(line, x, y + i * size * 1.25, size, color, true);
     });
   };
-  text(live ? "WE ARE HIRING" : "JOB PREVIEW · NOT OPEN FOR APPLICATIONS", 70, 235, 28, "#f1b965", true);
-  lines(job.title, 70, 325, 930, 64, 3);
-  text(`JOB ID  ${job.jobCode || job.id}`, 70, 550, 23, "#bdcdd0");
+  text(live ? "WE ARE HIRING" : "JOB PREVIEW · NOT OPEN FOR APPLICATIONS", 70, 185, 25, "#f1b965", true);
+  lines(job.title, 70, 250, 930, 52, 3);
+  text(`JOB ID  ${job.jobCode || job.id}`, 70, 425, 22, "#bdcdd0");
   const fields = [["LOCATION", job.location], ["EXPERIENCE", job.experience], ["EMPLOYMENT", job.employmentType], ["SALARY", job.packagePerAnnum || job.salary || "Not disclosed"]];
   fields.forEach(([label, value], index) => {
-    const x = 70 + (index % 2) * 490; const y = 625 + Math.floor(index / 2) * 130;
+    const x = 70 + (index % 2) * 490; const y = 480 + Math.floor(index / 2) * 115;
     text(label, x, y, 20, "#f1b965", true); lines(value || "Not specified", x, y + 42, 435, 29, 2);
   });
   const skills = (job.skills || []).filter(Boolean).slice(0, 5).join(" · ");
-  if (skills) lines(skills, 70, 900, 930, 25, 2, "#bdcdd0");
-  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 990, 1080, 360);
-  ctx.drawImage(qr, 770, 1030, 240, 240);
-  text("YOUR NEXT MOVE STARTS HERE", 70, 1060, 23, "#08606c", true);
-  text(live ? "Apply now" : "Explore live jobs", 70, 1130, 54, "#0b2832", true);
-  text(live ? "Scan the QR code for details & application" : "Scan for other current openings at Werkly", 70, 1180, 25, "#0b2832");
-  text("www.werkly.in/jobs", 70, 1230, 28, "#08606c", true);
-  if (live && job.lastDateToApply && !Number.isNaN(Date.parse(job.lastDateToApply))) text(`Apply by ${new Date(job.lastDateToApply).toLocaleDateString("en-IN")}`, 70, 1275, 22, "#0b2832");
-  text("Werkly does not charge candidates for job offers.", 70, 1320, 19, "#48616a");
+  if (skills) lines(skills, 70, 715, 930, 23, 2, "#bdcdd0");
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 780, 1080, 300);
+  ctx.drawImage(qr, 770, 820, 240, 240);
+  text("YOUR NEXT MOVE STARTS HERE", 70, 825, 21, "#08606c", true);
+  text(live ? "Apply now" : "Explore live jobs", 70, 880, 44, "#0b2832", true);
+  text(live ? "Scan the QR code for details & application" : "Scan for other current openings at Werkly", 70, 923, 24, "#0b2832");
+  text("www.werkly.in/jobs", 70, 965, 28, "#08606c", true);
+  if (live && job.lastDateToApply && !Number.isNaN(Date.parse(job.lastDateToApply))) text(`Apply by ${new Date(job.lastDateToApply).toLocaleDateString("en-IN")}`, 70, 1000, 21, "#0b2832");
+  text("Werkly does not charge candidates for job offers.", 70, 1035, 19, "#48616a");
   return canvas;
 }
