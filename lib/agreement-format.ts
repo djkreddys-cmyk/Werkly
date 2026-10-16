@@ -43,7 +43,7 @@ export function agreementBlocks(value: string): AgreementBlock[] {
     if (block || tag === "BR") flush();
     const next = { bold: style.bold || ["B", "STRONG", "H1", "H2", "H3"].includes(tag) || node.style.fontWeight === "bold", italic: style.italic || ["I", "EM"].includes(tag) || node.style.fontStyle === "italic", underline: style.underline || tag === "U" || node.style.textDecoration.includes("underline"), size: parseFloat(node.style.fontSize) || ({ H1: 24, H2: 18, H3: 14 }[tag] || style.size) };
     const nextAlign = node.style.textAlign || align;
-    if (tag === "LI") { const index = Array.from(node.parentElement!.children).indexOf(node) + 1; current.runs.push({ ...next, text: node.parentElement?.tagName === "OL" ? `${index}. ` : "- " }); }
+    if (tag === "LI") { const index = Array.from(node.parentElement!.children).indexOf(node) + 1; current.runs.push({ ...next, text: node.parentElement?.tagName === "OL" ? `${index}. ` : "• " }); }
     node.childNodes.forEach(child => visit(child, next, nextAlign));
     if (block) flush();
   };

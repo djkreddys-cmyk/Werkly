@@ -26,7 +26,7 @@ function printableText(value: string) {
     .replace(/[\u2010-\u2015]/g, "-")
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201c\u201d]/g, '"')
-    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "");
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\u2022]/g, "");
 }
 
 function wrapText(text: string, maxWidth: number, font: Awaited<ReturnType<PDFDocument["embedFont"]>>, size: number) {
@@ -108,9 +108,16 @@ export async function generateAgreementPdf(agreementContent: string, partyNames:
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
 
+  const isWerklySignature = (value: string) => /^For\s+(?:and\s+on\s+behalf\s+of\s+)?Werkly\b[^\n]*$/i.test(value.trim());
+  // Edited drafts may omit the original sign-off. Always retain a signing area
+  // in the generated agreement; this does not modify uploaded signed documents.
+  if (!paragraphs.some(isWerklySignature)) {
+    paragraphs.push(`For ${partyNames[0] || "Werkly Consulting Private Limited"}`, "Authorized Signatory", `For ${partyNames[1] || "Client"}`, "Authorized Signatory");
+  }
+
   for (let index = 0; index < paragraphs.length; index += 1) {
     const paragraph = paragraphs[index];
-    if (/^For\s+Werkly\s+Consulting\b[^\n]*$/i.test(paragraph)) {
+    if (isWerklySignature(paragraph)) {
       const clientSignatoryIndex = paragraphs.findIndex(
         (value, candidateIndex) => candidateIndex > index && value.startsWith("For ") && value !== paragraph
       );
