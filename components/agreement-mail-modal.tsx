@@ -386,11 +386,6 @@ export function AgreementMailModal({
               </div>
 
               <div className="flex flex-wrap gap-3">
-                {isEditing ? <>
-                  <button type="button" disabled={isSaving} onClick={() => void saveChanges()} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-white">{isSaving ? "Saving…" : "Save Changes"}</button>
-                  <button type="button" disabled={isSaving} onClick={() => { setSubject(savedDraft.current.subject); setAgreementText(savedDraft.current.content); setToEmails(savedDraft.current.emails); setPdfContent(""); setPdfUrl(current => { if (current) URL.revokeObjectURL(current); return ""; }); setIsEditing(false); setError(""); }} className="rounded-lg border px-5 py-3">Cancel Editing</button>
-                  <p className="w-full text-sm text-[var(--color-muted)]">Saving changes returns this agreement to Draft for reconfirmation. Uploaded signed copies stay unchanged.</p>
-                </> : <button type="button" disabled={isSending || isConfirming || isGenerating || isUploadingSignedCopy} onClick={() => setIsEditing(true)} className="rounded-lg border px-5 py-3">Edit Agreement</button>}
                 <button type="button" onClick={() => void handleGeneratePdf()} disabled={isGenerating || isSaving} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
                   {isGenerating ? "Generating..." : "Generate PDF"}
                 </button>
@@ -419,7 +414,11 @@ export function AgreementMailModal({
         </div>
 
         {!sentMessage ? (
-          <div className="flex justify-end gap-3 border-t border-[var(--color-line)] px-6 py-4">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-[var(--color-line)] bg-white px-6 py-4">
+            {isEditing ? <>
+              <button type="button" disabled={isSaving} onClick={() => void saveChanges()} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white">{isSaving ? "Saving…" : "Save Changes"}</button>
+              <button type="button" disabled={isSaving} onClick={() => { setSubject(savedDraft.current.subject); setAgreementText(savedDraft.current.content); setToEmails(savedDraft.current.emails); setPdfContent(""); setPdfUrl(current => { if (current) URL.revokeObjectURL(current); return ""; }); setIsEditing(false); setError(""); }} className="rounded-lg border px-5 py-3 text-sm">Cancel Editing</button>
+            </> : <button type="button" disabled={isSending || isConfirming || isGenerating || isUploadingSignedCopy} onClick={() => setIsEditing(true)} className="mr-auto rounded-lg bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">Edit Agreement</button>}
             <button type="button" onClick={onClose} className="rounded-lg border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]">Cancel</button>
             {!isConfirmed ? (
               <button type="button" onClick={() => void handleConfirmAgreement()} disabled={isEditing || isSaving || isConfirming || isSending || isGenerating} className="rounded-lg border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] disabled:opacity-60">
