@@ -105,13 +105,20 @@ export function AgreementMailModal({
   const [isUploadingSignedCopy, setIsUploadingSignedCopy] = useState(false);
   const [error, setError] = useState("");
   const [sentMessage, setSentMessage] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [agreementStatus, setAgreementStatus] = useState(client.agreementStatus || "draft");
+  const savedDraft = useRef({ subject: "", content: "", emails: "" });
   const closeTimerRef = useRef<number | null>(null);
-  const isConfirmed = client.agreementStatus === "confirmed";
+  const isConfirmed = agreementStatus === "confirmed";
 
   useEffect(() => {
     setToEmails([client.contactEmail, client.secondaryContactEmail].filter(Boolean).join(", "));
     setSubject(client.agreementSubject || `Recruitment Agreement - ${client.companyName}`);
     setAgreementText(ensureConfidentialityLine(client.agreementContent || buildDefaultAgreementText(client)));
+    savedDraft.current = { subject: client.agreementSubject || `Recruitment Agreement - ${client.companyName}`, content: ensureConfidentialityLine(client.agreementContent || buildDefaultAgreementText(client)), emails: [client.contactEmail, client.secondaryContactEmail].filter(Boolean).join(", ") };
+    setIsEditing(false);
+    setAgreementStatus(client.agreementStatus || "draft");
     setPdfContent("");
     setPdfUrl((current) => {
       if (current) URL.revokeObjectURL(current);
@@ -170,13 +177,6 @@ export function AgreementMailModal({
       onboardingSource: client.onboardingSource,
       notes: client.notes,
       followUpNotes: client.followUpNotes,
-      agreementStatus: client.agreementStatus,
-      agreementSubject: client.agreementSubject,
-      agreementContent: client.agreementContent,
-      agreementPdfFileName: client.agreementPdfFileName,
-      agreementPdfFileType: client.agreementPdfFileType,
-      agreementPdfFileData: client.agreementPdfFileData,
-      agreementConfirmedAt: client.agreementConfirmedAt,
       agreementFileName: client.agreementFileName,
       agreementFileType: client.agreementFileType,
       agreementFileData: client.agreementFileData,
@@ -206,6 +206,17 @@ export function AgreementMailModal({
     } finally {
       setIsGenerating(false);
     }
+  }
+
+  async function saveChanges() {
+    setIsSaving(true); setError("");
+    try {
+      if (!agreementBlocks(agreementText).some(block => block.runs.some(run => run.text.trim()))) throw new Error("Agreement content is required.");
+      await updateClientAgreement({ agreementStatus: "draft", agreementSubject: subject, agreementContent: agreementText, agreementConfirmedAt: "", agreementPdfFileName: "", agreementPdfFileType: "", agreementPdfFileData: "" }, "Unable to save agreement.");
+      savedDraft.current = { subject, content: agreementText, emails: toEmails };
+      setAgreementStatus("draft"); setIsEditing(false);
+    } catch (error) { setError(error instanceof Error ? error.message : "Unable to save agreement."); }
+    finally { setIsSaving(false); }
   }
 
   async function handleSend() {
@@ -259,7 +270,7 @@ export function AgreementMailModal({
       return;
     }
 
-    const confirmed = window.confirm("Confirm this agreement? After confirmation, editing will be locked.");
+    const confirmed = window.confirm("Confirm this agreement? It will open in view mode. Future changes require Edit Agreement and reconfirmation.");
     if (!confirmed) return;
 
     setIsConfirming(true);
@@ -274,7 +285,7 @@ export function AgreementMailModal({
         },
         "Unable to confirm agreement."
       );
-      setSentMessage("Agreement confirmed. Editing is now locked for this client.");
+      setSentMessage("Agreement confirmed. It will open in view mode; use Edit Agreement for future revisions.");
       closeTimerRef.current = window.setTimeout(onClose, 1400);
     } catch (confirmError) {
       setError(confirmError instanceof Error ? confirmError.message : "Unable to confirm agreement.");
@@ -336,7 +347,7 @@ export function AgreementMailModal({
               {isConfirmed ? "Confirmed agreement" : "Share agreement"} with {client.companyName}
             </h3>
             <p className="muted-copy mt-2 text-sm">
-              Status: {client.agreementStatus ? client.agreementStatus.toUpperCase() : "DRAFT"}
+              Status: {agreementStatus.toUpperCase()} · {isEditing ? "EDIT MODE" : "VIEW MODE"}
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg border border-[var(--color-line)] px-3 py-2 text-sm font-semibold text-[var(--color-ink)]">Close</button>
@@ -352,17 +363,17 @@ export function AgreementMailModal({
             <div className="grid gap-4">
               <label className="block">
                 <span className="text-xs font-semibold uppercase text-[var(--color-muted)]">Client Email</span>
-                <input value={toEmails} onChange={(event) => setToEmails(event.target.value)} disabled={isConfirmed} placeholder="client@example.com" className="mt-2 w-full rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm outline-none focus:border-[var(--color-dark)] disabled:bg-slate-100" />
+                <input value={toEmails} onChange={(event) => setToEmails(event.target.value)} disabled={!isEditing || isSaving} placeholder="client@example.com" className="mt-2 w-full rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm outline-none focus:border-[var(--color-dark)] disabled:bg-slate-100" />
               </label>
               <label className="block">
                 <span className="text-xs font-semibold uppercase text-[var(--color-muted)]">Subject</span>
-                <input value={subject} onChange={(event) => setSubject(event.target.value)} disabled={isConfirmed} className="mt-2 w-full rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm outline-none focus:border-[var(--color-dark)] disabled:bg-slate-100" />
+                <input value={subject} onChange={(event) => setSubject(event.target.value)} disabled={!isEditing || isSaving} className="mt-2 w-full rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm outline-none focus:border-[var(--color-dark)] disabled:bg-slate-100" />
               </label>
               <div className="block">
                 <span className="text-xs font-semibold uppercase text-[var(--color-muted)]">Agreement Content</span>
                 <AgreementEditor
                   value={agreementText}
-                  disabled={isConfirmed}
+                  disabled={!isEditing || isSaving}
                   onChange={(value) => {
                     setAgreementText(value);
                     setPdfContent("");
@@ -375,7 +386,12 @@ export function AgreementMailModal({
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={() => void handleGeneratePdf()} disabled={isGenerating || isConfirmed} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
+                {isEditing ? <>
+                  <button type="button" disabled={isSaving} onClick={() => void saveChanges()} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-white">{isSaving ? "Saving…" : "Save Changes"}</button>
+                  <button type="button" disabled={isSaving} onClick={() => { setSubject(savedDraft.current.subject); setAgreementText(savedDraft.current.content); setToEmails(savedDraft.current.emails); setPdfContent(""); setPdfUrl(current => { if (current) URL.revokeObjectURL(current); return ""; }); setIsEditing(false); setError(""); }} className="rounded-lg border px-5 py-3">Cancel Editing</button>
+                  <p className="w-full text-sm text-[var(--color-muted)]">Saving changes returns this agreement to Draft for reconfirmation. Uploaded signed copies stay unchanged.</p>
+                </> : <button type="button" disabled={isSending || isConfirming || isGenerating || isUploadingSignedCopy} onClick={() => setIsEditing(true)} className="rounded-lg border px-5 py-3">Edit Agreement</button>}
+                <button type="button" onClick={() => void handleGeneratePdf()} disabled={isGenerating || isSaving} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
                   {isGenerating ? "Generating..." : "Generate PDF"}
                 </button>
                 {pdfUrl ? <a href={pdfUrl} download={`${client.companyName || "Client"}-Recruitment-Agreement.pdf`} className="rounded-lg border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]">Download PDF</a> : null}
@@ -387,7 +403,7 @@ export function AgreementMailModal({
                 ) : null}
                 <label className="inline-flex cursor-pointer items-center rounded-lg border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]">
                   {isUploadingSignedCopy ? "Uploading..." : "Upload Signed Copy"}
-                  <input type="file" accept="application/pdf" className="sr-only" onChange={(event) => void handleSignedCopyUpload(event)} disabled={isUploadingSignedCopy} />
+                  <input type="file" accept="application/pdf" className="sr-only" onChange={(event) => void handleSignedCopyUpload(event)} disabled={isUploadingSignedCopy || isEditing || isSaving} />
                 </label>
               </div>
 
@@ -406,11 +422,11 @@ export function AgreementMailModal({
           <div className="flex justify-end gap-3 border-t border-[var(--color-line)] px-6 py-4">
             <button type="button" onClick={onClose} className="rounded-lg border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)]">Cancel</button>
             {!isConfirmed ? (
-              <button type="button" onClick={() => void handleConfirmAgreement()} disabled={isConfirming || isSending || isGenerating} className="rounded-lg border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] disabled:opacity-60">
+              <button type="button" onClick={() => void handleConfirmAgreement()} disabled={isEditing || isSaving || isConfirming || isSending || isGenerating} className="rounded-lg border border-[var(--color-line)] px-5 py-3 text-sm font-semibold text-[var(--color-ink)] disabled:opacity-60">
                 {isConfirming ? "Confirming..." : "Confirm Agreement"}
               </button>
             ) : null}
-            <button type="button" onClick={() => void handleSend()} disabled={isSending || isGenerating || isConfirmed} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
+            <button type="button" onClick={() => void handleSend()} disabled={isEditing || isSaving || isSending || isGenerating || isConfirmed} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
               {isSending ? "Sending..." : "Send Agreement"}
             </button>
           </div>

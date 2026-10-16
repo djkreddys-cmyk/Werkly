@@ -220,6 +220,7 @@ export async function ensureCrmSchema() {
   await query(`alter table clients add column if not exists agreement_file_name text`);
   await query(`alter table clients add column if not exists agreement_file_type text`);
   await query(`alter table clients add column if not exists agreement_file_data text`);
+  await query(`alter table clients add column if not exists agreement_details jsonb not null default '{}'::jsonb`);
   await query(`alter table clients add column if not exists communication_address text`);
   await query(`alter table clients add column if not exists state text`);
   await query(`alter table clients add column if not exists secondary_contact_person text`);
@@ -727,6 +728,13 @@ function mapClientRow(row) {
     agreementFileName: row.agreement_file_name,
     agreementFileType: row.agreement_file_type,
     agreementFileData: row.agreement_file_data,
+    agreementStatus: row.agreement_details?.agreementStatus,
+    agreementSubject: row.agreement_details?.agreementSubject,
+    agreementContent: row.agreement_details?.agreementContent,
+    agreementPdfFileName: row.agreement_details?.agreementPdfFileName,
+    agreementPdfFileType: row.agreement_details?.agreementPdfFileType,
+    agreementPdfFileData: row.agreement_details?.agreementPdfFileData,
+    agreementConfirmedAt: row.agreement_details?.agreementConfirmedAt,
     linkedJobsCount: Number(row.linked_jobs_count ?? 0),
     linkedJobs: Array.isArray(row.linked_jobs) ? row.linked_jobs : [],
     createdAt: row.created_at,
@@ -1329,6 +1337,7 @@ export async function listClients(employeeId = null, options = {}) {
       clients.agreement_file_name,
       clients.agreement_file_type,
       clients.agreement_file_data,
+      clients.agreement_details,
       clients.created_at,
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1405,6 +1414,7 @@ export async function getClientById(clientId) {
       clients.agreement_file_name,
       clients.agreement_file_type,
       clients.agreement_file_data,
+      clients.agreement_details,
       clients.created_at,
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1522,6 +1532,12 @@ export async function createClient(payload) {
 }
 
 export async function updateClient(clientId, payload) {
+  const agreementDetails = {};
+  for (const key of ["agreementStatus", "agreementSubject", "agreementContent", "agreementPdfFileName", "agreementPdfFileType", "agreementPdfFileData", "agreementConfirmedAt"]) {
+    if (payload[key] !== undefined) agreementDetails[key] = payload[key];
+  }
+  if (agreementDetails.agreementStatus && !["draft", "shared", "confirmed"].includes(agreementDetails.agreementStatus)) throw new Error("Invalid agreement status.");
+  if (agreementDetails.agreementStatus && agreementDetails.agreementStatus !== "confirmed") agreementDetails.agreementConfirmedAt = null;
   const result = await query(
     `update clients
         set company_name = $2,
@@ -1551,6 +1567,7 @@ export async function updateClient(clientId, payload) {
             agreement_file_name = $26,
             agreement_file_type = $27,
             agreement_file_data = $28,
+            agreement_details = coalesce(agreement_details, '{}'::jsonb) || $29::jsonb,
             updated_at = now()
       where id = $1
       returning id`,
@@ -1583,6 +1600,7 @@ export async function updateClient(clientId, payload) {
       payload.agreementFileName || null,
       payload.agreementFileType || null,
       payload.agreementFileData || null,
+      JSON.stringify(agreementDetails),
     ]
   );
 
@@ -1700,6 +1718,7 @@ export async function reassignClient(clientId, payload) {
       clients.agreement_file_name,
       clients.agreement_file_type,
       clients.agreement_file_data,
+      clients.agreement_details,
       clients.created_at,
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1824,6 +1843,7 @@ export async function bulkAssignClients(clientIds, payload) {
       clients.agreement_file_name,
       clients.agreement_file_type,
       clients.agreement_file_data,
+      clients.agreement_details,
       clients.created_at,
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,
@@ -1964,6 +1984,7 @@ export async function updateClientFollowUp(clientId, payload) {
       clients.agreement_file_name,
       clients.agreement_file_type,
       clients.agreement_file_data,
+      clients.agreement_details,
       clients.created_at,
       employees.full_name as assigned_employee_name,
       follow_up_employee.full_name as follow_up_employee_name,

@@ -22,6 +22,8 @@ const SECTION_HEADINGS = new Set([
 
 function printableText(value: string) {
   return value
+    .replace(/\r\n?/g, "\n")
+    .replaceAll("\t", "    ")
     .replaceAll("₹", "Rs. ")
     .replace(/[\u2010-\u2015]/g, "-")
     .replace(/[\u2018\u2019]/g, "'")
@@ -193,7 +195,12 @@ export async function generateAgreementPdf(agreementContent: string, partyNames:
       };
       for (const run of block.runs) {
         const font = fontFor(run);
-        for (const token of printableText(run.text).split(/(\s+)/).filter(Boolean)) {
+        for (const token of printableText(run.text).split(/(\n|[^\S\n]+)/).filter(Boolean)) {
+          if (token === "\n") {
+            if (row.length) drawRow();
+            else { requireSpace(run.size * 1.45); y -= run.size * 1.45; }
+            continue;
+          }
           const tokenWidth = font.widthOfTextAtSize(token, run.size);
           if (width + tokenWidth > maxWidth) drawRow();
           if (!width && /^\s+$/.test(token)) continue;
@@ -223,7 +230,8 @@ export async function generateAgreementPdf(agreementContent: string, partyNames:
       for (const part of parts) {
         const isBold = emphasizedPartyNames.includes(part);
         const partFont = isBold ? bold : regular;
-        for (const token of part.split(/(\s+)/).filter(Boolean)) {
+        for (const token of part.split(/(\n|[^\S\n]+)/).filter(Boolean)) {
+          if (token === "\n") { lines.push([]); lineWidth = 0; continue; }
           const tokenWidth = partFont.widthOfTextAtSize(token, BODY_SIZE);
           if (lineWidth + tokenWidth > maxWidth && lines[lines.length - 1].length) {
             lines.push([]);

@@ -2001,12 +2001,7 @@ function CrmClientsList({
                                   ]
                                 : []),
                               {
-                                label:
-                                  client.agreementStatus === "confirmed"
-                                    ? "View Agreement"
-                                    : client.agreementStatus === "shared"
-                                      ? "Edit Agreement"
-                                      : "Share Agreement",
+                                label: "View Agreement",
                                 onClick: () => {
                                   setAgreementClient(client);
                                   setActionMenuClientId("");
