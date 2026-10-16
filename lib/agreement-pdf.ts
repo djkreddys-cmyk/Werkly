@@ -110,49 +110,51 @@ export async function generateAgreementPdf(agreementContent: string, partyNames:
 
   for (let index = 0; index < paragraphs.length; index += 1) {
     const paragraph = paragraphs[index];
-    if (paragraph === "For Werkly Consulting Private Limited") {
+    if (/^For\s+Werkly\s+Consulting\b[^\n]*$/i.test(paragraph)) {
       const clientSignatoryIndex = paragraphs.findIndex(
         (value, candidateIndex) => candidateIndex > index && value.startsWith("For ") && value !== paragraph
       );
       const clientSignatory = clientSignatoryIndex > index ? paragraphs[clientSignatoryIndex] : "For Client";
-      requireSpace(104);
-      page.drawText("For Werkly Consulting Private Limited", {
-        x: SIDE_MARGIN,
-        y,
-        size: BODY_SIZE,
-        font: bold,
-        color: rgb(0.06, 0.18, 0.22),
-      });
-      page.drawText(printableText(clientSignatory), {
-        x: PAGE_WIDTH / 2 + 22,
-        y,
-        size: BODY_SIZE,
-        font: bold,
-        color: rgb(0.06, 0.18, 0.22),
-      });
+      const columnGap = 36;
+      const columnWidth = (PAGE_WIDTH - SIDE_MARGIN * 2 - columnGap) / 2;
+      const rightX = SIDE_MARGIN + columnWidth + columnGap;
+      const leftLines = wrapText(paragraph, columnWidth, bold, BODY_SIZE);
+      const rightLines = wrapText(clientSignatory, columnWidth, bold, BODY_SIZE);
+      const headingHeight = Math.max(leftLines.length, rightLines.length) * LINE_HEIGHT;
       const signatureWidth = 118;
       const signatureHeight = (signature.height / signature.width) * signatureWidth;
+      const signingSpace = Math.max(64, signatureHeight + 16);
+      requireSpace(headingHeight + signingSpace + 48);
+      y -= 16;
+      for (const [lines, x] of [[leftLines, SIDE_MARGIN], [rightLines, rightX]] as const) {
+        lines.forEach((line, lineIndex) => page.drawText(line, {
+          x, y: y - lineIndex * LINE_HEIGHT, size: BODY_SIZE, font: bold,
+          color: rgb(0.06, 0.18, 0.22),
+        }));
+      }
+      const signatureTop = y - headingHeight;
+      const labelY = signatureTop - signingSpace;
       page.drawImage(signature, {
         x: SIDE_MARGIN,
-        y: y - signatureHeight - 8,
+        y: signatureTop - signatureHeight - 8,
         width: signatureWidth,
         height: signatureHeight,
       });
       page.drawText("Authorized Signatory", {
         x: SIDE_MARGIN,
-        y: y - signatureHeight - 22,
+        y: labelY,
         size: BODY_SIZE,
         font: regular,
         color: rgb(0.06, 0.18, 0.22),
       });
       page.drawText("Authorized Signatory", {
-        x: PAGE_WIDTH / 2 + 22,
-        y: y - signatureHeight - 22,
+        x: rightX,
+        y: labelY,
         size: BODY_SIZE,
         font: regular,
         color: rgb(0.06, 0.18, 0.22),
       });
-      y -= signatureHeight + 42;
+      y = labelY - 24;
       if (clientSignatoryIndex > index) {
         index = clientSignatoryIndex;
         while (paragraphs[index + 1] === "Authorized Signatory") index += 1;
