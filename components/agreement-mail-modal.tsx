@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClientRecord } from "@/lib/crm";
 import { generateAgreementPdf, pdfBytesToBase64 } from "@/lib/agreement-pdf";
+import { AgreementEditor } from "@/components/agreement-editor";
+import { agreementBlocks, isRichAgreement } from "@/lib/agreement-format";
 
 const MAIL_BODY = `Dear Team,
 
@@ -60,6 +62,7 @@ function buildDefaultAgreementText(client: ClientRecord) {
 }
 
 function ensureConfidentialityLine(value: string) {
+  if (isRichAgreement(value)) return value;
   if (value.includes(CONFIDENTIALITY_USAGE_LINE)) {
     return value;
   }
@@ -124,7 +127,7 @@ export function AgreementMailModal({
   }, [pdfUrl]);
 
   async function createPdf() {
-    if (!agreementText.trim()) throw new Error("Agreement content is required.");
+    if (!agreementText.trim() || (isRichAgreement(agreementText) && !agreementBlocks(agreementText).some(block => block.runs.some(run => run.text.trim())))) throw new Error("Agreement content is required.");
     const bytes = await generateAgreementPdf(agreementText, [
       "Werkly Consulting Private Limited",
       client.companyName || "Client",
@@ -355,22 +358,21 @@ export function AgreementMailModal({
                 <span className="text-xs font-semibold uppercase text-[var(--color-muted)]">Subject</span>
                 <input value={subject} onChange={(event) => setSubject(event.target.value)} disabled={isConfirmed} className="mt-2 w-full rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm outline-none focus:border-[var(--color-dark)] disabled:bg-slate-100" />
               </label>
-              <label className="block">
+              <div className="block">
                 <span className="text-xs font-semibold uppercase text-[var(--color-muted)]">Agreement Content</span>
-                <textarea
+                <AgreementEditor
                   value={agreementText}
                   disabled={isConfirmed}
-                  onChange={(event) => {
-                    setAgreementText(event.target.value);
+                  onChange={(value) => {
+                    setAgreementText(value);
                     setPdfContent("");
                     setPdfUrl((current) => {
                       if (current) URL.revokeObjectURL(current);
                       return "";
                     });
                   }}
-                  className="mt-2 min-h-[320px] w-full rounded-lg border border-[var(--color-line)] px-4 py-3 text-sm leading-6 text-[var(--color-ink)] outline-none focus:border-[var(--color-dark)] disabled:bg-slate-100"
                 />
-              </label>
+              </div>
 
               <div className="flex flex-wrap gap-3">
                 <button type="button" onClick={() => void handleGeneratePdf()} disabled={isGenerating || isConfirmed} className="rounded-lg bg-[var(--color-dark)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">

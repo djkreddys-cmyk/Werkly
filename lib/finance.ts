@@ -368,7 +368,7 @@ export async function writeFinanceStoreToBackend(store: FinanceStore, token?: st
     const savedStore = mergeFinanceStoreWithFallback(normalizeFinanceStore(result), normalizedStore);
     writeLocalFinanceStore(savedStore, { notify: true });
     return savedStore;
-  } catch {
-    return normalizedStore;
+  } catch (error) {
+    throw new Error(error instanceof Error ? `Finance records could not be saved to the server: ${error.message}. A local recovery copy is retained; please retry.` : "Finance records could not be saved to the server. A local recovery copy is retained; please retry.");
   }
 }

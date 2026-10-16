@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFPage } from "pdf-lib";
+import { agreementBlocks, isRichAgreement, type AgreementRun } from "./agreement-format";
 
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
@@ -83,6 +84,8 @@ export async function generateAgreementPdf(agreementContent: string, partyNames:
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
+  const boldItalic = await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
   const letterhead = await pdf.embedPng(letterheadBytes);
   const footer = await pdf.embedPng(footerBytes);
   const signature = await pdf.embedPng(signatureBytes);
@@ -99,7 +102,8 @@ export async function generateAgreementPdf(agreementContent: string, partyNames:
     if (y - height < CONTENT_BOTTOM) nextPage();
   };
 
-  const paragraphs = agreementContent
+  const richBlocks = isRichAgreement(agreementContent) ? agreementBlocks(agreementContent) : null;
+  const paragraphs = richBlocks ? richBlocks.map(block => block.runs.map(run => run.text).join("").trim()) : agreementContent
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
@@ -158,6 +162,43 @@ export async function generateAgreementPdf(agreementContent: string, partyNames:
       continue;
     }
 
+    if (richBlocks) {
+      const block = richBlocks[index];
+      const maxWidth = PAGE_WIDTH - SIDE_MARGIN * 2;
+      const fontFor = (run: AgreementRun) => run.bold ? (run.italic ? boldItalic : bold) : (run.italic ? italic : regular);
+      let row: AgreementRun[] = [];
+      let width = 0;
+      const drawRow = () => {
+        if (!row.length) return;
+        const height = Math.max(...row.map(run => run.size)) * 1.45;
+        requireSpace(height);
+        let x = SIDE_MARGIN + (block.align === "center" ? (maxWidth - width) / 2 : block.align === "right" ? maxWidth - width : 0);
+        for (const run of row) {
+          const font = fontFor(run);
+          const runWidth = font.widthOfTextAtSize(run.text, run.size);
+          page.drawText(run.text, { x, y, size: run.size, font, color: rgb(.06, .18, .22) });
+          if (run.underline) page.drawLine({ start: { x, y: y - 2 }, end: { x: x + runWidth, y: y - 2 }, thickness: .6, color: rgb(.06, .18, .22) });
+          x += runWidth;
+        }
+        y -= height; row = []; width = 0;
+      };
+      for (const run of block.runs) {
+        const font = fontFor(run);
+        for (const token of printableText(run.text).split(/(\s+)/).filter(Boolean)) {
+          const tokenWidth = font.widthOfTextAtSize(token, run.size);
+          if (width + tokenWidth > maxWidth) drawRow();
+          if (!width && /^\s+$/.test(token)) continue;
+          // Split long unbroken words as well as ordinary word wrapping.
+          for (const char of token) {
+            const charWidth = font.widthOfTextAtSize(char, run.size);
+            if (width + charWidth > maxWidth) drawRow();
+            row.push({ ...run, text: char }); width += charWidth;
+          }
+        }
+      }
+      drawRow(); y -= 7;
+      continue;
+    }
     const isHeading = SECTION_HEADINGS.has(paragraph);
     const emphasizedPartyNames = partyNames
       .map((name) => printableText(name).trim())

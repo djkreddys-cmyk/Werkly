@@ -245,6 +245,7 @@ export function AdminClientInvoicesPanel({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState(false);
+  const [isSavingInvoice, setIsSavingInvoice] = useState(false);
   const [generatedInvoiceId, setGeneratedInvoiceId] = useState("");
 
   function applyFinanceDetails(store: FinanceStore) {
@@ -655,6 +656,7 @@ export function AdminClientInvoicesPanel({
   }
 
   async function handleGenerateInvoice() {
+    if (isSavingInvoice) return;
     if (!validateInvoiceReady()) {
       setIsInvoiceGenerated(false);
       return;
@@ -665,14 +667,17 @@ export function AdminClientInvoicesPanel({
       return;
     }
 
+    setIsSavingInvoice(true);
+    setMessage("");
     try {
       await pushInvoiceToFinance(selectedClient);
-      const refreshedStore = await loadFinanceDetails();
-      resetInvoiceForm(refreshedStore.invoices);
-      setMessage("Invoice generated and saved. The form is ready for a new invoice.");
+      setIsInvoiceGenerated(true);
+      setMessage("Invoice generated and saved. Use Print to print or save it as PDF, or New Invoice to start another invoice.");
     } catch (saveError) {
       setIsInvoiceGenerated(false);
       setError(saveError instanceof Error ? saveError.message : "Unable to save invoice.");
+    } finally {
+      setIsSavingInvoice(false);
     }
   }
 
@@ -1070,9 +1075,9 @@ export function AdminClientInvoicesPanel({
                   type="button"
                   className={`${compactPrimaryButtonClassName} ${isInvoiceGenerated ? "" : "sm:col-span-2"}`}
                   onClick={() => void handleGenerateInvoice()}
-                  disabled={!selectedClient || totals.count === 0}
+                  disabled={isSavingInvoice || !selectedClient || totals.count === 0}
                 >
-                  Generate Invoice
+                  {isSavingInvoice ? "Saving Invoice…" : "Generate Invoice"}
                 </button>
                 {isInvoiceGenerated ? (
                   <button
@@ -1090,6 +1095,11 @@ export function AdminClientInvoicesPanel({
                     onClick={() => void handleDeleteGeneratedInvoice()}
                   >
                     Delete Invoice
+                  </button>
+                ) : null}
+                {isInvoiceGenerated ? (
+                  <button type="button" className={compactSecondaryButtonClassName} disabled={isSavingInvoice} onClick={() => { resetInvoiceForm(financeInvoices); setMessage(""); setError(""); }}>
+                    New Invoice
                   </button>
                 ) : null}
               </div>
